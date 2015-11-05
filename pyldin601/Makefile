@@ -17,8 +17,9 @@ OPT_FLAGS := -g -Ofast -fomit-frame-pointer
 #OPT_STRIP := -s
 CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
+CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
-LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bstatic -lSDL2 -Wl,-Bdynamic/') $(shell pkg-config libpng --libs)-L/opt/vc/lib -lGLESv2 -lEGL -lz $(OPT_STRIP) -g
+LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bstatic -lSDL2 -Wl,-Bdynamic/') -lSDL2_image $(shell pkg-config libpng --libs)-L/opt/vc/lib -lGLESv2 -lEGL -lz $(OPT_STRIP) -g
 
 ##########################
 #CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
@@ -27,7 +28,7 @@ LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bst
 ##########################
 
 OBJS  = src/core/devices.o src/core/floppy.o src/core/keyboard.o src/core/mc6800.o src/core/swiemu.o src/core/mc6845.o src/core/i8272.o src/core/printer.o
-OBJS += src/discs.o src/screen.o src/sshot.o src/floppymanager.o src/pyldin.o
+OBJS += src/discs.o src/screen.o src/sshot.o src/floppymanager.o src/pyldin.o src/shader.o
 
 ifeq (alsa, $(SOUND))
 OBJS += src/wave-alsa.o

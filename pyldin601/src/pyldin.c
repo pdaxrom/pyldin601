@@ -15,6 +15,7 @@
 #include <time.h>
 
 #include <SDL.h>
+#include <SDL_opengles2.h>
 
 #include "pyldin.h"
 #include "core/mc6800.h"
@@ -28,6 +29,7 @@
 #include "printer.h"
 #include "floppymanager.h"
 #include "screen.h"
+#include "shader.h"
 
 #include "kbdfix.h"
 
@@ -37,6 +39,13 @@
 
 #include "virtkbd.xbm"
 #include "vmenu.xbm"
+
+#ifdef PYLDIN_LOGO
+#include <SDL_image.h>
+#include "logo.h"
+
+SDL_Surface *pyldin_logo;
+#endif
 
 #ifdef USE_JOYSTICK
 #include "joyfix.h"
@@ -59,13 +68,14 @@ static FILE *prn = NULL;
 
 //
 static SDL_Window *window;
-static SDL_Surface *screen;
 static SDL_Surface *framebuffer;
-static SDL_GLContext context;
 
-static int vScale = 1;
-static int vscr_width = 320;
-static int vscr_height = 240;
+//static int vScale = 1;
+//static int vscr_width = 320;
+//static int vscr_height = 240;
+
+static float scaleX = 1;
+static float scaleY = 1;
 
 static int vkbdEnabled = 0;
 static int redrawVMenu = 0;
@@ -279,7 +289,7 @@ static void ChecKeyboard(void)
 #endif
 	    case SDL_KEYDOWN: {
 		SDL_Keycode sdlkey = event.key.keysym.sym;
-		int k=0;
+		//int k=0;
 		switch(sdlkey){
 		case SDLK_UP:		jkeybDown(0x48); break;
 		case SDLK_DOWN:		jkeybDown(0x50); break;
@@ -383,10 +393,10 @@ static void ChecKeyboard(void)
 		    break;
 		}
 		default:
-		    k = (int)sdlkey;
+		    //k = (int)sdlkey;
 		    SDL_Log("key=%d\n", sdlkey);
 		}
-//		key(k, 0);
+		//key(k, 0);
 		break;
 	    }
 	    case SDL_KEYUP: {
@@ -404,8 +414,8 @@ static void ChecKeyboard(void)
 		break;
 	    }
 	    case SDL_MOUSEBUTTONDOWN: {
-	    	x = (event.button.x - ((vscr_width - 320 * vScale) >> 1)) / vScale;
-		y = (event.button.y - ((vscr_height - 240 * vScale) >> 1)) / vScale;
+	    	x = (float)event.button.x / scaleX;
+		y = (float)event.button.y / scaleY;
 		vmenu_process = 1;
 		break;
 	    }
@@ -490,9 +500,59 @@ int SDLCALL HandleKeyboard(void *unused)
     return 0;
 }
 
+#ifdef PYLDIN_ICON
+
+#include "icon.h"
+
+void SetIcon(SDL_Window *window)
+{
+    SDL_Surface *icon;
+
+    SDL_RWops *src = SDL_RWFromMem(pyldin_icon, pyldin_icon_len);
+
+    icon = IMG_LoadPNG_RW(src);
+
+    if (!icon) {
+	SDL_Log("Loading icon... Failed!\r\n");
+	return;
+    } else {
+	SDL_Log("Loading icon... Ok!\r\n");
+    }
+
+    SDL_FreeRW(src);
+
+    SDL_SetWindowIcon(window, icon);
+
+    SDL_FreeSurface(icon);
+}
+#endif
+
+#ifdef PYLDIN_LOGO
+
+#ifdef __MINGW32__
+#define	sleep(a)	_sleep((unsigned long)(a) * 1000l);
+#endif
+
+
+void LoadLogo(void)
+{
+    pyldin_logo = NULL;
+    SDL_RWops *src = SDL_RWFromMem(pyldin_foto, pyldin_foto_len);
+    SDL_Surface *tmp = IMG_LoadJPG_RW(src);
+    if (!tmp) {
+	SDL_Log("Loading logo... Failed!\n");
+    } else {
+	pyldin_logo = SDL_ConvertSurfaceFormat(tmp, SDL_PIXELFORMAT_ABGR8888, 0);
+	SDL_FreeSurface(tmp);
+	SDL_Log("Loading logo... Ok!\n");
+    }
+    SDL_FreeRW(src);
+}
+
+#endif
+
 void clearScr()
 {
-#warning "clearScr() stub"
 }
 
 void drawXbm(unsigned char *xbm, int xp, int yp, int w, int h, int over)
@@ -512,12 +572,30 @@ void drawString(char *str, int xp, int yp, unsigned int fg, unsigned int bg)
 
 int SDLCALL HandleVideo(void *unused)
 {
-    SDL_Renderer *renderer;
+    enum {
+	ATTRIB_VERTEX,
+	ATTRIB_TEXTUREPOSITON,
+	NUM_ATTRIBUTES
+    };
+
+    static const GLfloat squareVertices[] = {
+        -1.0f, -1.0f,
+         1.0f, -1.0f,
+        -1.0f,  1.0f,
+         1.0f,  1.0f,
+    };
+
+    static const GLfloat textureVertices[] = {
+         0.0f,  1.0f,
+         1.0f,  1.0f,
+         0.0f,  0.0f,
+         1.0f,  0.0f,
+    };
+
+    SDL_GLContext context;
     SDL_DisplayMode mode;
 
     SDL_Log("Video thread starting...");
-
-//    SDL_Log("Set screen geometry to %dx%d, scale %d\n", vscr_width, vscr_height, vScale);
 
     SDL_GetDesktopDisplayMode(0, &mode);
 
@@ -540,11 +618,69 @@ int SDLCALL HandleVideo(void *unused)
 
     SDL_GL_MakeCurrent(window, context);
 
-//    SDL_SetWindowTitle(window, "PYLDIN-601 Emulator v" VERSION);
+    // Start of GL init
+
+    GLuint vertexShader = -1;
+    GLuint fragmentShader = -1;
+
+    if (process_shader(&vertexShader, "shaders/shader.vert", GL_VERTEX_SHADER)) {
+	SDL_Log("Unable load vertex shader");
+	return 1;
+    }
+
+    if (process_shader(&fragmentShader, "shaders/shader.frag", GL_FRAGMENT_SHADER)) {
+	SDL_Log("Unable load fragment shader");
+	return 1;
+    }
+
+    GLuint shaderProgram  = glCreateProgram ();                 // create program object
+    glAttachShader ( shaderProgram, vertexShader );             // and attach both...
+    glAttachShader ( shaderProgram, fragmentShader );           // ... shaders to it
+
+    glBindAttribLocation(shaderProgram, ATTRIB_VERTEX, "position");
+    glBindAttribLocation(shaderProgram, ATTRIB_TEXTUREPOSITON, "inputTextureCoordinate");
+
+    glLinkProgram ( shaderProgram );    // link the program
+    glUseProgram  ( shaderProgram );    // and select it for usage
+
+    glActiveTexture(GL_TEXTURE0);
+
+    GLuint videoFrameTexture = 0;
+    glGenTextures(1, &videoFrameTexture);
+    glBindTexture(GL_TEXTURE_2D, videoFrameTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindTexture(GL_TEXTURE_2D, videoFrameTexture);
+
+    GLint tex = glGetUniformLocation(shaderProgram, "tex");
+
+    glUniform1i(tex, 0);
+
+    glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0, squareVertices);
+    glEnableVertexAttribArray(ATTRIB_VERTEX);
+    glVertexAttribPointer(ATTRIB_TEXTUREPOSITON, 2, GL_FLOAT, 0, 0, textureVertices);
+    glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);
+
+    glViewport ( 0 , 0 , mode.w , mode.h );
+
+    // End of GL init
+
 
 #ifdef PYLDIN_ICON
     SetIcon(window);
 #endif
+
+    SDL_Surface *surface = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 32,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
+                                 0x000000FF,
+                                 0x0000FF00, 0x00FF0000, 0xFF000000
+#else
+                                 0xFF000000,
+                                 0x00FF0000, 0x0000FF00, 0x000000FF
+#endif
+        );
+
 
     framebuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
@@ -554,35 +690,22 @@ int SDLCALL HandleVideo(void *unused)
 #endif
         );
 
-    screen = SDL_GetWindowSurface(window);
-//SDL_UpdateWindowSurface(window);
-//    renderer = SDL_CreateSoftwareRenderer(surface);
-//    if(!renderer) {
-//	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface fail : %s\n", SDL_GetError());
-//	return 1;
-//    }
-
-//    renderer = SDL_CreateSoftwareRenderer(screen);
-//    if(!renderer) {
-//	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface fail : %s\n",SDL_GetError());
-//	return 1;
-//    }
+    scaleX = (float) mode.w / 320;
+    scaleY = (float) mode.h / 240;
 
 #ifdef PYLDIN_LOGO
     LoadLogo();
-    
+
     if (pyldin_logo) {
-	SDL_SoftStretch(pyldin_logo, &pyldin_logo->clip_rect, screen, &screen->clip_rect);
-	SDL_UpdateWindowSurface(window);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldin_logo->w, pyldin_logo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldin_logo->pixels);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	SDL_GL_SwapWindow(window);
+
 	sleep(1);
     }
 #endif
 
     while (!fExit) {
-	SDL_BlitScaled(framebuffer, NULL, screen, NULL);
-	SDL_UpdateWindowSurface(window);
-//SDL_Log("UP!");
-
 	if ( ! filemenuEnabled ) {
 	    mc6845_drawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
 	}
@@ -618,14 +741,22 @@ int SDLCALL HandleVideo(void *unused)
 	    usleep(1000);
 	}
 
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	SDL_GL_SwapWindow(window);
+
+	SDL_BlitSurface(framebuffer, NULL, surface, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
+
 	updateScreen = 0;
     }
 
 #ifdef PYLDIN_LOGO
     if (pyldin_logo) {
-	SDL_SoftStretch(pyldin_logo, &pyldin_logo->clip_rect, screen, &screen->clip_rect);
-	SDL_UpdateWindowSurface(window);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldin_logo->w, pyldin_logo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldin_logo->pixels);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	SDL_GL_SwapWindow(window);
 	sleep(1);
+	SDL_FreeSurface(pyldin_logo);
     }
 #endif
 
@@ -635,72 +766,6 @@ int SDLCALL HandleVideo(void *unused)
     SDL_Log("Video thread finished...");
     return 0;
 }
-
-#ifdef PYLDIN_LOGO
-#include "logo.h"
-#include <SDL_image.h>
-
-#ifdef __MINGW32__
-#define	sleep(a)	_sleep((unsigned long)(a) * 1000l);
-#endif
-
-SDL_Surface *pyldin_logo;
-
-void LoadLogo(void)
-{
-    SDL_RWops *src = SDL_RWFromMem(pyldin_foto, pyldin_foto_len);
-
-    SDL_Surface *tmp = IMG_LoadJPG_RW(src);
-
-    if (!tmp) {
-	SDL_Log("Loading logo... Failed!\n");
-    } else {
-	pyldin_logo = SDL_CreateRGBSurface(SDL_SWSURFACE,
-					tmp->clip_rect.w,
-					tmp->clip_rect.h,
-					screen->format->BitsPerPixel,
-					screen->format->Rmask,
-					screen->format->Gmask,
-					screen->format->Bmask,
-					screen->format->Amask
-					);
-
-	SDL_BlitSurface(tmp, NULL, pyldin_logo, NULL);
-
-	SDL_FreeSurface(tmp);
-	SDL_Log("Loading logo... Ok!\n");
-    }
-    SDL_FreeRW(src);
-}
-
-#endif
-
-#ifdef PYLDIN_ICON
-
-#include "icon.h"
-
-void SetIcon(SDL_Window *window)
-{
-    SDL_Surface *icon;
-
-    SDL_RWops *src = SDL_RWFromMem(pyldin_icon, pyldin_icon_len);
-
-    icon = IMG_LoadPNG_RW(src);
-
-    if (!icon) {
-	SDL_Log("Loading icon... Failed!\r\n");
-	return;
-    } else {
-	SDL_Log("Loading icon... Ok!\r\n");
-    }
-
-    SDL_FreeRW(src);
-
-    SDL_SetWindowIcon(window, icon);
-
-    SDL_FreeSurface(icon);
-}
-#endif
 
 void usage(char *app)
 {
@@ -880,7 +945,6 @@ int main(int argc, char *argv[])
     int set_time = 0;
     int printer_type = PRINTER_NONE;
     char *bootFloppy = NULL;
-    Uint32 sys_flags;
 
     SDL_Thread *video_thread;
     SDL_Thread *keybd_thread;
@@ -900,8 +964,8 @@ int main(int argc, char *argv[])
 	    usage(argv[0]);
 	    break;
 	case 's':
-	    vScale = atoi(optarg);
-	    SDL_Log("scale %d\n", vScale);
+//	    vScale = atoi(optarg);
+//	    SDL_Log("scale %d\n", vScale);
 	    break;
 	case 't':
 	    set_time = 1;
@@ -922,7 +986,7 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 'g':
-	    sscanf(optarg, "%dx%d", &vscr_width, &vscr_height);
+//	    sscanf(optarg, "%dx%d", &vscr_width, &vscr_height);
 	    break;
         default:
 	    usage(argv[0]);
