@@ -118,16 +118,6 @@ static volatile uint64_t one_takt_one_percent = 0;
 
 #define READ_TIMESTAMP(var) readTSC(&var)
 
-#if 0 //defined(__GNUC__) && defined(__ARM_ARCH_7A__)
-
-static inline uint32_t arm_readTSC()
-{
-    volatile uint32_t r;
-    __asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(r));
-    return r;
-}
-#endif
-
 static void readTSC(volatile uint64_t *v)
 {
 #if defined(__GNUC__) && defined(__ARM_ARCH_7A__)
@@ -608,7 +598,7 @@ int SDLCALL HandleVideo(void *unused)
 	    char buf[64];
 
 	    sprintf(buf, "%1.2fMHz", (float)actual_speed / 1000);
-SDL_Log("CPU: %s", buf);
+//SDL_Log("CPU: %lld", actual_speed);
 	    drawString(buf, 160, 28, 0xffff, 0);
 	}
 
@@ -1045,11 +1035,30 @@ int main(int argc, char *argv[])
 	
 	    clock_old = clock_new;
 	    vcounter = 0;
+
+	    int diff = abs(1000 - actual_speed);
+//SDL_Log("--- %d", diff);
+	    if (diff < 10) {
+		diff = 1;
+	    } else {
+		diff /= 10;
+	    }
+
+	if (actual_speed && actual_speed < 1000) {
+//SDL_Log("+++ %lld, %lld, %d", one_takt_delay, actual_speed, diff);
+	    one_takt_delay -= diff;
+	} else if (actual_speed && actual_speed > 1000) {
+//SDL_Log("--- %lld, %lld, %d", one_takt_delay, actual_speed, diff);
+	    one_takt_delay += diff;
 	}
+
+	}
+
 	if (fReset == 1) {
 	    mc6800_reset();
 	    fReset = 0;
 	}
+
 
 	volatile uint64_t ts2;
 	do {
