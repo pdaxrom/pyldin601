@@ -473,8 +473,8 @@ int SDLCALL HandleVideo(void *unused)
     SDL_Log("Video thread starting...");
     while (!fExit) {
 #ifndef __APPLE__
-//	SDL_BlitScaled(framebuffer, NULL, screen, NULL);
-//	SDL_UpdateWindowSurface(window);
+	SDL_BlitScaled(framebuffer, NULL, screen, NULL);
+	SDL_UpdateWindowSurface(window);
 //SDL_Log("UP!");
 #endif
 	if ( ! filemenuEnabled ) {
@@ -974,13 +974,13 @@ int main(int argc, char *argv[])
 	scounter += takt;
 
 	if (vcounter >= 20000) {
-//#ifdef __APPLE__
+#ifdef __APPLE__
 	    if (!SDL_BlitScaled(framebuffer, NULL, screen, NULL)) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "BlitScaled() : %s\n",SDL_GetError());
 	    }
 	    SDL_UpdateWindowSurface(window);
-fprintf(stderr, "Update win.\n");
-//#endif
+//fprintf(stderr, "Update win.\n");
+#endif
 	    devices_set_tick50();
 	    mc6845_curBlink();
 	    mc6800_setIrq(1);
@@ -998,11 +998,11 @@ fprintf(stderr, "Update win.\n");
 	    fReset = 0;
 	}
 
-//	volatile uint64_t ts2;
-//	do {
-//	    READ_TIMESTAMP(ts2);
-//	} while ((ts2 - ts1) < (one_takt_delay * takt));
-//	ts1 = ts2;
+	volatile uint64_t ts2;
+	do {
+	    READ_TIMESTAMP(ts2);
+	} while ((ts2 - ts1) < (one_takt_delay * takt));
+	ts1 = ts2;
     } while( fExit == 0);	//
 
     SDL_WaitThread(video_thread, NULL);
