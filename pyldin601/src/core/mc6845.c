@@ -60,7 +60,7 @@ O_INLINE void mc6845_setupScreen(int mode)
     resolution = mode & 0x02;
 }
 
-void mc6845_drawScreen(void *video, int width, int height, int scale)
+void mc6845_drawScreen(void *video, int width, int height)
 {
     dword c, v, j, i, ofj, ofi;
     word *vmem = (word *) video;
@@ -89,7 +89,7 @@ void mc6845_drawScreen(void *video, int width, int height, int scale)
 
     if ((rHor != old_rHor) ||
 	(rVer != old_rVer))
-	memset(video, 0, width * (height - 24 * scale) * 2);
+	memset(video, 0, width * (height - 24) * 2);
 
     old_rHor = rHor;
     old_rVer = rVer;
@@ -106,38 +106,35 @@ void mc6845_drawScreen(void *video, int width, int height, int scale)
 	if (rVer > 29)
 	    rVer = 29;
 
-	ofj = ((width - ((rHor > 40)?40:rHor) * 8 * scale) >> 1) + ((height - 24 * scale - rVer * 8 * scale) >> 1) * width;
+	ofj = ((width - ((rHor > 40)?40:rHor) * 8) >> 1) + ((height - 24 - rVer * 8) >> 1) * width;
 
 	for (j = 0; j < rVer; j++) {
 	    for (i = 0; i < rHor; i++) {
-		ofi=ofj + i * 8 * scale;
+		ofi=ofj + i * 8;
 		c = *src++;
 		c = ((c << 1) | (c >> 7)) & 0xff;
 		c = c * 8;
 		if (i < 40) 
 		    for (v = 0; v < 8; v++) {
-			unsigned int vY;
-			for (vY = 0; vY < scale; vY++) {
-			    unsigned int z;
-			    byte t1 = videorom[c + v];
-			    unsigned short *vscr1 = vmem + ofi;
-			    if (crsr == src)
-				    if (v>=cur_start && v<=cur_end) 
-					t1^=0xff;
-			    for (z=0; z<8; z++) {
-				unsigned int z1;
-				unsigned short tt = (t1 & 0x80)?PIXEL_ON:PIXEL_OFF;
-				for (z1 = 0; z1 < scale; z1++)
-				    *vscr1++ = tt;
-				t1 <<= 1;
+			unsigned int z;
+			byte t1 = videorom[c + v];
+			unsigned short *vscr1 = vmem + ofi;
+			if (crsr == src) {
+			    if (v>=cur_start && v<=cur_end) {
+				    t1^=0xff;
 			    }
-			    ofi += width;
 			}
+			for (z=0; z<8; z++) {
+			    unsigned short tt = (t1 & 0x80)?PIXEL_ON:PIXEL_OFF;
+			    *vscr1++ = tt;
+			    t1 <<= 1;
+			}
+			ofi += width;
 		    }
 		if (src >= mem + 0xffff) 
 		    src = mem + 0xf000;
 	    }
-	    ofj += width * 8 * scale;
+	    ofj += width * 8;
 	}
     } else {
 	src += (word)(((mc6845_readReg(0x0c) << 8) + mc6845_readReg(0x0d)) << 3);
@@ -148,56 +145,48 @@ void mc6845_drawScreen(void *video, int width, int height, int scale)
 	if (rVer > 28)
 	    rVer = 28;
 
-	ofj = ((width - ((rHor > 40)?40:rHor) * 8 * scale) >> 1) + ((height - 24 * scale - rVer * 8 * scale) >> 1) * width;
+	ofj = ((width - ((rHor > 40)?40:rHor) * 8) >> 1) + ((height - 24 - rVer * 8) >> 1) * width;
 
 	for (j = 0; j < rVer; j++) {
 	    for (i = 0; i < rHor; i++) {
-		ofi = ofj + i * 8 * scale;
-		if (src >= mem + 0xfff8)
+		ofi = ofj + i * 8;
+		if (src >= mem + 0xfff8) {
 		    src = mem;
+		}
 		if (crsr != src) {
 		    for (v = 0; v < 8; v++) {
-			unsigned int vY;
-			for (vY = 0; vY < scale; vY++) {
-			    unsigned int z;
-			    byte t1 = *src;
-			    unsigned short *vscr1 = vmem + ofi;
-			    for (z = 0; z < 8; z++) {
-				unsigned int z1;
-				unsigned short tt = (t1 & 0x80)?PIXEL_ON:PIXEL_OFF;
-				for (z1 = 0; z1 < scale; z1++)
-				    *vscr1++ = tt;
-				t1 <<= 1;
-			    }
-			    ofi += width;
+			unsigned int z;
+			byte t1 = *src;
+			unsigned short *vscr1 = vmem + ofi;
+			for (z = 0; z < 8; z++) {
+			    unsigned short tt = (t1 & 0x80)?PIXEL_ON:PIXEL_OFF;
+			    *vscr1++ = tt;
+			    t1 <<= 1;
 			}
+			ofi += width;
 			src++;
 		    }
 		} else {
 		    for (v = 0; v < 8; v++) {
-			unsigned int vY;
-			for (vY = 0; vY < scale; vY++) {
-			    unsigned int z;
-			    byte t1;
-			    if ((v >= cur_start) && (v <= cur_end))
-				t1 = *src ^ 0xff;
-			    else
-				t1 = *src;
-			    unsigned short *vscr1 = vmem + ofi;
-			    for (z = 0; z < 8; z++) {
-				unsigned int z1;
-				unsigned short tt = (t1 & 0x80)?PIXEL_ON:PIXEL_OFF;
-				for (z1 = 0; z1 < scale; z1++)
-				    *vscr1++ = tt;
-				t1 <<= 1;
-			    }
-			    ofi += width;
+			unsigned int z;
+			byte t1;
+			if ((v >= cur_start) && (v <= cur_end)) {
+			    t1 = *src ^ 0xff;
+			} else {
+			    t1 = *src;
 			}
+			unsigned short *vscr1 = vmem + ofi;
+			for (z = 0; z < 8; z++) {
+			    unsigned short tt = (t1 & 0x80)?PIXEL_ON:PIXEL_OFF;
+			    *vscr1++ = tt;
+			    t1 <<= 1;
+			}
+			ofi += width;
 			src++;
 		    }
 		}
 	    }
-	    ofj += width * 8 * scale;
+	    ofj += width * 8;
 	}
     }
 }

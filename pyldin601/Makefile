@@ -13,12 +13,12 @@ all:	$(TARGET)
 
 CC := gcc
 CXX := g++
-OPT_FLAGS := -Ofast -fomit-frame-pointer
+OPT_FLAGS := -g -Ofast -fomit-frame-pointer
 #OPT_STRIP := -s
 CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
-LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bstatic -lSDL2 -Wl,-Bdynamic/') $(shell pkg-config libpng --libs)-L/opt/vc/lib -lGLESv2 -lEGL -lz $(OPT_STRIP)
+LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bstatic -lSDL2 -Wl,-Bdynamic/') $(shell pkg-config libpng --libs)-L/opt/vc/lib -lGLESv2 -lEGL -lz $(OPT_STRIP) -g
 
 ##########################
 #CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
