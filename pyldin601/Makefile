@@ -13,7 +13,7 @@ all:	$(TARGET)
 
 CC := gcc
 CXX := g++
-OPT_FLAGS := -O3 -fomit-frame-pointer
+OPT_FLAGS := -Ofast -fomit-frame-pointer
 #OPT_STRIP := -s
 CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
