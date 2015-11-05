@@ -81,7 +81,7 @@
 #define xSDLK_COMMA SDLK_COMMA
 #define xSDLK_PERIOD SDLK_PERIOD
 
-#define xSDLK_LSUPER SDLK_LSUPER
+#define xSDLK_LSUPER SDLK_LGUI
 
 #endif
 

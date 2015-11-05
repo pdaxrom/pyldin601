@@ -5,7 +5,7 @@ DATADIR= $(PREFIX)/share
 
 UNIBIOSONLY=no
 
-VERSION=3.3
+VERSION=3.4
 EXTRAVERSION=$(shell LANG=en_US svn info 2>&1 | grep Revision | awk '{print $$2}')
 DATE=$(shell LANG=en_US date -R)
 
@@ -15,15 +15,15 @@ CC := gcc
 CXX := g++
 OPT_FLAGS := -O3 -fomit-frame-pointer
 #OPT_STRIP := -s
-CFLAGS = -Wall $(OPT_FLAGS) -fno-exceptions -Isrc/core -Isrc `sdl-config --cflags` `pkg-config libpng --cflags` $(EXTRA_CFLAGS)
+CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
-CXXFLAGS = $(CFLAGS) -fno-rtti
-LDFLAGS = $(OPT_LIBS) `sdl-config --libs` `pkg-config libpng --libs` -lz $(OPT_STRIP)
+CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
+LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bstatic -lSDL2 -Wl,-Bdynamic/') $(shell pkg-config libpng --libs)-L/opt/vc/lib -lGLESv2 -lEGL -lz $(OPT_STRIP)
 
 ##########################
-CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
-CXXFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
-LDFLAGS += -lSDL_image -ljpeg -lpng
+#CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
+#CXXFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
+#LDFLAGS += -lSDL_image -ljpeg -lpng
 ##########################
 
 OBJS  = src/core/devices.o src/core/floppy.o src/core/keyboard.o src/core/mc6800.o src/core/swiemu.o src/core/mc6845.o src/core/i8272.o src/core/printer.o
@@ -39,7 +39,7 @@ OBJS += src/wave.o
 endif
 
 $(TARGET): $(OBJS)
-	$(CC) -o $@ $(OBJS) $(LDFLAGS) $(CXXFLAGS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
 clean:
 	rm -f $(OBJS) $(TARGET)
@@ -49,7 +49,7 @@ distclean: clean
 install:
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Rom
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Floppy
-	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Bios	
+	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Bios
 	cp -f ../native/Bios/*.roz			$(DESTDIR)$(DATADIR)/pyldin/Bios/
 	cp -f ../native/Floppy/*.imz			$(DESTDIR)$(DATADIR)/pyldin/Floppy/
 ifeq (yes, $(UNIBIOSONLY))
