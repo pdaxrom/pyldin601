@@ -61,6 +61,7 @@ static FILE *prn = NULL;
 static SDL_Window *window;
 static SDL_Surface *screen;
 static SDL_Surface *framebuffer;
+static SDL_GLContext context;
 
 static int vScale = 2;
 static int vscr_width = 640;
@@ -117,11 +118,42 @@ static volatile uint64_t one_takt_one_percent = 0;
 
 #define READ_TIMESTAMP(var) readTSC(&var)
 
+#if 0 //defined(__GNUC__) && defined(__ARM_ARCH_7A__)
+
+static inline uint32_t arm_readTSC()
+{
+    volatile uint32_t r;
+    __asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(r));
+    return r;
+}
+#endif
+
 static void readTSC(volatile uint64_t *v)
 {
+#if defined(__GNUC__) && defined(__ARM_ARCH_7A__)
+    uint32_t pmccntr;
+    uint32_t pmuseren;
+    uint32_t pmcntenset;
+    static int no_mrc = 0;
+
+    // Read the user mode perf monitor counter access permissions.
+    asm volatile ("mrc p15, 0, %0, c9, c14, 0" : "=r" (pmuseren));
+    if (pmuseren & 1) {  // Allows reading perfmon counters for user mode code.
+      asm volatile ("mrc p15, 0, %0, c9, c12, 1" : "=r" (pmcntenset));
+      if (pmcntenset & 0x80000000ul) {  // Is it counting?
+        asm volatile ("mrc p15, 0, %0, c9, c13, 0" : "=r" (pmccntr));
+        // The counter is set up to count every 64th cycle
+        *v = (uint64_t)pmccntr * 64;  // Should optimize to << 6
+	return;
+      }
+    } else if (!no_mrc) {
+	no_mrc = 1;
+	SDL_Log("No tsc :( Use non optimized clock counter...");
+    }
+#endif
     struct timespec tp;
-    clock_gettime (CLOCK_REALTIME, &tp);
-    *v = (uint64_t)(tp.tv_sec * (uint64_t)1000000000) + (uint64_t)tp.tv_nsec;
+    clock_gettime (CLOCK_MONOTONIC_RAW, &tp);
+    *v = (uint64_t)tp.tv_sec * 1e9 + tp.tv_nsec;
 }
 
 #endif
@@ -442,9 +474,29 @@ static void ChecKeyboard(void)
 
 int SDLCALL HandleKeyboard(void *unused)
 {
+    SDL_Log("Keyboard thread starting...");
+
+#ifdef USE_JOYSTICK
+    SDL_Joystick *joystick = SDL_JoystickOpen(0);
+
+    if (joystick == NULL) {
+	SDL_Log("No joystick detected\n");
+    } else {
+	SDL_Log("Use joystick %s\n", SDL_JoystickName(SDL_JoystickIndex(joystick)));
+    }
+#endif
+
     while (!fExit) {
 	ChecKeyboard();
     }
+
+#ifdef USE_JOYSTICK
+    if (joystick) {
+	SDL_JoystickClose(joystick);
+    }
+#endif
+    SDL_Log("Keyboard thread finished...");
+
     return 0;
 }
 
@@ -470,13 +522,84 @@ void drawString(char *str, int xp, int yp, unsigned int fg, unsigned int bg)
 
 int SDLCALL HandleVideo(void *unused)
 {
+    SDL_Renderer *renderer;
+    SDL_DisplayMode mode;
+
     SDL_Log("Video thread starting...");
+
+    vscr_width = (vscr_width < 320)?320:vscr_width;
+    vscr_height = (vscr_height < 240)?240:vscr_height;
+
+    while (((vscr_width < (320 * vScale)) || (vscr_height < (240 * vScale))) && (vScale > 1)) {
+	vScale--;
+    }
+
+    SDL_Log("Set screen geometry to %dx%d, scale %d\n", vscr_width, vscr_height, vScale);
+
+    SDL_GetDesktopDisplayMode(0, &mode);
+
+    SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 16);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+
+    window = SDL_CreateWindow("PYLDIN 601", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	mode.w, mode.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+
+    if(!window) {
+	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Window creation fail : %s\n",SDL_GetError());
+	return 1;
+    }
+
+    context = SDL_GL_CreateContext(window);
+    if (!context) {
+	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Unable to create GL context : %s\n",SDL_GetError());
+	return 1;
+    }
+
+    SDL_GL_MakeCurrent(window, context);
+
+//    SDL_SetWindowTitle(window, "PYLDIN-601 Emulator v" VERSION);
+
+#ifdef PYLDIN_ICON
+    SetIcon(window);
+#endif
+
+    framebuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, vscr_width, vscr_height, 16,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
+	0xF800, 0x07E0, 0x001F, 0x0000
+#else
+	0x001F, 0x07E0, 0xF800, 0x0000
+#endif
+        );
+
+    screen = SDL_GetWindowSurface(window);
+//SDL_UpdateWindowSurface(window);
+//    renderer = SDL_CreateSoftwareRenderer(surface);
+//    if(!renderer) {
+//	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface fail : %s\n", SDL_GetError());
+//	return 1;
+//    }
+
+//    renderer = SDL_CreateSoftwareRenderer(screen);
+//    if(!renderer) {
+//	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface fail : %s\n",SDL_GetError());
+//	return 1;
+//    }
+
+#ifdef PYLDIN_LOGO
+    LoadLogo();
+    
+    if (pyldin_logo) {
+	SDL_SoftStretch(pyldin_logo, &pyldin_logo->clip_rect, screen, &screen->clip_rect);
+	SDL_UpdateWindowSurface(window);
+	sleep(1);
+    }
+#endif
+
     while (!fExit) {
-#ifndef __APPLE__
 	SDL_BlitScaled(framebuffer, NULL, screen, NULL);
 	SDL_UpdateWindowSurface(window);
 //SDL_Log("UP!");
-#endif
+
 	if ( ! filemenuEnabled ) {
 	    mc6845_drawScreen(framebuffer->pixels, vscr_width, vscr_height, vScale);
 	}
@@ -485,6 +608,7 @@ int SDLCALL HandleVideo(void *unused)
 	    char buf[64];
 
 	    sprintf(buf, "%1.2fMHz", (float)actual_speed / 1000);
+SDL_Log("CPU: %s", buf);
 	    drawString(buf, 160, 28, 0xffff, 0);
 	}
 
@@ -513,6 +637,18 @@ int SDLCALL HandleVideo(void *unused)
 
 	updateScreen = 0;
     }
+
+#ifdef PYLDIN_LOGO
+    if (pyldin_logo) {
+	SDL_SoftStretch(pyldin_logo, &pyldin_logo->clip_rect, screen, &screen->clip_rect);
+	SDL_UpdateWindowSurface(window);
+	sleep(1);
+    }
+#endif
+
+    SDL_GL_DeleteContext(context);
+    SDL_DestroyWindow(window);
+
     SDL_Log("Video thread finished...");
     return 0;
 }
@@ -763,16 +899,11 @@ int main(int argc, char *argv[])
     char *bootFloppy = NULL;
     Uint32 sys_flags;
 
-    SDL_Renderer *renderer;
-    SDL_DisplayMode mode;
-#ifdef USE_JOYSTICK
-    SDL_Joystick *joystick;
-#endif
     SDL_Thread *video_thread;
     SDL_Thread *keybd_thread;
 
     SDL_Log("Portable Pyldin-601 emulator version " VERSION " (http://code.google.com/p/pyldin)\n");
-    SDL_Log("Copyright (c) 1997-2009 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
+    SDL_Log("Copyright (c) 1997-2015 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
 
     extern char *optarg;
     extern int optind, optopt, opterr;
@@ -822,82 +953,11 @@ int main(int argc, char *argv[])
 
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
 
-    sys_flags = 0;
-#ifdef USE_JOYSTICK
-    sys_flags |= SDL_INIT_JOYSTICK;
-#endif
-
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | sys_flags) < 0) {
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) { /* Initialize SDL's Video subsystem */
 	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_Init fail : %s\n", SDL_GetError());
 	return 1;
     }
 
-#ifdef USE_JOYSTICK
-    joystick = SDL_JoystickOpen(0);
-
-    if (joystick == NULL) {
-	SDL_Log("No joystick detected\n");
-    } else {
-	SDL_Log("Use joystick %s\n", SDL_JoystickName(SDL_JoystickIndex(joystick)));
-    }
-#endif
-
-    vscr_width = (vscr_width < 320)?320:vscr_width;
-    vscr_height = (vscr_height < 240)?240:vscr_height;
-
-    while (((vscr_width < (320 * vScale)) || (vscr_height < (240 * vScale))) && (vScale > 1)) {
-	vScale--;
-    }
-
-    SDL_Log("Set screen geometry to %dx%d, scale %d\n", vscr_width, vscr_height, vScale);
-
-    SDL_GetDesktopDisplayMode(0, &mode);
-
-    window = SDL_CreateWindow("PYLDIN 601", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	vscr_width, vscr_height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN /* | SDL_WINDOW_FULLSCREEN */);
-
-    if(!window) {
-	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Window creation fail : %s\n",SDL_GetError());
-	return 1;
-    }
-
-//    SDL_SetWindowTitle(window, "PYLDIN-601 Emulator v" VERSION);
-
-#ifdef PYLDIN_ICON
-    SetIcon(window);
-#endif
-
-    framebuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, vscr_width, vscr_height, 16,
-#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
-	0xF800, 0x07E0, 0x001F, 0x0000
-#else
-	0x001F, 0x07E0, 0xF800, 0x0000
-#endif
-        );
-
-    screen = SDL_GetWindowSurface(window);
-//SDL_UpdateWindowSurface(window);
-//    renderer = SDL_CreateSoftwareRenderer(surface);
-//    if(!renderer) {
-//	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface fail : %s\n", SDL_GetError());
-//	return 1;
-//    }
-
-//    renderer = SDL_CreateSoftwareRenderer(screen);
-//    if(!renderer) {
-//	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation for surface fail : %s\n",SDL_GetError());
-//	return 1;
-//    }
-
-#ifdef PYLDIN_LOGO
-    LoadLogo();
-    
-    if (pyldin_logo) {
-	SDL_SoftStretch(pyldin_logo, &pyldin_logo->clip_rect, screen, &screen->clip_rect);
-	SDL_UpdateWindowSurface(window);
-	sleep(1);
-    }
-#endif
 
     mc6800_init();
 
@@ -974,13 +1034,6 @@ int main(int argc, char *argv[])
 	scounter += takt;
 
 	if (vcounter >= 20000) {
-#ifdef __APPLE__
-	    if (!SDL_BlitScaled(framebuffer, NULL, screen, NULL)) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "BlitScaled() : %s\n",SDL_GetError());
-	    }
-	    SDL_UpdateWindowSurface(window);
-//fprintf(stderr, "Update win.\n");
-#endif
 	    devices_set_tick50();
 	    mc6845_curBlink();
 	    mc6800_setIrq(1);
@@ -1003,6 +1056,7 @@ int main(int argc, char *argv[])
 	    READ_TIMESTAMP(ts2);
 	} while ((ts2 - ts1) < (one_takt_delay * takt));
 	ts1 = ts2;
+
     } while( fExit == 0);	//
 
     SDL_WaitThread(video_thread, NULL);
@@ -1014,20 +1068,8 @@ int main(int argc, char *argv[])
     Speaker_Finish();
     printer_fini();
 
-#ifdef USE_JOYSTICK
-    if (joystick) {
-	SDL_JoystickClose(joystick);
-    }
-#endif
+    SDL_Quit();
 
-#ifdef PYLDIN_LOGO
-    if (pyldin_logo) {
-	SDL_SoftStretch(pyldin_logo, &pyldin_logo->clip_rect, screen, &screen->clip_rect);
-	SDL_UpdateWindowSurface(window);
-	sleep(1);
-    }
-#endif
-	
 //    SDL_Quit();
     return 0;
 }
