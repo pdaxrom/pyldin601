@@ -63,9 +63,9 @@ static SDL_Surface *screen;
 static SDL_Surface *framebuffer;
 static SDL_GLContext context;
 
-static int vScale = 2;
-static int vscr_width = 640;
-static int vscr_height = 480;
+static int vScale = 1;
+static int vscr_width = 320;
+static int vscr_height = 240;
 
 static int vkbdEnabled = 0;
 static int redrawVMenu = 0;
@@ -497,17 +497,17 @@ void clearScr()
 
 void drawXbm(unsigned char *xbm, int xp, int yp, int w, int h, int over)
 {
-    screen_drawXbm(framebuffer->pixels, vscr_width, vscr_height, vScale, xbm, (vscr_width - 320 * vScale) / 2 + xp, (vscr_height - 240 * vScale) / 2 + yp, w, h, over);
+    screen_drawXbm(framebuffer->pixels, framebuffer->w, framebuffer->h, xbm, xp, yp, w, h, over);
 }
 
 void drawChar(unsigned int c, int xp, int yp, unsigned int fg, unsigned int bg)
 {
-    screen_drawChar(framebuffer->pixels, vscr_width, vscr_height, vScale, c, (vscr_width - 320 * vScale) / 2 + xp, (vscr_height - 240 * vScale) / 16 + yp, fg, bg);
+    screen_drawChar(framebuffer->pixels, framebuffer->w, framebuffer->h, c, xp, yp, fg, bg);
 }
 
 void drawString(char *str, int xp, int yp, unsigned int fg, unsigned int bg)
 {
-    screen_drawString(framebuffer->pixels, vscr_width, vscr_height, vScale, str, (vscr_width - 320 * vScale) / 2 + xp, (vscr_height - 240 * vScale) / 16 + yp, fg, bg);
+    screen_drawString(framebuffer->pixels, framebuffer->w, framebuffer->h, str, xp, yp, fg, bg);
 }
 
 int SDLCALL HandleVideo(void *unused)
@@ -517,14 +517,7 @@ int SDLCALL HandleVideo(void *unused)
 
     SDL_Log("Video thread starting...");
 
-    vscr_width = (vscr_width < 320)?320:vscr_width;
-    vscr_height = (vscr_height < 240)?240:vscr_height;
-
-    while (((vscr_width < (320 * vScale)) || (vscr_height < (240 * vScale))) && (vScale > 1)) {
-	vScale--;
-    }
-
-    SDL_Log("Set screen geometry to %dx%d, scale %d\n", vscr_width, vscr_height, vScale);
+//    SDL_Log("Set screen geometry to %dx%d, scale %d\n", vscr_width, vscr_height, vScale);
 
     SDL_GetDesktopDisplayMode(0, &mode);
 
@@ -553,7 +546,7 @@ int SDLCALL HandleVideo(void *unused)
     SetIcon(window);
 #endif
 
-    framebuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, vscr_width, vscr_height, 16,
+    framebuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
 	0xF800, 0x07E0, 0x001F, 0x0000
 #else
@@ -591,7 +584,7 @@ int SDLCALL HandleVideo(void *unused)
 //SDL_Log("UP!");
 
 	if ( ! filemenuEnabled ) {
-	    mc6845_drawScreen(framebuffer->pixels, vscr_width, vscr_height, vScale);
+	    mc6845_drawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
 	}
 
 	if (show_info) {

@@ -13,7 +13,7 @@ O_INLINE void mc6845_curBlink(void);
 
 void mc6845_init(void);
 O_INLINE void mc6845_setupScreen(int mode);
-void mc6845_drawScreen(void *video, int width, int height, int scale);
+void mc6845_drawScreen(void *video, int width, int height);
 
 extern byte *get_videorom_mem(dword size);
 
