@@ -21,8 +21,10 @@ O_INLINE void devices_set_tick50(void);
 O_INLINE int devices_memr(word a, byte *t);
 O_INLINE int devices_memw(word a, byte d);
 
-extern byte *get_bios_mem(dword size);
-extern byte *get_ramdisk_mem(dword size);
-extern byte *get_romchip_mem(byte chip, dword size);
+byte *get_bios_mem(dword size);
+byte *get_ramdisk_mem(dword size);
+byte *get_romchip_mem(byte chip, dword size);
+
+void Speaker_Set(byte val);
 
 #endif
