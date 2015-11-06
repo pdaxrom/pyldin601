@@ -11,7 +11,7 @@ static inline unsigned long long rdtsc(void)
     __asm__ __volatile__("rdtsc" : "=A" (x))
     return x;
 }
-#elif defined(__x86_64__)
+#elif defined(__x86_64__1)
 
 
 static inline unsigned long long rdtsc(void)
