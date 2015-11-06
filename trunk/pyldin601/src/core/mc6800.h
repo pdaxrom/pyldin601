@@ -1,13 +1,7 @@
 #ifndef _MC6800_H_
 #define _MC6800_H_
 
-#define byte	unsigned char
-#define word	unsigned short
-#define dword	unsigned int
-
-#ifndef O_INLINE
-#define O_INLINE
-#endif
+#include "core/types.h"
 
 int	mc6800_init(void);
 void	mc6800_reset(void);

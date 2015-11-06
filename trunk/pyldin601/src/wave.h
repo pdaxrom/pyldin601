@@ -1,11 +1,9 @@
 /*
  *
- * Pyldin-601 emulator version 3.1 for Linux,MSDOS,Win32
- * Copyright (c) Sasha Chukov & Yura Kuznetsov, 2000-2004
+ * Pyldin-601 emulator version 3.4
+ * Copyright (c) Sasha Chukov & Yura Kuznetsov, 2000-2015
  *
  */
 
-extern int Speaker_Init(void);
-extern void Speaker_Finish(void);
-extern void Covox_Set(int val, int ticks);
-extern void Speaker_Set(int val, int ticks);
+int Speaker_Init(void);
+void Speaker_Finish(void);
