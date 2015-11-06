@@ -22,8 +22,6 @@ static int tick50;	// устанавливается в 1 при TIMER INT 50Hz
 
 static byte fSpeaker;		// бит состояния динамика
 
-extern void Speaker_Set(int val, int ticks);
-
 int devices_init(void)
 {
     int i;
@@ -186,7 +184,7 @@ O_INLINE int devices_memw(word a, byte d)
 	old_3s=fSpeaker;
 	fSpeaker = d & 0x08;
 	if (old_3s != fSpeaker) 
-	    Speaker_Set(fSpeaker, mc6800_get_takts());
+	    Speaker_Set(fSpeaker);
 	old_3s = fSpeaker;
 	return 0;
 

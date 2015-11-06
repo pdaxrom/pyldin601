@@ -644,13 +644,12 @@ int SDLCALL HandleVideo(void *unused)
     glUseProgram  ( shaderProgram );    // and select it for usage
 
     glActiveTexture(GL_TEXTURE0);
-
     GLuint videoFrameTexture = 0;
     glGenTextures(1, &videoFrameTexture);
     glBindTexture(GL_TEXTURE_2D, videoFrameTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glBindTexture(GL_TEXTURE_2D, 0);
-
     glBindTexture(GL_TEXTURE_2D, videoFrameTexture);
 
     GLint tex = glGetUniformLocation(shaderProgram, "tex");
@@ -1036,7 +1035,7 @@ int main(int argc, char *argv[])
     printer_init(printer_type);
 
     // sound initialization
-//    Speaker_Init();
+    Speaker_Init();
 
     updateScreen = 0;
     video_thread = SDL_CreateThread(HandleVideo, "Pyldin video", NULL);
