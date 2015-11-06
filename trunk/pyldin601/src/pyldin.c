@@ -1,7 +1,7 @@
 /*
  *
- * Pyldin-601 emulator version 3.1 for Linux,MSDOS,Win32
- * Copyright (c) Sasha Chukov & Yura Kuznetsov, 2000-2004
+ * Pyldin-601 emulator version 3.4
+ * Copyright (c) Sasha Chukov & Yura Kuznetsov, 2000-2015
  *
  */
 
@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <zlib.h>
-#include <time.h>
+//#include <time.h>
 
 #include <SDL.h>
 #include <SDL_opengles2.h>
@@ -30,6 +30,7 @@
 #include "floppymanager.h"
 #include "screen.h"
 #include "shader.h"
+#include "rdtsc.h"
 
 #include "kbdfix.h"
 
@@ -70,10 +71,6 @@ static FILE *prn = NULL;
 static SDL_Window *window;
 static SDL_Surface *framebuffer;
 
-//static int vScale = 1;
-//static int vscr_width = 320;
-//static int vscr_height = 240;
-
 static float scaleX = 1;
 static float scaleY = 1;
 
@@ -94,69 +91,6 @@ int	fRef = 0;
 static volatile uint64_t one_takt_delay = 0;
 static volatile uint64_t one_takt_calib = 0;
 static volatile uint64_t one_takt_one_percent = 0;
-
-#if defined(__PPC__)
-#warning "PPC32 code"
-
-#define TIMEBASE 79800000
-
-#define READ_TIMESTAMP(val) \
-{				\
-    unsigned int tmp;		\
-    do {			\
-	__asm__ __volatile__ (	\
-	"mftbu %0 \n\t"		\
-	"mftb  %1 \n\t"		\
-	"mftbu %2 \n\t"		\
-	: "=r"(((long*)&val)[0]), "=r"(((long*)&val)[1]), "=r"(tmp)	\
-	:			\
-	);			\
-    } while (tmp != (((long*)&val)[0]));	\
-}
-
-#elif defined(__i386__)
-
-#define READ_TIMESTAMP(val) \
-    __asm__ __volatile__("rdtsc" : "=A" (val))
-
-#elif defined(__x86_64__)
-
-#define READ_TIMESTAMP(val) \
-    __asm__ __volatile__("rdtsc" : "=a" (((int*)&val)[0]), "=d" (((int*)&val)[1]));
-
-#else
-
-#define READ_TIMESTAMP(var) readTSC(&var)
-
-static void readTSC(volatile uint64_t *v)
-{
-#if defined(__GNUC__) && defined(__ARM_ARCH_7A__)
-    uint32_t pmccntr;
-    uint32_t pmuseren;
-    uint32_t pmcntenset;
-    static int no_mrc = 0;
-
-    // Read the user mode perf monitor counter access permissions.
-    asm volatile ("mrc p15, 0, %0, c9, c14, 0" : "=r" (pmuseren));
-    if (pmuseren & 1) {  // Allows reading perfmon counters for user mode code.
-      asm volatile ("mrc p15, 0, %0, c9, c12, 1" : "=r" (pmcntenset));
-      if (pmcntenset & 0x80000000ul) {  // Is it counting?
-        asm volatile ("mrc p15, 0, %0, c9, c13, 0" : "=r" (pmccntr));
-        // The counter is set up to count every 64th cycle
-        *v = (uint64_t)pmccntr * 64;  // Should optimize to << 6
-	return;
-      }
-    } else if (!no_mrc) {
-	no_mrc = 1;
-	SDL_Log("No tsc :( Use non optimized clock counter...");
-    }
-#endif
-    struct timespec tp;
-    clock_gettime (CLOCK_MONOTONIC_RAW, &tp);
-    *v = (uint64_t)tp.tv_sec * 1e9 + tp.tv_nsec;
-}
-
-#endif
 
 void resetRequested(void)
 {
@@ -1008,10 +942,9 @@ int main(int argc, char *argv[])
     mc6800_init();
 
     {
-	volatile uint64_t a;
-	READ_TIMESTAMP(a);
+	volatile uint64_t a = rdtsc();
 	sleep(1);
-	READ_TIMESTAMP(one_takt_delay);
+	one_takt_delay = rdtsc();
 #ifdef __PPC__
 #warning "PPC PS3 calculation, fixme"
 	one_takt_delay -= a;
@@ -1053,8 +986,7 @@ int main(int argc, char *argv[])
     int scounter = 0;		// syncro counter
     int takt;
 
-    volatile uint64_t clock_old;
-    READ_TIMESTAMP(clock_old);
+    volatile uint64_t clock_old = rdtsc();
 
 //    vscr = (unsigned short *) framebuffer->pixels;
 
@@ -1071,8 +1003,7 @@ int main(int argc, char *argv[])
 			    );
     }
 
-    volatile uint64_t ts1;
-    READ_TIMESTAMP(ts1);
+    volatile uint64_t ts1 = rdtsc();
     do {
 	takt = mc6800_step();
 
@@ -1086,7 +1017,7 @@ int main(int argc, char *argv[])
 	    updateScreen = 1;
 
 	    volatile uint64_t clock_new;
-	    READ_TIMESTAMP(clock_new);
+	    clock_new = rdtsc();
 	    actual_speed = (vcounter * 1000) / ((clock_new - clock_old) / one_takt_calib);
 	
 	    clock_old = clock_new;
@@ -1118,7 +1049,7 @@ int main(int argc, char *argv[])
 
 	volatile uint64_t ts2;
 	do {
-	    READ_TIMESTAMP(ts2);
+	    ts2 = rdtsc();
 	} while ((ts2 - ts1) < (one_takt_delay * takt));
 	ts1 = ts2;
 
