@@ -25,9 +25,10 @@ static int tick = 0;
 
 void audio_callback(void *data, byte *stream, int len)
 {
+    int i;
 //fprintf(stderr, "SOUND %d\n", len);
     word *ptr = (word *) stream;
-    for (int i = 0; i < len / 4; i++) {
+    for (i = 0; i < len / 4; i++) {
 	//stream[i] = (spkr_en == 3) && CAST(unsigned short)mem[0x4AA] ? -((54 * wave_counter++ / CAST(unsigned short)mem[0x4AA]) & 1) : sdl_audio.silence;
 	ptr[i * 2 + 0] = (dac_out << 8) ^ 0x8000;
 	ptr[i * 2 + 1] = (dac_out << 8) ^ 0x8000;
