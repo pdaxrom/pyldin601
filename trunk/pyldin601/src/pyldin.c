@@ -22,10 +22,8 @@
 #include "core/devices.h"
 #include "core/keyboard.h"
 #include "core/floppy.h"
-#include "core/printer.h"
 #include "wave.h"
 #include "sshot.h"
-#include "printer.h"
 #include "floppymanager.h"
 #include "screen.h"
 #include "shader.h"
@@ -639,7 +637,7 @@ int SDLCALL HandleVideo(void *unused)
 
     while (!exitRequest) {
 	if ( ! enableDiskManager ) {
-	    mc6845_drawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
+	    MC6845DrawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
 	}
 
 	if (drawInfo) {
@@ -752,7 +750,7 @@ int load_packed_file(char *file, byte *mem, dword size)
     }
 }
 
-byte *get_bios_mem(dword size)
+byte *loadBiosRom(dword size)
 {
     char ftemp[256];
 
@@ -773,7 +771,7 @@ byte *get_bios_mem(dword size)
     return pyldin_bios_mem;
 }
 
-byte *get_videorom_mem(dword size)
+byte *loadCharGenRom(dword size)
 {
     char ftemp[256];
 
@@ -794,7 +792,7 @@ byte *get_videorom_mem(dword size)
     return pyldin_videorom_mem;
 }
 
-byte *get_ramdisk_mem(dword size)
+byte *loadRamDisk(dword size)
 {
     if (!pyldin_ramdisk_mem) {
 	pyldin_ramdisk_mem = (byte *) malloc(sizeof(byte) * size);
@@ -803,7 +801,7 @@ byte *get_ramdisk_mem(dword size)
     return pyldin_ramdisk_mem;
 }
 
-byte *get_romchip_mem(byte chip, dword size)
+byte *loadRomDisk(byte chip, dword size)
 {
     char ftemp[256];
     int loaded = 0;
@@ -853,7 +851,7 @@ byte *allocateCpuRam(dword size)
     return (byte *) malloc(sizeof(byte) * size);
 }
 
-void printer_put_char(byte data)
+void PrinterPutChar(byte data)
 {
     if (!printerFile) {
 	char file[256];
@@ -939,7 +937,7 @@ int main(int argc, char *argv[])
     }
 
 
-    mc6800Init();
+    MC6800Init();
 
     {
 	volatile uint64_t a = rdtsc();
@@ -965,7 +963,7 @@ int main(int argc, char *argv[])
 	insertFloppy(FLOPPY_A, bootFloppy);
     }
 
-    printer_init(printerPortDevice);
+    SuperIoPrinterPortMode(printerPortDevice);
 
     // sound initialization
     Speaker_Init();
@@ -980,7 +978,7 @@ int main(int argc, char *argv[])
     videoThread = SDL_CreateThread(HandleVideo, "Pyldin video", NULL);
     inputThread = SDL_CreateThread(HandleKeyboard, "Pyldin keyboard", NULL);
 
-    mc6800Reset();
+    MC6800Reset();
 
     int vSyncCounter = 0;		//
 
@@ -988,7 +986,7 @@ int main(int argc, char *argv[])
 	struct tm *dt;
 	time_t t = time(NULL);
 	dt = localtime(&t);
-	devices_setDATETIME( dt->tm_year,
+	SuperIoSetDateTime( dt->tm_year,
 			    dt->tm_mon,
 			    dt->tm_mday,
 			    dt->tm_hour,
@@ -1000,14 +998,14 @@ int main(int argc, char *argv[])
     volatile uint64_t emulatorCycleStarted = rdtsc();
     volatile uint64_t oldClockCounter = emulatorCycleStarted;
     do {
-	int cpuCycles = mc6800Step();
+	int cpuCycles = MC6800Step();
 
 	vSyncCounter += cpuCycles;
 
 	if (vSyncCounter >= 20000) {
-	    devices_set_tick50();
-	    mc6845_curBlink();
-	    mc6800SetInterrupt(1);
+	    SuperIoSetTick50();
+	    MC6845CursorBlink();
+	    MC6800SetInterrupt(1);
 	    drawScreen = 1;
 
 	    volatile uint64_t newClockCounter = rdtsc();
@@ -1035,7 +1033,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (resetRequest == 1) {
-	    mc6800Reset();
+	    MC6800Reset();
 	    resetRequest = 0;
 	}
 
@@ -1053,9 +1051,8 @@ int main(int argc, char *argv[])
 
     freeFloppy();
 
-    mc6800Finish();
+    MC6800Finish();
     Speaker_Finish();
-    printer_fini();
 
     SDL_Quit();
 

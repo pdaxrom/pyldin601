@@ -10,7 +10,6 @@
 #include "core/mc6845.h"
 #include "core/i8272.h"
 #include "core/keyboard.h"
-#include "core/printer.h"
 
 #include "core/mc6800.c"
 #include "core/devices.c"
@@ -24,7 +23,7 @@
 
 void core_50Hz_irq(void)
 {
-    devices_set_tick50();
-    mc6845_curBlink();
-    mc6800SetInterrupt(1);
+    SuperIoSetTick50();
+    MC6845CursorBlink();
+    MC6800SetInterrupt(1);
 }

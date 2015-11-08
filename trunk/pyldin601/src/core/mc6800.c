@@ -63,61 +63,61 @@ static unsigned char mpu_cycles[] = {
 /*0f*/  4,  4,  4, 02,  4,  4,  4,  5,  4,  4,  4,  4, 02, 02,  5,  6
 };
 
-int mc6800Init(void)
+int MC6800Init(void)
 {
     mc6800_global_takts = 0;
 
     MEM = (byte *) allocateCpuRam(65536);
     memset(MEM, 0, 65536);
 
-    devices_init();
+    SuperIoInit();
 
     return 0;
 }
 
-int mc6800Finish(void)
+int MC6800Finish(void)
 {
-    devices_fini();
+    SuperIoFinish();
 
     return 0;
 }
 
-void mc6800Reset()
+void MC6800Reset()
 {
-    devices_reset();
+    SuperIoReset();
     i = fWai = IRQrequest = 0;
-    PC = mc6800MemReadByte(0xfffe)<<8; 
-    PC |= mc6800MemReadByte(0xffff);
+    PC = MC6800MemReadByte(0xfffe)<<8; 
+    PC |= MC6800MemReadByte(0xffff);
 }
 
-O_INLINE void mc6800SetInterrupt(int l)
+O_INLINE void MC6800SetInterrupt(int l)
 {
     IRQrequest = l;
 }
 
-O_INLINE dword mc6800GetCyclesCounter(void)
+O_INLINE dword MC6800GetCyclesCounter(void)
 {
     return mc6800_global_takts;
 }
 
-O_INLINE byte *mc6800GetCpuRam(void)
+O_INLINE byte *MC6800GetCpuRam(void)
 {
     return MEM;
 }
 
-O_INLINE byte mc6800MemReadByte(word a)
+O_INLINE byte MC6800MemReadByte(word a)
 {
     byte t = 0xff;
 
-    if (devices_memr(a, &t))
+    if (SuperIoReadByte(a, &t))
 	return t;
 
     return MEM[a];
 }
 
-O_INLINE void mc6800MemWriteByte(word a, byte d)
+O_INLINE void MC6800MemWriteByte(word a, byte d)
 {
-    if (devices_memw(a, d))
+    if (SuperIoWriteByte(a, d))
 	return;
 
     MEM[a] = d;	//иначе запись в основную память
@@ -361,7 +361,7 @@ static INLINE void Bdaa()
 
 static INLINE byte NextByte()
 {
-    return mc6800MemReadByte(PC++);
+    return MC6800MemReadByte(PC++);
 }
 
 static INLINE void FetchAddr()
@@ -380,7 +380,7 @@ static INLINE void Branch()
     PC += EAR;
 }
 
-int mc6800Step()
+int MC6800Step()
 {
     byte oc, oh, t;
     word ofs, r16;
@@ -396,18 +396,18 @@ int mc6800Step()
 	return 4;
     } else if (IRQrequest != 0 && i == 0) {
 	t = (c?1:0)|(v?2:0)|(z?4:0)|(n?8:0)|(i?16:0)|(h?32:0)|0xc0;
-	mc6800MemWriteByte(SP--, PC&0xff); mc6800MemWriteByte(SP--, PC>>8);
-	mc6800MemWriteByte(SP--, X&0xff); mc6800MemWriteByte(SP--, X>>8);
-	mc6800MemWriteByte(SP--, A);
-	mc6800MemWriteByte(SP--, B);
-	mc6800MemWriteByte(SP--, t);
-	PC = mc6800MemReadByte(0xfff8)<<8; PC |= mc6800MemReadByte(0xfff9);
+	MC6800MemWriteByte(SP--, PC&0xff); MC6800MemWriteByte(SP--, PC>>8);
+	MC6800MemWriteByte(SP--, X&0xff); MC6800MemWriteByte(SP--, X>>8);
+	MC6800MemWriteByte(SP--, A);
+	MC6800MemWriteByte(SP--, B);
+	MC6800MemWriteByte(SP--, t);
+	PC = MC6800MemReadByte(0xfff8)<<8; PC |= MC6800MemReadByte(0xfff9);
 	IRQrequest = 0;
 	mc6800_global_takts += 12;
 	return 12;
     }
 
-    byte opnum = mc6800MemReadByte(PC++);
+    byte opnum = MC6800MemReadByte(PC++);
 
     takt = mpu_cycles[opnum];
 
@@ -427,191 +427,191 @@ int mc6800Step()
 
 	case DAA:	oh=h; Bdaa(); h=oh; break;
 
-	case PSHA:	mc6800MemWriteByte(SP--, A); break;
-	case PSHB:	mc6800MemWriteByte(SP--, B); break;
-	case PULA:	A = mc6800MemReadByte(++SP); break;
-	case PULB:	B = mc6800MemReadByte(++SP); break;
+	case PSHA:	MC6800MemWriteByte(SP--, A); break;
+	case PSHB:	MC6800MemWriteByte(SP--, B); break;
+	case PULA:	A = MC6800MemReadByte(++SP); break;
+	case PULB:	B = MC6800MemReadByte(++SP); break;
 
-	case DEC_idx:	ofs=NextByte()+X; oc=c; mc6800MemWriteByte(ofs,Bsub(mc6800MemReadByte(ofs),1)); c=oc; break;
-	case DEC:	FetchAddr(); oc=c; mc6800MemWriteByte(EAR, Bsub(mc6800MemReadByte(EAR),1)); c=oc; break;
+	case DEC_idx:	ofs=NextByte()+X; oc=c; MC6800MemWriteByte(ofs,Bsub(MC6800MemReadByte(ofs),1)); c=oc; break;
+	case DEC:	FetchAddr(); oc=c; MC6800MemWriteByte(EAR, Bsub(MC6800MemReadByte(EAR),1)); c=oc; break;
 	case DECA:	oc=c; A=Bsub(A,1); c=oc; break;
 	case DECB:	oc=c; B=Bsub(B,1); c=oc; break;
 	case DES:	SP--; break;
 	case DEX:	X--; z = X?0:1; break;
 
-	case INC_idx:	ofs=NextByte()+X; oh=h; oc=c; mc6800MemWriteByte(ofs,Badd(mc6800MemReadByte(ofs),1)); c=oc; h=oh; break;
-	case INC:	FetchAddr(); oh=h; oc=c; mc6800MemWriteByte(EAR, Badd(mc6800MemReadByte(EAR),1)); c=oc; h=oh; break;
+	case INC_idx:	ofs=NextByte()+X; oh=h; oc=c; MC6800MemWriteByte(ofs,Badd(MC6800MemReadByte(ofs),1)); c=oc; h=oh; break;
+	case INC:	FetchAddr(); oh=h; oc=c; MC6800MemWriteByte(EAR, Badd(MC6800MemReadByte(EAR),1)); c=oc; h=oh; break;
 	case INCA:	oh=h; oc=c; A=Badd(A,1); c=oc; h=oh; break;
 	case INCB:	oh=h; oc=c; B=Badd(B,1); c=oc; h=oh; break;
 	case INS:	SP++; break;
 	case INX:	X++; z = X?0:1; break;
 
-	case CLR_idx:	mc6800MemWriteByte(NextByte()+X, 0); n = v = c = 0; z = 1; break;
-	case CLR:	FetchAddr(); mc6800MemWriteByte(EAR, 0); n = v = c = 0; z = 1; break;
+	case CLR_idx:	MC6800MemWriteByte(NextByte()+X, 0); n = v = c = 0; z = 1; break;
+	case CLR:	FetchAddr(); MC6800MemWriteByte(EAR, 0); n = v = c = 0; z = 1; break;
 	case CLRA:	A = n = v = c = 0; z = 1; break;
 	case CLRB:	B = n = v = c = 0; z = 1; break;
 
-	case COM_idx: ofs = NextByte()+X; mc6800MemWriteByte(ofs, ~mc6800MemReadByte(ofs)); c = 1; v = 0; TestByte(mc6800MemReadByte(ofs)); break;
-	case COM:	FetchAddr(); mc6800MemWriteByte(EAR, ~mc6800MemReadByte(EAR)); c = 1; v = 0; TestByte(mc6800MemReadByte(EAR)); break;
+	case COM_idx: ofs = NextByte()+X; MC6800MemWriteByte(ofs, ~MC6800MemReadByte(ofs)); c = 1; v = 0; TestByte(MC6800MemReadByte(ofs)); break;
+	case COM:	FetchAddr(); MC6800MemWriteByte(EAR, ~MC6800MemReadByte(EAR)); c = 1; v = 0; TestByte(MC6800MemReadByte(EAR)); break;
 	case COMA:	A = ~A; c = 1; v = 0; TestByte(A); break;
 	case COMB:	B = ~B; c = 1; v = 0; TestByte(B); break;
 
-	case NEG_idx: ofs = NextByte()+X; mc6800MemWriteByte(ofs, Bsub(0, mc6800MemReadByte(ofs))); break;
-	case NEG:	FetchAddr(); mc6800MemWriteByte(EAR, Bsub(0, mc6800MemReadByte(EAR))); break;
+	case NEG_idx: ofs = NextByte()+X; MC6800MemWriteByte(ofs, Bsub(0, MC6800MemReadByte(ofs))); break;
+	case NEG:	FetchAddr(); MC6800MemWriteByte(EAR, Bsub(0, MC6800MemReadByte(EAR))); break;
 	case NEGA:	A = Bsub(0, A); break;
 	case NEGB:	B = Bsub(0, B); break;
 
 	case LDAA_imm: A = NextByte(); v = 0; TestByte(A); break;
-	case LDAA_dir: A = mc6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
-	case LDAA_idx: A = mc6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
-	case LDAA:	FetchAddr(); A = mc6800MemReadByte(EAR); v = 0; TestByte(A); break;
+	case LDAA_dir: A = MC6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
+	case LDAA_idx: A = MC6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
+	case LDAA:	FetchAddr(); A = MC6800MemReadByte(EAR); v = 0; TestByte(A); break;
 	case LDAB_imm: B = NextByte(); v = 0; TestByte(B); break;
-	case LDAB_dir: B = mc6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
-	case LDAB_idx: B = mc6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
-	case LDAB:	FetchAddr(); B = mc6800MemReadByte(EAR); v = 0; TestByte(B); break;
+	case LDAB_dir: B = MC6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
+	case LDAB_idx: B = MC6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
+	case LDAB:	FetchAddr(); B = MC6800MemReadByte(EAR); v = 0; TestByte(B); break;
 
 	case LDS_imm: FetchAddr(); SP = EAR; v = 0; TestWord(SP); break;
-	case LDS_dir: ofs=NextByte(); SP = mc6800MemReadByte(ofs) << 8; SP |= mc6800MemReadByte(ofs + 1); v = 0; TestWord(SP); break;
-	case LDS_idx: ofs=X+NextByte(); SP = mc6800MemReadByte(ofs) << 8; SP |= mc6800MemReadByte(ofs + 1); v = 0; TestWord(SP); break;
-	case LDS:	FetchAddr(); SP = mc6800MemReadByte(EAR) << 8; SP |= mc6800MemReadByte(EAR + 1); v = 0; TestWord(SP); break;
+	case LDS_dir: ofs=NextByte(); SP = MC6800MemReadByte(ofs) << 8; SP |= MC6800MemReadByte(ofs + 1); v = 0; TestWord(SP); break;
+	case LDS_idx: ofs=X+NextByte(); SP = MC6800MemReadByte(ofs) << 8; SP |= MC6800MemReadByte(ofs + 1); v = 0; TestWord(SP); break;
+	case LDS:	FetchAddr(); SP = MC6800MemReadByte(EAR) << 8; SP |= MC6800MemReadByte(EAR + 1); v = 0; TestWord(SP); break;
 	case LDX_imm: FetchAddr(); X = EAR; v = 0; TestWord(X); break;
-	case LDX_dir: ofs=NextByte(); X = mc6800MemReadByte(ofs) << 8; X |= mc6800MemReadByte(ofs + 1); v = 0; TestWord(X); break;
-	case LDX_idx: ofs=X+NextByte(); X=mc6800MemReadByte(ofs)<<8; X|=mc6800MemReadByte(ofs+1); v = 0; TestWord(X); break;
-	case LDX:	FetchAddr(); X = mc6800MemReadByte(EAR) << 8; X |= mc6800MemReadByte(EAR + 1); v = 0; TestWord(X); break;
+	case LDX_dir: ofs=NextByte(); X = MC6800MemReadByte(ofs) << 8; X |= MC6800MemReadByte(ofs + 1); v = 0; TestWord(X); break;
+	case LDX_idx: ofs=X+NextByte(); X=MC6800MemReadByte(ofs)<<8; X|=MC6800MemReadByte(ofs+1); v = 0; TestWord(X); break;
+	case LDX:	FetchAddr(); X = MC6800MemReadByte(EAR) << 8; X |= MC6800MemReadByte(EAR + 1); v = 0; TestWord(X); break;
 
-	case STAA_dir: mc6800MemWriteByte(NextByte(), A); v = 0; TestByte(A); break;
-	case STAA_idx: mc6800MemWriteByte(X + NextByte(), A); v = 0; TestByte(A); break;
-	case STAA:	FetchAddr(); mc6800MemWriteByte(EAR, A); v = 0; TestByte(A); break;
-	case STAB_dir: mc6800MemWriteByte(NextByte(), B); v = 0; TestByte(B); break;
-	case STAB_idx: mc6800MemWriteByte(X + NextByte(), B); v = 0; TestByte(B); break;
-	case STAB:	FetchAddr(); mc6800MemWriteByte(EAR, B); v = 0; TestByte(B); break;
+	case STAA_dir: MC6800MemWriteByte(NextByte(), A); v = 0; TestByte(A); break;
+	case STAA_idx: MC6800MemWriteByte(X + NextByte(), A); v = 0; TestByte(A); break;
+	case STAA:	FetchAddr(); MC6800MemWriteByte(EAR, A); v = 0; TestByte(A); break;
+	case STAB_dir: MC6800MemWriteByte(NextByte(), B); v = 0; TestByte(B); break;
+	case STAB_idx: MC6800MemWriteByte(X + NextByte(), B); v = 0; TestByte(B); break;
+	case STAB:	FetchAddr(); MC6800MemWriteByte(EAR, B); v = 0; TestByte(B); break;
 
-	case STS_dir: ofs=NextByte(); mc6800MemWriteByte(ofs,SP>>8); mc6800MemWriteByte(ofs+1, SP&0xff); v=0; TestWord(SP); break;
-	case STS_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs,SP>>8); mc6800MemWriteByte(ofs+1,SP&0xff); v=0; TestWord(SP); break;
-	case STS:	FetchAddr(); mc6800MemWriteByte(EAR,SP>>8); mc6800MemWriteByte(EAR+1,SP&0xff); v=0; TestWord(SP); break;
-	case STX_dir: ofs=NextByte(); mc6800MemWriteByte(ofs,X>>8); mc6800MemWriteByte(ofs+1, X&0xff); v=0; TestWord(X); break;
-	case STX_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs,X>>8); mc6800MemWriteByte(ofs+1,X&0xff); v=0; TestWord(X); break;
-	case STX:	FetchAddr(); mc6800MemWriteByte(EAR,X>>8); mc6800MemWriteByte(EAR+1,X&0xff); v=0; TestWord(X); break;
+	case STS_dir: ofs=NextByte(); MC6800MemWriteByte(ofs,SP>>8); MC6800MemWriteByte(ofs+1, SP&0xff); v=0; TestWord(SP); break;
+	case STS_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs,SP>>8); MC6800MemWriteByte(ofs+1,SP&0xff); v=0; TestWord(SP); break;
+	case STS:	FetchAddr(); MC6800MemWriteByte(EAR,SP>>8); MC6800MemWriteByte(EAR+1,SP&0xff); v=0; TestWord(SP); break;
+	case STX_dir: ofs=NextByte(); MC6800MemWriteByte(ofs,X>>8); MC6800MemWriteByte(ofs+1, X&0xff); v=0; TestWord(X); break;
+	case STX_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs,X>>8); MC6800MemWriteByte(ofs+1,X&0xff); v=0; TestWord(X); break;
+	case STX:	FetchAddr(); MC6800MemWriteByte(EAR,X>>8); MC6800MemWriteByte(EAR+1,X&0xff); v=0; TestWord(X); break;
 
 	case ABA:	A = Badd(A, B); break;
 
 	case ADCA_imm: A = Baddc(A, NextByte()); break;
-	case ADCA_dir: A = Baddc(A, mc6800MemReadByte(NextByte())); break;
-	case ADCA_idx: A = Baddc(A, mc6800MemReadByte(X + NextByte())); break;
-	case ADCA:	FetchAddr(); A = Baddc(A, mc6800MemReadByte(EAR)); break;
+	case ADCA_dir: A = Baddc(A, MC6800MemReadByte(NextByte())); break;
+	case ADCA_idx: A = Baddc(A, MC6800MemReadByte(X + NextByte())); break;
+	case ADCA:	FetchAddr(); A = Baddc(A, MC6800MemReadByte(EAR)); break;
 	case ADCB_imm: B = Baddc(B, NextByte()); break;
-	case ADCB_dir: B = Baddc(B, mc6800MemReadByte(NextByte())); break;
-	case ADCB_idx: B = Baddc(B, mc6800MemReadByte(X + NextByte())); break;
-	case ADCB:	FetchAddr(); B = Baddc(B, mc6800MemReadByte(EAR)); break;
+	case ADCB_dir: B = Baddc(B, MC6800MemReadByte(NextByte())); break;
+	case ADCB_idx: B = Baddc(B, MC6800MemReadByte(X + NextByte())); break;
+	case ADCB:	FetchAddr(); B = Baddc(B, MC6800MemReadByte(EAR)); break;
 
 	case ADDA_imm: A = Badd(A, NextByte()); break;
-	case ADDA_dir: A = Badd(A, mc6800MemReadByte(NextByte())); break;
-	case ADDA_idx: A = Badd(A, mc6800MemReadByte(X + NextByte())); break;
-	case ADDA:	FetchAddr(); A = Badd(A, mc6800MemReadByte(EAR)); break;
+	case ADDA_dir: A = Badd(A, MC6800MemReadByte(NextByte())); break;
+	case ADDA_idx: A = Badd(A, MC6800MemReadByte(X + NextByte())); break;
+	case ADDA:	FetchAddr(); A = Badd(A, MC6800MemReadByte(EAR)); break;
 	case ADDB_imm: B = Badd(B, NextByte()); break;
-	case ADDB_dir: B = Badd(B, mc6800MemReadByte(NextByte())); break;
-	case ADDB_idx: B = Badd(B, mc6800MemReadByte(X + NextByte())); break;
-	case ADDB:	FetchAddr(); B = Badd(B, mc6800MemReadByte(EAR)); break;
+	case ADDB_dir: B = Badd(B, MC6800MemReadByte(NextByte())); break;
+	case ADDB_idx: B = Badd(B, MC6800MemReadByte(X + NextByte())); break;
+	case ADDB:	FetchAddr(); B = Badd(B, MC6800MemReadByte(EAR)); break;
 
 	case SBA:	A = Bsub(A, B); break;
 
 	case SBCA_imm: A = Bsubc(A, NextByte()); break;
-	case SBCA_dir: A = Bsubc(A, mc6800MemReadByte(NextByte())); break;
-	case SBCA_idx: A = Bsubc(A, mc6800MemReadByte(X + NextByte())); break;
-	case SBCA:	FetchAddr(); A = Bsubc(A, mc6800MemReadByte(EAR)); break;
+	case SBCA_dir: A = Bsubc(A, MC6800MemReadByte(NextByte())); break;
+	case SBCA_idx: A = Bsubc(A, MC6800MemReadByte(X + NextByte())); break;
+	case SBCA:	FetchAddr(); A = Bsubc(A, MC6800MemReadByte(EAR)); break;
 	case SBCB_imm: B = Bsubc(B, NextByte()); break;
-	case SBCB_dir: B = Bsubc(B, mc6800MemReadByte(NextByte())); break;
-	case SBCB_idx: B = Bsubc(B, mc6800MemReadByte(X + NextByte())); break;
-	case SBCB:	FetchAddr(); B = Bsubc(B, mc6800MemReadByte(EAR)); break;
+	case SBCB_dir: B = Bsubc(B, MC6800MemReadByte(NextByte())); break;
+	case SBCB_idx: B = Bsubc(B, MC6800MemReadByte(X + NextByte())); break;
+	case SBCB:	FetchAddr(); B = Bsubc(B, MC6800MemReadByte(EAR)); break;
 
 	case SUBA_imm: A = Bsub(A, NextByte()); break;
-	case SUBA_dir: A = Bsub(A, mc6800MemReadByte(NextByte())); break;
-	case SUBA_idx: A = Bsub(A, mc6800MemReadByte(X + NextByte())); break;
-	case SUBA:	FetchAddr(); A = Bsub(A, mc6800MemReadByte(EAR)); break;
+	case SUBA_dir: A = Bsub(A, MC6800MemReadByte(NextByte())); break;
+	case SUBA_idx: A = Bsub(A, MC6800MemReadByte(X + NextByte())); break;
+	case SUBA:	FetchAddr(); A = Bsub(A, MC6800MemReadByte(EAR)); break;
 	case SUBB_imm: B = Bsub(B, NextByte()); break;
-	case SUBB_dir: B = Bsub(B, mc6800MemReadByte(NextByte())); break;
-	case SUBB_idx: B = Bsub(B, mc6800MemReadByte(X + NextByte())); break;
-	case SUBB:	FetchAddr(); B = Bsub(B, mc6800MemReadByte(EAR)); break;
+	case SUBB_dir: B = Bsub(B, MC6800MemReadByte(NextByte())); break;
+	case SUBB_idx: B = Bsub(B, MC6800MemReadByte(X + NextByte())); break;
+	case SUBB:	FetchAddr(); B = Bsub(B, MC6800MemReadByte(EAR)); break;
 
 	case ANDA_imm: A &= NextByte(); v = 0; TestByte(A); break;
-	case ANDA_dir: A &= mc6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
-	case ANDA_idx: A &= mc6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
-	case ANDA:	FetchAddr(); A &= mc6800MemReadByte(EAR); v = 0; TestByte(A); break;
+	case ANDA_dir: A &= MC6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
+	case ANDA_idx: A &= MC6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
+	case ANDA:	FetchAddr(); A &= MC6800MemReadByte(EAR); v = 0; TestByte(A); break;
 	case ANDB_imm: B &= NextByte(); v = 0; TestByte(B); break;
-	case ANDB_dir: B &= mc6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
-	case ANDB_idx: B &= mc6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
-	case ANDB:	FetchAddr(); B &= mc6800MemReadByte(EAR); v = 0; TestByte(B); break;
+	case ANDB_dir: B &= MC6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
+	case ANDB_idx: B &= MC6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
+	case ANDB:	FetchAddr(); B &= MC6800MemReadByte(EAR); v = 0; TestByte(B); break;
 
 	case ORAA_imm: A |= NextByte(); v = 0; TestByte(A); break;
-	case ORAA_dir: A |= mc6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
-	case ORAA_idx: A |= mc6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
-	case ORAA:	FetchAddr(); A |= mc6800MemReadByte(EAR); v = 0; TestByte(A); break;
+	case ORAA_dir: A |= MC6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
+	case ORAA_idx: A |= MC6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
+	case ORAA:	FetchAddr(); A |= MC6800MemReadByte(EAR); v = 0; TestByte(A); break;
 	case ORAB_imm: B |= NextByte(); v = 0; TestByte(B); break;
-	case ORAB_dir: B |= mc6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
-	case ORAB_idx: B |= mc6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
-	case ORAB:	FetchAddr(); B |= mc6800MemReadByte(EAR); v = 0; TestByte(B); break;
+	case ORAB_dir: B |= MC6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
+	case ORAB_idx: B |= MC6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
+	case ORAB:	FetchAddr(); B |= MC6800MemReadByte(EAR); v = 0; TestByte(B); break;
 
 	case EORA_imm: A ^= NextByte(); v = 0; TestByte(A); break;
-	case EORA_dir: A ^= mc6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
-	case EORA_idx: A ^= mc6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
-	case EORA:	FetchAddr(); A ^= mc6800MemReadByte(EAR); v = 0; TestByte(A); break;
+	case EORA_dir: A ^= MC6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
+	case EORA_idx: A ^= MC6800MemReadByte(X + NextByte()); v = 0; TestByte(A); break;
+	case EORA:	FetchAddr(); A ^= MC6800MemReadByte(EAR); v = 0; TestByte(A); break;
 	case EORB_imm: B ^= NextByte(); v = 0; TestByte(B); break;
-	case EORB_dir: B ^= mc6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
-	case EORB_idx: B ^= mc6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
-	case EORB:	FetchAddr(); B ^= mc6800MemReadByte(EAR); v = 0; TestByte(B); break;
+	case EORB_dir: B ^= MC6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
+	case EORB_idx: B ^= MC6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
+	case EORB:	FetchAddr(); B ^= MC6800MemReadByte(EAR); v = 0; TestByte(B); break;
 
-	case LSR_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs, Blsr(mc6800MemReadByte(ofs))); break;
-	case LSR: FetchAddr(); mc6800MemWriteByte(EAR, Blsr(mc6800MemReadByte(EAR))); break;
+	case LSR_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs, Blsr(MC6800MemReadByte(ofs))); break;
+	case LSR: FetchAddr(); MC6800MemWriteByte(EAR, Blsr(MC6800MemReadByte(EAR))); break;
 	case LSRA: A = Blsr(A); break;
 	case LSRB: B = Blsr(B); break;
 
-	case ASR_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs, Basr(mc6800MemReadByte(ofs))); break;
-	case ASR: FetchAddr(); mc6800MemWriteByte(EAR, Basr(mc6800MemReadByte(EAR))); break;
+	case ASR_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs, Basr(MC6800MemReadByte(ofs))); break;
+	case ASR: FetchAddr(); MC6800MemWriteByte(EAR, Basr(MC6800MemReadByte(EAR))); break;
 	case ASRA: A = Basr(A); break;
 	case ASRB: B = Basr(B); break;
 
-	case ASL_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs, Basl(mc6800MemReadByte(ofs))); break;
-	case ASL: FetchAddr(); mc6800MemWriteByte(EAR, Basl(mc6800MemReadByte(EAR))); break;
+	case ASL_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs, Basl(MC6800MemReadByte(ofs))); break;
+	case ASL: FetchAddr(); MC6800MemWriteByte(EAR, Basl(MC6800MemReadByte(EAR))); break;
 	case ASLA: A = Basl(A); break;
 	case ASLB: B = Basl(B); break;
 
-	case ROR_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs, Bror(mc6800MemReadByte(ofs))); break;
-	case ROR: FetchAddr(); mc6800MemWriteByte(EAR, Bror(mc6800MemReadByte(EAR))); break;
+	case ROR_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs, Bror(MC6800MemReadByte(ofs))); break;
+	case ROR: FetchAddr(); MC6800MemWriteByte(EAR, Bror(MC6800MemReadByte(EAR))); break;
 	case RORA: A = Bror(A); break;
 	case RORB: B = Bror(B); break;
 
-	case ROL_idx: ofs=X+NextByte(); mc6800MemWriteByte(ofs, Brol(mc6800MemReadByte(ofs))); break;
-	case ROL: FetchAddr(); mc6800MemWriteByte(EAR, Brol(mc6800MemReadByte(EAR))); break;
+	case ROL_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs, Brol(MC6800MemReadByte(ofs))); break;
+	case ROL: FetchAddr(); MC6800MemWriteByte(EAR, Brol(MC6800MemReadByte(EAR))); break;
 	case ROLA: A = Brol(A); break;
 	case ROLB: B = Brol(B); break;
 
 	case BITA_imm: v = 0; TestByte(A & NextByte()); break;
-	case BITA_dir: v = 0; TestByte(A & mc6800MemReadByte(NextByte())); break;
-	case BITA_idx: v = 0; TestByte(A & mc6800MemReadByte(X + NextByte())); break;
-	case BITA: FetchAddr(); v = 0; TestByte(A & mc6800MemReadByte(EAR)); break;
+	case BITA_dir: v = 0; TestByte(A & MC6800MemReadByte(NextByte())); break;
+	case BITA_idx: v = 0; TestByte(A & MC6800MemReadByte(X + NextByte())); break;
+	case BITA: FetchAddr(); v = 0; TestByte(A & MC6800MemReadByte(EAR)); break;
 	case BITB_imm: v = 0; TestByte(B & NextByte()); break;
-	case BITB_dir: v = 0; TestByte(B & mc6800MemReadByte(NextByte())); break;
-	case BITB_idx: v = 0; TestByte(B & mc6800MemReadByte(X + NextByte())); break;
-	case BITB: FetchAddr(); v = 0; TestByte(B & mc6800MemReadByte(EAR)); break;
+	case BITB_dir: v = 0; TestByte(B & MC6800MemReadByte(NextByte())); break;
+	case BITB_idx: v = 0; TestByte(B & MC6800MemReadByte(X + NextByte())); break;
+	case BITB: FetchAddr(); v = 0; TestByte(B & MC6800MemReadByte(EAR)); break;
 
 	case CBA:	Bsub(A, B); break;
 
 	case CMPA_imm: Bsub(A, NextByte()); break;
-	case CMPA_dir: Bsub(A, mc6800MemReadByte(NextByte())); break;
-	case CMPA_idx: Bsub(A, mc6800MemReadByte(X + NextByte())); break;
-	case CMPA:	FetchAddr(); Bsub(A, mc6800MemReadByte(EAR)); break;
+	case CMPA_dir: Bsub(A, MC6800MemReadByte(NextByte())); break;
+	case CMPA_idx: Bsub(A, MC6800MemReadByte(X + NextByte())); break;
+	case CMPA:	FetchAddr(); Bsub(A, MC6800MemReadByte(EAR)); break;
 	case CMPB_imm: Bsub(B, NextByte()); break;
-	case CMPB_dir: Bsub(B, mc6800MemReadByte(NextByte())); break;
-	case CMPB_idx: Bsub(B, mc6800MemReadByte(X + NextByte())); break;
-	case CMPB:	FetchAddr(); Bsub(B, mc6800MemReadByte(EAR)); break;
+	case CMPB_dir: Bsub(B, MC6800MemReadByte(NextByte())); break;
+	case CMPB_idx: Bsub(B, MC6800MemReadByte(X + NextByte())); break;
+	case CMPB:	FetchAddr(); Bsub(B, MC6800MemReadByte(EAR)); break;
 
 	case CPX_imm: FetchAddr(); Bcpx(X, EAR); break;
-	case CPX_dir: ofs=NextByte(); r16=mc6800MemReadByte(ofs)<<8; r16|=mc6800MemReadByte(ofs+1); Bcpx(X, r16); break;
-	case CPX_idx: ofs=NextByte()+X; r16=mc6800MemReadByte(ofs)<<8; r16|=mc6800MemReadByte(ofs+1); Bcpx(X, r16); break;
-	case CPX: FetchAddr(); r16=mc6800MemReadByte(EAR)<<8; r16|=mc6800MemReadByte(EAR+1); Bcpx(X, r16); break;
+	case CPX_dir: ofs=NextByte(); r16=MC6800MemReadByte(ofs)<<8; r16|=MC6800MemReadByte(ofs+1); Bcpx(X, r16); break;
+	case CPX_idx: ofs=NextByte()+X; r16=MC6800MemReadByte(ofs)<<8; r16|=MC6800MemReadByte(ofs+1); Bcpx(X, r16); break;
+	case CPX: FetchAddr(); r16=MC6800MemReadByte(EAR)<<8; r16|=MC6800MemReadByte(EAR+1); Bcpx(X, r16); break;
 
-	case TST_idx: c = v = 0; TestByte(mc6800MemReadByte(X + NextByte())); break;
-	case TST:	FetchAddr(); c = v = 0; TestByte(mc6800MemReadByte(EAR)); break;
+	case TST_idx: c = v = 0; TestByte(MC6800MemReadByte(X + NextByte())); break;
+	case TST:	FetchAddr(); c = v = 0; TestByte(MC6800MemReadByte(EAR)); break;
 	case TSTA: c = v = 0; TestByte(A); break;
 	case TSTB: c = v = 0; TestByte(B); break;
 
@@ -631,37 +631,37 @@ int mc6800Step()
 	case BVS: EAR=NextByte(); if (v==1) Branch(); break;
 
 	case BRA: EAR=NextByte(); Branch(); break;
-	case BSR: EAR=NextByte(); mc6800MemWriteByte(SP--, PC&0xff); mc6800MemWriteByte(SP--, PC>>8); Branch(); break;
+	case BSR: EAR=NextByte(); MC6800MemWriteByte(SP--, PC&0xff); MC6800MemWriteByte(SP--, PC>>8); Branch(); break;
 
 	case JMP_idx: PC = X + NextByte(); break;
 	case JMP: FetchAddr(); PC = EAR; break;
-	case JSR_idx: EAR = PC + 1; mc6800MemWriteByte(SP--, EAR&0xff); mc6800MemWriteByte(SP--, EAR>>8); PC=X+NextByte(); break;
-	case JSR: FetchAddr(); mc6800MemWriteByte(SP--, PC&0xff); mc6800MemWriteByte(SP--, PC>>8); PC=EAR; break;
+	case JSR_idx: EAR = PC + 1; MC6800MemWriteByte(SP--, EAR&0xff); MC6800MemWriteByte(SP--, EAR>>8); PC=X+NextByte(); break;
+	case JSR: FetchAddr(); MC6800MemWriteByte(SP--, PC&0xff); MC6800MemWriteByte(SP--, PC>>8); PC=EAR; break;
 
-	case RTS: PC = mc6800MemReadByte(++SP)<<8; PC |= mc6800MemReadByte(++SP); break;
+	case RTS: PC = MC6800MemReadByte(++SP)<<8; PC |= MC6800MemReadByte(++SP); break;
 
-	case RTI:	t = mc6800MemReadByte(++SP);
+	case RTI:	t = MC6800MemReadByte(++SP);
 	    c=(t&1)!=0; v=(t&2)!=0; z=(t&4)!=0; n=(t&8)!=0; i=(t&16)!=0; h=(t&32)!=0;
-	    B = mc6800MemReadByte(++SP);
-	    A = mc6800MemReadByte(++SP);
-	    X = mc6800MemReadByte(++SP)<<8; X |= mc6800MemReadByte(++SP);
-	    PC = mc6800MemReadByte(++SP)<<8; PC |= mc6800MemReadByte(++SP);
+	    B = MC6800MemReadByte(++SP);
+	    A = MC6800MemReadByte(++SP);
+	    X = MC6800MemReadByte(++SP)<<8; X |= MC6800MemReadByte(++SP);
+	    PC = MC6800MemReadByte(++SP)<<8; PC |= MC6800MemReadByte(++SP);
 	    break;
 
 	case SWI:
-	    if (SWIemulator(mc6800MemReadByte(PC), &A, &B, &X, &t, &PC))
+	    if (SWIemulator(MC6800MemReadByte(PC), &A, &B, &X, &t, &PC))
 		PC++;
 	    else {
 		t = (c?1:0)|(v?2:0)|(z?4:0)|(n?8:0)|(i?16:0)|(h?32:0)|0xc0;
-		mc6800MemWriteByte(SP--, PC&0xff); 
-		mc6800MemWriteByte(SP--, PC>>8);
-		mc6800MemWriteByte(SP--, X&0xff); 
-		mc6800MemWriteByte(SP--, X>>8);
-		mc6800MemWriteByte(SP--, A);
-		mc6800MemWriteByte(SP--, B);
-		mc6800MemWriteByte(SP--, t);
-		PC = mc6800MemReadByte(0xfffa)<<8; 
-		PC |= mc6800MemReadByte(0xfffb);
+		MC6800MemWriteByte(SP--, PC&0xff); 
+		MC6800MemWriteByte(SP--, PC>>8);
+		MC6800MemWriteByte(SP--, X&0xff); 
+		MC6800MemWriteByte(SP--, X>>8);
+		MC6800MemWriteByte(SP--, A);
+		MC6800MemWriteByte(SP--, B);
+		MC6800MemWriteByte(SP--, t);
+		PC = MC6800MemReadByte(0xfffa)<<8; 
+		PC |= MC6800MemReadByte(0xfffb);
 	    }
 	    i = 1; 
 	    break;

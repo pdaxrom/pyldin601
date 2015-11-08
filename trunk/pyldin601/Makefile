@@ -27,7 +27,7 @@ LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bst
 #LDFLAGS += -lSDL_image -ljpeg -lpng
 ##########################
 
-OBJS  = src/core/devices.o src/core/floppy.o src/core/keyboard.o src/core/mc6800.o src/core/swiemu.o src/core/mc6845.o src/core/i8272.o src/core/printer.o
+OBJS  = src/core/devices.o src/core/floppy.o src/core/keyboard.o src/core/mc6800.o src/core/swiemu.o src/core/mc6845.o src/core/i8272.o
 OBJS += src/discs.o src/screen.o src/sshot.o src/floppymanager.o src/pyldin.o src/shader.o
 
 ifeq (alsa, $(SOUND))
