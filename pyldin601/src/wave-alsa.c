@@ -27,7 +27,7 @@ static int fInited = 0;
 
 static snd_pcm_t *handle;
 
-int Speaker_Init(void)
+int BeeperInit(void)
 {
     int rc, i;
     snd_pcm_hw_params_t *params;
@@ -97,7 +97,7 @@ int Speaker_Init(void)
     return 0;
 }
 
-void Speaker_Finish(void)
+void BeeperFinish(void)
 {
     if (fInited) {
 	snd_pcm_drain(handle);

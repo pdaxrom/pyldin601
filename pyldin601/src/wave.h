@@ -5,5 +5,5 @@
  *
  */
 
-int Speaker_Init(void);
-void Speaker_Finish(void);
+int BeeperInit(void);
+void BeeperFinish(void);
