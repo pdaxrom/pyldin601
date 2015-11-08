@@ -1,6 +1,23 @@
 #ifndef _JOYFIX_H_
 #define _JOYFIX_H_
 
+#define JOYSTICK_XBOX360
+
+#ifdef JOYSTICK_XBOX360
+enum {
+    JOYBUT_A,
+    JOYBUT_B,
+    JOYBUT_X,
+    JOYBUT_Y,
+    JOYBUT_LTRIGGER,
+    JOYBUT_RTRIGGER,
+    JOYBUT_BACK,
+    JOYBUT_START,
+    JOYBUT_HOME,
+    JOYBUT_LAXISBUTTON,
+    JOYBUT_RAXISBUTTON,
+};
+#else
 enum {
     JOYBUT_TRIANGLE,
     JOYBUT_CIRCLE,
@@ -17,5 +34,5 @@ enum {
     JOYBUT_HOME,
     JOYBUT_HOLD
 };
-
+#endif
 #endif
