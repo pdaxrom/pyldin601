@@ -30,9 +30,9 @@ static byte formatfill = 0;
 
 static byte curtrack = 0;
 
-void i8272_init(void)
+void i8272Init(void)
 {
-    floppy_init();
+    FloppyInit();
 }
 
 #ifdef DEBUG
@@ -61,7 +61,7 @@ static void show_fdc_select(void)
 }
 #endif
 
-static void execute_command(void)
+static void executeCommand(void)
 {
     int res;
 #ifdef DEBUG
@@ -101,9 +101,9 @@ static void execute_command(void)
 	case 0x45:
 	case 0x66:
 	    if (fdcdata == 0x45)
-		res = floppy_status((fdcslct & 4)?0:1);
+		res = FloppyStatus((fdcslct & 4)?0:1);
 	    else
-		res = floppy_readSector((fdcslct & 4)?0:1, cmdargs[1], cmdargs[3], cmdargs[2], sector);
+		res = FloppyReadSector((fdcslct & 4)?0:1, cmdargs[1], cmdargs[3], cmdargs[2], sector);
 	    if (res)
 		break;
 	    if (fdcdata == 0x45)
@@ -145,7 +145,7 @@ static void execute_command(void)
     }
 }
 
-void i8272_write(byte a, byte d)
+void i8272WriteByte(byte a, byte d)
 {
     a &= 0x1f;
     switch (a) {
@@ -178,7 +178,7 @@ void i8272_write(byte a, byte d)
 #ifdef DEBUG
 		fprintf(stderr, "FORMAT %d %d %d %d (%d)\n", formatargs[0], formatargs[1], formatargs[2], formatargs[3], size);
 #endif
-		if (floppy_writeSector((fdcslct & 4)?0:1, formatargs[0], formatargs[2], formatargs[1], sector)) {
+		if (FloppyWriteSector((fdcslct & 4)?0:1, formatargs[0], formatargs[2], formatargs[1], sector)) {
 		    retargs[6] = 0x40;
 		    retargs[5] = 0x35;
 		    break;
@@ -190,7 +190,7 @@ void i8272_write(byte a, byte d)
 	    writecount--;
 	    sector[datacount++] = d;
 	    if (!writecount) {
-		if (floppy_writeSector((fdcslct & 4)?0:1, retargs[3], retargs[1], retargs[2], sector)) {
+		if (FloppyWriteSector((fdcslct & 4)?0:1, retargs[3], retargs[1], retargs[2], sector)) {
 		    retargs[6] = 0x40;
 		    retargs[5] = 0x35;
 		}
@@ -203,7 +203,7 @@ void i8272_write(byte a, byte d)
 	if (cmdargc) {
 	    cmdargs[cmdcount++] = d;
 	    if (!--cmdargc)
-		execute_command();
+		executeCommand();
 	    break;
 	} else
 	    fdcdata = d;
@@ -219,7 +219,7 @@ void i8272_write(byte a, byte d)
 	    cmdargc = 1;
 	    break;
 	case 0x08: // Sense Interrupt Status
-	    execute_command();
+	    executeCommand();
 	    break;
 	case 0x0f: // seek
 	    cmdargc = 2;
@@ -245,7 +245,7 @@ void i8272_write(byte a, byte d)
     return;
 }
 
-byte i8272_read(byte a)
+byte i8272ReadByte(byte a)
 {
     a &= 0x1f;
 

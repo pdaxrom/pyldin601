@@ -14,7 +14,6 @@
 #include "core/devices.h"
 #include "core/keyboard.h"
 #include "core/floppy.h"
-#include "core/printer.h"
 #include "screen.h"
 
 #define WAIT { int i; for(i=0; i<800000; i++) asm volatile (" nop "); }
@@ -82,7 +81,7 @@ static const byte videorom[] = {
 #include "video.lzma.h"
 };
 
-byte *get_videorom_mem(dword size)
+byte *loadCharGenRom(dword size)
 {
     size = size;
 
@@ -98,7 +97,7 @@ static const byte biosrom[] = {
 #include "bios.lzma.h"
 };
 
-byte *get_bios_mem(dword size)
+byte *loadBiosRom(dword size)
 {
     size = size;
 
@@ -141,7 +140,7 @@ static const struct {
     {romchip4, sizeof(romchip4)}
 };
 
-byte *get_romchip_mem(byte chip, dword size)
+byte *loadRomDisk(byte chip, dword size)
 {
     size = size;
 
@@ -166,7 +165,7 @@ byte *allocateCpuRam(dword size)
 //
 // RamDrive memory
 //
-byte *get_ramdisk_mem(dword size)
+byte *loadRamDisk(dword size)
 {
     size = size;
 
@@ -176,7 +175,7 @@ byte *get_ramdisk_mem(dword size)
 //
 // Printer emulation
 //
-void printer_put_char(byte data)
+void PrinterPutChar(byte data)
 {
     data = data;
 }
@@ -186,13 +185,13 @@ void DAC_Init(void)
     PINSEL1 |= (1<<21); // Enable AOUT
 }
 
-void Covox_Set(int val, int ticks)
+void CovoxSetByte(int val, int ticks)
 {
     ticks = ticks;
     DACR = val << 8;
 }
 
-void Speaker_Set(int val, int ticks)
+void BeeperSetBit(int val, int ticks)
 {
     ticks = ticks;
     //SPEAKER_CONTROL(PYLDIN_SPEAKER_FIO, PYLDIN_SPEAKER_MASK, val);
@@ -321,10 +320,10 @@ int main(void)
     uart0Puts(buf);
     }
 #endif
-    mc6800Init();
-    mc6800Reset();
+    MC6800Init();
+    MC6800Reset();
 
-    printer_init(PRINTER_COVOX);
+    SuperIoPrinterPortMode(PRINTER_COVOX);
 
     int vcounter = 0;		//
     int scounter = 0;		// syncro counter
@@ -332,7 +331,7 @@ int main(void)
     int cnt = 0;
 
     while (1) {
-	takt = mc6800Step();
+	takt = MC6800Step();
 
 	vcounter += takt;
 	scounter += takt;
@@ -352,7 +351,7 @@ int main(void)
 	    cnt++;
 	}
 	if (fReset == 1) {
-	    mc6800Reset();
+	    MC6800Reset();
 	    fReset = 0;
 	}
     }

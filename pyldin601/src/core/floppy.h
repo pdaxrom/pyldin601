@@ -14,13 +14,13 @@
 #define FLOPPY_B	1
 
 extern char *diskImage[];
-extern int dSizes[];
-extern int flopWrite[];
+extern int diskSize[];
+extern int diskChanged[];
 
-int floppy_status(int Disk);
-int floppy_readSector(int Disk, int Track, int Sector, int Head, unsigned char *dst);
-int floppy_writeSector(int Disk, int Track, int Sector, int Head, unsigned char *src);
-int floppy_formaTrack(int Disk, int Track, int Head);
-int floppy_init();
+int FloppyInit();
+int FloppyStatus(int Disk);
+int FloppyReadSector(int Disk, int Track, int Sector, int Head, unsigned char *dst);
+int FloppyWriteSector(int Disk, int Track, int Sector, int Head, unsigned char *src);
+int FloppyFormatTrack(int Disk, int Track, int Head);
 
 #endif

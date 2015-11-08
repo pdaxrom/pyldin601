@@ -107,12 +107,12 @@ void Speaker_Finish(void)
     }
 }
 
-void Speaker_Set(int val, int ticks)
+void BeeperSetBit(int val, int ticks)
 {
-    Covox_Set(val?0xff:0, ticks);
+    CovoxSetByte(val?0xff:0, ticks);
 }
 
-void Covox_Set(int val, int ticks)
+void CovoxSetByte(int val, int ticks)
 {
     if (!fInited)
 	return;

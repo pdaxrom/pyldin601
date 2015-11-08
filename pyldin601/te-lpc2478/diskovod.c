@@ -96,12 +96,12 @@ void floppy_power_timeout(void)
     }
 }
 
-int floppy_init()
+int FloppyInit()
 {
     return 0;
 }
 
-int floppy_status(int Disk)
+int FloppyStatus(int Disk)
 {
     int ret = 0xc0;
     led_control(Disk, 1);
@@ -114,7 +114,7 @@ int floppy_status(int Disk)
     return ret;
 }
 
-int floppy_readSector(int Disk, int Track, int Sector, int Head, unsigned char *dst)
+int FloppyReadSector(int Disk, int Track, int Sector, int Head, unsigned char *dst)
 {
     int ret = 0x40;
     led_control(Disk, 1);
@@ -133,7 +133,7 @@ int floppy_readSector(int Disk, int Track, int Sector, int Head, unsigned char *
     return ret;
 }
 
-int floppy_writeSector(int Disk, int Track, int Sector, int Head, unsigned char *src)
+int FloppyWriteSector(int Disk, int Track, int Sector, int Head, unsigned char *src)
 {
     int ret = 0x40;
     led_control(Disk, 1);
@@ -152,7 +152,7 @@ int floppy_writeSector(int Disk, int Track, int Sector, int Head, unsigned char 
     return ret;
 }
 
-int floppy_formaTrack(int Disk, int Track, int Head)
+int FloppyFormatTrack(int Disk, int Track, int Head)
 {
     int ret = 0x40;
     led_control(Disk, 1);
