@@ -3,17 +3,17 @@
 
 #include "core/types.h"
 
-int	mc6800_init(void);
-void	mc6800_reset(void);
-int	mc6800_step(void);
-int	mc6800_fini(void);
+int	mc6800Init(void);
+void	mc6800Reset(void);
+int	mc6800Step(void);
+int	mc6800Finish(void);
 
-O_INLINE void	mc6800_setIrq(int l);
-O_INLINE dword	mc6800_get_takts(void);
-O_INLINE byte 	*mc6800_get_memory(void);
+O_INLINE void	mc6800SetInterrupt(int l);
+O_INLINE dword	mc6800GetCyclesCounter(void);
+O_INLINE byte 	*mc6800GetCpuRam(void);
 
-O_INLINE byte mc6800_memr(word a);
-O_INLINE void mc6800_memw(word a, byte d);
+O_INLINE byte mc6800MemReadByte(word a);
+O_INLINE void mc6800MemWriteByte(word a, byte d);
 
-extern byte *get_cpu_mem(dword size);
+byte *allocateCpuRam(dword size);
 #endif

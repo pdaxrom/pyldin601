@@ -156,7 +156,7 @@ byte *get_romchip_mem(byte chip, dword size)
 //
 // CPU memory
 //
-byte *get_cpu_mem(dword size)
+byte *allocateCpuRam(dword size)
 {
     size = size;
 
@@ -321,8 +321,8 @@ int main(void)
     uart0Puts(buf);
     }
 #endif
-    mc6800_init();
-    mc6800_reset();
+    mc6800Init();
+    mc6800Reset();
 
     printer_init(PRINTER_COVOX);
 
@@ -332,7 +332,7 @@ int main(void)
     int cnt = 0;
 
     while (1) {
-	takt = mc6800_step();
+	takt = mc6800Step();
 
 	vcounter += takt;
 	scounter += takt;
@@ -352,7 +352,7 @@ int main(void)
 	    cnt++;
 	}
 	if (fReset == 1) {
-	    mc6800_reset();
+	    mc6800Reset();
 	    fReset = 0;
 	}
     }

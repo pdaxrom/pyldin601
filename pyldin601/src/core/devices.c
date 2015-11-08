@@ -54,21 +54,21 @@ void devices_reset(void)
 
 void devices_setDATETIME(word year, word mon, word mday, word hour, word min, word sec)
 {
-    mc6800_memw(0x1c, mday);
-    mc6800_memw(0x1d, mon + 1);
+    mc6800MemWriteByte(0x1c, mday);
+    mc6800MemWriteByte(0x1d, mon + 1);
 
     year = (year % 100) + 1000 * (1 + year / 100);
 
-    mc6800_memw(0x1e, year >> 8);
-    mc6800_memw(0x1f, year % 256);
+    mc6800MemWriteByte(0x1e, year >> 8);
+    mc6800MemWriteByte(0x1f, year % 256);
 
-    mc6800_memw(0x18, 0);
-    mc6800_memw(0x19, sec);
-    mc6800_memw(0x1a, min);
-    mc6800_memw(0x1b, hour);
+    mc6800MemWriteByte(0x18, 0);
+    mc6800MemWriteByte(0x19, sec);
+    mc6800MemWriteByte(0x1a, min);
+    mc6800MemWriteByte(0x1b, hour);
 
-    mc6800_memw(0xed00, 0xa5);
-    mc6800_memw(0xed01, 0x5a);
+    mc6800MemWriteByte(0xed00, 0xa5);
+    mc6800MemWriteByte(0xed01, 0x5a);
 }
 
 O_INLINE int devices_memr(word a, byte *t)
@@ -165,7 +165,7 @@ O_INLINE int devices_memw(word a, byte d)
 	return 0;
 
     case 0xe629:
-	mc6800_memw(0xe62d, d); //только для программы kltr.ubp
+	mc6800MemWriteByte(0xe62d, d); //только для программы kltr.ubp
 	setCyrMode((d&1)?0:4);
 	mc6845_setupScreen(d);
 	return 0;

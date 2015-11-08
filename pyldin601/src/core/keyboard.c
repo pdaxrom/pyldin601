@@ -199,7 +199,7 @@ void vkeybDown(int x, int y)
     unsigned int tempKeyCode = getkeycode(x, y);
     if (tempKeyCode == 0xff) 
 	return;
-    mc6800_setIrq(1);
+    mc6800SetInterrupt(1);
     keyReady--;
     switch(flagKey | cyrMode) {
 	 case 1:
@@ -222,7 +222,7 @@ void jkeybDown(unsigned int tempKeyCode)
 {
     if (tempKeyCode == 0xff) 
 	return;
-    mc6800_setIrq(1);
+    mc6800SetInterrupt(1);
     keyReady--;
     switch(flagKey | cyrMode) {
 	 case 1:
