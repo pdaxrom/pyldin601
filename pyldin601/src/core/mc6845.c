@@ -64,7 +64,7 @@ void mc6845_drawScreen(void *video, int width, int height)
 {
     dword c, v, j, i, ofj, ofi;
     word *vmem = (word *) video;
-    byte *mem = mc6800_get_memory();
+    byte *mem = mc6800GetCpuRam();
     byte *src = mem;
     byte *crsr = mem;
 

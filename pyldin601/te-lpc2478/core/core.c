@@ -26,5 +26,5 @@ void core_50Hz_irq(void)
 {
     devices_set_tick50();
     mc6845_curBlink();
-    mc6800_setIrq(1);
+    mc6800SetInterrupt(1);
 }
