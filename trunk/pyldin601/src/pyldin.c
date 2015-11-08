@@ -12,7 +12,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <zlib.h>
-//#include <time.h>
 
 #include <SDL.h>
 #include <SDL_opengles2.h>
@@ -45,7 +44,7 @@
 #include <SDL_image.h>
 #include "logo.h"
 
-SDL_Surface *pyldin_logo;
+SDL_Surface *pyldinLogo;
 #endif
 
 #ifdef USE_JOYSTICK
@@ -61,11 +60,11 @@ char *datadir = DATADIR;
 
 #define MAX_LOADSTRING 100
 
-static int fReset = 0;
-static int fExit = 0;
+static int resetRequest;
+static int exitRequest;
 
 #define PRNFILE	"pyldin.prn"
-static FILE *prn = NULL;
+static FILE *printerFile = NULL;
 
 //
 static SDL_Window *window;
@@ -74,32 +73,24 @@ static SDL_Surface *framebuffer;
 static float scaleX = 1;
 static float scaleY = 1;
 
-static int vkbdEnabled = 0;
-static int redrawVMenu = 0;
-static int clearVScr = 0;
+static int enableVirtualKeyboard;
+int	enableDiskManager;
+static int drawMenu;
+static int drawScreen;
+static int drawInfo;
 
-//
-static int updateScreen = 0;
-static int show_info = 0;
-static volatile uint64_t actual_speed = 0;
-//
-int	filemenuEnabled = 0;
-// timer
-int	fRef = 0;
-
-//
-static volatile uint64_t one_takt_delay = 0;
-static volatile uint64_t one_takt_calib = 0;
-static volatile uint64_t one_takt_one_percent = 0;
+static volatile uint64_t currentCpuFrequency = 0;
+static volatile uint64_t oneUSecDelay = 0;
+static volatile uint64_t oneUSecDelayConst = 0;
 
 void resetRequested(void)
 {
-    fReset = 1;
+    resetRequest = 1;
 }
 
 void exitRequested(void)
 {
-    fExit = 1;
+    exitRequest = 1;
 }
 
 static void ChecKeyboard(void)
@@ -119,13 +110,13 @@ static void ChecKeyboard(void)
 		    case JOYBUT_HOME: 	exitRequested(); break; //OFF
 		    case JOYBUT_START: 	resetRequested(); break;//RESET
 		    case JOYBUT_UP:
-			if (filemenuEnabled) {
+			if (enableDiskManager) {
 			    FloppyManagerUpdateList(-1);
 			} else
 			    jkeybDown(0x48); 
 			break;
 		    case JOYBUT_DOWN:
-			if (filemenuEnabled) {
+			if (enableDiskManager) {
 			    FloppyManagerUpdateList(1);
 			} else
 			    jkeybDown(0x50); 
@@ -134,14 +125,14 @@ static void ChecKeyboard(void)
 		    case JOYBUT_RIGHT:	jkeybDown(0x4d); break;
 		    case JOYBUT_TRIANGLE: jkeybDown(0x01); break; //ESC
 		    case JOYBUT_CROSS:
-			if (filemenuEnabled) {
+			if (enableDiskManager) {
 			    selectFloppyByNum();
 			    FloppyManagerOff();
-			    redrawVMenu = 1;
+			    drawMenu = 1;
 			    clearVScr = 1;
-			    filemenuEnabled = 0;
+			    enableDiskManager = 0;
 #ifdef USE_JOYMOUSE
-			} else if (vkbdEnabled) {
+			} else if (enableVirtualKeyboard) {
 			    x = joymouse_x;
 			    y = joymouse_y;
 			    vmenu_process = 1;
@@ -153,26 +144,26 @@ static void ChecKeyboard(void)
 		    case JOYBUT_CIRCLE:	jkeybDown(0x1c); break;   //RETURN
 #ifdef USE_JOYMOUSE
 		    case JOYBUT_RTRIGGER:
-			if (filemenuEnabled) {
+			if (enableDiskManager) {
 			    break;
 			}
-			vkbdEnabled = vkbdEnabled?0:1;
-			redrawVMenu = 1;
+			enableVirtualKeyboard = enableVirtualKeyboard?0:1;
+			drawMenu = 1;
 			clearVScr = 1;
 			break;
 #endif
 		    case JOYBUT_LTRIGGER:
-			if (vkbdEnabled) {
+			if (enableVirtualKeyboard) {
 			    break;
 			}
-			if (!filemenuEnabled) {
-			    filemenuEnabled = 1;
+			if (!enableDiskManager) {
+			    enableDiskManager = 1;
 			    FloppyManagerOn(FLOPPY_A, datadir);
 			} else {
 			    FloppyManagerOff();
-			    redrawVMenu = 1;
+			    drawMenu = 1;
 			    clearVScr = 1;
-			    filemenuEnabled = 0;
+			    enableDiskManager = 0;
 			}
 			break;
 //		    case JOYBUT_SELECT:	savepng(vscr, 320 * vScale, 27 * 8 * vScale); break;
@@ -354,33 +345,31 @@ static void ChecKeyboard(void)
 		break;
 	    }
 	    case SDL_MOUSEBUTTONUP:
-		if (vkbdEnabled) {
+		if (enableVirtualKeyboard) {
 		    vkeybUp();
 		}
-	    default:
 		break;
 	}
 	
 	if (vmenu_process) {
-	    if (filemenuEnabled) {
+	    if (enableDiskManager) {
 		selectFloppy(y);
 		FloppyManagerOff();
-		redrawVMenu = 1;
-		clearVScr = 1;
-		filemenuEnabled = 0;
+		drawMenu = 1;
+		enableDiskManager = 0;
 	    } else {
-		if (vkbdEnabled) {
+		if (enableVirtualKeyboard) {
 		    vkeybDown(x, y);
 		}
 		if (y > 216) {
 		    if (x > 5 && x < 21) {
 			//power off
 			exitRequested();
-		    } else if (x > 33 && x < 50 && vkbdEnabled == 0) {
-			filemenuEnabled = 1;
+		    } else if (x > 33 && x < 50 && enableVirtualKeyboard == 0) {
+			enableDiskManager = 1;
 			FloppyManagerOn(FLOPPY_A, datadir);
-		    } else if (x > 63 && x < 80 && vkbdEnabled == 0) {
-			filemenuEnabled = 1;
+		    } else if (x > 63 && x < 80 && enableVirtualKeyboard == 0) {
+			enableDiskManager = 1;
 			FloppyManagerOn(FLOPPY_B, datadir);
 		    } else if (x > 93 && x < 110) {
 			Uint32 flags = SDL_GetWindowFlags(window);
@@ -395,10 +384,9 @@ static void ChecKeyboard(void)
 		    } else if (x > 123 && x < 140) {
 //			savepng(vscr, 320 * vScale, 27 * 8 * vScale);
 		    } else if (x > 274 && x < 300) {
-			vkbdEnabled = vkbdEnabled?0:1;
+			enableVirtualKeyboard = enableVirtualKeyboard?0:1;
 			//if (vkbdEnabled == 0) 
-			redrawVMenu = 1;
-			clearVScr = 1;
+			drawMenu = 1;
 		    }
 		}
 	    }
@@ -420,7 +408,7 @@ int SDLCALL HandleKeyboard(void *unused)
     }
 #endif
 
-    while (!fExit) {
+    while (!exitRequest) {
 	ChecKeyboard();
     }
 
@@ -470,13 +458,13 @@ void SetIcon(SDL_Window *window)
 
 void LoadLogo(void)
 {
-    pyldin_logo = NULL;
+    pyldinLogo = NULL;
     SDL_RWops *src = SDL_RWFromMem(pyldin_foto, pyldin_foto_len);
     SDL_Surface *tmp = IMG_LoadJPG_RW(src);
     if (!tmp) {
 	SDL_Log("Loading logo... Failed!\n");
     } else {
-	pyldin_logo = SDL_ConvertSurfaceFormat(tmp, SDL_PIXELFORMAT_ABGR8888, 0);
+	pyldinLogo = SDL_ConvertSurfaceFormat(tmp, SDL_PIXELFORMAT_ABGR8888, 0);
 	SDL_FreeSurface(tmp);
 	SDL_Log("Loading logo... Ok!\n");
     }
@@ -629,8 +617,8 @@ int SDLCALL HandleVideo(void *unused)
 #ifdef PYLDIN_LOGO
     LoadLogo();
 
-    if (pyldin_logo) {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldin_logo->w, pyldin_logo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldin_logo->pixels);
+    if (pyldinLogo) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldinLogo->w, pyldinLogo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldinLogo->pixels);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	SDL_GL_SwapWindow(window);
 
@@ -638,39 +626,39 @@ int SDLCALL HandleVideo(void *unused)
     }
 #endif
 
-    while (!fExit) {
-	if ( ! filemenuEnabled ) {
+    while (!exitRequest) {
+	if ( ! enableDiskManager ) {
 	    mc6845_drawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
 	}
 
-	if (show_info) {
+	if (drawInfo) {
 	    char buf[64];
 
-	    sprintf(buf, "%1.2fMHz", (float)actual_speed / 1000);
+	    sprintf(buf, "%1.2fMHz", (float)currentCpuFrequency / 1000);
 //SDL_Log("CPU: %lld", actual_speed);
 	    drawString(buf, 160, 28, 0xffff, 0);
 	}
 
-	if (vkbdEnabled) {
+	if (enableVirtualKeyboard) {
 	    drawXbm(virtkbd_pict_bits, 0, 0, virtkbd_pict_width, virtkbd_pict_height, 1);
 	}
 
-	if (redrawVMenu) {
+	if (drawMenu) {
 	    drawXbm(vmenu_bits, 0, 216, vmenu_width, vmenu_height, 0);
-	    redrawVMenu = 0;
+	    drawMenu = 0;
 	}
 
 #ifdef USE_JOYSTICK
 #ifdef USE_JOYMOUSE
-	if (joymouse_enabled && (vkbdEnabled || (joymouse_y >= 216))) {
+	if (joymouse_enabled && (enableVirtualKeyboard || (joymouse_y >= 216))) {
 	    drawChar('+', joymouse_x, joymouse_y, 0xff00, 0);
 	    if (joymouse_y >= 216) {
-		redrawVMenu = 1;
+		drawMenu = 1;
 	    }
 	}
 #endif
 #endif
-	while(!(updateScreen || fExit)) {
+	while(!(drawScreen || exitRequest)) {
 	    usleep(1000);
 	}
 
@@ -680,16 +668,16 @@ int SDLCALL HandleVideo(void *unused)
 	SDL_BlitSurface(framebuffer, NULL, surface, NULL);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
 
-	updateScreen = 0;
+	drawScreen = 0;
     }
 
 #ifdef PYLDIN_LOGO
-    if (pyldin_logo) {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldin_logo->w, pyldin_logo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldin_logo->pixels);
+    if (pyldinLogo) {
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldinLogo->w, pyldinLogo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldinLogo->pixels);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	SDL_GL_SwapWindow(window);
 	sleep(1);
-	SDL_FreeSurface(pyldin_logo);
+	SDL_FreeSurface(pyldinLogo);
     }
 #endif
 
@@ -849,14 +837,14 @@ byte *get_romchip_mem(byte chip, dword size)
     return pyldin_romchip_mem[chip];
 }
 
-byte *get_cpu_mem(dword size)
+byte *allocateCpuRam(dword size)
 {
     return (byte *) malloc(sizeof(byte) * size);
 }
 
 void printer_put_char(byte data)
 {
-    if (!prn) {
+    if (!printerFile) {
 	char file[256];
 	char *home = getenv("HOME");
 	if (home) {
@@ -866,23 +854,24 @@ void printer_put_char(byte data)
 	}
 
 	SDL_Log("Printer file: %s\n", file);
-	prn = fopen(file, "wb");
+	printerFile = fopen(file, "wb");
     }
-    if (prn) {
-	fputc(data, prn);
+    if (printerFile) {
+	fputc(data, printerFile);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int set_time = 0;
-    int printer_type = PRINTER_NONE;
+    int setTimeFromHost = 0;
+    int printerPortDevice = PRINTER_NONE;
     char *bootFloppy = NULL;
 
-    SDL_Thread *video_thread;
-    SDL_Thread *keybd_thread;
+    drawInfo = 0;
+    SDL_Thread *videoThread;
+    SDL_Thread *inputThread;
 
-    SDL_Log("Portable Pyldin-601 emulator version " VERSION " (http://code.google.com/p/pyldin)\n");
+    SDL_Log("Portable Pyldin-601 emulator version " VERSION " (http://pyldin.info)\n");
     SDL_Log("Copyright (c) 1997-2015 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
 
     extern char *optarg;
@@ -901,21 +890,21 @@ int main(int argc, char *argv[])
 //	    SDL_Log("scale %d\n", vScale);
 	    break;
 	case 't':
-	    set_time = 1;
+	    setTimeFromHost = 1;
 	    break;
 	case 'i':
-	    show_info = 1;
+	    drawInfo = 1;
 	    break;
         case 'd':
 	    datadir = optarg;
             break;
 	case 'p':
 	    if (!strcmp(optarg, "file")) {
-		printer_type = PRINTER_FILE;
+		printerPortDevice = PRINTER_FILE;
 	    } else if (!strcmp(optarg, "covox")) {
-		printer_type = PRINTER_COVOX;
+		printerPortDevice = PRINTER_COVOX;
 	    } else if (!strcmp(optarg, "system")) {
-		printer_type = PRINTER_SYSTEM;
+		printerPortDevice = PRINTER_SYSTEM;
 	    }
 	    break;
 	case 'g':
@@ -939,23 +928,23 @@ int main(int argc, char *argv[])
     }
 
 
-    mc6800_init();
+    mc6800Init();
 
     {
 	volatile uint64_t a = rdtsc();
 	sleep(1);
-	one_takt_delay = rdtsc();
+	oneUSecDelay = rdtsc();
 #ifdef __PPC__
 #warning "PPC PS3 calculation, fixme"
-	one_takt_delay -= a;
-	SDL_Log("Detecting host cpu frequency... %lld MHz\n", one_takt_delay * 4 / 100000);
-	one_takt_delay /= 1000000;
-	one_takt_calib = one_takt_delay;
+	oneUSecDelay -= a;
+	SDL_Log("Detecting host cpu frequency... %lld MHz\n", oneUSecDelay * 4 / 100000);
+	oneUSecDelay /= 1000000;
+	oneUSecDelayConst = oneUSecDelay;
 #else
-	one_takt_delay -= a;
-	one_takt_delay /= 1000000;
-	one_takt_calib = one_takt_delay;
-	SDL_Log("Detecting host cpu frequency... %lld MHz\n", one_takt_calib);
+	oneUSecDelay -= a;
+	oneUSecDelay /= 1000000;
+	oneUSecDelayConst = oneUSecDelay;
+	SDL_Log("Detecting host cpu frequency... %lld MHz\n", oneUSecDelayConst);
 #endif
     }
 
@@ -965,32 +954,26 @@ int main(int argc, char *argv[])
 	insertFloppy(FLOPPY_A, bootFloppy);
     }
 
-    printer_init(printer_type);
+    printer_init(printerPortDevice);
 
     // sound initialization
     Speaker_Init();
 
-    updateScreen = 0;
-    video_thread = SDL_CreateThread(HandleVideo, "Pyldin video", NULL);
-    keybd_thread = SDL_CreateThread(HandleKeyboard, "Pyldin keyboard", NULL);
+    drawScreen = 0;
+    drawMenu = 1;
+    enableVirtualKeyboard = 0;
+    enableDiskManager = 0;
+    resetRequest = 0;
+    exitRequest = 0;
 
-    mc6800_reset();
+    videoThread = SDL_CreateThread(HandleVideo, "Pyldin video", NULL);
+    inputThread = SDL_CreateThread(HandleKeyboard, "Pyldin keyboard", NULL);
 
-    vkbdEnabled = 0;
-    redrawVMenu = 1;
-    fReset = 0;
-    fExit = 0;
-    filemenuEnabled = 0;
+    mc6800Reset();
 
-    int vcounter = 0;		//
-    int scounter = 0;		// syncro counter
-    int takt;
+    int vSyncCounter = 0;		//
 
-    volatile uint64_t clock_old = rdtsc();
-
-//    vscr = (unsigned short *) framebuffer->pixels;
-
-    if (set_time) {
+    if (setTimeFromHost) {
 	struct tm *dt;
 	time_t t = time(NULL);
 	dt = localtime(&t);
@@ -1003,27 +986,26 @@ int main(int argc, char *argv[])
 			    );
     }
 
-    volatile uint64_t ts1 = rdtsc();
+    volatile uint64_t emulatorCycleStarted = rdtsc();
+    volatile uint64_t oldClockCounter = emulatorCycleStarted;
     do {
-	takt = mc6800_step();
+	int cpuCycles = mc6800Step();
 
-	vcounter += takt;
-	scounter += takt;
+	vSyncCounter += cpuCycles;
 
-	if (vcounter >= 20000) {
+	if (vSyncCounter >= 20000) {
 	    devices_set_tick50();
 	    mc6845_curBlink();
-	    mc6800_setIrq(1);
-	    updateScreen = 1;
+	    mc6800SetInterrupt(1);
+	    drawScreen = 1;
 
-	    volatile uint64_t clock_new;
-	    clock_new = rdtsc();
-	    actual_speed = (vcounter * 1000) / ((clock_new - clock_old) / one_takt_calib);
+	    volatile uint64_t newClockCounter = rdtsc();
+	    currentCpuFrequency = (vSyncCounter * 1000) / ((newClockCounter - oldClockCounter) / oneUSecDelayConst);
 	
-	    clock_old = clock_new;
-	    vcounter = 0;
+	    oldClockCounter = newClockCounter;
+	    vSyncCounter = 0;
 
-	    int diff = abs(1000 - actual_speed);
+	    int diff = abs(1000 - currentCpuFrequency);
 //SDL_Log("--- %d", diff);
 	    if (diff < 10) {
 		diff = 1;
@@ -1031,36 +1013,36 @@ int main(int argc, char *argv[])
 		diff /= 10;
 	    }
 
-	if (actual_speed && actual_speed < 1000) {
+	if (currentCpuFrequency && currentCpuFrequency < 1000) {
 //SDL_Log("+++ %lld, %lld, %d", one_takt_delay, actual_speed, diff);
-	    one_takt_delay -= diff;
-	} else if (actual_speed && actual_speed > 1000) {
+	    oneUSecDelay -= diff;
+	} else if (currentCpuFrequency && currentCpuFrequency > 1000) {
 //SDL_Log("--- %lld, %lld, %d", one_takt_delay, actual_speed, diff);
-	    one_takt_delay += diff;
+	    oneUSecDelay += diff;
 	}
 
 	}
 
-	if (fReset == 1) {
-	    mc6800_reset();
-	    fReset = 0;
+	if (resetRequest == 1) {
+	    mc6800Reset();
+	    resetRequest = 0;
 	}
 
 
-	volatile uint64_t ts2;
+	volatile uint64_t emulatorCycleFinished;
 	do {
-	    ts2 = rdtsc();
-	} while ((ts2 - ts1) < (one_takt_delay * takt));
-	ts1 = ts2;
+	    emulatorCycleFinished = rdtsc();
+	} while ((emulatorCycleFinished - emulatorCycleStarted) < (oneUSecDelay * cpuCycles));
+	emulatorCycleStarted = emulatorCycleFinished;
 
-    } while( fExit == 0);	//
+    } while( exitRequest == 0);	//
 
-    SDL_WaitThread(video_thread, NULL);
-    SDL_WaitThread(keybd_thread, NULL);
+    SDL_WaitThread(videoThread, NULL);
+    SDL_WaitThread(inputThread, NULL);
 
     freeFloppy();
 
-    mc6800_fini();
+    mc6800Finish();
     Speaker_Finish();
     printer_fini();
 

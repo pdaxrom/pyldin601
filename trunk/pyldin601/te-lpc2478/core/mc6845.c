@@ -64,7 +64,7 @@ void mc6845_drawScreen_lpc24(void *video, int width, int height)
 {
     dword c, v, j, i, ofj, ofi;
     word *vmem = (word *) video;
-    byte *mem = mc6800_get_memory();
+    byte *mem = mc6800GetCpuRam();
     byte *src = mem;
     byte *crsr = mem;
 
@@ -188,7 +188,7 @@ void mc6845_drawScreen_lpc24_1bpp(void *video, int width, int height)
 {
     dword c, v, j, i, ofj, ofi;
     byte *vmem = (byte *) video;
-    byte *mem = mc6800_get_memory();
+    byte *mem = mc6800GetCpuRam();
     byte *src = mem;
     byte *crsr = mem;
 
