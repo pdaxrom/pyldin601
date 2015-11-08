@@ -105,31 +105,44 @@ static void ChecKeyboard(void)
 		exitRequested();
 		break;
 #ifdef USE_JOYSTICK
+	    case SDL_CONTROLLERDEVICEADDED:
+	    	SDL_Log("Game controller added");
+	    	break;
+	    case SDL_CONTROLLERDEVICEREMOVED:
+	    	SDL_Log("Game controller removed");
+	    	break;
+	    case SDL_JOYHATMOTION:
+	    	if (event.jhat.value & SDL_HAT_UP) {
+				if (enableDiskManager) {
+				    FloppyManagerUpdateList(-1);
+				} else {
+				    jkeybDown(0x48);
+				}
+	    	} else if (event.jhat.value & SDL_HAT_DOWN) {
+				if (enableDiskManager) {
+				    FloppyManagerUpdateList(1);
+				} else {
+				    jkeybDown(0x50);
+				}
+	    	} else if (event.jhat.value & SDL_HAT_LEFT) {
+	    		jkeybDown(0x4b);
+	    	} else if (event.jhat.value & SDL_HAT_RIGHT) {
+	    		jkeybDown(0x4d);
+	    	} else {
+	    		jkeybUp();
+	    	}
+	    	break;
 	    case SDL_JOYBUTTONDOWN:
+	    	//SDL_Log("joy: %d", event.jbutton.button);
 		switch(event.jbutton.button) {
-		    case JOYBUT_HOME: 	exitRequested(); break; //OFF
+		    case JOYBUT_BACK: 	exitRequested(); break; //OFF
 		    case JOYBUT_START: 	resetRequested(); break;//RESET
-		    case JOYBUT_UP:
-			if (enableDiskManager) {
-			    FloppyManagerUpdateList(-1);
-			} else
-			    jkeybDown(0x48); 
-			break;
-		    case JOYBUT_DOWN:
-			if (enableDiskManager) {
-			    FloppyManagerUpdateList(1);
-			} else
-			    jkeybDown(0x50); 
-			break;
-		    case JOYBUT_LEFT:	jkeybDown(0x4b); break;
-		    case JOYBUT_RIGHT:	jkeybDown(0x4d); break;
-		    case JOYBUT_TRIANGLE: jkeybDown(0x01); break; //ESC
-		    case JOYBUT_CROSS:
+		    case JOYBUT_Y: jkeybDown(0x01); break; //ESC
+		    case JOYBUT_A:
 			if (enableDiskManager) {
 			    selectFloppyByNum();
 			    FloppyManagerOff();
 			    drawMenu = 1;
-			    clearVScr = 1;
 			    enableDiskManager = 0;
 #ifdef USE_JOYMOUSE
 			} else if (enableVirtualKeyboard) {
@@ -140,8 +153,8 @@ static void ChecKeyboard(void)
 			} else
 			    jkeybDown(0x39);   //SPACE 
 			break;
-		    case JOYBUT_SQUARE:	jkeybDown(0x0f); break;   //TAB
-		    case JOYBUT_CIRCLE:	jkeybDown(0x1c); break;   //RETURN
+		    case JOYBUT_X:	jkeybDown(0x0f); break;   //TAB
+		    case JOYBUT_B:	jkeybDown(0x1c); break;   //RETURN
 #ifdef USE_JOYMOUSE
 		    case JOYBUT_RTRIGGER:
 			if (enableDiskManager) {
@@ -162,7 +175,6 @@ static void ChecKeyboard(void)
 			} else {
 			    FloppyManagerOff();
 			    drawMenu = 1;
-			    clearVScr = 1;
 			    enableDiskManager = 0;
 			}
 			break;
@@ -172,7 +184,6 @@ static void ChecKeyboard(void)
 		break;
 	    case SDL_JOYBUTTONUP:
 		switch(event.jbutton.button) {
-		    case JOYBUT_SELECT:
 		    case JOYBUT_LTRIGGER:
 #ifdef USE_JOYMOUSE
 		    case JOYBUT_RTRIGGER:
@@ -404,7 +415,7 @@ int SDLCALL HandleKeyboard(void *unused)
     if (joystick == NULL) {
 	SDL_Log("No joystick detected\n");
     } else {
-	SDL_Log("Use joystick %s\n", SDL_JoystickName(SDL_JoystickIndex(joystick)));
+	SDL_Log("Use joystick %s\n", SDL_JoystickName(0));
     }
 #endif
 
