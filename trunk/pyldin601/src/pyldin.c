@@ -81,6 +81,9 @@ static volatile uint64_t currentCpuFrequency = 0;
 static volatile uint64_t oneUSecDelay = 0;
 static volatile uint64_t oneUSecDelayConst = 0;
 
+// Optimized for core
+void core_50Hz_irq(void);
+
 void resetRequested(void)
 {
     resetRequest = 1;
@@ -966,7 +969,7 @@ int main(int argc, char *argv[])
     SuperIoPrinterPortMode(printerPortDevice);
 
     // sound initialization
-    Speaker_Init();
+    BeeperInit();
 
     drawScreen = 0;
     drawMenu = 1;
@@ -977,6 +980,10 @@ int main(int argc, char *argv[])
 
     videoThread = SDL_CreateThread(HandleVideo, "Pyldin video", NULL);
     inputThread = SDL_CreateThread(HandleKeyboard, "Pyldin keyboard", NULL);
+
+#ifdef PYLDIN_LOGO
+    sleep(1);
+#endif
 
     MC6800Reset();
 
@@ -1003,9 +1010,8 @@ int main(int argc, char *argv[])
 	vSyncCounter += cpuCycles;
 
 	if (vSyncCounter >= 20000) {
-	    SuperIoSetTick50();
-	    MC6845CursorBlink();
-	    MC6800SetInterrupt(1);
+	    core_50Hz_irq();
+
 	    drawScreen = 1;
 
 	    volatile uint64_t newClockCounter = rdtsc();
@@ -1037,13 +1043,11 @@ int main(int argc, char *argv[])
 	    resetRequest = 0;
 	}
 
-
 	volatile uint64_t emulatorCycleFinished;
 	do {
 	    emulatorCycleFinished = rdtsc();
 	} while ((emulatorCycleFinished - emulatorCycleStarted) < (oneUSecDelay * cpuCycles));
 	emulatorCycleStarted = emulatorCycleFinished;
-
     } while( exitRequest == 0);	//
 
     SDL_WaitThread(videoThread, NULL);
@@ -1052,7 +1056,7 @@ int main(int argc, char *argv[])
     freeFloppy();
 
     MC6800Finish();
-    Speaker_Finish();
+    BeeperFinish();
 
     SDL_Quit();
 
