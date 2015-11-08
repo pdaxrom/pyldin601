@@ -19,16 +19,16 @@ int loadDiskImage(char *name, int disk)
     if (!diskImage[disk]) 
 	diskImage[disk] = (char *) malloc(737280 * 2);
 
-    dSizes[disk] = gzread(inf, diskImage[disk], 737280 * 2);
+    diskSize[disk] = gzread(inf, diskImage[disk], 737280 * 2);
 
     gzclose(inf);
 	
-    if (dSizes[disk] <= 0) {
+    if (diskSize[disk] <= 0) {
 	free(diskImage[disk]);
 	return -1;
     }
 	    
-    flopWrite[disk] = 0;
+    diskChanged[disk] = 0;
 
     return 0;
 }
@@ -40,7 +40,7 @@ int unloadDiskImage(char *name, int disk)
     if (!diskImage[disk]) 
 	return -1;
 
-    if (flopWrite[disk] == 0) {
+    if (diskChanged[disk] == 0) {
 	free(diskImage[disk]);
 	diskImage[disk] = NULL;
 	return 0;
@@ -50,16 +50,16 @@ int unloadDiskImage(char *name, int disk)
     if (!outf) {
 	free(diskImage[disk]);
 	diskImage[disk] = NULL;
-	flopWrite[disk] = 0;
+	diskChanged[disk] = 0;
 	return -1;
     }
     
-    if (gzwrite(outf, diskImage[disk], dSizes[disk]) != dSizes[disk])
+    if (gzwrite(outf, diskImage[disk], diskSize[disk]) != diskSize[disk])
 	ret = -1;
 
     free(diskImage[disk]);
     diskImage[disk] = NULL;
-    flopWrite[disk] = 0;
+    diskChanged[disk] = 0;
     gzclose(outf);
     
     return ret;

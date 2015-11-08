@@ -44,7 +44,7 @@ void screen_drawChar(void *video, int width, int height, unsigned int c, int xp,
 
     static unsigned char *font = NULL;
     if (!font) {
-	font = get_videorom_mem(2048);
+	font = loadCharGenRom(2048);
     }
 
     c = ((c<<1) | (c>>7)) & 0xff;

@@ -11,20 +11,26 @@
 #define KBD_LED_NUM        0x02
 #define KBD_LED_CAPS       0x04
 
-int devices_init(void);
-int devices_fini(void);
-void devices_reset(void);
-void devices_setDATETIME(word year, word mon, word mday, word hour, word min, word sec);
+#define PRINTER_NONE    0
+#define PRINTER_FILE    1
+#define PRINTER_SYSTEM  2
+#define PRINTER_COVOX   3
 
-O_INLINE void devices_set_tick50(void);
+int SuperIoInit(void);
+int SuperIoFinish(void);
+void SuperIoReset(void);
+void SuperIoPrinterPortMode(int mode);
+void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, word sec);
+O_INLINE void SuperIoSetTick50(void);
+O_INLINE int SuperIoReadByte(word a, byte *t);
+O_INLINE int SuperIoWriteByte(word a, byte d);
 
-O_INLINE int devices_memr(word a, byte *t);
-O_INLINE int devices_memw(word a, byte d);
+byte *loadBiosRom(dword size);
+byte *loadRamDisk(dword size);
+byte *loadRomDisk(byte chip, dword size);
 
-byte *get_bios_mem(dword size);
-byte *get_ramdisk_mem(dword size);
-byte *get_romchip_mem(byte chip, dword size);
-
-void Speaker_Set(byte val);
+void BeeperSetBit(byte val);
+void CovoxSetByte(byte val);
+void PrinterPutChar(byte data);
 
 #endif

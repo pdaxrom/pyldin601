@@ -17,11 +17,11 @@ char *diskImage[] = {
     NULL, NULL, NULL, NULL
 };
 
-int dSizes[] = {
+int diskSize[] = {
     0, 0, 0, 0
 };
 
-int flopWrite[] = {
+int diskChanged[] = {
     0, 0, 0, 0
 };
 
@@ -30,88 +30,101 @@ static int floppyOp(int Op, int Drive, int Track, int Head, int Sector, unsigned
     return 0xc0;
 }
 
-int floppy_status(int Disk)
+int FloppyStatus(int Disk)
 {
-    if (diskImage[Disk])
+    if (diskImage[Disk]) {
 	return 0;
+    }
 
     return 0xc0;
 }
 
-int floppy_readSector(int Disk, int Track, int Sector, int Head, unsigned char *dst)
+int FloppyReadSector(int Disk, int Track, int Sector, int Head, unsigned char *dst)
 {
-    if (Track > 79 || Sector > 18) 
+    if (Track > 79 || Sector > 18) {
 	return 0x40;
+    }
 
-    if (!diskImage[Disk])
+    if (!diskImage[Disk]) {
 	return floppyOp(1, Disk, Track, Head, Sector, dst);
+    }
 
     int offs;
 
-    if (dSizes[Disk] > 737280) 
+    if (diskSize[Disk] > 737280) {
         offs = (Sector-1)*SSIZE+Head*18*SSIZE+Track*18*NHEAD*SSIZE;
-    else 
+    } else {
 	offs = (Sector-1)*SSIZE+Head*NSECT*SSIZE+Track*NSECT*NHEAD*SSIZE;
+    }
 
     memcpy(dst, diskImage[Disk] + offs, SSIZE);
 
     return 0;
 }
 
-int floppy_writeSector(int Disk, int Track, int Sector, int Head, unsigned char *src)
+int FloppyWriteSector(int Disk, int Track, int Sector, int Head, unsigned char *src)
 {
-    if (Track > 79 || Sector > 18) 
+    if (Track > 79 || Sector > 18) {
 	return 0x40;
+    }
 
-    if (!diskImage[Disk])
+    if (!diskImage[Disk]) {
 	return floppyOp(2, Disk, Track, Head, Sector, src);
+    }
 
-    flopWrite[Disk] = 1;
+    diskChanged[Disk] = 1;
 
     int offs;
 
-    if (dSizes[Disk] > 737280) 
+    if (diskSize[Disk] > 737280) {
 	offs = (Sector-1)*SSIZE+Head*18*SSIZE+Track*18*NHEAD*SSIZE;
-    else 
+    } else {
 	offs = (Sector-1)*SSIZE+Head*NSECT*SSIZE+Track*NSECT*NHEAD*SSIZE;
+    }
 
     memcpy(diskImage[Disk] + offs, src, SSIZE);
     
     return 0;
 }
 
-int floppy_formaTrack(int Disk, int Track, int Head)
+int FloppyFormatTrack(int Disk, int Track, int Head)
 {
-    if (Track > 79) 
+    if (Track > 79) {
 	return 0x40;
+    }
 
-    if (!diskImage[Disk])
+    if (!diskImage[Disk]) {
 	return floppyOp(4, Disk, Track, Head, 0, NULL);
+    }
 
-    flopWrite[Disk] = 1;
+    diskChanged[Disk] = 1;
 
     int offs;
 
-    if (dSizes[Disk] > 737280) 
+    if (diskSize[Disk] > 737280) {
 	offs = Head*18*SSIZE+Track*18*NHEAD*SSIZE;
-    else 
+    } else {
 	offs = Head*NSECT*SSIZE+Track*NSECT*NHEAD*SSIZE;
+    }
 
-    if (dSizes[Disk] > 737280) 
+    if (diskSize[Disk] > 737280) {
 	memset(diskImage[Disk] + offs, 0xf6, 18*SSIZE);
-    else 
+    } else {
 	memset(diskImage[Disk] + offs, 0xe5, NSECT*SSIZE);
+    }
 
     return 0;
 }
 
-int floppy_init()
+int FloppyInit()
 {
-    if (!diskImage[FLOPPY_A])
+    if (!diskImage[FLOPPY_A]) {
 	floppyOp(0, FLOPPY_A, 0, 0, 0, NULL);
+    }
 
-    if (!diskImage[FLOPPY_B])
+    if (!diskImage[FLOPPY_B]) {
 	floppyOp(0, FLOPPY_B, 0, 0, 0, NULL);
+    }
 
     return 0;
 }

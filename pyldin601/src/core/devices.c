@@ -5,7 +5,6 @@
 #include "core/mc6845.h"
 #include "core/i8272.h"
 #include "core/keyboard.h"
-#include "printer.h"
 
 static	byte	*BMEM;
 static	byte	*vdiskMEM;
@@ -16,62 +15,78 @@ static	byte	*CurrP;			// указатель на содержимое текущ
 static dword vdiskAddress;
 static dword vdiskSIZE = 524288;
 
+static struct {
+	byte dr[2];
+	byte cr[2];
+	int mode;
+} PrinterPort;
+
 static byte led_status = 0;
 
 static int tick50;	// устанавливается в 1 при TIMER INT 50Hz
 
 static byte fSpeaker;		// бит состояния динамика
 
-int devices_init(void)
+int SuperIoInit(void)
 {
     int i;
 
-    BMEM 	= (byte *) get_bios_mem(4096);
-    vdiskMEM 	= (byte *) get_ramdisk_mem(vdiskSIZE);
+    BMEM 	= (byte *) loadBiosRom(4096);
+    vdiskMEM 	= (byte *) loadRamDisk(vdiskSIZE);
 
     for (i = 0; i < MAX_ROMCHIPS; i++) {
-	ROMP[i] = (byte *) get_romchip_mem(i, 65536);
+	ROMP[i] = (byte *) loadRomDisk(i, 65536);
     }
 
     CurrP = NULL;
 
-    mc6845_init();
+    PrinterPort.mode = PRINTER_NONE;
 
-    i8272_init();
+    MC6845Init();
+
+    i8272Init();
 
     return 0;
 }
 
-int devices_fini(void)
+int SuperIoFinish(void)
 {
     return 0;
 }
 
-void devices_reset(void)
+void SuperIoReset(void)
 {
     tick50 = 0;
 }
 
-void devices_setDATETIME(word year, word mon, word mday, word hour, word min, word sec)
+void SuperIoPrinterPortMode(int mode)
 {
-    mc6800MemWriteByte(0x1c, mday);
-    mc6800MemWriteByte(0x1d, mon + 1);
+    if (mode == PRINTER_SYSTEM) {
+	mode = PRINTER_NONE;
+    }
+    PrinterPort.mode = mode;
+}
+
+void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, word sec)
+{
+    MC6800MemWriteByte(0x1c, mday);
+    MC6800MemWriteByte(0x1d, mon + 1);
 
     year = (year % 100) + 1000 * (1 + year / 100);
 
-    mc6800MemWriteByte(0x1e, year >> 8);
-    mc6800MemWriteByte(0x1f, year % 256);
+    MC6800MemWriteByte(0x1e, year >> 8);
+    MC6800MemWriteByte(0x1f, year % 256);
 
-    mc6800MemWriteByte(0x18, 0);
-    mc6800MemWriteByte(0x19, sec);
-    mc6800MemWriteByte(0x1a, min);
-    mc6800MemWriteByte(0x1b, hour);
+    MC6800MemWriteByte(0x18, 0);
+    MC6800MemWriteByte(0x19, sec);
+    MC6800MemWriteByte(0x1a, min);
+    MC6800MemWriteByte(0x1b, hour);
 
-    mc6800MemWriteByte(0xed00, 0xa5);
-    mc6800MemWriteByte(0xed01, 0x5a);
+    MC6800MemWriteByte(0xed00, 0xa5);
+    MC6800MemWriteByte(0xed01, 0x5a);
 }
 
-O_INLINE int devices_memr(word a, byte *t)
+O_INLINE int SuperIoReadByte(word a, byte *t)
 {
 
     if (a >= 0xf000) {
@@ -94,7 +109,7 @@ O_INLINE int devices_memr(word a, byte *t)
     case 0xe601:
     case 0xe604:
     case 0xe605:
-	*t = mc6845_read(a & 0x7); //чтение данных из регистров видеоконтроллера
+	*t = MC6845ReadByte(a & 0x7); //чтение данных из регистров видеоконтроллера
 	return 1;
 
     case 0xe628:
@@ -126,20 +141,25 @@ O_INLINE int devices_memr(word a, byte *t)
 	return 1;
 
     case 0xe634:
-	*t = printer_dra_rd();
+    if (PrinterPort.mode == PRINTER_FILE) {
+	*t = 0x0;
+    } else {
+    	*t = PrinterPort.dr[0];
+    }
+
 	return 1;
 
     case 0xe6c0:
     case 0xe6d0:
     case 0xe6d1:
-	*t = i8272_read(a & 0x1f);
+	*t = i8272ReadByte(a & 0x1f);
 	return 1;
     }
 
     return 0;
 }
 
-O_INLINE int devices_memw(word a, byte d)
+O_INLINE int SuperIoWriteByte(word a, byte d)
 {
     if ((a & 0xff00) != 0xe600)
 	return 0;
@@ -161,13 +181,13 @@ O_INLINE int devices_memw(word a, byte d)
     case 0xe601:
     case 0xe604:
     case 0xe605:
-	mc6845_write(a & 0xf, d); //запись данных в рег.видеоконтроллера
+	MC6845WriteByte(a & 0xf, d); //запись данных в рег.видеоконтроллера
 	return 0;
 
     case 0xe629:
-	mc6800MemWriteByte(0xe62d, d); //только для программы kltr.ubp
+	MC6800MemWriteByte(0xe62d, d); //только для программы kltr.ubp
 	setCyrMode((d&1)?0:4);
-	mc6845_setupScreen(d);
+	MC6845SetupScreen(d);
 	return 0;
 
     case 0xe62a:
@@ -184,12 +204,17 @@ O_INLINE int devices_memw(word a, byte d)
 	old_3s=fSpeaker;
 	fSpeaker = d & 0x08;
 	if (old_3s != fSpeaker) 
-	    Speaker_Set(fSpeaker);
+	    BeeperSetBit(fSpeaker);
 	old_3s = fSpeaker;
 	return 0;
 
     case 0xe635:
-	printer_drb_wr(d);
+    if (PrinterPort.mode == PRINTER_FILE) {
+	PrinterPutChar(d);
+    } else if (PrinterPort.mode == PRINTER_COVOX) {
+	CovoxSetByte(d);
+    }
+    PrinterPort.dr[1] = d;
 	return 0;
 
     case 0xe680:
@@ -213,14 +238,14 @@ O_INLINE int devices_memw(word a, byte d)
     case 0xe6c0:
     case 0xe6d0:
     case 0xe6d1:
-	i8272_write(a & 0x1f, d);
+	i8272WriteByte(a & 0x1f, d);
 	return 0;
     }
 
     return 0;
 }
 
-O_INLINE void devices_set_tick50(void)
+O_INLINE void SuperIoSetTick50(void)
 {
     tick50 = 0x80;
 }

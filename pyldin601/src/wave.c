@@ -11,7 +11,6 @@
 #include <SDL.h>
 #include "core/types.h"
 #include "core/devices.h"
-#include "core/printer.h"
 #include "wave.h"
 #include "rdtsc.h"
 
@@ -84,12 +83,12 @@ void Speaker_Finish(void)
     }
 }
 
-void Speaker_Set(byte val)
+void BeeperSetBit(byte val)
 {
-    Covox_Set(val?0xa0:0);
+    CovoxSetByte(val?0xa0:0);
 }
 
-void Covox_Set(byte val)
+void CovoxSetByte(byte val)
 {
     dac_out = val;
     if (tick == 0) {

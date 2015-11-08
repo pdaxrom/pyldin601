@@ -18,43 +18,43 @@ static byte *videorom = NULL;
 static byte old_rHor = 0;
 static byte old_rVer = 0;
 
-O_INLINE void mc6845_curBlink(void)
+O_INLINE void MC6845CursorBlink(void)
 {
     curBlink++;
 }
 
-O_INLINE void mc6845_writeReg(byte a, byte d)
+O_INLINE void mc6845InternalWriteByte(byte a, byte d)
 {
     video_regs[a & 0xf] = d;
 }
 
-O_INLINE byte mc6845_readReg(byte a)
+O_INLINE byte mc6845InternalReadByte(byte a)
 {
     return video_regs[a & 0xf];
 }
 
-O_INLINE void mc6845_write(byte a, byte d)
+O_INLINE void MC6845WriteByte(byte a, byte d)
 {
     a &= 1;
     iomap[a] = d;
     if (a == 1)
-	mc6845_writeReg(iomap[0], iomap[1]);
+	mc6845InternalWriteByte(iomap[0], iomap[1]);
 }
 
-O_INLINE byte mc6845_read(byte a)
+O_INLINE byte MC6845ReadByte(byte a)
 {
     a &= 1;
     if (a == 1)
-	return mc6845_readReg(iomap[0]);
+	return mc6845InternalReadByte(iomap[0]);
     return iomap[a];
 }
 
-void mc6845_init(void)
+void MC6845Init(void)
 {
-    videorom = get_videorom_mem(2048);
+    videorom = loadCharGenRom(2048);
 }
 
-O_INLINE void mc6845_setupScreen(int mode)
+O_INLINE void MC6845SetupScreen(int mode)
 {
     vMode = mode & 0x20;
     resolution = mode & 0x02;
@@ -64,14 +64,14 @@ void mc6845_drawScreen_lpc24(void *video, int width, int height)
 {
     dword c, v, j, i, ofj, ofi;
     word *vmem = (word *) video;
-    byte *mem = mc6800GetCpuRam();
+    byte *mem = MC6800GetCpuRam();
     byte *src = mem;
     byte *crsr = mem;
 
-    byte cur_start = mc6845_readReg(0x0a) & 0x1f;
-    byte cur_start1 = mc6845_readReg(0x0a);
-    byte cB_1 = mc6845_readReg(0x0a) & 0x60;
-    byte cur_end = mc6845_readReg(0x0b) & 0x1f;
+    byte cur_start = mc6845InternalReadByte(0x0a) & 0x1f;
+    byte cur_start1 = mc6845InternalReadByte(0x0a);
+    byte cB_1 = mc6845InternalReadByte(0x0a) & 0x60;
+    byte cur_end = mc6845InternalReadByte(0x0b) & 0x1f;
 
     if (cur_end > 7)
 	cur_end = 7;
@@ -84,8 +84,8 @@ void mc6845_drawScreen_lpc24(void *video, int width, int height)
     if (curBlink > 50)
 	curBlink = 0;
 
-    byte rHor = mc6845_readReg(0x01);
-    byte rVer = mc6845_readReg(0x06);
+    byte rHor = mc6845InternalReadByte(0x01);
+    byte rVer = mc6845InternalReadByte(0x06);
 
     if ((rHor != old_rHor) ||
 	(rVer != old_rVer))
@@ -98,8 +98,8 @@ void mc6845_drawScreen_lpc24(void *video, int width, int height)
 	return;
 
     if (vMode == 0) {
-	src += (word)((mc6845_readReg(0x0c) << 8) + mc6845_readReg(0x0d));
-	crsr += (word)((mc6845_readReg(0x0e) << 8) + mc6845_readReg(0x0f) + txt260);
+	src += (word)((mc6845InternalReadByte(0x0c) << 8) + mc6845InternalReadByte(0x0d));
+	crsr += (word)((mc6845InternalReadByte(0x0e) << 8) + mc6845InternalReadByte(0x0f) + txt260);
 
 	if (rHor > 42)
 	    rHor = 42;
@@ -134,8 +134,8 @@ void mc6845_drawScreen_lpc24(void *video, int width, int height)
 	    ofj += width * 8;
 	}
     } else {
-	src += (word)(((mc6845_readReg(0x0c) << 8) + mc6845_readReg(0x0d)) << 3);
-	crsr += (word)(((mc6845_readReg(0x0e) << 8) + mc6845_readReg(0x0f) + grf260) << 3);
+	src += (word)(((mc6845InternalReadByte(0x0c) << 8) + mc6845InternalReadByte(0x0d)) << 3);
+	crsr += (word)(((mc6845InternalReadByte(0x0e) << 8) + mc6845InternalReadByte(0x0f) + grf260) << 3);
 
 	if (rHor > 48)
 	    rHor = 48;
@@ -188,14 +188,14 @@ void mc6845_drawScreen_lpc24_1bpp(void *video, int width, int height)
 {
     dword c, v, j, i, ofj, ofi;
     byte *vmem = (byte *) video;
-    byte *mem = mc6800GetCpuRam();
+    byte *mem = MC6800GetCpuRam();
     byte *src = mem;
     byte *crsr = mem;
 
-    byte cur_start = mc6845_readReg(0x0a) & 0x1f;
-    byte cur_start1 = mc6845_readReg(0x0a);
-    byte cB_1 = mc6845_readReg(0x0a) & 0x60;
-    byte cur_end = mc6845_readReg(0x0b) & 0x1f;
+    byte cur_start = mc6845InternalReadByte(0x0a) & 0x1f;
+    byte cur_start1 = mc6845InternalReadByte(0x0a);
+    byte cB_1 = mc6845InternalReadByte(0x0a) & 0x60;
+    byte cur_end = mc6845InternalReadByte(0x0b) & 0x1f;
 
     if (cur_end > 7)
 	cur_end = 7;
@@ -208,8 +208,8 @@ void mc6845_drawScreen_lpc24_1bpp(void *video, int width, int height)
     if (curBlink > 50)
 	curBlink = 0;
 
-    byte rHor = mc6845_readReg(0x01);
-    byte rVer = mc6845_readReg(0x06);
+    byte rHor = mc6845InternalReadByte(0x01);
+    byte rVer = mc6845InternalReadByte(0x06);
 
     if ((rHor != old_rHor) ||
 	(rVer != old_rVer))
@@ -222,8 +222,8 @@ void mc6845_drawScreen_lpc24_1bpp(void *video, int width, int height)
 	return;
 
     if (vMode == 0) {
-	src += (word)((mc6845_readReg(0x0c) << 8) + mc6845_readReg(0x0d));
-	crsr += (word)((mc6845_readReg(0x0e) << 8) + mc6845_readReg(0x0f) + txt260);
+	src += (word)((mc6845InternalReadByte(0x0c) << 8) + mc6845InternalReadByte(0x0d));
+	crsr += (word)((mc6845InternalReadByte(0x0e) << 8) + mc6845InternalReadByte(0x0f) + txt260);
 
 	if (rHor > 42)
 	    rHor = 42;
@@ -257,8 +257,8 @@ void mc6845_drawScreen_lpc24_1bpp(void *video, int width, int height)
 	    ofj += width;
 	}
     } else {
-	src += (word)(((mc6845_readReg(0x0c) << 8) + mc6845_readReg(0x0d)) << 3);
-	crsr += (word)(((mc6845_readReg(0x0e) << 8) + mc6845_readReg(0x0f) + grf260) << 3);
+	src += (word)(((mc6845InternalReadByte(0x0c) << 8) + mc6845InternalReadByte(0x0d)) << 3);
+	crsr += (word)(((mc6845InternalReadByte(0x0e) << 8) + mc6845InternalReadByte(0x0f) + grf260) << 3);
 
 	if (rHor > 48)
 	    rHor = 48;
