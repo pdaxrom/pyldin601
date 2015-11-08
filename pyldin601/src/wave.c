@@ -49,7 +49,7 @@ void audio_callback(void *data, byte *stream, int len)
 
 }
 
-int Speaker_Init(void)
+int BeeperInit(void)
 {
     fInited = 0;
 
@@ -75,7 +75,7 @@ int Speaker_Init(void)
     return 0;
 }
 
-void Speaker_Finish(void)
+void BeeperFinish(void)
 {
     if (fInited) {
 	SDL_PauseAudio(1);
