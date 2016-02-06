@@ -1,16 +1,8 @@
 /*
- * This proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2009 - 2011 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
- */
-
-/*
- * shader.c
- * Functions for loading and process shaders.
+ *
+ * Portable Pyldin-601 emulator
+ * Copyright (c) Sasha Chukov, 2016
+ *
  */
 
 #include <stdio.h>
@@ -58,12 +50,19 @@ int process_shader(GLuint *shader, char *fileName, GLint shaderType) {
 
     glShaderSource(*shader, 1, texts, NULL);
 
+    int errCode = glGetError();
+    if (errCode != GL_NO_ERROR) {
+	fprintf(stderr, "GLErr.  %X\n", errCode);
+	return 1;
+    }
+
     /* Clean up shader source. */
     free((void *)texts[0]);
     texts[0] = NULL;
 
     /* Try compiling the shader. */
     glCompileShader(*shader);
+
     glGetShaderiv(*shader, GL_COMPILE_STATUS, &iStatus);
 
     // Dump debug info (source and log) if compilation failed.

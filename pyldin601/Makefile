@@ -18,8 +18,16 @@ OPT_FLAGS := -g -Ofast -fomit-frame-pointer
 CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
 CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON -DUSE_JOYSTICK
+
+ifeq (opengl, $(VIDEO))
+VIDEOLIB = -lGL
+else
+CFLAGS += -DUSE_GLES2
+VIDEOLIB = -lGLESv2 -lEGL
+endif
+
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
-LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --static-libs | sed 's/-lSDL2/-Wl,-Bstatic -lSDL2 -Wl,-Bdynamic/') -lSDL2_image $(shell pkg-config libpng --libs)-L/opt/vc/lib -lGLESv2 -lEGL -lz $(OPT_STRIP) -g
+LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(shell pkg-config libpng --libs) $(VIDEOLIB) -lz $(OPT_STRIP) -g
 
 ##########################
 #CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON

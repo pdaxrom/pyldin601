@@ -1,20 +1,22 @@
 /*
- * This proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2009 - 2011 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ *
+ * Portable Pyldin-601 emulator
+ * Copyright (c) Sasha Chukov, 2016
+ *
  */
 
 #ifndef SHADER_H
 #define SHADER_H
 
+#ifdef USE_GLES2
 #include "GLES2/gl2.h"
+#else
+#define GL_GLEXT_PROTOTYPES
+#include <SDL_opengl.h>
+#include <SDL_opengl_glext.h>
+#endif
 
 char* load_shader(char *sFilename);
 int process_shader(GLuint *shader, char *fileName, GLint shaderType);
 
 #endif
-
