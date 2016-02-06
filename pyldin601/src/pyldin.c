@@ -14,7 +14,13 @@
 #include <zlib.h>
 
 #include <SDL.h>
+#ifdef USE_GLES2
 #include <SDL_opengles2.h>
+#else
+#define GL_GLEXT_PROTOTYPES
+#include <SDL_opengl.h>
+#include <SDL_opengl_glext.h>
+#endif
 
 #include "pyldin.h"
 #include "core/mc6800.h"
@@ -80,6 +86,11 @@ static int drawInfo;
 static volatile uint64_t currentCpuFrequency = 0;
 static volatile uint64_t oneUSecDelay = 0;
 static volatile uint64_t oneUSecDelayConst = 0;
+
+typedef struct {
+    int w;
+    int h;
+} VideoArgs;
 
 // Optimized for core
 void core_50Hz_irq(void);
@@ -504,7 +515,7 @@ void drawString(char *str, int xp, int yp, unsigned int fg, unsigned int bg)
     screen_drawString(framebuffer->pixels, framebuffer->w, framebuffer->h, str, xp, yp, fg, bg);
 }
 
-int SDLCALL HandleVideo(void *unused)
+int SDLCALL HandleVideo(void *args)
 {
     enum {
 	ATTRIB_VERTEX,
@@ -526,6 +537,8 @@ int SDLCALL HandleVideo(void *unused)
          1.0f,  0.0f,
     };
 
+    VideoArgs *videoArgs = (VideoArgs *) args;
+
     SDL_GLContext context;
     SDL_DisplayMode mode;
 
@@ -535,6 +548,11 @@ int SDLCALL HandleVideo(void *unused)
 
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+
+    if (videoArgs->w > 0 && videoArgs->h > 0) {
+	mode.w = videoArgs->w;
+	mode.h = videoArgs->h;
+    }
 
     window = SDL_CreateWindow("PYLDIN 601", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 	mode.w, mode.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
@@ -879,12 +897,17 @@ int main(int argc, char *argv[])
     int printerPortDevice = PRINTER_NONE;
     char *bootFloppy = NULL;
 
+    VideoArgs videoArgs = {
+	.w = 0,
+	.h = 0,
+    };
+
     drawInfo = 0;
     SDL_Thread *videoThread;
     SDL_Thread *inputThread;
 
     SDL_Log("Portable Pyldin-601 emulator version " VERSION " (http://pyldin.info)\n");
-    SDL_Log("Copyright (c) 1997-2015 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
+    SDL_Log("Copyright (c) 1997-2016 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
 
     extern char *optarg;
     extern int optind, optopt, opterr;
@@ -920,7 +943,7 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 'g':
-//	    sscanf(optarg, "%dx%d", &vscr_width, &vscr_height);
+	    sscanf(optarg, "%dx%d", &videoArgs.w, &videoArgs.h);
 	    break;
         default:
 	    usage(argv[0]);
@@ -978,7 +1001,7 @@ int main(int argc, char *argv[])
     resetRequest = 0;
     exitRequest = 0;
 
-    videoThread = SDL_CreateThread(HandleVideo, "Pyldin video", NULL);
+    videoThread = SDL_CreateThread(HandleVideo, "Pyldin video", &videoArgs);
     inputThread = SDL_CreateThread(HandleKeyboard, "Pyldin keyboard", NULL);
 
 #ifdef PYLDIN_LOGO
