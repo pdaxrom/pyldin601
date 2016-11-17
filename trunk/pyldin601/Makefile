@@ -37,7 +37,7 @@ LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(shell pkg-confi
 
 #OBJS  = src/core/devices.o src/core/floppy.o src/core/keyboard.o src/core/mc6800.o src/core/swiemu.o src/core/mc6845.o src/core/i8272.o
 OBJS  = src/core/core.o
-OBJS += src/discs.o src/screen.o src/sshot.o src/floppymanager.o src/pyldin.o src/shader.o
+OBJS += src/discs.o src/screen.o src/sshot.o src/floppymanager.o src/pyldin-sdl2.o src/shader.o
 
 ifeq (alsa, $(SOUND))
 OBJS += src/wave-alsa.o

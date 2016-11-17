@@ -8,10 +8,10 @@
 static inline unsigned long long rdtsc(void)
 {
     unsigned long long int x;
-    __asm__ __volatile__("rdtsc" : "=A" (x))
+    __asm__ __volatile__("rdtsc" : "=A" (x));
     return x;
 }
-#elif defined(__x86_64__1)
+#elif defined(__x86_64__DISABLED)
 
 
 static inline unsigned long long rdtsc(void)
@@ -48,7 +48,7 @@ static inline unsigned long long rdtsc(void)
 static inline unsigned long long rdtsc(void)
 {
     struct timespec tp;
-#ifdef __ARM_ARCH_7A__
+#ifdef __ARM_ARCH_7A__DISABLED
     uint32_t pmccntr;
     uint32_t pmuseren;
     uint32_t pmcntenset;
