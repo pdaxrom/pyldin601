@@ -53,6 +53,7 @@ int BeeperInit(void)
 {
     fInited = 0;
 
+#if 0
     if ( SDL_InitSubSystem(SDL_INIT_AUDIO) < 0 ) {
 	fprintf(stderr, "Couldn't init audio: %s\n", SDL_GetError());
 	return -1;
@@ -71,6 +72,7 @@ int BeeperInit(void)
     fInited = 1;
 
     SDL_PauseAudio(0);
+#endif
 
     return 0;
 }
@@ -85,11 +87,14 @@ void BeeperFinish(void)
 
 void BeeperSetBit(byte val)
 {
+#if 0
     CovoxSetByte(val?0xa0:0);
+#endif
 }
 
 void CovoxSetByte(byte val)
 {
+#if 0
     dac_out = val;
     if (tick == 0) {
 	tick = rdtsc();
@@ -113,4 +118,5 @@ void CovoxSetByte(byte val)
 	}
 	SDL_UnlockAudio();
     }
+#endif
 }

@@ -7,31 +7,30 @@
 
 #include <stdio.h>
 #include <malloc.h>
+#include <SDL.h>
 #include "shader.h"
 
-char* load_shader(char *fileName) {
+char *load_shader(char *fileName) {
     char *text = NULL;
-    FILE *fin = NULL;
     long len = 0;
 
-    fin = fopen(fileName, "r");
+    SDL_RWops* file = SDL_RWFromFile(fileName, "rb" );
 
-    if (!fin) {
+    if (!file) {
         fprintf(stderr, "Error: Cannot read file '%s'\n", fileName);
 	return NULL;
     }
 
-    fseek(fin, 0, SEEK_END); /* Seek end of file */
-    len = ftell(fin);
-    fseek(fin, 0, SEEK_SET); /* Seek start of file again */
+    len = SDL_RWsize(file);
     text = calloc(len + 1, sizeof(char));
-    if (fread(text, sizeof(char), len, fin) == len) {
+
+    if (SDL_RWread(file, text, 1, len) == len) {
 	text[len] = '\0';
     } else {
 	free(text);
 	text = NULL;
     }
-    fclose(fin);
+    SDL_RWclose(file);
 
     return text;
 }
