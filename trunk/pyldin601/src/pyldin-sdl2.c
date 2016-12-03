@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <zlib.h>
@@ -956,6 +957,91 @@ void PrinterPutChar(byte data)
     }
 }
 
+#ifdef __BIONIC__
+
+int copy_file(char *from, char *to)
+{
+    char tmp[65536];
+
+    SDL_RWops *fin = SDL_RWFromFile(from, "rb");
+    if (fin == NULL) {
+	SDL_Log("copy_file() - Can't open source file %s\n", from);
+	return 1;
+    }
+
+    SDL_RWops *fout = SDL_RWFromFile(to, "wb");
+    if (fout == NULL) {
+	SDL_Log("copy_file() - Can't open destination file %s\n", to);
+	return 1;
+    }
+
+    Sint64 res_size = SDL_RWsize(fin);
+    Sint64 nb_read_total = 0, nb_read = 1;
+
+    while (nb_read_total < res_size && nb_read != 0) {
+        nb_read = SDL_RWread(fin, tmp, 1, sizeof(tmp));
+	if (SDL_RWwrite(fout, tmp, 1, nb_read) != nb_read) {
+	    break;
+	}
+        nb_read_total += nb_read;
+    }
+
+    SDL_RWclose(fin);
+    SDL_RWclose(fout);
+
+    if (nb_read_total != res_size) {
+	SDL_Log("copy_file() - Incomplete read\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+int install_resources()
+{
+    char tmp_src[PATH_MAX];
+    char tmp_dst[PATH_MAX];
+
+    if (mkdir(datadir, 0755) == -1) {
+	struct stat sb;
+
+	if (stat(datadir, &sb) == 0) {
+	    if (S_ISDIR(sb.st_mode)) {
+		return 0;
+	    }
+	}
+
+	return 1;
+    }
+
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios", datadir);
+    mkdir(tmp_dst, 0755);
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Rom", datadir);
+    mkdir(tmp_dst, 0755);
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Floppy", datadir);
+    mkdir(tmp_dst, 0755);
+
+    snprintf(tmp_src, sizeof(tmp_src), "Bios/bios.roz");
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/bios.roz", datadir);
+    copy_file(tmp_src, tmp_dst);
+
+    snprintf(tmp_src, sizeof(tmp_src), "Bios/video.roz");
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/video.roz", datadir);
+    copy_file(tmp_src, tmp_dst);
+
+    int i;
+
+    for (i = 0; i < 5; i++) {
+	snprintf(tmp_src, sizeof(tmp_src), "Rom/%s", romDiskName[i]);
+	snprintf(tmp_dst, sizeof(tmp_dst), "%s/Rom/%s", datadir, romDiskName[i]);
+	copy_file(tmp_src, tmp_dst);
+    }
+
+    return 0;
+}
+
+#endif
+
 int main(int argc, char *argv[])
 {
     int setTimeFromHost = 0;
@@ -1052,6 +1138,8 @@ int main(int argc, char *argv[])
 //    snprintf(datadir, 512, "/sdcard/Pyldin-601");
     SDL_Log("Data directory ... %s\n", datadir);
     SDL_Log("Internal directory ... %s\n", SDL_AndroidGetInternalStoragePath());
+
+    install_resources();
 #endif
 
     MC6800Init();
