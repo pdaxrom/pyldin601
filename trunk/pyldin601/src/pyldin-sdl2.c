@@ -360,10 +360,17 @@ static void check_keyboard(SDL_Event *event)
 
 		case SDLK_CAPSLOCK:	jkeybDown(0x3a); break;
 
+
 		case SDLK_LCTRL:	jkeybModeDown(1); break;
 		case SDLK_LSHIFT:	jkeybModeDown(2); break;
 		case SDLK_RCTRL:	jkeybModeDown(1); break;
+#ifdef __BIONIC__
+		case SDLK_LALT:		jkeybModeDown(8); break;  /* BB PRIV: MOD + LALT    */
+		case SDLK_RSHIFT:	jkeybModeDown(1); break;  /* BB PRIV: as CTRL       */
+		case SDLK_EXECUTE:	jkeybModeDown(16); break; /* BB PRIV: SYM = EXECUTE */
+#else
 		case SDLK_RSHIFT:	jkeybModeDown(2); break;
+#endif
 
 //		case SDLK_PRINT:	savepng(vscr, 320 * vScale, 27 * 8 * vScale); break;
 		case SDLK_PAUSE:	resetRequested(); break;
@@ -391,7 +398,13 @@ static void check_keyboard(SDL_Event *event)
 		case SDLK_LCTRL:	jkeybModeUp(1); break;
 		case SDLK_LSHIFT:	jkeybModeUp(2); break;
 		case SDLK_RCTRL:	jkeybModeUp(1); break;
+#ifdef __BIONIC__
+		case SDLK_LALT:		jkeybModeUp(8); break;  /* BB PRIV: MOD + LALT    */
+		case SDLK_RSHIFT:	jkeybModeUp(1); break;  /* BB PRIV: as CTRL       */
+		case SDLK_EXECUTE:	jkeybModeUp(16); break; /* BB PRIV: SYM = EXECUTE */
+#else
 		case SDLK_RSHIFT:	jkeybModeUp(2); break;
+#endif
 		default:
 			jkeybUp();
 		}
