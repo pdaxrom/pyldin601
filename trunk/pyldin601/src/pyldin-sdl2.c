@@ -83,6 +83,7 @@ static SDL_GLContext context;
 static SDL_Window *window = NULL;
 static SDL_Surface *surface;
 static SDL_Surface *framebuffer;
+static SDL_Surface *surf_keyboard;
 
 static Uint32 update_video_event;
 
@@ -654,6 +655,16 @@ int initVideo(int w, int h)
 #endif
         );
 
+    surf_keyboard = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
+	0xF800, 0x07E0, 0x001F, 0x0000
+#else
+	0x001F, 0x07E0, 0xF800, 0x0000
+#endif
+        );
+
+    SDL_SetSurfaceBlendMode(surf_keyboard, SDL_BLENDMODE_ADD);
+
     scale_width  = (float) mode.w / 320;
     scale_height = (float) mode.h / 240;
 
@@ -668,6 +679,13 @@ int initVideo(int w, int h)
 		sleep(1);
     }
 #endif
+
+    screen_drawXbm(surf_keyboard->pixels,
+    		surf_keyboard->w, surf_keyboard->h,
+    		virtkbd_pict_bits,
+    		0, 0,
+    		virtkbd_pict_width, virtkbd_pict_height,
+    		0);
 
     return 0;
 }
@@ -693,10 +711,6 @@ int updateVideo()
 		drawString(buf, 160, 28, 0xffff, 0);
     }
 
-    if (enableVirtualKeyboard) {
-		drawXbm(virtkbd_pict_bits, 0, 0, virtkbd_pict_width, virtkbd_pict_height, 1);
-    }
-
     if (drawMenu) {
 		drawXbm(vmenu_bits, 0, 216, vmenu_width, vmenu_height, 0);
 		drawMenu = 0;
@@ -713,11 +727,16 @@ int updateVideo()
  #endif
 #endif
 
+    SDL_BlitSurface(framebuffer, NULL, surface, NULL);
+
+    if (enableVirtualKeyboard) {
+        SDL_BlitSurface(surf_keyboard, NULL, surface, NULL);
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
+
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     SDL_GL_SwapWindow(window);
-
-    SDL_BlitSurface(framebuffer, NULL, surface, NULL);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
 
     return 0;
 }
