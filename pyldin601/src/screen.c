@@ -25,7 +25,7 @@ void screen_drawXbm(void *video, int width, int height, unsigned char *xbm, int 
 	    unsigned char c = xbm[ifj + i];
 	    for (x = 0; x < 8; x++) {
 		if (!over || !(c & 0x1)) {
-		    vscr[ofj + (i * 8 + x)] = (c & 0x1)?0:0x3ef;
+		    vscr[ofj + (i * 8 + x)] = (c & 0x1)?0x0:0x3ef;
 		}
 		c >>= 1;
 	    }
