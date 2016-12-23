@@ -42,15 +42,15 @@
 #define KBD_GTO            0x40
 #define KBD_PERR           0x80
 
-void setCyrMode(byte mode);
+void KBDSetCyrMode(byte mode);
 
-void vkeybDown(int x, int y);
-void vkeybUp(void);
-void jkeybDown(unsigned int tempKeyCode);
-void jkeybUp(void);
-void jkeybModeDown(byte mode);
-void jkeybModeUp(byte mode);
-unsigned char checkKbd();
-unsigned char readKbd();
+void KBDVirtKeyDown(int x, int y);
+void KBDVirtKeyUp(void);
+void KBDKeyDown(unsigned int tempKeyCode);
+void KBDKeyUp(void);
+void KBDModKeyDown(byte mode);
+void KBDModKeyUp(byte mode);
+unsigned char KBDCheckKey();
+unsigned char KBDReadKey();
 
 extern void resetRequested(void);
