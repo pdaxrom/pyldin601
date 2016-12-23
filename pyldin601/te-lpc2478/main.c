@@ -238,20 +238,20 @@ void keyboard_handler(uint8_t scancode)
     uint8_t code = scancode & 0x7f;
     if (scancode & 0x80) {
 	if (code < 0x60)
-	    jkeybUp();
+	    KBDKeyUp();
 	else {
 	    switch (code) {
-	    case KEY_CONTROL:	jkeybModeUp(1); break;
-	    case KEY_SHIFT:	jkeybModeUp(2); break;
+	    case KEY_CONTROL:	KBDModKeyUp(1); break;
+	    case KEY_SHIFT:	KBDModKeyUp(2); break;
 	    }
 	}
     } else {
 	if (code < 0x60)
-	    jkeybDown(code);
+	    KBDKeyDown(code);
 	else {
 	    switch (code) {
-	    case KEY_CONTROL:	jkeybModeDown(1); break;
-	    case KEY_SHIFT:	jkeybModeDown(2); break;
+	    case KEY_CONTROL:	KBDModKeyDown(1); break;
+	    case KEY_SHIFT:	KBDModKeyDown(2); break;
 	    case KEY_PAUSE:	resetRequested(); break;
 	    }
 	}

@@ -88,9 +88,9 @@ static unsigned char keytable[]={
 static unsigned char cyr_keytable[]={
 /*	 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f */
 	0xff,0x1b,'1','2','3','4','5','6','7','8','9','0','-','=',0x7f,0xed,
-	'©','∂','≥','™','•','≠','£','∏','π','ß','µ','∫',0xc0,0xff,'¥','ª',
-	'¢','†','Ø','∞','Æ','´','§','¶','Ω','[',0xff,'\\','ø','∑','±','¨',
-	'®','≤','º','°','æ','.',0xff,0xff,0xff,' ',0xfc,0xc9,0xca,0xcb,0xcc,0xcd,
+	'ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ',0xc0,0xff,'ÔøΩ','ÔøΩ',
+	'ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','[',0xff,'\\','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ',
+	'ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','.',0xff,0xff,0xff,' ',0xfc,0xc9,0xca,0xcb,0xcc,0xcd,
 	0xce,0xcf,0xd0,0xd1,0xd2,0xff,0xfb,0xc5,0xc4,0xc8,0xff,0xc1,0xff,0xc2,0xff,0xc6,
 	0xc3,0xc7,0xfa,0xf9,0xff,0xff,0xff,0xd3,0xd4,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
@@ -112,9 +112,9 @@ static unsigned char Sh_keytable[]={
 static unsigned char cyr_Sh_keytable[]={
 /*	 0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f */
 	0xff,0x1b,'!','"','#',';','%',':','?','*','(',')','_','+',0x7f,0xee,
-	'â','ñ','ì','ä','Ö','ç','É','ò','ô','á','ï','ö',0xc0,0xff,'î','õ',
-	'Ç','Ä','è','ê','é','ã','Ñ','Ü','ù',']',0xff,'/','ü','ó','ë','å',
-	'à','í','ú','Å','û',',',0xff,0xff,0xff,0xfd,0xfc,0xd5,0xd6,0xd7,0xd8,0xd9,
+	'ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ',0xc0,0xff,'ÔøΩ','ÔøΩ',
+	'ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ',']',0xff,'/','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ',
+	'ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ','ÔøΩ',',',0xff,0xff,0xff,0xfd,0xfc,0xd5,0xd6,0xd7,0xd8,0xd9,
 	0xda,0xdb,0xdc,0xdd,0xde,0xff,0xfb,0xc5,0xc8,0xc8,0xff,0xc5,0xff,0xc6,0xff,0xc6,
 	0xc7,0xc7,0xfa,0xf9,0xff,0xff,0xff,0xdf,0xe0,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
@@ -258,107 +258,111 @@ unsigned char getkeycode(int x, int y)
     return retc;
 }
 
-void vkeybDown(int x, int y)
+void KBDVirtKeyDown(int x, int y)
 {
     unsigned int tempKeyCode = getkeycode(x, y);
-    if (tempKeyCode == 0xff) 
-	return;
+    if (tempKeyCode == 0xff) {
+    	return;
+    }
     MC6800SetInterrupt(1);
     keyReady--;
     switch(flagKey | cyrMode) {
-	 case 1:
-	 case 5: keyCode=Ct_keytable[tempKeyCode]; break;
-	 case 3:
-	 case 7: keyCode=Ct_Sh_keytable[tempKeyCode]; break;
-	 case 2: keyCode=Sh_keytable[tempKeyCode]; break;
-	 case 4: keyCode=cyr_keytable[tempKeyCode]; break;
-	 case 6: keyCode=cyr_Sh_keytable[tempKeyCode]; break;
-	 default: keyCode=keytable[tempKeyCode]; break;
+		case 1:
+		case 5: keyCode=Ct_keytable[tempKeyCode]; break;
+		case 3:
+		case 7: keyCode=Ct_Sh_keytable[tempKeyCode]; break;
+		case 2: keyCode=Sh_keytable[tempKeyCode]; break;
+		case 4: keyCode=cyr_keytable[tempKeyCode]; break;
+		case 6: keyCode=cyr_Sh_keytable[tempKeyCode]; break;
+		default: keyCode=keytable[tempKeyCode]; break;
     }
 }
 
-void vkeybUp(void)
+void KBDVirtKeyUp(void)
 {
     keyReady = 0;
 }
 
-void jkeybDown(unsigned int tempKeyCode)
+void KBDKeyDown(unsigned int tempKeyCode)
 {
-    if (tempKeyCode == 0xff) 
-	return;
+    if (tempKeyCode == 0xff) {
+    	return;
+    }
     MC6800SetInterrupt(1);
     keyReady--;
 
 #ifdef __BIONIC__
 
     if (flagKey & 8) {
-	switch(flagKey & 7) {
-	    case 2:	keyCode = BBPriv_shift_keytable[tempKeyCode]; return;
-	    default:	keyCode = BBPriv_keytable[tempKeyCode]; return;
-	}
+		switch(flagKey & 7) {
+			case 2:	keyCode = BBPriv_shift_keytable[tempKeyCode]; return;
+			default:	keyCode = BBPriv_keytable[tempKeyCode]; return;
+		}
     }
 
     if (flagKey & 16) {
-	switch(flagKey & 7) {
-	    case 1:
-	    case 5:	keyCode = BBPriv_sym_ctrl_keytable[tempKeyCode]; return;
-	    case 2:
-	    case 6:	keyCode = BBPriv_sym_shift_keytable[tempKeyCode]; return;
-	    default:	keyCode = BBPriv_sym_keytable[tempKeyCode]; return;
-	}
+		switch(flagKey & 7) {
+			case 1:
+			case 5:	keyCode = BBPriv_sym_ctrl_keytable[tempKeyCode]; return;
+			case 2:
+			case 6:	keyCode = BBPriv_sym_shift_keytable[tempKeyCode]; return;
+			default:	keyCode = BBPriv_sym_keytable[tempKeyCode]; return;
+		}
     }
 
 #endif
 
     switch(flagKey | cyrMode) {
-	case 1:
-	case 5: keyCode=Ct_keytable[tempKeyCode]; break;
-	case 3:
-	case 7: keyCode=Ct_Sh_keytable[tempKeyCode]; break;
-	case 2: keyCode=Sh_keytable[tempKeyCode]; break;
-	case 4: keyCode=cyr_keytable[tempKeyCode]; break;
-	case 6: keyCode=cyr_Sh_keytable[tempKeyCode]; break;
-	default: keyCode=keytable[tempKeyCode]; break;
+		case 1:
+		case 5: keyCode=Ct_keytable[tempKeyCode]; break;
+		case 3:
+		case 7: keyCode=Ct_Sh_keytable[tempKeyCode]; break;
+		case 2: keyCode=Sh_keytable[tempKeyCode]; break;
+		case 4: keyCode=cyr_keytable[tempKeyCode]; break;
+		case 6: keyCode=cyr_Sh_keytable[tempKeyCode]; break;
+		default: keyCode=keytable[tempKeyCode]; break;
     }
 }
 
-void jkeybUp(void)
+void KBDKeyUp(void)
 {
     keyReady = 0;
 }
 
-void jkeybModeDown(byte mode)
+void KBDModKeyDown(byte mode)
 {
     flagKey |= mode;
 }
 
-void jkeybModeUp(byte mode)
+void KBDModKeyUp(byte mode)
 {
     flagKey &= ~mode;
 }
 
-unsigned char checkKbd()
+unsigned char KBDCheckKey()
 {
     if (keyReady) {
-	trigger = ~trigger;
-	if (trigger) 
-	    return 0; 
-	else 
-	    return 0x80;
+		trigger = ~trigger;
+		if (trigger) {
+			return 0;
+		} else {
+			return 0x80;
+		}
     }
     
     return 0;
 }
 
-unsigned char readKbd()
+unsigned char KBDReadKey()
 {
     trigger = 0;
-    if (keyReady==0) 
-	return 0xff;
+    if (keyReady == 0) {
+    	return 0xff;
+    }
     return keyCode;
 }
 
-void setCyrMode(byte mode)
+void KBDSetCyrMode(byte mode)
 {
     cyrMode = mode;
 }

@@ -870,19 +870,19 @@ void HID_InputKeyboard(void)
     pD[0] |= (pD[0] >> 4);
 
     if (!(old_mode & 1) && (pD[0] & 1))
-	jkeybModeDown(1);
+	KBDModKeyDown(1);
     if ((old_mode & 1) && !(pD[0] & 1))
-	jkeybModeUp(1);
+	KBDModKeyUp(1);
 
     if (!(old_mode & 2) && (pD[0] & 2))
-	jkeybModeDown(2);
+	KBDModKeyDown(2);
     if ((old_mode & 2) && !(pD[0] & 2))
-	jkeybModeUp(2);
+	KBDModKeyUp(2);
 
     if (!(old_mode & 4) && (pD[0] & 4))
-	jkeybDown(0x46);
+	KBDKeyDown(0x46);
     if ((old_mode & 4) && !(pD[0] & 4))
-	jkeybUp();
+	KBDKeyUp();
 
     old_mode = pD[0];
 
@@ -890,9 +890,9 @@ void HID_InputKeyboard(void)
 //    PRINT_Log(" [%02X - %02X]", pD[2], scan);
     if (scan != old_scan) {
 	if (pD[2] == 0)
-	    jkeybUp();
+	    KBDKeyUp();
 	else
-	    jkeybDown(scan);
+	    KBDKeyDown(scan);
 	old_scan = scan;
     }
 

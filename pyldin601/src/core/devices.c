@@ -113,12 +113,12 @@ O_INLINE int SuperIoReadByte(word a, byte *t)
 	return 1;
 
     case 0xe628:
-	*t = readKbd(); //чтение порта a (клавиатуры)
+	*t = KBDReadKey(); //чтение порта a (клавиатуры)
 	return 1;
 
     case 0xe62a:
     case 0xe62e:	//чтение упр.порта a
-	*t = checkKbd() | ((led_status & KBD_LED_CAPS)?0:8) | 0x37;
+	*t = KBDCheckKey() | ((led_status & KBD_LED_CAPS)?0:8) | 0x37;
 	return 1;
 
     case 0xe62b:	//чтение упр.порта b
@@ -186,7 +186,7 @@ O_INLINE int SuperIoWriteByte(word a, byte d)
 
     case 0xe629:
 	MC6800MemWriteByte(0xe62d, d); //только для программы kltr.ubp
-	setCyrMode((d&1)?0:4);
+	KBDSetCyrMode((d&1)?0:4);
 	MC6845SetupScreen(d);
 	return 0;
 

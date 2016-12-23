@@ -127,20 +127,20 @@ static void ChecKeyboard(void)
 				if (enableDiskManager) {
 				    FloppyManagerUpdateList(-1);
 				} else {
-				    jkeybDown(0x48);
+				    KBDKeyDown(0x48);
 				}
 	    	} else if (event.jhat.value & SDL_HAT_DOWN) {
 				if (enableDiskManager) {
 				    FloppyManagerUpdateList(1);
 				} else {
-				    jkeybDown(0x50);
+				    KBDKeyDown(0x50);
 				}
 	    	} else if (event.jhat.value & SDL_HAT_LEFT) {
-	    		jkeybDown(0x4b);
+	    		KBDKeyDown(0x4b);
 	    	} else if (event.jhat.value & SDL_HAT_RIGHT) {
-	    		jkeybDown(0x4d);
+	    		KBDKeyDown(0x4d);
 	    	} else {
-	    		jkeybUp();
+	    		KBDKeyUp();
 	    	}
 	    	break;
 	    case SDL_JOYBUTTONDOWN:
@@ -148,7 +148,7 @@ static void ChecKeyboard(void)
 		switch(event.jbutton.button) {
 		    case JOYBUT_BACK: 	exitRequested(); break; //OFF
 		    case JOYBUT_START: 	resetRequested(); break;//RESET
-		    case JOYBUT_Y: jkeybDown(0x01); break; //ESC
+		    case JOYBUT_Y: KBDKeyDown(0x01); break; //ESC
 		    case JOYBUT_A:
 			if (enableDiskManager) {
 			    selectFloppyByNum();
@@ -162,10 +162,10 @@ static void ChecKeyboard(void)
 			    vmenu_process = 1;
 #endif
 			} else
-			    jkeybDown(0x39);   //SPACE 
+			    KBDKeyDown(0x39);   //SPACE 
 			break;
-		    case JOYBUT_X:	jkeybDown(0x0f); break;   //TAB
-		    case JOYBUT_B:	jkeybDown(0x1c); break;   //RETURN
+		    case JOYBUT_X:	KBDKeyDown(0x0f); break;   //TAB
+		    case JOYBUT_B:	KBDKeyDown(0x1c); break;   //RETURN
 #ifdef USE_JOYMOUSE
 		    case JOYBUT_RTRIGGER:
 			if (enableDiskManager) {
@@ -190,7 +190,7 @@ static void ChecKeyboard(void)
 			}
 			break;
 //		    case JOYBUT_SELECT:	savepng(vscr, 320 * vScale, 27 * 8 * vScale); break;
-		    default: 		jkeybDown(0x39);
+		    default: 		KBDKeyDown(0x39);
 		}
 		break;
 	    case SDL_JOYBUTTONUP:
@@ -200,7 +200,7 @@ static void ChecKeyboard(void)
 		    case JOYBUT_RTRIGGER:
 #endif
 			break;
-		    default:		jkeybUp();
+		    default:		KBDKeyUp();
 		}
 		break;
 #ifdef USE_JOYMOUSE
@@ -238,92 +238,92 @@ static void ChecKeyboard(void)
 		SDL_Keycode sdlkey = event.key.keysym.sym;
 		//int k=0;
 		switch(sdlkey){
-		case SDLK_UP:		jkeybDown(0x48); break;
-		case SDLK_DOWN:		jkeybDown(0x50); break;
-		case SDLK_LEFT:		jkeybDown(0x4b); break;
-		case SDLK_RIGHT:	jkeybDown(0x4d); break;
-		case SDLK_ESCAPE:	jkeybDown(0x01); break;
+		case SDLK_UP:		KBDKeyDown(0x48); break;
+		case SDLK_DOWN:		KBDKeyDown(0x50); break;
+		case SDLK_LEFT:		KBDKeyDown(0x4b); break;
+		case SDLK_RIGHT:	KBDKeyDown(0x4d); break;
+		case SDLK_ESCAPE:	KBDKeyDown(0x01); break;
 		
-		case SDLK_F1:		jkeybDown(0x3b); break;
-		case SDLK_F2:		jkeybDown(0x3c); break;
-		case SDLK_F3:		jkeybDown(0x3d); break;
-		case SDLK_F4:		jkeybDown(0x3e); break;
-		case SDLK_F5:		jkeybDown(0x3f); break;
-		case SDLK_F6:		jkeybDown(0x40); break;
-		case SDLK_F7:		jkeybDown(0x41); break;
-		case SDLK_F8:		jkeybDown(0x42); break;
-		case SDLK_F9:		jkeybDown(0x43); break;
-		case SDLK_F10:		jkeybDown(0x44); break;
-		case SDLK_F11:		jkeybDown(0x57); break;
-		case SDLK_F12:		jkeybDown(0x58); break;
+		case SDLK_F1:		KBDKeyDown(0x3b); break;
+		case SDLK_F2:		KBDKeyDown(0x3c); break;
+		case SDLK_F3:		KBDKeyDown(0x3d); break;
+		case SDLK_F4:		KBDKeyDown(0x3e); break;
+		case SDLK_F5:		KBDKeyDown(0x3f); break;
+		case SDLK_F6:		KBDKeyDown(0x40); break;
+		case SDLK_F7:		KBDKeyDown(0x41); break;
+		case SDLK_F8:		KBDKeyDown(0x42); break;
+		case SDLK_F9:		KBDKeyDown(0x43); break;
+		case SDLK_F10:		KBDKeyDown(0x44); break;
+		case SDLK_F11:		KBDKeyDown(0x57); break;
+		case SDLK_F12:		KBDKeyDown(0x58); break;
 		
-		case SDLK_HOME:		jkeybDown(0x47); break;
-		case SDLK_END:		jkeybDown(0x4f); break;
-		case SDLK_INSERT:	jkeybDown(0x52); break;
+		case SDLK_HOME:		KBDKeyDown(0x47); break;
+		case SDLK_END:		KBDKeyDown(0x4f); break;
+		case SDLK_INSERT:	KBDKeyDown(0x52); break;
 		
-		case SDLK_1:		jkeybDown(0x02); break;
-		case SDLK_2:		jkeybDown(0x03); break;
-		case SDLK_3:		jkeybDown(0x04); break;
-		case SDLK_4:		jkeybDown(0x05); break;
-		case SDLK_5:		jkeybDown(0x06); break;
-		case SDLK_6:		jkeybDown(0x07); break;
-		case SDLK_7:		jkeybDown(0x08); break;
-		case SDLK_8:		jkeybDown(0x09); break;
-		case SDLK_9:		jkeybDown(0x0a); break;
-		case SDLK_0:		jkeybDown(0x0b); break;
-		case SDLK_MINUS:	jkeybDown(0x0c); break;
-		case SDLK_EQUALS:	jkeybDown(0x0d); break;
-		case xSDLK_BACKSLASH:	jkeybDown(0x2b); break;
-		case SDLK_BACKSPACE:	jkeybDown(0x0e); break;
-		case xSDLK_LSUPER:	jkeybDown(0x46); break;
+		case SDLK_1:		KBDKeyDown(0x02); break;
+		case SDLK_2:		KBDKeyDown(0x03); break;
+		case SDLK_3:		KBDKeyDown(0x04); break;
+		case SDLK_4:		KBDKeyDown(0x05); break;
+		case SDLK_5:		KBDKeyDown(0x06); break;
+		case SDLK_6:		KBDKeyDown(0x07); break;
+		case SDLK_7:		KBDKeyDown(0x08); break;
+		case SDLK_8:		KBDKeyDown(0x09); break;
+		case SDLK_9:		KBDKeyDown(0x0a); break;
+		case SDLK_0:		KBDKeyDown(0x0b); break;
+		case SDLK_MINUS:	KBDKeyDown(0x0c); break;
+		case SDLK_EQUALS:	KBDKeyDown(0x0d); break;
+		case xSDLK_BACKSLASH:	KBDKeyDown(0x2b); break;
+		case SDLK_BACKSPACE:	KBDKeyDown(0x0e); break;
+		case xSDLK_LSUPER:	KBDKeyDown(0x46); break;
 
-		case SDLK_TAB:		jkeybDown(0x0f); break;
-		case xSDLK_q:		jkeybDown(0x10); break;
-		case xSDLK_w:		jkeybDown(0x11); break;
-		case xSDLK_e:		jkeybDown(0x12); break;
-		case xSDLK_r:		jkeybDown(0x13); break;
-		case xSDLK_t:		jkeybDown(0x14); break;
-		case xSDLK_y:		jkeybDown(0x15); break;
-		case xSDLK_u:		jkeybDown(0x16); break;
-		case xSDLK_i:		jkeybDown(0x17); break;
-		case xSDLK_o:		jkeybDown(0x18); break;
-		case xSDLK_p:		jkeybDown(0x19); break;
-		case xSDLK_BACKQUOTE:	jkeybDown(0x29); break;
-		case SDLK_RETURN:	jkeybDown(0x1c); break;
+		case SDLK_TAB:		KBDKeyDown(0x0f); break;
+		case xSDLK_q:		KBDKeyDown(0x10); break;
+		case xSDLK_w:		KBDKeyDown(0x11); break;
+		case xSDLK_e:		KBDKeyDown(0x12); break;
+		case xSDLK_r:		KBDKeyDown(0x13); break;
+		case xSDLK_t:		KBDKeyDown(0x14); break;
+		case xSDLK_y:		KBDKeyDown(0x15); break;
+		case xSDLK_u:		KBDKeyDown(0x16); break;
+		case xSDLK_i:		KBDKeyDown(0x17); break;
+		case xSDLK_o:		KBDKeyDown(0x18); break;
+		case xSDLK_p:		KBDKeyDown(0x19); break;
+		case xSDLK_BACKQUOTE:	KBDKeyDown(0x29); break;
+		case SDLK_RETURN:	KBDKeyDown(0x1c); break;
 
-		case xSDLK_a:		jkeybDown(0x1e); break;
-		case xSDLK_s:		jkeybDown(0x1f); break;
-		case xSDLK_d:		jkeybDown(0x20); break;
-		case xSDLK_f:		jkeybDown(0x21); break;
-		case xSDLK_g:		jkeybDown(0x22); break;
-		case xSDLK_h:		jkeybDown(0x23); break;
-		case xSDLK_j:		jkeybDown(0x24); break;
-		case xSDLK_k:		jkeybDown(0x25); break;
-		case xSDLK_l:		jkeybDown(0x26); break;
-		case xSDLK_SEMICOLON:	jkeybDown(0x27); break;
-		case xSDLK_QUOTE:	jkeybDown(0x28); break;
-		case xSDLK_LEFTBRACKET:	jkeybDown(0x1a); break;
-		case xSDLK_RIGHTBRACKET:	jkeybDown(0x1b); break;
+		case xSDLK_a:		KBDKeyDown(0x1e); break;
+		case xSDLK_s:		KBDKeyDown(0x1f); break;
+		case xSDLK_d:		KBDKeyDown(0x20); break;
+		case xSDLK_f:		KBDKeyDown(0x21); break;
+		case xSDLK_g:		KBDKeyDown(0x22); break;
+		case xSDLK_h:		KBDKeyDown(0x23); break;
+		case xSDLK_j:		KBDKeyDown(0x24); break;
+		case xSDLK_k:		KBDKeyDown(0x25); break;
+		case xSDLK_l:		KBDKeyDown(0x26); break;
+		case xSDLK_SEMICOLON:	KBDKeyDown(0x27); break;
+		case xSDLK_QUOTE:	KBDKeyDown(0x28); break;
+		case xSDLK_LEFTBRACKET:	KBDKeyDown(0x1a); break;
+		case xSDLK_RIGHTBRACKET:	KBDKeyDown(0x1b); break;
 
-		case xSDLK_z:		jkeybDown(0x2c); break;
-		case xSDLK_x:		jkeybDown(0x2d); break;
-		case xSDLK_c:		jkeybDown(0x2e); break;
-		case xSDLK_v:		jkeybDown(0x2f); break;
-		case xSDLK_b:		jkeybDown(0x30); break;
-		case xSDLK_n:		jkeybDown(0x31); break;
-		case xSDLK_m:		jkeybDown(0x32); break;
-		case xSDLK_COMMA:	jkeybDown(0x33); break;
-		case xSDLK_PERIOD:	jkeybDown(0x34); break;
-		case SDLK_SLASH:	jkeybDown(0x35); break;
+		case xSDLK_z:		KBDKeyDown(0x2c); break;
+		case xSDLK_x:		KBDKeyDown(0x2d); break;
+		case xSDLK_c:		KBDKeyDown(0x2e); break;
+		case xSDLK_v:		KBDKeyDown(0x2f); break;
+		case xSDLK_b:		KBDKeyDown(0x30); break;
+		case xSDLK_n:		KBDKeyDown(0x31); break;
+		case xSDLK_m:		KBDKeyDown(0x32); break;
+		case xSDLK_COMMA:	KBDKeyDown(0x33); break;
+		case xSDLK_PERIOD:	KBDKeyDown(0x34); break;
+		case SDLK_SLASH:	KBDKeyDown(0x35); break;
 
-		case SDLK_SPACE:	jkeybDown(0x39); break;
+		case SDLK_SPACE:	KBDKeyDown(0x39); break;
 
-		case SDLK_CAPSLOCK:	jkeybDown(0x3a); break;
+		case SDLK_CAPSLOCK:	KBDKeyDown(0x3a); break;
 		
-		case SDLK_LCTRL:	jkeybModeDown(1); break;
-		case SDLK_LSHIFT:	jkeybModeDown(2); break;
-		case SDLK_RCTRL:	jkeybModeDown(1); break;
-		case SDLK_RSHIFT:	jkeybModeDown(2); break;
+		case SDLK_LCTRL:	KBDModKeyDown(1); break;
+		case SDLK_LSHIFT:	KBDModKeyDown(2); break;
+		case SDLK_RCTRL:	KBDModKeyDown(1); break;
+		case SDLK_RSHIFT:	KBDModKeyDown(2); break;
 
 //		case SDLK_PRINT:	savepng(vscr, 320 * vScale, 27 * 8 * vScale); break;
 		case SDLK_PAUSE:	resetRequested(); break;
@@ -350,13 +350,13 @@ static void ChecKeyboard(void)
 		SDL_Keycode sdlkey=event.key.keysym.sym;
 		switch(sdlkey){
 
-		case SDLK_LCTRL:	jkeybModeUp(1); break;
-		case SDLK_LSHIFT:	jkeybModeUp(2); break;
-		case SDLK_RCTRL:	jkeybModeUp(1); break;
-		case SDLK_RSHIFT:	jkeybModeUp(2); break;
+		case SDLK_LCTRL:	KBDModKeyUp(1); break;
+		case SDLK_LSHIFT:	KBDModKeyUp(2); break;
+		case SDLK_RCTRL:	KBDModKeyUp(1); break;
+		case SDLK_RSHIFT:	KBDModKeyUp(2); break;
 
 		default:
-		    jkeybUp();
+		    KBDKeyUp();
 		}
 		break;
 	    }
@@ -368,7 +368,7 @@ static void ChecKeyboard(void)
 	    }
 	    case SDL_MOUSEBUTTONUP:
 		if (enableVirtualKeyboard) {
-		    vkeybUp();
+		    KBDVirtKeyUp();
 		}
 		break;
 	}
@@ -381,7 +381,7 @@ static void ChecKeyboard(void)
 		enableDiskManager = 0;
 	    } else {
 		if (enableVirtualKeyboard) {
-		    vkeybDown(x, y);
+		    KBDVirtKeyDown(x, y);
 		}
 		if (y > 216) {
 		    if (x > 5 && x < 21) {
