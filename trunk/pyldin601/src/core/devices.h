@@ -27,6 +27,7 @@ O_INLINE int SuperIoWriteByte(word a, byte d);
 
 byte *loadBiosRom(dword size);
 byte *loadRamDisk(dword size);
+void  unloadRamDisk(dword size);
 byte *loadRomDisk(byte chip, dword size);
 
 void BeeperSetBit(byte val);
