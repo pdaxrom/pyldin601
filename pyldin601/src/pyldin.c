@@ -669,7 +669,7 @@ int SDLCALL HandleVideo(void *args)
 	}
 
 	if (enableVirtualKeyboard) {
-	    drawXbm(virtkbd_pict_bits, 0, 0, virtkbd_pict_width, virtkbd_pict_height, 1);
+	    drawXbm(virtkbd_bits, 0, 0, virtkbd_width, virtkbd_height, 1);
 	}
 
 	if (drawMenu) {
