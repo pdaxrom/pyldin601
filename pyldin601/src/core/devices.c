@@ -51,6 +51,8 @@ int SuperIoInit(void)
 
 int SuperIoFinish(void)
 {
+	unloadRamDisk(vdiskSIZE);
+
     return 0;
 }
 

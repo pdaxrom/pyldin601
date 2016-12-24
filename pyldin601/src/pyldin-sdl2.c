@@ -918,6 +918,19 @@ int load_packed_file(char *file, byte *mem, dword size)
     }
 }
 
+int save_packed_file(char *file, byte *mem, dword size)
+{
+	gzFile fo = gzopen(file, "wb");
+
+	if (fo) {
+		int wret = gzwrite(fo, mem, size);
+		gzclose(fo);
+		return wret;
+	} else {
+		return 0;
+	}
+}
+
 byte *loadBiosRom(dword size)
 {
     char ftemp[256];
@@ -965,8 +978,29 @@ byte *loadRamDisk(dword size)
     if (!pyldin_ramdisk_mem) {
 		pyldin_ramdisk_mem = (byte *) malloc(sizeof(byte) * size);
     }
+#ifdef __BIONIC__
+    char ftemp[256];
 
+    sprintf(ftemp, "%s/ramdisk.imz", datadir);
+
+    if (load_packed_file(ftemp, pyldin_ramdisk_mem, size)) {
+    	SDL_Log("Loaded ramdisk image... Ok\n");
+    }
+#endif
     return pyldin_ramdisk_mem;
+}
+
+void unloadRamDisk(dword size)
+{
+#ifdef __BIONIC__
+    char ftemp[256];
+
+    sprintf(ftemp, "%s/ramdisk.imz", datadir);
+
+    save_packed_file(ftemp, pyldin_ramdisk_mem, size);
+#endif
+
+    free(pyldin_ramdisk_mem);
 }
 
 byte *loadRomDisk(byte chip, dword size)
