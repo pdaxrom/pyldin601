@@ -100,6 +100,8 @@ int	enableDiskManager;
 static int drawMenu;
 static int drawInfo;
 
+static int draw_menu_timeout = 0;
+
 static uint64_t currentCpuFrequency = 0;
 static uint64_t oneUSecDelay = 0;
 static uint64_t oneUSecDelayConst = 0;
@@ -476,6 +478,11 @@ static void check_keyboard(SDL_Event *event)
 					drawMenu = 1;
 				}
 			}
+
+			if (!enableVirtualKeyboard && !enableDiskManager) {
+				draw_menu_timeout = 3 * 50;
+				drawMenu = 1;
+			}
 		}
     }
 }
@@ -646,7 +653,6 @@ int initVideo(int w, int h)
 #endif
         );
 
-
     framebuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
 	0xF800, 0x07E0, 0x001F, 0x0000
@@ -654,16 +660,6 @@ int initVideo(int w, int h)
 	0x001F, 0x07E0, 0xF800, 0x0000
 #endif
         );
-
-    surf_keyboard = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
-#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
-	0xF800, 0x07E0, 0x001F, 0x0000
-#else
-	0x001F, 0x07E0, 0xF800, 0x0000
-#endif
-        );
-
-    SDL_SetSurfaceBlendMode(surf_keyboard, SDL_BLENDMODE_ADD);
 
     scale_width  = (float) mode.w / 320;
     scale_height = (float) mode.h / 240;
@@ -680,12 +676,37 @@ int initVideo(int w, int h)
     }
 #endif
 
-    screen_drawXbm(surf_keyboard->pixels,
-    		surf_keyboard->w, surf_keyboard->h,
+
+    SDL_Surface *tmp_surf = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
+	0xF800, 0x07E0, 0x001F, 0x0000
+#else
+	0x001F, 0x07E0, 0xF800, 0x0000
+#endif
+        );
+
+    screen_drawXbm(tmp_surf->pixels,
+    		tmp_surf->w, tmp_surf->h,
     		virtkbd_pict_bits,
     		0, 0,
     		virtkbd_pict_width, virtkbd_pict_height,
     		0);
+
+    surf_keyboard = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 32,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN     /* OpenGL RGBA masks */
+                                 0x000000FF,
+                                 0x0000FF00, 0x00FF0000, 0xFF000000
+#else
+                                 0xFF000000,
+                                 0x00FF0000, 0x0000FF00, 0x000000FF
+#endif
+        );
+
+    SDL_BlitSurface(tmp_surf, NULL, surf_keyboard, NULL);
+
+    SDL_FreeSurface(tmp_surf);
+
+    SDL_SetSurfaceAlphaMod(surf_keyboard, 160);
 
     return 0;
 }
@@ -711,9 +732,19 @@ int updateVideo()
 		drawString(buf, 160, 28, 0xffff, 0);
     }
 
-    if (drawMenu) {
-		drawXbm(vmenu_bits, 0, 216, vmenu_width, vmenu_height, 0);
-		drawMenu = 0;
+    if (draw_menu_timeout && !enableDiskManager) {
+    	//SDL_Log("Draw menu %d\n", draw_menu_timeout);
+    	if (draw_menu_timeout == 1) {
+    		unsigned char empty[vmenu_width * vmenu_height / 8];
+    		memset(empty, 0xff, sizeof(empty));
+    		drawXbm(empty, 0, 216, vmenu_width, vmenu_height, 0);
+    	} else {
+    		if (drawMenu) {
+    			drawXbm(vmenu_bits, 0, 216, vmenu_width, vmenu_height, 0);
+    			drawMenu = 0;
+    		}
+    	}
+    	draw_menu_timeout--;
     }
 
 #ifdef USE_JOYSTICK
@@ -752,6 +783,10 @@ int finishVideo()
 		SDL_FreeSurface(pyldinLogo);
     }
 #endif
+
+    SDL_FreeSurface(framebuffer);
+    SDL_FreeSurface(surf_keyboard);
+    SDL_FreeSurface(surface);
 
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);
@@ -1298,8 +1333,6 @@ int main(int argc, char *argv[])
 #endif
 
 
-    finishVideo();
-
     SDL_WaitThread(cpuThread, NULL);
 
     freeFloppy();
@@ -1307,11 +1340,17 @@ int main(int argc, char *argv[])
     MC6800Finish();
     BeeperFinish();
 
+    finishVideo();
+
 #ifdef __BIONIC__
     free(datadir);
 #endif
 
     SDL_Quit();
+
+#ifdef __BIONIC__
+    exit(0);
+#endif
 
     return 0;
 }
