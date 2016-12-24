@@ -687,9 +687,9 @@ int initVideo(int w, int h)
 
     screen_drawXbm(tmp_surf->pixels,
     		tmp_surf->w, tmp_surf->h,
-    		virtkbd_pict_bits,
+    		virtkbd_bits,
     		0, 0,
-    		virtkbd_pict_width, virtkbd_pict_height,
+    		virtkbd_width, virtkbd_height,
     		0);
 
     surf_keyboard = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 32,
