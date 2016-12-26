@@ -5,7 +5,7 @@ DATADIR= $(PREFIX)/share
 
 UNIBIOSONLY=no
 
-VERSION=3.4
+VERSION=$(shell cat VERSION)
 EXTRAVERSION=$(shell LANG=en_US svn info 2>&1 | grep Revision | awk '{print $$2}')
 DATE=$(shell LANG=en_US date -R)
 
