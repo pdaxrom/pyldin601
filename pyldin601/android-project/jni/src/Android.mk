@@ -18,7 +18,7 @@ LOCAL_SRC_FILES := 			\
     ../../../src/shader.c		\
     ../../../src/pyldin-sdl2.c
 
-LOCAL_CFLAGS := -DUSE_GLES2 -Wall -g -Ofast -fomit-frame-pointer -I../src/core -I../src -ISDL2/include
+LOCAL_CFLAGS := -DUSE_GLES2 -Wall -g -Ofast -fomit-frame-pointer -I../src/core -I../src -ISDL2/include -DVERSION=\"$(shell cat ../VERSION)-$(shell LANG=en_US svn info .. 2>&1 | grep Revision | awk '{print $$2}')\"
 LOCAL_LDLIBS := -lGLESv2 -lz -llog
 
 LOCAL_SHARED_LIBRARIES := SDL2
