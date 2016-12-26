@@ -12,6 +12,7 @@ elif [ "$1" = "clean" ]; then
 
     rm -rf assets/Bios
     rm -rf assets/Rom
+    rm -rf assets/shaders
 
 elif [ "$1" = "release" ]; then
 
@@ -20,9 +21,10 @@ elif [ "$1" = "release" ]; then
 	cp -R ../../native/RAMROMDiskPipnet/rom*.roz assets/Rom/
     fi
 
-    test -d assets/Bios || cp -R ../../native/Bios assets/
+    test -d assets/Bios    || cp -R ../../native/Bios assets/
+    test -d assets/shaders || cp -R ../shaders assets/
 
-    /home/sash/Android/android-ndk-r10e/ndk-build
+    /home/sash/Android/android-ndk-r10e/ndk-build -j8
     ant release
 
 else
@@ -32,9 +34,10 @@ else
 	cp -R ../../native/RAMROMDiskPipnet/rom*.roz assets/Rom/
     fi
 
-    test -d assets/Bios || cp -R ../../native/Bios assets/
+    test -d assets/Bios    || cp -R ../../native/Bios assets/
+    test -d assets/shaders || cp -R ../shaders assets/
 
-    /home/sash/Android/android-ndk-r10e/ndk-build
+    NDK_DEBUG=1 /home/sash/Android/android-ndk-r10e/ndk-build -j8
     ant debug
 
 fi

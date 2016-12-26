@@ -106,12 +106,6 @@ static uint64_t currentCpuFrequency = 0;
 static uint64_t oneUSecDelay = 0;
 static uint64_t oneUSecDelayConst = 0;
 
-enum {
-    ATTRIB_VERTEX,
-    ATTRIB_TEXTUREPOSITON,
-    NUM_ATTRIBUTES
-};
-
 static const GLfloat squareVertices[] = {
     -1.0f, -1.0f,
      1.0f, -1.0f,
@@ -610,34 +604,41 @@ int initVideo(int w, int h)
     glAttachShader ( shaderProgram, vertexShader );             // and attach both...
     glAttachShader ( shaderProgram, fragmentShader );           // ... shaders to it
 
-    glBindAttribLocation(shaderProgram, ATTRIB_VERTEX, "position");
-    glBindAttribLocation(shaderProgram, ATTRIB_TEXTUREPOSITON, "inputTextureCoordinate");
 
     glLinkProgram ( shaderProgram );    // link the program
     glUseProgram  ( shaderProgram );    // and select it for usage
 
+    GLint position = glGetAttribLocation(shaderProgram, "position");
+    GLint texCoord = glGetAttribLocation(shaderProgram, "inputTextureCoordinate");
+    GLint tex      = glGetUniformLocation(shaderProgram, "videoFrame");
+
+    SDL_Log("A_position = %d\n", position);
+    SDL_Log("A_texCoord = %d\n", texCoord);
+    SDL_Log("U_tex      = %d\n", tex);
+
+    GLuint videoFrameTexture[1];
+    glGenTextures(1, videoFrameTexture);
+
     glActiveTexture(GL_TEXTURE0);
-    GLuint videoFrameTexture = 0;
-    glGenTextures(1, &videoFrameTexture);
-    glBindTexture(GL_TEXTURE_2D, videoFrameTexture);
+    glBindTexture(GL_TEXTURE_2D, videoFrameTexture[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 320, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glUniform1i(tex, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindTexture(GL_TEXTURE_2D, videoFrameTexture);
 
-    GLint tex = glGetUniformLocation(shaderProgram, "tex");
+    // *** This required for SGX540 ***
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // ***********************
 
-    glUniform1i(tex, 0);
-
-    glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0, squareVertices);
-    glEnableVertexAttribArray(ATTRIB_VERTEX);
-    glVertexAttribPointer(ATTRIB_TEXTUREPOSITON, 2, GL_FLOAT, 0, 0, textureVertices);
-    glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);
+    glVertexAttribPointer(position, 2, GL_FLOAT, 0, 0, squareVertices);
+    glEnableVertexAttribArray(position);
+    glVertexAttribPointer(texCoord, 2, GL_FLOAT, 0, 0, textureVertices);
+    glEnableVertexAttribArray(texCoord);
 
     glViewport ( 0 , 0 , mode.w , mode.h );
 
     // End of GL init
-
 
 #ifdef PYLDIN_ICON
     SetIcon(window);
@@ -725,13 +726,6 @@ int updateVideo()
 		MC6845DrawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
     }
 
-    if (drawInfo) {
-		char buf[64];
-
-		sprintf(buf, "%1.2fMHz", (float)currentCpuFrequency / 1000);
-		drawString(buf, 160, 28, 0xffff, 0);
-    }
-
     if (draw_menu_timeout && !enableDiskManager) {
     	//SDL_Log("Draw menu %d\n", draw_menu_timeout);
     	if (draw_menu_timeout == 1) {
@@ -743,6 +737,13 @@ int updateVideo()
     			drawXbm(vmenu_bits, 0, 216, vmenu_width, vmenu_height, 0);
     			drawMenu = 0;
     		}
+
+    		if (drawInfo) {
+    			char buf[64];
+
+    			sprintf(buf, "%1.2fMHz", (float)currentCpuFrequency / 1000);
+    			drawString(buf, 160, 28, 0xffff, 0);
+    	    }
     	}
     	draw_menu_timeout--;
     }
@@ -767,6 +768,7 @@ int updateVideo()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
     SDL_GL_SwapWindow(window);
 
     return 0;
