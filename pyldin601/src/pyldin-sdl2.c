@@ -84,6 +84,7 @@ static SDL_Window *window = NULL;
 static SDL_Surface *surface;
 static SDL_Surface *framebuffer;
 static SDL_Surface *surf_keyboard;
+static GLuint shader_object;
 
 static Uint32 update_video_event;
 
@@ -106,14 +107,14 @@ static uint64_t currentCpuFrequency = 0;
 static uint64_t oneUSecDelay = 0;
 static uint64_t oneUSecDelayConst = 0;
 
-static const GLfloat squareVertices[] = {
+static const GLfloat square_vertices[] = {
     -1.0f, -1.0f,
      1.0f, -1.0f,
     -1.0f,  1.0f,
      1.0f,  1.0f,
 };
 
-static const GLfloat textureVertices[] = {
+static const GLfloat texture_vertices[] = {
      0.0f,  1.0f,
      1.0f,  1.0f,
      0.0f,  0.0f,
@@ -587,40 +588,59 @@ int initVideo(int w, int h)
 
     // Start of GL init
 
-    GLuint vertexShader = -1;
-    GLuint fragmentShader = -1;
+    GLuint vertex_shader = -1;
+    GLuint fragment_shader = -1;
 
-    if (process_shader(&vertexShader, "shaders/shader.vert", GL_VERTEX_SHADER)) {
+    if (process_shader(&vertex_shader, "shaders/shader.vert", GL_VERTEX_SHADER)) {
 		SDL_Log("Unable load vertex shader");
 		return 1;
     }
 
-    if (process_shader(&fragmentShader, "shaders/shader.frag", GL_FRAGMENT_SHADER)) {
+    if (process_shader(&fragment_shader, "shaders/shader.frag", GL_FRAGMENT_SHADER)) {
 		SDL_Log("Unable load fragment shader");
 		return 1;
     }
 
-    GLuint shaderProgram  = glCreateProgram ();                 // create program object
-    glAttachShader ( shaderProgram, vertexShader );             // and attach both...
-    glAttachShader ( shaderProgram, fragmentShader );           // ... shaders to it
+    shader_object  = glCreateProgram ();                 // create program object
+    glAttachShader ( shader_object, vertex_shader );             // and attach both...
+    glAttachShader ( shader_object, fragment_shader );           // ... shaders to it
 
+    glLinkProgram ( shader_object );    // link the program
 
-    glLinkProgram ( shaderProgram );    // link the program
-    glUseProgram  ( shaderProgram );    // and select it for usage
+    GLint linked = 0;
+    glGetProgramiv(shader_object, GL_LINK_STATUS, &linked);
 
-    GLint position = glGetAttribLocation(shaderProgram, "position");
-    GLint texCoord = glGetAttribLocation(shaderProgram, "inputTextureCoordinate");
-    GLint tex      = glGetUniformLocation(shaderProgram, "videoFrame");
+    // Delete these here because they are attached to the program object
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    if (!linked) {
+    	GLint info_len = 0;
+    	glGetProgramiv(shader_object, GL_INFO_LOG_LENGTH, &info_len);
+    	if (info_len > 1) {
+    		char info_log[info_len];
+    		glGetProgramInfoLog(shader_object, info_len, NULL, info_log);
+    		SDL_Log("Error linking program:\n%s\n", info_log);
+    	}
+    	glDeleteProgram(shader_object);
+    	return 1;
+    }
+
+    glUseProgram  ( shader_object );    // and select it for usage
+
+    GLint position  = glGetAttribLocation(shader_object, "position");
+    GLint tex_coord = glGetAttribLocation(shader_object, "inputTextureCoordinate");
+    GLint tex       = glGetUniformLocation(shader_object, "videoFrame");
 
     SDL_Log("A_position = %d\n", position);
-    SDL_Log("A_texCoord = %d\n", texCoord);
+    SDL_Log("A_texCoord = %d\n", tex_coord);
     SDL_Log("U_tex      = %d\n", tex);
 
-    GLuint videoFrameTexture[1];
-    glGenTextures(1, videoFrameTexture);
+    GLuint video_frame_texture[1];
+    glGenTextures(1, video_frame_texture);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, videoFrameTexture[0]);
+    glBindTexture(GL_TEXTURE_2D, video_frame_texture[0]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 320, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glUniform1i(tex, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -631,10 +651,10 @@ int initVideo(int w, int h)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     // ***********************
 
-    glVertexAttribPointer(position, 2, GL_FLOAT, 0, 0, squareVertices);
+    glVertexAttribPointer(position, 2, GL_FLOAT, 0, 0, square_vertices);
     glEnableVertexAttribArray(position);
-    glVertexAttribPointer(texCoord, 2, GL_FLOAT, 0, 0, textureVertices);
-    glEnableVertexAttribArray(texCoord);
+    glVertexAttribPointer(tex_coord, 2, GL_FLOAT, 0, 0, texture_vertices);
+    glEnableVertexAttribArray(tex_coord);
 
     glViewport ( 0 , 0 , mode.w , mode.h );
 
@@ -789,6 +809,8 @@ int finishVideo()
     SDL_FreeSurface(framebuffer);
     SDL_FreeSurface(surf_keyboard);
     SDL_FreeSurface(surface);
+
+    glDeleteProgram(shader_object);
 
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);
