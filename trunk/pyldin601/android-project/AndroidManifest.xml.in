@@ -5,7 +5,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.pdaxrom.pyldin601"
       android:versionCode="2"
-      android:versionName="1.01"
+      android:versionName="@VERSION_NAME@"
       android:installLocation="auto">
 
     <!-- Android 2.3.3 -->
