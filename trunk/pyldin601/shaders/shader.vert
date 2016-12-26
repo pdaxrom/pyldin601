@@ -1,3 +1,7 @@
+#ifdef GL_ES
+precision mediump float;
+#endif
+
 attribute vec4 position;
 attribute vec4 inputTextureCoordinate;
 
