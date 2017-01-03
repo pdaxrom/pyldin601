@@ -9,7 +9,7 @@ if [ "$1" = "install" ]; then
 
 elif [ "$1" = "clean" ]; then
 
-    ${HOME}/Android/android-ndk-r10e/ndk-build distclean
+    ${HOME}/Android/android-ndk/ndk-build distclean
     ant clean
 
     rm -rf assets/Bios
@@ -40,7 +40,7 @@ elif [ "$1" = "release" ]; then
     test -d assets/Bios    || cp -R ../../native/Bios assets/
     test -d assets/shaders || cp -R ../shaders assets/
 
-    ${HOME}/Android/android-ndk-r10e/ndk-build -j8
+    ${HOME}/Android/android-ndk/ndk-build -j8
     ant release
 
 else
@@ -64,7 +64,7 @@ else
     test -d assets/Bios    || cp -R ../../native/Bios assets/
     test -d assets/shaders || cp -R ../shaders assets/
 
-    NDK_DEBUG=1 ${HOME}/Android/android-ndk-r10e/ndk-build -j8
+    NDK_DEBUG=1 ${HOME}/Android/android-ndk/ndk-build -j8
     ant debug
 
 fi
