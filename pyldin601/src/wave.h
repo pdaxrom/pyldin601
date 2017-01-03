@@ -5,5 +5,6 @@
  *
  */
 
-int BeeperInit(void);
+int  BeeperInit(int fullspeed);
 void BeeperFinish(void);
+void BeeperFlush(int ticks);

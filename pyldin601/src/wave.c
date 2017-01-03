@@ -14,65 +14,110 @@
 #include "wave.h"
 #include "rdtsc.h"
 
-#define BUFFER_SIZE	2048
+#define NUMBUF		2
 
-static SDL_AudioSpec sdl_audio = {48000, AUDIO_U8, 1, 0, 1024};
+static SDL_AudioDeviceID dev;
+
+static SDL_AudioSpec sdl_audio;// = {48000, AUDIO_U8, 1, 0, 1024};
 
 static int fInited = 0;
 
 static byte dac_out = 0;
 
-static int tick = 0;
+static unsigned int sound_count = 0;
+static unsigned int sound_tick;
 
-static byte buffer[BUFFER_SIZE];
-static int bufferLength = BUFFER_SIZE;
-static int readPtr = 0;
-static int writePtr = 0;
+typedef struct {
+	short *buf;
+	unsigned int ptr;
+	unsigned int size;
+} sound_buf_t;
+
+static sound_buf_t sound_buf[NUMBUF];
+static int cur_buf = 0;
+static int cur_out_buf = 0;
+
+static SDL_sem *sem;
 
 void audio_callback(void *data, byte *stream, int len)
 {
-    static byte lastValue = 0;
-    int i;
-    for (i = 0; i < len; i++) {
-	if (readPtr == writePtr) {
-	    stream[i] = lastValue;
-	    continue;
+	if (SDL_SemValue(sem) == NUMBUF) {
+		return;
 	}
 
-	stream[i] = buffer[readPtr++];
-	lastValue = stream[i];
+	memcpy(stream, sound_buf[cur_out_buf].buf, len);
 
-	if (readPtr == bufferLength) {
-	    readPtr = 0;
-	}
-    }
+	cur_out_buf = (cur_out_buf + 1) % NUMBUF;
 
+	SDL_SemPost(sem);
 }
 
-int BeeperInit(void)
+void BeeperFlush(int ticks)
 {
+	if (!fInited) {
+		return;
+	}
+	while(ticks >= sound_count) {
+		sound_buf[cur_buf].buf[sound_buf[cur_buf].ptr++] = dac_out << 7;
+		sound_count += sound_tick;
+		if (sound_buf[cur_buf].ptr == sound_buf[cur_buf].size) {
+			sound_buf[cur_buf].ptr = 0;
+			cur_buf = (cur_buf + 1) % NUMBUF;
+			SDL_SemWait(sem);
+		}
+	}
+}
+
+int BeeperInit(int fullspeed)
+{
+	int i;
+
+	static SDL_AudioSpec sdl_audio_want;
+
     fInited = 0;
 
-#if 0
     if ( SDL_InitSubSystem(SDL_INIT_AUDIO) < 0 ) {
-	fprintf(stderr, "Couldn't init audio: %s\n", SDL_GetError());
-	return -1;
+    	fprintf(stderr, "Couldn't init audio: %s\n", SDL_GetError());
+    	return -1;
     }
 
-    sdl_audio.callback = audio_callback;
-#ifdef _WIN32
-    sdl_audio.samples = 512;
-#endif
+    SDL_memset(&sdl_audio_want, 0, sizeof(sdl_audio_want));
 
-    if ( SDL_OpenAudio(&sdl_audio, 0) < 0 ) {
-	fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
-	return -1;
+    sdl_audio_want.callback = audio_callback;
+
+    sdl_audio_want.format   = 16;
+    sdl_audio_want.channels = 1;
+    sdl_audio_want.freq     = 48000;
+    sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
+
+    dev = SDL_OpenAudioDevice(NULL, 0, &sdl_audio_want, &sdl_audio, SDL_AUDIO_ALLOW_ANY_CHANGE);
+
+    if (dev == 0) {
+        SDL_Log("Failed to open audio: %s", SDL_GetError());
+        return -1;
     }
+
+    SDL_Log("audio samples = %d\n", sdl_audio.samples);
+    SDL_Log("audio format  = %d\n", sdl_audio.format);
+    SDL_Log("audio freq    = %d\n", sdl_audio.freq);
+    SDL_Log("audio channels= %d\n", sdl_audio.channels);
+
+    for (i = 0; i < NUMBUF; i++) {
+    	sound_buf[i].ptr = 0;
+    	sound_buf[i].size = sdl_audio.samples;
+    	sound_buf[i].buf = malloc(sound_buf[i].size * sizeof(short));
+    }
+
+    cur_buf = 0;
+    cur_out_buf = 0;
+    sound_count = 0;
+    sound_tick = 1000000 / sdl_audio.freq;
+
+    sem = SDL_CreateSemaphore(NUMBUF);
 
     fInited = 1;
 
-    SDL_PauseAudio(0);
-#endif
+    SDL_PauseAudioDevice(dev, 0);
 
     return 0;
 }
@@ -80,43 +125,19 @@ int BeeperInit(void)
 void BeeperFinish(void)
 {
     if (fInited) {
-	SDL_PauseAudio(1);
-	fInited = 0;
+    	SDL_PauseAudioDevice(dev, 1);
+    	SDL_CloseAudioDevice(dev);
+    	SDL_DestroySemaphore(sem);
+    	fInited = 0;
     }
 }
 
 void BeeperSetBit(byte val)
 {
-#if 0
     CovoxSetByte(val?0xa0:0);
-#endif
 }
 
 void CovoxSetByte(byte val)
 {
-#if 0
     dac_out = val;
-    if (tick == 0) {
-	tick = rdtsc();
-    } else {
-	unsigned int new = rdtsc();
-	unsigned int period = (new - tick) / 48000;
-	tick = new;
-//	fprintf(stderr, "----- %d %d\n", period, val);
-
-	SDL_LockAudio();
-	while (period-- > 0) {
-	    unsigned int tmpPtr = writePtr + 1;
-	    if (tmpPtr == bufferLength) {
-		tmpPtr = 0;
-	    }
-	    if (tmpPtr == readPtr) {
-		break;
-	    }
-	    buffer[writePtr] = val;
-	    writePtr = tmpPtr;
-	}
-	SDL_UnlockAudio();
-    }
-#endif
 }

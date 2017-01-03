@@ -9,7 +9,7 @@ int				MC6800Step(void);
 int				MC6800Finish(void);
 
 O_INLINE void	MC6800SetInterrupt(int l);
-O_INLINE dword	MC6800GetCyclesCounter(void);
+dword			MC6800GetCyclesCounter(void);
 O_INLINE byte 	*MC6800GetCpuRam(void);
 
 O_INLINE byte 	MC6800MemReadByte(word a);
