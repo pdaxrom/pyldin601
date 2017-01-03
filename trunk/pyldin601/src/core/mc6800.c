@@ -95,7 +95,7 @@ O_INLINE void MC6800SetInterrupt(int l)
     IRQrequest = l;
 }
 
-O_INLINE dword MC6800GetCyclesCounter(void)
+dword MC6800GetCyclesCounter(void)
 {
     return mc6800_global_takts;
 }
