@@ -835,6 +835,8 @@ int cpu_thread(void *arg)
 
     	int cpuCycles = MC6800Step();
 
+    	BeeperFlush(MC6800GetCyclesCounter());
+
     	vSyncCounter += cpuCycles;
 
     	if (vSyncCounter >= 20000) {
@@ -1311,7 +1313,7 @@ int main(int argc, char *argv[])
 
 
     // sound initialization
-    BeeperInit();
+    BeeperInit(0);
 
     drawMenu = 1;
     enableVirtualKeyboard = 0;
