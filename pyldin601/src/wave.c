@@ -52,18 +52,20 @@ void audio_callback(void *data, byte *stream, int len)
 	SDL_SemPost(sem);
 }
 
-void BeeperFlush(int ticks)
+void BeeperFlush(int ticks, int enable_flag)
 {
 	if (!fInited) {
 		return;
 	}
 	while(ticks >= sound_count) {
-		sound_buf[cur_buf].buf[sound_buf[cur_buf].ptr++] = dac_out << 7;
+		sound_buf[cur_buf].buf[sound_buf[cur_buf].ptr++] = enable_flag?(dac_out << 7):0;
 		sound_count += sound_tick;
 		if (sound_buf[cur_buf].ptr == sound_buf[cur_buf].size) {
 			sound_buf[cur_buf].ptr = 0;
 			cur_buf = (cur_buf + 1) % NUMBUF;
-			SDL_SemWait(sem);
+			if (enable_flag) {
+				SDL_SemWait(sem);
+			}
 		}
 	}
 }

@@ -18,6 +18,7 @@ OPT_FLAGS := -g -Ofast -fomit-frame-pointer
 CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
 CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON -DUSE_JOYSTICK
+#CFLAGS += -DUSE_GUI
 
 ifeq (opengl, $(VIDEO))
 VIDEOLIB = -lGL
@@ -28,6 +29,7 @@ endif
 
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(shell pkg-config libpng --libs) $(VIDEOLIB) -lz $(OPT_STRIP) -g
+#LDFLAGS += -lSDL2_gfx
 
 ##########################
 #CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON
@@ -38,6 +40,7 @@ LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(shell pkg-confi
 #OBJS  = src/core/devices.o src/core/floppy.o src/core/keyboard.o src/core/mc6800.o src/core/swiemu.o src/core/mc6845.o src/core/i8272.o
 OBJS  = src/core/core.o
 OBJS += src/discs.o src/screen.o src/sshot.o src/floppymanager.o src/pyldin-sdl2.o src/shader.o
+#OBJS += src/gui.o
 
 ifeq (alsa, $(SOUND))
 OBJS += src/wave-alsa.o
