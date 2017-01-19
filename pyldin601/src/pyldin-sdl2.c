@@ -60,6 +60,14 @@ static int joymouse_y = 110;
 #endif
 #endif
 
+#ifdef USE_GUI
+#include "gui.h"
+#endif
+
+static int keyboard_opaque = 160;
+static int enable_sound = 1;
+static int enable_turbo = 0;
+
 #ifndef DATADIR
 # ifdef __BIONIC__
 #define DATADIR "/sdcard/Pyldin601"
@@ -72,8 +80,9 @@ char *datadir = DATADIR;
 
 #define MAX_LOADSTRING 100
 
-static int resetRequest;
-static int exitRequest;
+static SDL_atomic_t reset_request;
+static SDL_atomic_t irq_request;
+static SDL_atomic_t poweroff_request;
 
 #define PRNFILE	"pyldin.prn"
 static FILE *printerFile = NULL;
@@ -103,9 +112,7 @@ static int drawInfo;
 
 static int draw_menu_timeout = 0;
 
-static uint64_t currentCpuFrequency = 0;
-static uint64_t oneUSecDelay = 0;
-static uint64_t oneUSecDelayConst = 0;
+static uint64_t current_cpu_frequency = 0;
 
 static const GLfloat square_vertices[] = {
     -1.0f, -1.0f,
@@ -126,12 +133,12 @@ void core_50Hz_irq(void);
 
 void resetRequested(void)
 {
-    resetRequest = 1;
+    SDL_AtomicSet(&reset_request, 1);
 }
 
 void exitRequested(void)
 {
-    exitRequest = 1;
+    SDL_AtomicSet(&poweroff_request, 1);
 }
 
 static void check_keyboard(SDL_Event *event)
@@ -467,6 +474,10 @@ static void check_keyboard(SDL_Event *event)
 				}
 				} else if (x > 123 && x < 140) {
 //					savepng(vscr, 320 * vScale, 27 * 8 * vScale);
+				} else if (x > 153 && x < 160) {
+#ifdef USE_GUI
+					open_config_window(window, surface, &enable_sound, &enable_turbo, &keyboard_opaque);
+#endif
 				} else if (x > 274 && x < 300) {
 					enableVirtualKeyboard = enableVirtualKeyboard?0:1;
 					//if (vkbdEnabled == 0)
@@ -727,7 +738,7 @@ int initVideo(int w, int h)
 
     SDL_FreeSurface(tmp_surf);
 
-    SDL_SetSurfaceAlphaMod(surf_keyboard, 160);
+    SDL_SetSurfaceAlphaMod(surf_keyboard, keyboard_opaque);
 
     return 0;
 }
@@ -761,7 +772,7 @@ int updateVideo()
     		if (drawInfo) {
     			char buf[64];
 
-    			sprintf(buf, "%1.2fMHz", (float)currentCpuFrequency / 1000);
+    			sprintf(buf, "%1.2fMHz", (float)current_cpu_frequency / 1000);
     			drawString(buf, 160, 28, 0xffff, 0);
     	    }
     	}
@@ -821,72 +832,54 @@ int finishVideo()
     return 0;
 }
 
+static void rtc_timer_callback(int signum)
+{
+	static uint64_t cycle_counter = 0;
+	static Uint32 old = 0;
+
+	Uint32 now = SDL_GetTicks();
+
+	if (now - old >= 1000) {
+		Uint32 new_cycle_counter = MC6800GetCyclesCounter();
+		current_cpu_frequency =  (new_cycle_counter - cycle_counter) / 1000;
+		cycle_counter = new_cycle_counter;
+		old = now;
+	}
+
+	SDL_AtomicSet(&irq_request, 1);
+
+	SDL_Event event;
+	event.type = update_video_event;
+	SDL_PushEvent(&event);
+}
+
 int cpu_thread(void *arg)
 {
-    int vSyncCounter = 0;
-    uint64_t emulatorCycleStarted = rdtsc();
-    uint64_t oldClockCounter = emulatorCycleStarted;
-
     do {
-    	if (resetRequest) {
+    	if (SDL_AtomicGet(&reset_request)) {
     		MC6800Reset();
-    		resetRequest = 0;
+    		SDL_AtomicSet(&reset_request, 0);
     	}
 
-    	int cpuCycles = MC6800Step();
-
-    	BeeperFlush(MC6800GetCyclesCounter());
-
-    	vSyncCounter += cpuCycles;
-
-    	if (vSyncCounter >= 20000) {
+    	if (SDL_AtomicGet(&irq_request)) {
     		core_50Hz_irq();
-
-    		SDL_Event event;
-    		event.type = update_video_event;
-    		SDL_PushEvent(&event);
-
-    		uint64_t newClockCounter = rdtsc();
-    		currentCpuFrequency = (vSyncCounter * 1000) / ((newClockCounter - oldClockCounter) / oneUSecDelayConst);
-
-    		oldClockCounter = newClockCounter;
-    		vSyncCounter = 0;
-
-    		int diff = abs(1000 - currentCpuFrequency);
-//SDL_Log("--- %d", diff);
-    		if (diff < 10) {
-    			diff = 1;
-    		} else {
-    			diff /= 10;
-    		}
-
-    		if (currentCpuFrequency && currentCpuFrequency < 1000) {
-//SDL_Log("+++ %lld, %lld, %d", one_takt_delay, actual_speed, diff);
-    			oneUSecDelay -= diff;
-    		} else if (currentCpuFrequency && currentCpuFrequency > 1000) {
-//SDL_Log("--- %lld, %lld, %d", one_takt_delay, actual_speed, diff);
-    			oneUSecDelay += diff;
-    		}
-
+    		SDL_AtomicSet(&irq_request, 0);
     	}
 
-#ifdef __BIONIC__
-    	uint64_t delay_counter = 0;
+    	Uint32 ticks = MC6800Step();
 
-    	while (delay_counter < oneUSecDelay) {
-    		delay_counter++;
-    		asm("");
+    	BeeperFlush(MC6800GetCyclesCounter(), enable_sound);
+
+    	{
+    		static Uint32 refresh_counter = 0;
+
+    		refresh_counter += ticks;
+    		if (refresh_counter > 20000) {
+    			rtc_timer_callback(0);
+        		refresh_counter = 0;
+    		}
     	}
-#else
-    	uint64_t emulatorCycleFinished;
-
-    	do {
-    		emulatorCycleFinished = rdtsc();
-    	} while ((emulatorCycleFinished - emulatorCycleStarted) < (oneUSecDelay * cpuCycles));
-
-    	emulatorCycleStarted = emulatorCycleFinished;
-#endif
-    } while( exitRequest == 0);
+    } while(!SDL_AtomicGet(&poweroff_request));
 
 	return 0;
 }
@@ -1287,30 +1280,11 @@ int main(int argc, char *argv[])
     MC6800Init();
     SuperIoPrinterPortMode(printerPortDevice);
 
-    {
-	uint64_t a = rdtsc();
-	sleep(1);
-	oneUSecDelay = rdtsc();
-#ifdef __PPC__
-#warning "PPC PS3 calculation, fixme"
-	oneUSecDelay -= a;
-	SDL_Log("Detecting host cpu frequency... %lld MHz\n", oneUSecDelay * 4 / 100000);
-	oneUSecDelay /= 1000000;
-	oneUSecDelayConst = oneUSecDelay;
-#else
-	oneUSecDelay -= a;
-	oneUSecDelay /= 1000000;
-	oneUSecDelayConst = oneUSecDelay;
-	SDL_Log("Detecting host cpu frequency... %lld MHz\n", oneUSecDelayConst);
-#endif
-    }
-
     initFloppy();
 
     if (bootFloppy) {
     	insertFloppy(FLOPPY_A, bootFloppy);
     }
-
 
     // sound initialization
     BeeperInit(0);
@@ -1318,8 +1292,10 @@ int main(int argc, char *argv[])
     drawMenu = 1;
     enableVirtualKeyboard = 0;
     enableDiskManager = 0;
-    resetRequest = 1;
-    exitRequest = 0;
+
+    SDL_AtomicSet(&reset_request, 1);
+    SDL_AtomicSet(&poweroff_request, 0);
+    SDL_AtomicSet(&irq_request, 0);
 
     initVideo(width, height);
 
@@ -1358,7 +1334,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    while (!exitRequest) {
+    while (!SDL_AtomicGet(&poweroff_request)) {
     	SDL_Event event;
 
         if(SDL_WaitEvent(&event) > 0) {
@@ -1391,7 +1367,6 @@ int main(int argc, char *argv[])
     	SDL_JoystickClose(joystick);
     }
 #endif
-
 
     SDL_WaitThread(cpuThread, NULL);
 
