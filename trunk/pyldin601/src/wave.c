@@ -90,8 +90,17 @@ int BeeperInit(int fullspeed)
     sdl_audio_want.format   = 16;
     sdl_audio_want.channels = 1;
     sdl_audio_want.freq     = 48000;
-    sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
 
+#ifdef __BIONIC__
+	#ifdef __mips__
+    // Paladin Novo 7 has problem with small buffer :(
+    sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
+	#else
+    sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 7));
+	#endif
+#else
+    sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
+#endif
     dev = SDL_OpenAudioDevice(NULL, 0, &sdl_audio_want, &sdl_audio, SDL_AUDIO_ALLOW_ANY_CHANGE);
 
     if (dev == 0) {
