@@ -1,0 +1,79 @@
+;
+; BLACKEYES 601 ZERO
+; Devices mapping
+;
+
+; SimpleIO module
+
+IO_L8BIT	equ	$E6A0
+IO_L7HI		equ	$E6A1
+IO_L7LO		equ	$E6A2
+IO_L2RGB	equ	$E6A3
+IO_SWKEYS	equ	$E6A4
+
+IO_TIM_CONFIG	equ	$E6A8
+IO_TIM_STATUS	equ	$E6A8
+IO_TIM_DIV	equ	$E6A9
+
+IO_TIM_RUN	equ	$1
+IO_TIM_IEN	equ	$40
+IO_TIM_IRQ	equ	$80
+
+; UART module
+
+UART_DATA	equ	$E6B0
+UART_CONFIG	equ	$E6B1
+UART_STATUS	equ	$E6B1
+UART_PRESCALER	equ	$E6B2
+
+UART_RRD	equ	$1
+UART_ROE	equ	$2
+UART_RFE	equ	$4
+UART_TRD	equ	$8
+UART_RIE	equ	$10
+UART_TIE	equ	$20
+UART_RIQ	equ	$40
+UART_TIQ	equ	$80
+
+; SPI HOST
+SPI_STATUS	equ	$E6C0
+SPI_DATA	equ	$E6C1
+SPI_PRESCALER	equ	$E6C2
+SPI_REG		equ	$E6C3
+
+SPI_READY	equ	$80
+
+SPI_SD		equ	$01
+SPI_PSG		equ	$02
+SPI_RES		equ	$08
+SPI_PSGBC1	equ	$80
+
+; add other SPI devices to check if SPI in use
+SPI_ALL		equ	(SPI_SD | SPI_PSG)
+SPI_INI		equ	(SPI_SD | SPI_PSG | SPI_PSGBC1)
+
+; PAGE SELECTOR
+RAMPAGE_SEL	equ	$E6F0
+RAMPAGE_CTL	equ	$E6F1
+RAMPAGE_LOCK	equ	$01
+BRAM_DISABLE	equ	$02
+
+;VPU
+VPU_HSTART	equ	$E600
+VPU_CFG 	equ	$E601
+VPU_STAT	equ	$E601
+VPU_VSTART	equ	$E602
+VPU_VEND	equ	$E604
+VPU_VADDR	equ	$E606
+VPU_HSIZE	equ	$E608
+VPU_CPOS	equ	$E609
+VPU_CSTART	equ	$E60A
+VPU_CEND	equ	$E60C
+
+VPU_SVL		equ	$01
+VPU_EVL		equ	$02
+VPU_CIN		equ	$04
+VPU_CEN		equ	$08
+VPU_GRF		equ	$20
+VPU_IEN		equ	$40
+VPU_IRQ		equ	$80
