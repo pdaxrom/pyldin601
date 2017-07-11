@@ -1,14 +1,13 @@
 --===========================================================================--
 --
---  S Y N T H E Z I A B L E    CPU68   C O R E
+--  S Y N T H E Z I A B L E    CPU01   C O R E
 --
 --  www.OpenCores.Org - December 2002
 --  This core adheres to the GNU public license  
 --
--- File name      : cpu68.vhd
+-- File name      : cpu01.vhd
 --
--- Purpose        : Implements a 6800 compatible CPU core with some
---                  additional instructions found in the 6801
+-- Purpose        : Implements a 6801 compatible CPU core
 --                  
 -- Dependencies   : ieee.Std_Logic_1164
 --                  ieee.std_logic_unsigned
@@ -54,22 +53,33 @@
 -- CPU or add wait states. Halt puts the CPU in the inactive state
 -- and is only honoured in the fetch cycle. Both signals are active high.
 --
--- 9th Jan 2004 0.8						John Kent
--- Clear instruction did an alu_ld8 rather than an alu_clr, so
--- the carry bit was not cleared correctly.
--- This error was picked up by Michael Hassenfratz.
+-- 24 Aug 2003 1.0                John Kent
+-- Converted 6800 core to 6801 by removing alu_cpx
+-- Also added 4 extra interrupt inputs
+--
+-- 13 Jan 2004 1.1                John Kent  
+-- As Reported by Michael Hasenfratz CLR did not clear the carry bit.
+-- this is because the state sequencer enumerated the ALU with "alu_ld8"
+-- rather than "alu_clr". I've also moved the "alu_clr" to the "alu_clc"
+-- decode which clears the carry. It should not be necessary, but is a
+-- more obvious way of doing things.
+--
+-- Also changed is the clock edge. Things should happen on the falling
+-- edge of the clock, not the rising edge. 
+--
+-- Also removed Test_alu and Test_cc.
 --
 -- 13th May 2017 0.8			Alexander Chukov
 -- Added XGDX instruction from HD6301
 --
 --
+--
 
 library ieee;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
 
-entity cpu68 is
+entity cpu01 is
 	port (	
 		clk:	    in  std_logic;
 		rst:	    in  std_logic;
@@ -81,13 +91,15 @@ entity cpu68 is
 		hold:     in  std_logic;
 		halt:     in  std_logic;
 		irq:      in  std_logic;
-		nmi:      in  std_logic
---		test_alu: out std_logic_vector(15 downto 0);
---		test_cc:  out std_logic_vector(7 downto 0)
+		nmi:      in  std_logic;
+		irq_icf:  in  std_logic;
+		irq_ocf:  in  std_logic;
+		irq_tof:  in  std_logic;
+		irq_sci:  in  std_logic
 		);
 end;
 
-architecture CPU_ARCH of cpu68 is
+architecture CPU_ARCH of cpu01 is
 
   constant SBIT : integer := 7;
   constant XBIT : integer := 6;
@@ -129,14 +141,14 @@ architecture CPU_ARCH of cpu68 is
 	type pc_type is (reset_pc, latch_pc, load_ea_pc, add_ea_pc, pull_lo_pc, pull_hi_pc, inc_pc );
    type md_type is (reset_md, latch_md, load_md, fetch_first_md, fetch_next_md, shiftl_md );
    type ea_type is (reset_ea, latch_ea, add_ix_ea, load_accb_ea, inc_ea, fetch_first_ea, fetch_next_ea );
-	type iv_type is (reset_iv, latch_iv, swi_iv, nmi_iv, irq_iv );
+	type iv_type is (reset_iv, latch_iv, swi_iv, nmi_iv, irq_iv, icf_iv, ocf_iv, tof_iv, sci_iv );
 	type nmi_type is (reset_nmi, set_nmi, latch_nmi );
 	type left_type is (acca_left, accb_left, accd_left, md_left, ix_left, sp_left );
 	type right_type is (md_right, zero_right, plus_one_right, accb_right, ix_right );
    type alu_type   is (alu_add8, alu_sub8, alu_add16, alu_sub16, alu_adc, alu_sbc, 
                        alu_and, alu_ora, alu_eor,
                        alu_tst, alu_inc, alu_dec, alu_clr, alu_neg, alu_com,
-							  alu_inx, alu_dex, alu_cpx,
+							  alu_inx, alu_dex,
 						     alu_lsr16, alu_lsl16,
 						     alu_ror8, alu_rol8,
 						     alu_asr8, alu_asl8, alu_lsr8,
@@ -156,7 +168,7 @@ architecture CPU_ARCH of cpu68 is
    signal left:        std_logic_vector(15 downto 0);
    signal right:       std_logic_vector(15 downto 0);
 	signal out_alu:     std_logic_vector(15 downto 0);
-	signal iv:          std_logic_vector(1 downto 0);
+	signal iv:          std_logic_vector(2 downto 0);
 	signal nmi_req:     std_logic;
 	signal nmi_ack:     std_logic;
 
@@ -216,11 +228,11 @@ begin
 		vma     <= '1';
 		rw      <= '1';
 	 when int_hi_ad =>
-	   address <= "1111111111111" & iv & "0";
+	   address <= "111111111111" & iv & "0";
 		vma     <= '1';
 		rw      <= '1';
     when int_lo_ad =>
-	   address <= "1111111111111" & iv & "1";
+	   address <= "111111111111" & iv & "1";
 		vma     <= '1';
 		rw      <= '1';
 	 when others =>
@@ -539,13 +551,21 @@ begin
 	 else
     case iv_ctrl is
 	 when reset_iv =>
-	   iv <= "11";
+	   iv <= "111";
 	 when nmi_iv =>
-      iv <= "10";
+      iv <= "110";
   	 when swi_iv =>
-      iv <= "01";
+      iv <= "101";
 	 when irq_iv =>
-      iv <= "00";
+      iv <= "100";
+	 when icf_iv =>
+	   iv <= "011";
+	 when ocf_iv =>
+      iv <= "010";
+  	 when tof_iv =>
+      iv <= "001";
+	 when sci_iv =>
+      iv <= "000";
 	 when others =>
 	   iv <= iv;
     end case;
@@ -692,7 +712,7 @@ begin
 		out_alu <= left + right + ("000000000000000" & carry_in);
   	 when alu_sub8 | alu_dec |
   	      alu_sub16 | alu_dex |
-  	      alu_sbc | alu_cpx =>
+  	      alu_sbc =>
 	   out_alu <= left - right - ("000000000000000" & carry_in);
   	 when alu_and =>
 	   out_alu   <= left and right; 	-- and/bit
@@ -752,7 +772,7 @@ begin
 	   cc_out(CBIT) <= left(15);
 	 when alu_com =>
 	   cc_out(CBIT) <= '1';
-	 when alu_neg | alu_clr =>
+	 when alu_neg =>
 	   cc_out(CBIT) <= out_alu(7) or out_alu(6) or out_alu(5) or out_alu(4) or
 		                out_alu(3) or out_alu(2) or out_alu(1) or out_alu(0); 
     when alu_daa =>
@@ -763,11 +783,11 @@ begin
 	   end if;
   	 when alu_sec =>
       cc_out(CBIT) <= '1';
-  	 when alu_clc =>
+  	 when alu_clc | alu_clr =>
       cc_out(CBIT) <= '0';
     when alu_tap =>
       cc_out(CBIT) <= left(CBIT);
-  	 when others => -- carry is not affected by cpx
+  	 when others =>
       cc_out(CBIT) <= cc(CBIT);
     end case;
 	 --
@@ -786,7 +806,7 @@ begin
   	 when alu_add16 | alu_sub16 |
   	      alu_lsl16 | alu_lsr16 |
   	      alu_inx | alu_dex |
-		   alu_ld16  | alu_st16 | alu_cpx =>
+		   alu_ld16  | alu_st16 =>
       cc_out(ZBIT) <= not( out_alu(15) or out_alu(14) or out_alu(13) or out_alu(12) or
 	                        out_alu(11) or out_alu(10) or out_alu(9)  or out_alu(8)  or
   	                        out_alu(7)  or out_alu(6)  or out_alu(5)  or out_alu(4)  or
@@ -810,7 +830,7 @@ begin
       cc_out(NBIT) <= out_alu(7);
 	 when alu_add16 | alu_sub16 |
 	      alu_lsl16 | alu_lsr16 |
-			alu_ld16 | alu_st16 | alu_cpx =>
+			alu_ld16 | alu_st16 =>
 		cc_out(NBIT) <= out_alu(15);
     when alu_tap =>
       cc_out(NBIT) <= left(NBIT);
@@ -859,7 +879,7 @@ begin
   	 when alu_add16 =>
       cc_out(VBIT) <= (left(15)  and      right(15)  and (not out_alu(15))) or
                  ((not left(15)) and (not right(15)) and      out_alu(15));
-	 when alu_sub16 | alu_cpx =>
+	 when alu_sub16  =>
       cc_out(VBIT) <= (left(15)  and (not right(15)) and (not out_alu(15))) or
                  ((not left(15)) and      right(15) and       out_alu(15));
 	 when alu_inc =>
@@ -899,8 +919,6 @@ begin
 	   cc_out(SBIT) <= cc(SBIT);
 	 end case;
 
---	 test_alu <= out_alu;
---	 test_cc  <= cc_out;
 end process;
 
 ------------------------------------
@@ -962,7 +980,9 @@ end process;
 -- state sequencer
 --
 ------------------------------------
-process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
+process( state, op_code, cc, ea,
+         irq, irq_icf, irq_ocf, irq_tof, irq_sci,
+		   nmi_req, nmi_ack, hold, halt )
   	begin
 		  case state is
           when reset_state =>        --  released from reset
@@ -1183,7 +1203,7 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 					  when "1100" => -- cpx
 					    left_ctrl   <= ix_left;
 					    right_ctrl  <= md_right;
-					    alu_ctrl    <= alu_cpx;
+					    alu_ctrl    <= alu_sub16;
 						 cc_ctrl     <= load_cc;
 					    acca_ctrl   <= latch_acca;
                    accb_ctrl   <= latch_accb;
@@ -1424,7 +1444,10 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 					--
 					-- IRQ is level sensitive
 					--
-				   if (irq = '1') and (cc(IBIT) = '0') then
+				   if ((irq = '1') or
+				       (irq_icf = '1') or (irq_ocf = '1') or
+					    (irq_tof = '1') or (irq_sci = '1')) 
+						 and (cc(IBIT) = '0') then
                  pc_ctrl    <= latch_pc;
 			        next_state <= int_pcl_state;
                else
@@ -1947,7 +1970,8 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 					  cc_ctrl    <= latch_cc;
 		         when "1111" => -- clr
 		           right_ctrl <= zero_right;
-					  alu_ctrl   <= alu_clr;
+--					  alu_ctrl   <= alu_ld8;
+					  alu_ctrl   <= alu_clr;	-- 13 Jan 2004
 					  acca_ctrl  <= load_acca;
 					  cc_ctrl    <= load_cc;
 		         when others =>
@@ -2031,7 +2055,8 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 					  cc_ctrl    <= latch_cc;
 		         when "1111" => -- clr
 		           right_ctrl <= zero_right;
-					  alu_ctrl   <= alu_clr;
+--					  alu_ctrl   <= alu_ld8;
+					  alu_ctrl   <= alu_clr;	-- 13 Jan 2004
 					  accb_ctrl  <= load_accb;
 					  cc_ctrl    <= load_cc;
 		         when others =>
@@ -2542,30 +2567,6 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 				         -- increment the effective address in case of 16 bit load
 					      ea_ctrl    <= inc_ea;
 					      next_state <= read16_state;
---					    when "0111" =>   -- staa
--- 					      left_ctrl  <= acca_left;
---					      right_ctrl <= zero_right;
---					      alu_ctrl   <= alu_st8;
---                     cc_ctrl    <= latch_cc;
---				         md_ctrl    <= load_md;
--- 					      ea_ctrl    <= latch_ea;
---					      next_state <= write8_state;
---					    when "1101" => -- jsr
---			            left_ctrl  <= acca_left;
---				         right_ctrl <= zero_right;
---				         alu_ctrl   <= alu_nop;
---                     cc_ctrl    <= latch_cc;
---                     md_ctrl    <= latch_md;
--- 					      ea_ctrl    <= latch_ea;
---					      next_state <= jsr_state;
---					    when "1111" =>  -- sts
--- 					      left_ctrl  <= sp_left;
---					      right_ctrl <= zero_right;
---					      alu_ctrl   <= alu_st16;
---                     cc_ctrl    <= latch_cc;
---				         md_ctrl    <= load_md;
---					      ea_ctrl    <= latch_ea;
---					      next_state <= write16_state;
 					    when others =>
  					      left_ctrl  <= acca_left;
 					      right_ctrl <= zero_right;
@@ -2589,30 +2590,6 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 				         -- increment the effective address in case of 16 bit load
 					      ea_ctrl    <= inc_ea;
 					      next_state <= read16_state;
---					    when "0111" =>   -- stab
--- 					      left_ctrl  <= accb_left;
---					      right_ctrl <= zero_right;
---					      alu_ctrl   <= alu_st8;
---                     cc_ctrl    <= latch_cc;
---				         md_ctrl    <= load_md;
---					      ea_ctrl    <= latch_ea;
---					      next_state <= write8_state;
---					    when "1101" => -- std
---			            left_ctrl  <= accd_left;
---				         right_ctrl <= zero_right;
---				         alu_ctrl   <= alu_st16;
---                     cc_ctrl    <= latch_cc;
---                     md_ctrl    <= load_md;
--- 					      ea_ctrl    <= latch_ea;
---					      next_state <= write16_state;
---					    when "1111" =>  -- stx
--- 					      left_ctrl  <= ix_left;
---					      right_ctrl <= zero_right;
---					      alu_ctrl   <= alu_st16;
---                     cc_ctrl    <= latch_cc;
---				         md_ctrl    <= load_md;
---					      ea_ctrl    <= latch_ea;
---					      next_state <= write16_state;
 					    when others =>
  					      left_ctrl  <= acca_left;
 					      right_ctrl <= zero_right;
@@ -3189,87 +3166,101 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 					  -- idle the bus
                  addr_ctrl  <= idle_ad;
                  dout_ctrl  <= md_lo_dout;
-                 left_ctrl  <= md_left;
 	              case op_code(3 downto 0) is
 		           when "0000" => -- neg
+                   left_ctrl  <= md_left;
 					    right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_neg;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
  	              when "0011" => -- com
+                   left_ctrl  <= md_left;
 		             right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_com;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "0100" => -- lsr
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_lsr8;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "0110" => -- ror
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_ror8;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "0111" => -- asr
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_asr8;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "1000" => -- asl
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_asl8;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "1001" => -- rol
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_rol8;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "1010" => -- dec
+                   left_ctrl  <= md_left;
 		             right_ctrl <= plus_one_right;
 					    alu_ctrl   <= alu_dec;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "1011" => -- undefined
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_nop;
 					    cc_ctrl    <= latch_cc;
 				       md_ctrl    <= latch_md;
 				       next_state <= fetch_state;
 		           when "1100" => -- inc
+                   left_ctrl  <= md_left;
 		             right_ctrl <= plus_one_right;
 					    alu_ctrl   <= alu_inc;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when "1101" => -- tst
+                   left_ctrl  <= md_left;
 		             right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_st8;
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= latch_md;
 				       next_state <= fetch_state;
 		           when "1110" => -- jmp
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_nop;
 					    cc_ctrl    <= latch_cc;
 				       md_ctrl    <= latch_md;
 				       next_state <= fetch_state;
 		           when "1111" => -- clr
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
-					    alu_ctrl   <= alu_clr;
+--					    alu_ctrl   <= alu_ld8;
+					    alu_ctrl   <= alu_clr;	-- 13 Jan 2004
 					    cc_ctrl    <= load_cc;
 				       md_ctrl    <= load_md;
 				       next_state <= write8_state;
 		           when others =>
+                   left_ctrl  <= md_left;
 						 right_ctrl <= zero_right;
 					    alu_ctrl   <= alu_nop;
 					    cc_ctrl    <= latch_cc;
@@ -3827,6 +3818,18 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 				   if (irq = '1') and (cc(IBIT) = '0') then
 		  			  iv_ctrl    <= irq_iv;
 			        next_state <= int_mask_state;
+               elsif (irq_icf = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= icf_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_ocf = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= ocf_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_tof = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= tof_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_sci = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= sci_iv;
+			        next_state <= int_mask_state;
                else
 					  case op_code is
 					  when "00111110" => -- WAI (wait for interrupt)
@@ -3878,6 +3881,18 @@ process( state, op_code, cc, ea, irq, nmi_req, nmi_ack, hold, halt )
 					--
 				   if (irq = '1') and (cc(IBIT) = '0') then
 		  			  iv_ctrl    <= irq_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_icf = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= icf_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_ocf = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= ocf_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_tof = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= tof_iv;
+			        next_state <= int_mask_state;
+               elsif (irq_sci = '1') and (cc(IBIT) = '0') then
+		  			  iv_ctrl    <= sci_iv;
 			        next_state <= int_mask_state;
                else
                  iv_ctrl    <= latch_iv;

@@ -283,6 +283,25 @@ module p601zero (
 	wire cpu_clk = vpu_hold ? 1'b1 : sys_clk;
 	wire cpu_irq = simpleio_irq | uartio_irq | vpu_irq;
 	
+	cpu01 mc6801 (
+		.clk(cpu_clk),
+		.rst(sys_res),
+		.rw(sys_rw),
+		.vma(sys_vma),
+		.address(AD),
+		.data_in(DI),
+		.data_out(DO),
+		.hold(1'b0),
+		.halt(1'b0),
+		.irq(cpu_irq),
+		.nmi(1'b0),
+		.irq_icf(1'b0),
+		.irq_ocf(1'b0),
+		.irq_tof(1'b0),
+		.irq_sci(1'b0)
+	);
+
+/*
 	cpu68 mc6801 (
 		.clk(cpu_clk),
 		.rst(sys_res),
@@ -296,5 +315,5 @@ module p601zero (
 		.data_in(DI),
 		.data_out(DO)
 	);
-
+ */
 endmodule

@@ -1,6 +1,6 @@
 ;
-; UART BOOTROM for BLACK EYES 601 Zero
-; (c) sashz <sashz@pdaXrom.org>, 2017
+; BOOTROM for Z/pdaXrom
+; (c) sashz <sashz@pdaXrom.org>, 1997-2017
 ;
 
 	include DEVMAP.INC
@@ -1347,7 +1347,7 @@ romvecbeg
 	dw	bpt
 romvecend
 
-pylogo		db	'ZERO/pdaXrom BOOTROM', 10, 13
+pylogo		db	'Z/pdaXrom', 10, 13
 		db	'(c) sashz <sash@pdaXrom.org>, 1997-2017', 10, 13, 0
 txt_bram	db	'Internal RAM enabled.', 10, 13, 0
 txt_extram	db	'External RAM enabled.', 10, 13, 0
