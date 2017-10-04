@@ -232,7 +232,13 @@ static void check_keyboard(SDL_Event *event)
 				enableDiskManager = 0;
 			}
 			break;
-//				case JOYBUT_SELECT:	savepng(vscr, 320 * vScale, 27 * 8 * vScale); break;
+#ifdef JOYSTICK_XBOX360
+		case JOYBUT_HOME:
+#else
+		case JOYBUT_SELECT:
+#endif
+			savepng(framebuffer);
+			break;
 		default:
 			KBDKeyDown(0x39);
 			break;
@@ -380,7 +386,7 @@ static void check_keyboard(SDL_Event *event)
 		case SDLK_RSHIFT:	KBDModKeyDown(2); break;
 #endif
 
-//		case SDLK_PRINT:	savepng(vscr, 320 * vScale, 27 * 8 * vScale); break;
+		case SDLK_PRINTSCREEN:	savepng(framebuffer); break;
 		case SDLK_PAUSE:	resetRequested(); break;
 		case SDLK_SCROLLLOCK: {
 			Uint32 flags = SDL_GetWindowFlags(window);
@@ -473,7 +479,7 @@ static void check_keyboard(SDL_Event *event)
 					SDL_Log("Unable change video mode!\n");
 				}
 				} else if (x > 123 && x < 140) {
-//					savepng(vscr, 320 * vScale, 27 * 8 * vScale);
+					savepng(framebuffer);
 				} else if (x > 153 && x < 160) {
 #ifdef USE_GUI
 					open_config_window(window, surface, &enable_sound, &enable_turbo, &keyboard_opaque);
@@ -602,12 +608,24 @@ int initVideo(int w, int h)
     GLuint vertex_shader = -1;
     GLuint fragment_shader = -1;
 
-    if (process_shader(&vertex_shader, "shaders/shader.vert", GL_VERTEX_SHADER)) {
+    char ftemp[256];
+#ifndef __BIONIC__
+    snprintf(ftemp, sizeof(ftemp), "%s/shaders/shader.vert", datadir);
+#else
+    strcpu(ftemp, "shaders/shader.vert");
+#endif
+
+    if (process_shader(&vertex_shader, ftemp, GL_VERTEX_SHADER)) {
 		SDL_Log("Unable load vertex shader");
 		return 1;
     }
 
-    if (process_shader(&fragment_shader, "shaders/shader.frag", GL_FRAGMENT_SHADER)) {
+#ifndef __BIONIC__
+    snprintf(ftemp, sizeof(ftemp), "%s/shaders/shader.frag", datadir);
+#else
+    strcpu(ftemp, "shaders/shader.frag");
+#endif
+    if (process_shader(&fragment_shader, ftemp, GL_FRAGMENT_SHADER)) {
 		SDL_Log("Unable load fragment shader");
 		return 1;
     }

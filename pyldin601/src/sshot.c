@@ -1,21 +1,20 @@
-#include <png.h>
+#include <SDL_image.h>
 #include <time.h>
 
-int savepng(unsigned short *data, int width, int height)
+int savepng(SDL_Surface *surface)
 {
-    int i;
-    unsigned char bufferRow[1024*3];
     char fname[1024];
-    png_structp png_ptr;
-    png_infop info_ptr;
-
     struct tm *dt;
 
     time_t t = time(NULL);
-    
+
     dt = localtime(&t);
 
-    strftime(fname, 1023, "sshot-%d%m%y%H%M%S.png", dt);
+    strftime(fname, sizeof(fname), "sshot-%d%m%y%H%M%S.png", dt);
+
+    IMG_SavePNG(surface, fname);
+
+#if 0
 
     /* Open the actual file */
     FILE * fp = fopen(fname, "wb");
@@ -80,7 +79,7 @@ int savepng(unsigned short *data, int width, int height)
 
     /*close file*/
     fclose(fp);
-
+#endif
     return 0;
 }
 
