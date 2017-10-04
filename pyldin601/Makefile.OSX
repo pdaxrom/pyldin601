@@ -1,7 +1,7 @@
 DESTDIR      := /Applications
 
-VERSION=3.3
-EXTRAVERSION=$(shell LANG=en_US svn info 2>&1 | grep Revision | awk '{print $$2}')
+VERSION=$(shell cat VERSION)
+EXTRAVERSION=git-$(shell git rev-parse HEAD)
 
 EXTRA_CFLAGS := -m32
 OPT_LIBS     := -m32

@@ -4,8 +4,8 @@ TOPDIR	:= $(shell pwd)
 
 all: pyldin.exe
 
-VERSION=3.3
-EXTRAVERSION=$(shell LANG=en_US svn info 2>&1 | grep Revision | awk '{print $$2}')
+VERSION=$(shell cat VERSION)
+EXTRAVERSION=git-$(shell git rev-parse HEAD)
 
 pyldin.exe:
 	make -f Makefile TARGET=pyldin.exe PREFIX=./ BINDIR=./ DATADIR=./ CC=$(CC) OPT_STRIP="-s -static -lwinmm"

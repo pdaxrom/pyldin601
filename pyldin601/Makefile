@@ -6,7 +6,7 @@ DATADIR= $(PREFIX)/share
 UNIBIOSONLY=no
 
 VERSION=$(shell cat VERSION)
-EXTRAVERSION=$(shell LANG=en_US svn info 2>&1 | grep Revision | awk '{print $$2}')
+EXTRAVERSION=git-$(shell git rev-parse HEAD)
 DATE=$(shell LANG=en_US date -R)
 
 all:	$(TARGET)
@@ -15,7 +15,7 @@ CC := gcc
 CXX := g++
 OPT_FLAGS := -g -Ofast -fomit-frame-pointer
 #OPT_STRIP := -s
-CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(shell pkg-config libpng --cflags) $(EXTRA_CFLAGS)
+CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
 CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON -DUSE_JOYSTICK
 #CFLAGS += -DUSE_GUI
@@ -28,7 +28,7 @@ VIDEOLIB = -lGLESv2 -lEGL
 endif
 
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
-LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(shell pkg-config libpng --libs) $(VIDEOLIB) -lz $(OPT_STRIP) -g
+LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(VIDEOLIB) -lz $(OPT_STRIP) -g
 #LDFLAGS += -lSDL2_gfx
 
 ##########################
@@ -63,6 +63,7 @@ install:
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Rom
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Floppy
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Bios
+	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/shaders
 	cp -f ../native/Bios/*.roz			$(DESTDIR)$(DATADIR)/pyldin/Bios/
 	cp -f ../native/Floppy/*.imz			$(DESTDIR)$(DATADIR)/pyldin/Floppy/
 ifeq (yes, $(UNIBIOSONLY))
@@ -70,9 +71,10 @@ ifeq (yes, $(UNIBIOSONLY))
 else
 	cp -f ../native/RAMROMDiskPipnet/rom*.roz	$(DESTDIR)$(DATADIR)/pyldin/Rom/
 endif
+	cp -f shaders/*.* $(DESTDIR)$(DATADIR)/pyldin/shaders/
 	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m 755 $(TARGET)      $(DESTDIR)$(BINDIR)
-	install -m 755 pyldin-fb      $(DESTDIR)$(BINDIR)
+#	install -m 755 pyldin-fb      $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/applications
 	mkdir -p $(DESTDIR)$(DATADIR)/pixmaps
 	install -m 644 pyldin.desktop $(DESTDIR)$(DATADIR)/applications
