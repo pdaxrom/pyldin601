@@ -304,7 +304,9 @@ uint16_t getsymbols(struct symbol **syms, uint8_t *mem, uint16_t start_addr, uin
 		    break;
 		case IMM:
 		    if (op->numoperands == 2) {
-			ok = 1;
+			if (d >= start_addr && d < end_addr) {
+			    ok = 1;
+			}
 		    }
 		    break;
 	    }
@@ -351,9 +353,9 @@ void exportlist(FILE *out, struct symbol *syms, uint16_t start_addr, uint16_t en
     while (syms) {
 	if ((syms->addr < start_addr) || (syms->addr >= end_addr)) {
 	    if (syms->addr < 0x100) {
-		fprintf(out, "L%02X  \t\tEQU\t%02X\n", syms->addr, syms->addr);
+		fprintf(out, "L%02X  \t\tEQU\t$%02X\n", syms->addr, syms->addr);
 	    } else {
-		fprintf(out, "L%04X\t\tEQU\t%04X\n", syms->addr, syms->addr);
+		fprintf(out, "L%04X\t\tEQU\t$%04X\n", syms->addr, syms->addr);
 	    }
 	}
 	syms = syms->prev;
@@ -430,8 +432,10 @@ uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint16_t star
 		    break;
 		case IMM:
 		    sym = findsymbol(syms, d);
-		    if (sym && op->numoperands == 2) {
-			fprintf(out, "\t#L%s", d_s);
+		    if (sym && op->numoperands == 2 &&
+			sym->addr >= start_addr &&
+			sym->addr < end_addr) {
+			fprintf(out, "\t#L%s\t; constant?", d_s);
 		    } else {
 			fprintf(out, "\t#$%s", d_s);
 		    }
