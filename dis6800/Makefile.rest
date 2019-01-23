@@ -4,8 +4,8 @@ PREFIX=/usr
 BINDIR=$(PREFIX)/bin
 
 CC=gcc
-CFLAGS=-O2 -Wall
-LDFLAGS=
+CFLAGS=-Wall -g
+LDFLAGS=-g
 
 OBJS=rest6800.o
 
