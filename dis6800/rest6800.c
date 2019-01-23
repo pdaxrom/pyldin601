@@ -437,7 +437,7 @@ uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint16_t star
 			sym->addr < end_addr) {
 			fprintf(out, "\t#L%s\t; constant?", d_s);
 		    } else {
-			fprintf(out, "\t#$%s", d_s);
+			fprintf(out, "\t#$%s%s", d_s, (op->numoperands == 2) ? "\t; external address?" : "");
 		    }
 		    break;
 	    }
