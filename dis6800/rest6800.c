@@ -270,6 +270,20 @@ uint16_t getsymbols(struct symbol **syms, uint8_t *mem, uint32_t start_addr, uin
 	if (map) {
 	    if (map[addr] == 'C' || flag) {
 		flag |= FLAG_CMD;
+	    } else if (map[addr] == 'O') {
+		uint32_t offset = (mem[addr] << 8) | mem[addr + 1];
+		if (offset >= start_addr &&
+		    offset < end_addr &&
+		    !findsymbol(*syms, offset)) {
+		    struct symbol *tmp = malloc(sizeof(struct symbol));
+		    tmp->addr = offset;
+		    tmp->isCode = 0;
+		    tmp->prev = NULL;
+		    tmp->prev = *syms;
+		    *syms = tmp;
+		    addr += 2;
+		    continue;
+		}
 	    }
 	}
 
@@ -394,7 +408,16 @@ uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint32_t star
 	op = getOpCode(mem[addr]);
 
 	if (!flag || !op) {
-	    if (map[addr] == 'W') {
+	    if (map[addr] == 'O') {
+		uint32_t offset = (mem[addr] << 8) | mem[addr + 1];
+		struct symbol *offset_symbol = findsymbol(syms, offset);
+		if (offset_symbol) {
+		    fprintf(out, "\tdw\tL%04X\n", offset_symbol->addr);
+		} else {
+		    fprintf(out, "\tdw\t$%04X\n", (mem[addr] << 8) | mem[addr + 1]);
+		}
+		addr += 2;
+	    } else if (map[addr] == 'W') {
 		fprintf(out, "\tdw\t$%04X\n", (mem[addr] << 8) | mem[addr + 1]);
 		addr += 2;
 	    } else {
@@ -502,6 +525,16 @@ int loadconfig(char *name, uint8_t *map, uint32_t map_size)
 		if (addr < map_size) {
 		    map[addr] = 'C';
 		}
+	    } else if (!strncmp(type, "WORD", 4)) {
+		if (addr < map_size) {
+		    map[ addr              ] = 'W';
+		    map[(addr + 1) & 0xFFFF] = 'w';
+		}
+	    } else if (!strncmp(type, "OFFSET", 6)) {
+		if (addr < map_size) {
+		    map[ addr              ] = 'O';
+		    map[(addr + 1) & 0xFFFF] = 'o';
+		}
 	    }
 	} else if (!strncmp(buf, "RANGE ", 6)) {
 	    uint32_t beg = 0xFFFFFFFF, end = 0xFFFFFFFF;
@@ -510,13 +543,15 @@ int loadconfig(char *name, uint8_t *map, uint32_t map_size)
 	    int t = 0;
 	    static char typetab[4][2] = {
 		{  0 ,  0  },
-		{  0 ,  0  },
+		{ 'C' ,'C' },
 		{ 'W', 'w' },
 		{ 'O', 'o' }
 	    };
 
 	    sscanf(buf + 6, "%X %X %s", &beg, &end, type);
-	    if (!strncmp(type, "WORD", 4)) {
+	    if (!strncmp(type, "CODE", 4)) {
+		t = 1;
+	    } else if (!strncmp(type, "WORD", 4)) {
 		t = 2;
 	    } else if (!strncmp(type, "OFFSET", 6)) {
 		t = 3;
