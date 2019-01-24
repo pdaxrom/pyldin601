@@ -255,10 +255,10 @@ struct symbol *findsymbol(struct symbol *syms, uint16_t addr)
     return NULL;
 }
 
-uint16_t getsymbols(struct symbol **syms, uint8_t *mem, uint16_t start_addr, uint16_t end_addr, uint8_t *map)
+uint16_t getsymbols(struct symbol **syms, uint8_t *mem, uint32_t start_addr, uint32_t end_addr, uint8_t *map)
 {
     int flag = 1;
-    uint16_t addr = start_addr;
+    uint32_t addr = start_addr;
 
     while (addr < end_addr) {
 	opcodeinfo *op;
@@ -300,6 +300,15 @@ uint16_t getsymbols(struct symbol **syms, uint8_t *mem, uint16_t start_addr, uin
 		    d = ((char)d) + addr + op->numoperands + 1;
 		    break;
 		case EXT:
+		    if (!strcmp(op->name, "ldx") ||
+			!strcmp(op->name, "stx") ||
+			!strcmp(op->name, "lds") ||
+			!strcmp(op->name, "sts")) {
+			if (!map[d]) {
+			    map[d    ] = 'W';
+			    map[d + 1] = 'w';
+			}
+		    }
 		    ok = 1;
 		    break;
 		case IMM:
@@ -348,7 +357,7 @@ uint16_t getsymbols(struct symbol **syms, uint8_t *mem, uint16_t start_addr, uin
     return addr;
 }
 
-void exportlist(FILE *out, struct symbol *syms, uint16_t start_addr, uint16_t end_addr)
+void exportlist(FILE *out, struct symbol *syms, uint32_t start_addr, uint32_t end_addr)
 {
     while (syms) {
 	if ((syms->addr < start_addr) || (syms->addr >= end_addr)) {
@@ -362,10 +371,10 @@ void exportlist(FILE *out, struct symbol *syms, uint16_t start_addr, uint16_t en
     }
 }
 
-uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint16_t start_addr, uint16_t end_addr, uint8_t *map)
+uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint32_t start_addr, uint32_t end_addr, uint8_t *map)
 {
     int flag = 1;
-    uint16_t addr = start_addr;
+    uint32_t addr = start_addr;
 
     while (addr < end_addr) {
 	opcodeinfo *op;
@@ -385,9 +394,14 @@ uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint16_t star
 	op = getOpCode(mem[addr]);
 
 	if (!flag || !op) {
-	    fprintf(out, "\tdb\t$%02X\t; '%c'\n", mem[addr], (mem[addr] >= 32 && mem[addr] <= 0x7F) ? mem[addr] : '.');
+	    if (map[addr] == 'W') {
+		fprintf(out, "\tdw\t$%04X\n", (mem[addr] << 8) | mem[addr + 1]);
+		addr += 2;
+	    } else {
+		fprintf(out, "\tdb\t$%02X\t; '%c'\n", mem[addr], (mem[addr] >= 32 && mem[addr] <= 0x7F) ? mem[addr] : '.');
+		addr += 1;
+	    }
 	    flag = 0;
-	    addr += 1;
 	    continue;
 	}
 
@@ -425,7 +439,12 @@ uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint16_t star
 		case EXT:
 		    sym = findsymbol(syms, d);
 		    if (sym) {
-			fprintf(out, "\tL%s", d_s);
+			if (map[d] == 'w') {
+			    sym = findsymbol(syms, d - 1);
+			    fprintf(out, "\tL%04X+1", d - 1);
+			} else {
+			    fprintf(out, "\tL%s", d_s);
+			}
 		    } else {
 			fprintf(out, "\t$%s", d_s);
 		    }
@@ -462,6 +481,61 @@ uint16_t disassembly(FILE *out, struct symbol *syms, uint8_t *mem, uint16_t star
     return addr;
 }
 
+int loadconfig(char *name, uint8_t *map, uint32_t map_size)
+{
+    char buf[256];
+    FILE *inf = fopen(name, "rb");
+    if (!inf) {
+	fprintf(stderr, "Can not open config file %s\n", name);
+	return 0;
+    }
+
+    while (fgets(buf, sizeof(buf), inf)) {
+	if (strchr(buf, ';')) {
+	    continue;
+	}
+	if (!strncmp(buf, "ADDR ", 5)) {
+	    uint32_t addr = 0xFFFFFFFF;
+	    char type[256];
+	    sscanf(buf + 5, "%X %s", &addr, type);
+	    if (!strncmp(type, "CODE", 4)) {
+		if (addr < map_size) {
+		    map[addr] = 'C';
+		}
+	    }
+	} else if (!strncmp(buf, "RANGE ", 6)) {
+	    uint32_t beg = 0xFFFFFFFF, end = 0xFFFFFFFF;
+	    uint32_t ptr;
+	    char type[256];
+	    int t = 0;
+	    static char typetab[4][2] = {
+		{  0 ,  0  },
+		{  0 ,  0  },
+		{ 'W', 'w' },
+		{ 'O', 'o' }
+	    };
+
+	    sscanf(buf + 6, "%X %X %s", &beg, &end, type);
+	    if (!strncmp(type, "WORD", 4)) {
+		t = 2;
+	    } else if (!strncmp(type, "OFFSET", 6)) {
+		t = 3;
+	    }
+	    for (ptr = 0; ptr < end - beg; ptr++) {
+		if (ptr % 2 == 0) {
+		    map[beg + ptr] = typetab[t][ptr % 2];
+		} else {
+		    map[beg + ptr] = typetab[t][ptr % 2];
+		}
+	    }
+	}
+    }
+
+    fclose(inf);
+
+    return 1;
+}
+
 void usage(char *app)
 {
     fprintf(stderr, "Usage: %s [-h][-m mapfile][-s startaddr][-o outputfile] inputfile\n", app);
@@ -473,14 +547,16 @@ int main(int argc, char *argv[])
     extern char *optarg;
     extern int optind, optopt, opterr;
     int c;
-    uint16_t startaddr = 0, length;
+    uint32_t startaddr = 0, length;
     int use_map = 0;
+
+    char *configFile = NULL;
 
     FILE *srcFile = NULL;
     FILE *dstFile = stdout;
     FILE *mapFile = NULL;
 
-    while ((c = getopt(argc, argv, ":ho:s:m:")) != -1)
+    while ((c = getopt(argc, argv, ":ho:s:m:c:")) != -1)
     {
         switch (c)
         {
@@ -504,6 +580,9 @@ int main(int argc, char *argv[])
 	    fread(MAP, 1, sizeof(MAP), mapFile);
 	    fclose(mapFile);
             break;
+	case 'c':
+	    configFile = optarg;
+	    break;
 	case 's': {
 		int tmp;
 	        sscanf(optarg, "%x", &tmp);
@@ -519,6 +598,14 @@ int main(int argc, char *argv[])
     if (optind == argc)
 	usage(argv[0]);
 
+    if (!use_map) {
+	memset(MAP, 0, sizeof(MAP));
+    }
+
+    if (configFile) {
+	loadconfig(configFile, MAP, sizeof(MAP));
+    }
+
     for ( ; optind < argc; optind++) {
 	fprintf(dstFile, ";\n; %s\n;\n", argv[optind]);
 	srcFile = fopen(argv[optind], "rb");
@@ -533,7 +620,7 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "Pass 1: get symbols\n");
 
-	getsymbols(&syms, MEM, startaddr, startaddr + length, use_map ? MAP : NULL);
+	getsymbols(&syms, MEM, startaddr, startaddr + length, MAP);
 	
 //	while (syms) {
 //	    fprintf(dstFile, "%04X\n", syms->addr);
@@ -546,7 +633,7 @@ int main(int argc, char *argv[])
 
 	fprintf(dstFile, "\n\t\torg\t$%X\n\n", startaddr);
 
-	disassembly(dstFile, syms, MEM, startaddr, startaddr + length, use_map ? MAP : NULL);
+	disassembly(dstFile, syms, MEM, startaddr, startaddr + length, MAP);
 
 	fprintf(dstFile, "\n\n\n");
 
