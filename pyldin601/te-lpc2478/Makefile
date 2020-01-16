@@ -314,7 +314,7 @@ utils/lpc21isp: utils/lpc21isp_148x.c
 	gcc $^ -o $@
 
 # Program the device.  - lpc21isp will not work for SAM7
-load program: $(HEX) utils/lpc21isp
+loadprogram: $(HEX) utils/lpc21isp
 	@echo
 	@echo Upload over 
 	utils/lpc21isp $(LPC21ISP_OPTIONS) $< $(LPC21ISP_PORT) $(LPC21ISP_BAUD) $(LPC21ISP_XTAL)

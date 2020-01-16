@@ -45,23 +45,22 @@ static int fReset = 0;
 
 static int vscr_width = 320;
 static int vscr_height = 240;
-static int vScale = 1;
 
 static uint16_t *pixels = (uint16_t *) LCD_BUFFER_ADDR;
 
 void drawXbm(unsigned char *xbm, int xp, int yp, int w, int h, int over)
 {
-    screen_drawXbm(pixels, vscr_width, vscr_height, vScale, xbm, xp, yp, w, h, over);
+    screen_drawXbm(pixels, vscr_width, vscr_height, xbm, xp, yp, w, h, over);
 }
 
 void drawChar(unsigned int c, int xp, int yp, unsigned int fg, unsigned int bg)
 {
-    screen_drawChar(pixels, vscr_width, vscr_height, vScale, c, xp, yp, fg, bg);
+    screen_drawChar(pixels, vscr_width, vscr_height, c, xp, yp, fg, bg);
 }
 
 void drawString(char *str, int xp, int yp, unsigned int fg, unsigned int bg)
 {
-    screen_drawString(pixels, vscr_width, vscr_height, vScale, str, xp, yp, fg, bg);
+    screen_drawString(pixels, vscr_width, vscr_height, str, xp, yp, fg, bg);
 }
 
 //
@@ -185,15 +184,13 @@ void DAC_Init(void)
     PINSEL1 |= (1<<21); // Enable AOUT
 }
 
-void CovoxSetByte(int val, int ticks)
+void CovoxSetByte(byte val)
 {
-    ticks = ticks;
     DACR = val << 8;
 }
 
-void BeeperSetBit(int val, int ticks)
+void BeeperSetBit(byte val)
 {
-    ticks = ticks;
     //SPEAKER_CONTROL(PYLDIN_SPEAKER_FIO, PYLDIN_SPEAKER_MASK, val);
     DACR = val?(0x7f << 8):0;
 }
@@ -274,6 +271,13 @@ void led_control(int led, int v)
 	LED_CONTROL(BOARD_LED3_FIO, BOARD_LED3_MASK, v);
 	break;
     }
+}
+
+//
+// No save for ramdisk
+//
+void unloadRamDisk(dword size)
+{
 }
 
 //

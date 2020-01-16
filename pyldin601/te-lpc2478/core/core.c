@@ -18,7 +18,6 @@
 #endif
 #include "core/swiemu.c"
 #include "core/keyboard.c"
-#include "core/printer.c"
 #include "core/mc6845.c"
 
 void core_50Hz_irq(void)
