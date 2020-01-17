@@ -1,0 +1,6 @@
+[submodule "pyldin601/thirdparty/SDL"]
+	path = pyldin601/thirdparty/SDL
+	url = https://github.com/SDL-mirror/SDL.git
+[submodule "pyldin601/thirdparty/SDL_image"]
+	path = pyldin601/thirdparty/SDL_image
+	url = https://github.com/SDL-mirror/SDL_image.git

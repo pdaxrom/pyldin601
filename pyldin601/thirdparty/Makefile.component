@@ -1,0 +1,41 @@
+#ifeq (mingw, $(SYSTEM))
+#OPT_FLAGS_ALL := --host=i686-w64-mingw32 $(OPT_FLAGS)
+#else
+OPT_FLAGS_ALL = $(OPT_FLAGS)
+#endif
+
+all: $(TARGET)/.installed
+
+$(TARGET)/.inited:
+	cd $(TARGET) && \
+	git submodule update --init --recursive && \
+	test -x autogen.sh && ./autogen.sh || true && \
+	touch .inited
+
+$(TARGET)/.configured: $(TARGET)/.inited
+	cd $(TARGET) && \
+	git submodule update --init --recursive && \
+	./configure --prefix=$(PWD)/tmpinst $(OPT_FLAGS_ALL) && \
+	touch .configured
+
+$(TARGET)/.compiled: $(TARGET)/.configured
+	cd $(TARGET) && \
+	make -j && \
+	touch .compiled
+
+$(TARGET)/.installed: $(TARGET)/.compiled
+	cd $(TARGET) && \
+	make install && \
+	touch .installed
+
+all: $(TARGET)/.installed
+
+clean: $(TARGET)/.configured
+	cd $(TARGET) && \
+	make clean && \
+	rm -f .compiled .installed
+
+distclean: $(TARGET)/.configured
+	cd $(TARGET) && \
+	make distclean && \
+	rm -f .inited .configured .compiled .installed
