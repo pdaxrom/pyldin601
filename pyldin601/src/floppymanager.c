@@ -8,6 +8,7 @@
 #else
 #include <malloc.h>
 #endif
+#include <limits.h>
 #include "floppymanager.h"
 #include "pyldin.h"
 #include "floppy.h"
@@ -171,9 +172,9 @@ int selectFloppy(int y)
     if (y < 2) 
 	return 0;
 
-    char buf[256];
+    char buf[PATH_MAX];
 
-    sprintf(buf, "%s/Floppy/%s", datadir, namelist[y]->d_name);
+    snprintf(buf, sizeof(buf), "%s/Floppy/%s", datadir, namelist[y]->d_name);
 
     insertFloppy(wantDisk, buf);
 
@@ -190,9 +191,9 @@ int selectFloppyByNum()
     if (n < 2) 
 	return 0;
 
-    char buf[256];
+    char buf[PATH_MAX];
 
-    sprintf(buf, "%s/Floppy/%s", datadir, namelist[n]->d_name);
+    snprintf(buf, sizeof(buf), "%s/Floppy/%s", datadir, namelist[n]->d_name);
 
     insertFloppy(wantDisk, buf);
 
