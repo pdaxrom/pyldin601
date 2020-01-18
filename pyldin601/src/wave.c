@@ -72,9 +72,9 @@ void BeeperFlush(int ticks, int enable_flag)
 
 int BeeperInit(int fullspeed)
 {
-	int i;
+    int i;
 
-	static SDL_AudioSpec sdl_audio_want;
+    static SDL_AudioSpec sdl_audio_want;
 
     fInited = 0;
 
@@ -82,6 +82,14 @@ int BeeperInit(int fullspeed)
     	fprintf(stderr, "Couldn't init audio: %s\n", SDL_GetError());
     	return -1;
     }
+
+    /* Show the list of available drivers */
+    SDL_Log("Available audio drivers:");
+    for (i = 0; i < SDL_GetNumAudioDrivers(); ++i) {
+        SDL_Log("%i: %s", i, SDL_GetAudioDriver(i));
+    }
+
+    SDL_Log("Using audio driver: %s\n", SDL_GetCurrentAudioDriver());
 
     SDL_memset(&sdl_audio_want, 0, sizeof(sdl_audio_want));
 
@@ -101,8 +109,11 @@ int BeeperInit(int fullspeed)
 #else
     sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
 #endif
+#ifdef _WIN32
+    dev = SDL_OpenAudioDevice(NULL, SDL_FALSE, &sdl_audio_want, &sdl_audio, 0);
+#else
     dev = SDL_OpenAudioDevice(NULL, 0, &sdl_audio_want, &sdl_audio, SDL_AUDIO_ALLOW_ANY_CHANGE);
-
+#endif
     if (dev == 0) {
         SDL_Log("Failed to open audio: %s", SDL_GetError());
         return -1;
