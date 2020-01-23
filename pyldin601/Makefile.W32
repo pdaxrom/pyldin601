@@ -5,13 +5,13 @@ TOPDIR	:= $(shell pwd)
 PATH := $(PWD)/thirdparty/tmpinst/bin:$(PATH)
 export PKG_CONFIG_PATH := $(PWD)/thirdparty/tmpinst/lib/pkgconfig
 
-all: pyldin.exe
+all: pyldin
 
 VERSION=$(shell cat VERSION)
 EXTRAVERSION=git-$(shell git rev-parse HEAD)
 
-pyldin.exe:
-	make -f Makefile TARGET=pyldin.exe PREFIX=./ BINDIR=./ DATADIR=./ CC=$(CC) VIDEO=opengl VIDEOLIB=-lopengl32 \
+pyldin:
+	make -f Makefile TARGET=pyldin.exe PREFIX=./ BINDIR=./ DATADIR=./ CC=$(CC) VIDEOLIB=-lopengl32 \
 	    OPT_STRIP="-s -static -lpng -ljpeg -ltiff -lwebp -lz -lwinmm -limm32 -lole32 -loleaut32 -lversion -mconsole"
 
 clean:
