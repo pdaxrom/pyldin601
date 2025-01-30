@@ -15,7 +15,7 @@ CC := gcc
 CXX := g++
 OPT_FLAGS := -g -Ofast -fomit-frame-pointer
 #OPT_STRIP := -s
-CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell ./thirdparty/tmpinst/bin/sdl2-config --cflags) $(EXTRA_CFLAGS)
+CFLAGS = -Wall $(OPT_FLAGS) -Isrc/core -Isrc $(shell sdl2-config --cflags) $(EXTRA_CFLAGS)
 CFLAGS += -DDATADIR=\"$(DATADIR)/pyldin\" -DVERSION=\"$(VERSION)-$(EXTRAVERSION)\"
 CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON -DUSE_JOYSTICK
 #CFLAGS += -DUSE_GUI
@@ -23,12 +23,14 @@ CFLAGS += -DPYLDIN_LOGO -DPYLDIN_ICON -DUSE_JOYSTICK
 ifeq (gles2, $(VIDEO))
 CFLAGS += -DUSE_GLES2
 VIDEOLIB = -lGLESv2 -lEGL
-else
+else ifeq (opengl, $(VIDEO))
 VIDEOLIB = -lGL
+else
+VIDEOLIB =
 endif
 
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
-LDFLAGS = $(OPT_LIBS) $(shell ./thirdparty/tmpinst/bin/sdl2-config --libs) -lSDL2_image $(VIDEOLIB) -lz $(OPT_STRIP) -g
+LDFLAGS = $(OPT_LIBS) $(shell sdl2-config --libs) -lSDL2_image $(VIDEOLIB) -lz $(OPT_STRIP) -g
 #LDFLAGS += -lSDL2_gfx
 
 ##########################

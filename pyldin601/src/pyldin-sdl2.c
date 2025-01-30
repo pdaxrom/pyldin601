@@ -15,9 +15,10 @@
 #include <zlib.h>
 
 #include <SDL.h>
-#ifdef USE_GLES2
+
+#if defined(USE_GLES2)
 #include <SDL_opengles2.h>
-#else
+#elif defined(USE_OPENGL)
 #include <SDL_opengl.h>
 #endif
 
@@ -86,6 +87,7 @@ static SDL_atomic_t poweroff_request;
 static FILE *printerFile = NULL;
 
 //
+#if USE_GLES2 || USE_OPENGL
 static SDL_GLContext context;
 
 static PFNGLCREATEPROGRAMPROC glCreateProgram;
@@ -109,30 +111,7 @@ static PFNGLUNIFORM1IPROC glUniform1i;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
 static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
 
-static SDL_Window *window = NULL;
-static SDL_Surface *surface;
-static SDL_Surface *framebuffer;
-static SDL_Surface *surf_keyboard;
 static GLuint shader_object;
-
-static Uint32 update_video_event;
-
-static int update_video = 0;
-
-static int new_width;
-static int new_height;
-
-static float scale_width = 1;
-static float scale_height = 1;
-
-static int enableVirtualKeyboard;
-int	enableDiskManager;
-static int drawMenu;
-static int drawInfo;
-
-static int draw_menu_timeout = 0;
-
-static uint64_t current_cpu_frequency = 0;
 
 static const GLfloat square_vertices[] = {
     -1.0f, -1.0f,
@@ -147,6 +126,36 @@ static const GLfloat texture_vertices[] = {
      0.0f,  0.0f,
      1.0f,  0.0f,
 };
+#endif
+
+static SDL_Window *window = NULL;
+
+#if !USE_GLES2 && !USE_OPENGL
+static SDL_Surface *screenSurface;
+#endif
+
+static SDL_Surface *surface;
+static SDL_Surface *framebuffer;
+static SDL_Surface *surf_keyboard;
+
+static Uint32 update_video_event;
+
+static int update_video = 0;
+
+static int new_width;
+static int new_height;
+
+static float scale_width = 1;
+static float scale_height = 1;
+
+static int enableVirtualKeyboard;
+int enableDiskManager;
+static int drawMenu;
+static int drawInfo;
+
+static int draw_menu_timeout = 0;
+
+static uint64_t current_cpu_frequency = 0;
 
 // Optimized for core
 void core_50Hz_irq(void);
@@ -161,6 +170,7 @@ void exitRequested(void)
     SDL_AtomicSet(&poweroff_request, 1);
 }
 
+#if USE_GLES2 || USE_OPENGL
 static int LoadContext()
 {
     glCreateProgram = (PFNGLCREATEPROGRAMPROC) SDL_GL_GetProcAddress("glCreateProgram");
@@ -208,6 +218,7 @@ static int LoadContext()
 
     return 1;
 }
+#endif
 
 static void check_keyboard(SDL_Event *event)
 {
@@ -633,6 +644,7 @@ void drawString(char *str, int xp, int yp, unsigned int fg, unsigned int bg)
     screen_drawString(framebuffer->pixels, framebuffer->w, framebuffer->h, str, xp, yp, fg, bg);
 }
 
+#if USE_GLES2 || USE_OPENGL
 char *load_shader(char *fileName)
 {
     char *text = NULL;
@@ -720,6 +732,7 @@ int process_shader(GLuint *shader, char *fileName, GLint shaderType)
     }
     return 0;
 }
+#endif
 
 int initVideo(int w, int h)
 {
@@ -729,8 +742,10 @@ int initVideo(int w, int h)
 
     SDL_GetDesktopDisplayMode(0, &mode);
 
+#if USE_GLES2 || USE_OPENGL
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+#endif
 
     if (w > 0 && h > 0) {
 		mode.w = w;
@@ -751,6 +766,7 @@ int initVideo(int w, int h)
 		return 1;
     }
 
+#if USE_GLES2 || USE_OPENGL
     context = SDL_GL_CreateContext(window);
     if (!context) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Unable to create GL context : %s\n",SDL_GetError());
@@ -850,9 +866,14 @@ int initVideo(int w, int h)
     glViewport ( 0 , 0 , mode.w , mode.h );
 
     // End of GL init
+#endif
 
 #ifdef PYLDIN_ICON
     SetIcon(window);
+#endif
+
+#if !USE_GLES2 && !USE_OPENGL
+    screenSurface = SDL_GetWindowSurface(window);
 #endif
 
     surface = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 32,
@@ -880,10 +901,14 @@ int initVideo(int w, int h)
     LoadLogo();
 
     if (pyldinLogo) {
+#if USE_GLES2 || USE_OPENGL
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldinLogo->w, pyldinLogo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldinLogo->pixels);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		SDL_GL_SwapWindow(window);
-
+#else
+		SDL_UpperBlitScaled(pyldinLogo, NULL, screenSurface, NULL);
+		SDL_UpdateWindowSurface(window);
+#endif
 		sleep(1);
     }
 #endif
@@ -925,13 +950,15 @@ int initVideo(int w, int h)
 
 int updateVideo()
 {
-	if (update_video) {
-		SDL_Log("Set new screen size %dx%d\n", new_width, new_height);
-		glViewport (0, 0, new_width, new_height);
-	    scale_width  = (float) new_width  / 320;
-	    scale_height = (float) new_height / 240;
-		update_video = 0;
-	}
+    if (update_video) {
+	SDL_Log("Set new screen size %dx%d\n", new_width, new_height);
+#if USE_GLES2 || USE_OPENGL
+	glViewport (0, 0, new_width, new_height);
+#endif
+	scale_width  = (float) new_width  / 320;
+	scale_height = (float) new_height / 240;
+	update_video = 0;
+    }
 
     if ( ! enableDiskManager ) {
 		MC6845DrawScreen(framebuffer->pixels, framebuffer->w, framebuffer->h);
@@ -976,11 +1003,16 @@ int updateVideo()
         SDL_BlitSurface(surf_keyboard, NULL, surface, NULL);
     }
 
+#if USE_GLES2 || USE_OPENGL
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     SDL_GL_SwapWindow(window);
+#else
+    SDL_UpperBlitScaled(surface, NULL, screenSurface, NULL);
+    SDL_UpdateWindowSurface(window);
+#endif
 
     return 0;
 }
@@ -989,9 +1021,15 @@ int finishVideo()
 {
 #ifdef PYLDIN_LOGO
     if (pyldinLogo) {
+#if USE_GLES2 || USE_OPENGL
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pyldinLogo->w, pyldinLogo->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pyldinLogo->pixels);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		SDL_GL_SwapWindow(window);
+#else
+		SDL_UpperBlitScaled(pyldinLogo, NULL, screenSurface, NULL);
+		SDL_UpdateWindowSurface(window);
+#endif
+
 		sleep(1);
 		SDL_FreeSurface(pyldinLogo);
     }
@@ -1001,9 +1039,12 @@ int finishVideo()
     SDL_FreeSurface(surf_keyboard);
     SDL_FreeSurface(surface);
 
+#if USE_GLES2 || USE_OPENGL
     glDeleteProgram(shader_object);
 
     SDL_GL_DeleteContext(context);
+#endif
+
     SDL_DestroyWindow(window);
 
     window = NULL;

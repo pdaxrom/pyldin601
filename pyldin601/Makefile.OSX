@@ -1,10 +1,7 @@
-DESTDIR      := /Applications
+DESTDIR      := $(shell mktemp -d)/Applications
 
 VERSION=$(shell cat VERSION)
 EXTRAVERSION=git-$(shell git rev-parse HEAD)
-
-EXTRA_CFLAGS := -m32
-OPT_LIBS     := -m32
 
 all: pyldin
 
