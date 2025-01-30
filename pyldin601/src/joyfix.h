@@ -1,5 +1,4 @@
-#ifndef _JOYFIX_H_
-#define _JOYFIX_H_
+#pragma once
 
 #define JOYSTICK_XBOX360
 
@@ -34,5 +33,4 @@ enum {
     JOYBUT_HOME,
     JOYBUT_HOLD
 };
-#endif
 #endif

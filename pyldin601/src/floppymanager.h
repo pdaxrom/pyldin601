@@ -1,5 +1,4 @@
-#ifndef _FLOPPYMANAGER_H_
-#define _FLOPPYMANAGER_H_
+#pragma once
 
 void initFloppy(void);
 void freeFloppy(void);
@@ -9,6 +8,4 @@ void FloppyManagerOn(int disk, char *dir);
 void FloppyManagerUpdateList(int dir);
 void FloppyManagerOff(void);
 int  selectFloppy(int y);
-int selectFloppyByNum();
-
-#endif
+int selectFloppyByNum(void);

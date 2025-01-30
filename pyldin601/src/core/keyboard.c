@@ -339,7 +339,7 @@ void KBDModKeyUp(byte mode)
     flagKey &= ~mode;
 }
 
-unsigned char KBDCheckKey()
+unsigned char KBDCheckKey(void)
 {
     if (keyReady) {
 		trigger = ~trigger;
@@ -353,7 +353,7 @@ unsigned char KBDCheckKey()
     return 0;
 }
 
-unsigned char KBDReadKey()
+unsigned char KBDReadKey(void)
 {
     trigger = 0;
     if (keyReady == 0) {

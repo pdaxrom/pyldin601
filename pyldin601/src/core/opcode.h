@@ -5,6 +5,8 @@
  *
  */
 
+#pragma once
+
 #define NOP		0x01
 
 #define	CLC		0x0c

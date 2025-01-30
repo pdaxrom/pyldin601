@@ -5,8 +5,7 @@
  *
  */
 
-#ifndef __FLOPPY_H__
-#define __FLOPPY_H__
+#pragma once
 
 #include "core/mc6800.h"
 
@@ -17,10 +16,8 @@ extern char *diskImage[];
 extern int diskSize[];
 extern int diskChanged[];
 
-int FloppyInit();
+int FloppyInit(void);
 int FloppyStatus(int Disk);
 int FloppyReadSector(int Disk, int Track, int Sector, int Head, unsigned char *dst);
 int FloppyWriteSector(int Disk, int Track, int Sector, int Head, unsigned char *src);
 int FloppyFormatTrack(int Disk, int Track, int Head);
-
-#endif

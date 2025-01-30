@@ -28,9 +28,9 @@ static unsigned int sound_count = 0;
 static unsigned int sound_tick;
 
 typedef struct {
-	short *buf;
-	unsigned int ptr;
-	unsigned int size;
+    short *buf;
+    unsigned int ptr;
+    unsigned int size;
 } sound_buf_t;
 
 static sound_buf_t sound_buf[NUMBUF];
@@ -41,37 +41,41 @@ static SDL_sem *sem;
 
 void audio_callback(void *data, byte *stream, int len)
 {
-	if (SDL_SemValue(sem) == NUMBUF) {
-		return;
-	}
+    (void)data;
 
-	memcpy(stream, sound_buf[cur_out_buf].buf, len);
+    if (SDL_SemValue(sem) == NUMBUF) {
+        return;
+    }
 
-	cur_out_buf = (cur_out_buf + 1) % NUMBUF;
+    memcpy(stream, sound_buf[cur_out_buf].buf, len);
 
-	SDL_SemPost(sem);
+    cur_out_buf = (cur_out_buf + 1) % NUMBUF;
+
+    SDL_SemPost(sem);
 }
 
-void BeeperFlush(int ticks, int enable_flag)
+void BeeperFlush(unsigned int ticks, int enable_flag)
 {
-	if (!fInited) {
-		return;
-	}
-	while(ticks >= sound_count) {
-		sound_buf[cur_buf].buf[sound_buf[cur_buf].ptr++] = enable_flag?(dac_out << 7):0;
-		sound_count += sound_tick;
-		if (sound_buf[cur_buf].ptr == sound_buf[cur_buf].size) {
-			sound_buf[cur_buf].ptr = 0;
-			cur_buf = (cur_buf + 1) % NUMBUF;
-			if (enable_flag) {
-				SDL_SemWait(sem);
-			}
-		}
-	}
+    if (!fInited) {
+        return;
+    }
+    while(ticks >= sound_count) {
+        sound_buf[cur_buf].buf[sound_buf[cur_buf].ptr++] = enable_flag?(dac_out << 7):0;
+        sound_count += sound_tick;
+        if (sound_buf[cur_buf].ptr == sound_buf[cur_buf].size) {
+            sound_buf[cur_buf].ptr = 0;
+            cur_buf = (cur_buf + 1) % NUMBUF;
+            if (enable_flag) {
+                SDL_SemWait(sem);
+            }
+        }
+    }
 }
 
 int BeeperInit(int fullspeed)
 {
+    (void)fullspeed;
+
     int i;
 
     static SDL_AudioSpec sdl_audio_want;
@@ -79,8 +83,8 @@ int BeeperInit(int fullspeed)
     fInited = 0;
 
     if ( SDL_InitSubSystem(SDL_INIT_AUDIO) < 0 ) {
-    	fprintf(stderr, "Couldn't init audio: %s\n", SDL_GetError());
-    	return -1;
+        fprintf(stderr, "Couldn't init audio: %s\n", SDL_GetError());
+        return -1;
     }
 
     /* Show the list of available drivers */
@@ -100,12 +104,12 @@ int BeeperInit(int fullspeed)
     sdl_audio_want.freq     = 48000;
 
 #ifdef __BIONIC__
-	#ifdef __mips__
+#ifdef __mips__
     // Paladin Novo 7 has problem with small buffer :(
     sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
-	#else
+#else
     sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 7));
-	#endif
+#endif
 #else
     sdl_audio_want.samples  = (1 <<(sdl_audio_want.freq / 12000 + 8));
 #endif
@@ -125,9 +129,9 @@ int BeeperInit(int fullspeed)
     SDL_Log("audio channels= %d\n", sdl_audio.channels);
 
     for (i = 0; i < NUMBUF; i++) {
-    	sound_buf[i].ptr = 0;
-    	sound_buf[i].size = sdl_audio.samples;
-    	sound_buf[i].buf = malloc(sound_buf[i].size * sizeof(short));
+        sound_buf[i].ptr = 0;
+        sound_buf[i].size = sdl_audio.samples;
+        sound_buf[i].buf = malloc(sound_buf[i].size * sizeof(short));
     }
 
     cur_buf = 0;
@@ -147,10 +151,10 @@ int BeeperInit(int fullspeed)
 void BeeperFinish(void)
 {
     if (fInited) {
-    	SDL_PauseAudioDevice(dev, 1);
-    	SDL_CloseAudioDevice(dev);
-    	SDL_DestroySemaphore(sem);
-    	fInited = 0;
+        SDL_PauseAudioDevice(dev, 1);
+        SDL_CloseAudioDevice(dev);
+        SDL_DestroySemaphore(sem);
+        fInited = 0;
     }
 }
 

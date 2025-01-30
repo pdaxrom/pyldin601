@@ -1,5 +1,4 @@
-#ifndef _MC6800_H_
-#define _MC6800_H_
+#pragma once
 
 #include "core/types.h"
 
@@ -16,4 +15,3 @@ O_INLINE byte 	MC6800MemReadByte(word a);
 O_INLINE void 	MC6800MemWriteByte(word a, byte d);
 
 byte 			*allocateCpuRam(dword size);
-#endif

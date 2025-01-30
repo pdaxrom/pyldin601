@@ -27,6 +27,13 @@ int diskChanged[] = {
 
 static int floppyOp(int Op, int Drive, int Track, int Head, int Sector, unsigned char *mema)
 {
+    (void)Op;
+    (void)Drive;
+    (void)Track;
+    (void)Head;
+    (void)Sector;
+    (void)mema;
+
     return 0xc0;
 }
 
@@ -116,7 +123,7 @@ int FloppyFormatTrack(int Disk, int Track, int Head)
     return 0;
 }
 
-int FloppyInit()
+int FloppyInit(void)
 {
     if (!diskImage[FLOPPY_A]) {
 	floppyOp(0, FLOPPY_A, 0, 0, 0, NULL);

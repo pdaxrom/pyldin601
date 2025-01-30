@@ -1,5 +1,4 @@
-#ifndef __KBD_FIX_H__
-#define __KBD_FIX_H__
+#pragma once
 
 #if 0
 //#ifdef __APPLE__
@@ -83,7 +82,5 @@
 #define xSDLK_PERIOD SDLK_PERIOD
 
 #define xSDLK_LSUPER SDLK_LGUI
-
-#endif
 
 #endif

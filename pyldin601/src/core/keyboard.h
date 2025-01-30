@@ -5,6 +5,8 @@
  *
  */
 
+#pragma once
+
 #define KBD_DATA_PORT      0x60
 #define KBD_CTRL_PORT      0x64
 
@@ -50,7 +52,7 @@ void KBDKeyDown(unsigned int tempKeyCode);
 void KBDKeyUp(void);
 void KBDModKeyDown(byte mode);
 void KBDModKeyUp(byte mode);
-unsigned char KBDCheckKey();
-unsigned char KBDReadKey();
+unsigned char KBDCheckKey(void);
+unsigned char KBDReadKey(void);
 
 extern void resetRequested(void);

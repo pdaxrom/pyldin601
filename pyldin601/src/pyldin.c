@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <zlib.h>
+#include <limits.h>
 
 #include <SDL.h>
 #ifdef USE_GLES2

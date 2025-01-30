@@ -1,5 +1,4 @@
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#pragma once
 
 #define byte	unsigned char
 #define word	unsigned short
@@ -7,6 +6,4 @@
 
 #ifndef O_INLINE
 #define O_INLINE
-#endif
-
 #endif

@@ -1,5 +1,4 @@
-#ifndef _DEVICES_H_
-#define _DEVICES_H_
+#pragma once
 
 #define MAX_ROMCHIPS	5
 
@@ -33,5 +32,3 @@ byte *loadRomDisk(byte chip, dword size);
 void BeeperSetBit(byte val);
 void CovoxSetByte(byte val);
 void PrinterPutChar(byte data);
-
-#endif

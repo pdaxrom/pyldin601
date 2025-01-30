@@ -1,5 +1,4 @@
-#ifndef _MC6845_H_
-#define _MC6845_H_
+#pragma once
 
 #define PIXEL_ON		(0x3f<<5) //0xffff
 #define PIXEL_OFF		0x0
@@ -12,5 +11,3 @@ O_INLINE void MC6845CursorBlink(void);
 void MC6845DrawScreen(void *video, int width, int height);
 
 byte *loadCharGenRom(dword size);
-
-#endif

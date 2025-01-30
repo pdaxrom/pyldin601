@@ -5,6 +5,8 @@
  *
  */
 
+#pragma once
+
 int  BeeperInit(int fullspeed);
 void BeeperFinish(void);
-void BeeperFlush(int ticks, int enable_flag);
+void BeeperFlush(unsigned int ticks, int enable_flag);

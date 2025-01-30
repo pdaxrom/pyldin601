@@ -82,7 +82,7 @@ int MC6800Finish(void)
     return 0;
 }
 
-void MC6800Reset()
+void MC6800Reset(void)
 {
     SuperIoReset();
     i = fWai = IRQrequest = 0;
@@ -340,7 +340,7 @@ static INLINE byte Baddc(byte o1, byte o2)
     return (byte) ans;
 }
 
-static INLINE void Bdaa()
+static INLINE void Bdaa(void)
 {
     byte	incr = 0;
     byte	carry = c;
@@ -359,18 +359,18 @@ static INLINE void Bdaa()
     c = carry;
 }
 
-static INLINE byte NextByte()
+static INLINE byte NextByte(void)
 {
     return MC6800MemReadByte(PC++);
 }
 
-static INLINE void FetchAddr()
+static INLINE void FetchAddr(void)
 {
     EAR = NextByte() << 8;
     EAR = EAR | NextByte();
 }
 
-static INLINE void Branch()
+static INLINE void Branch(void)
 {
     if ((EAR & 0x80) == 0) 
 	EAR &= 0xFF; 
@@ -380,7 +380,7 @@ static INLINE void Branch()
     PC += EAR;
 }
 
-int MC6800Step()
+int MC6800Step(void)
 {
     byte oc, oh, t;
     word ofs, r16;

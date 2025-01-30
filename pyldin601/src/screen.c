@@ -20,17 +20,17 @@ void screen_drawXbm(void *video, int width, int height, unsigned char *xbm, int 
     int i, j, x;
 
     for (j = 0; (j < h) && (yp + j < height); j++) {
-		for (i = 0; i < (w >> 3); i++) {
-			unsigned char c = xbm[ifj + i];
-			for (x = 0; x < 8; x++) {
-				if (!over || !(c & 0x1)) {
-					vscr[ofj + (i * 8 + x)] = (c & 0x1)?0x0:0xffff;
-				}
-				c >>= 1;
-			}
-		}
-		ofj += width;
-		ifj += (w >> 3);
+        for (i = 0; i < (w >> 3); i++) {
+            unsigned char c = xbm[ifj + i];
+            for (x = 0; x < 8; x++) {
+                if (!over || !(c & 0x1)) {
+                    vscr[ofj + (i * 8 + x)] = (c & 0x1)?0x0:0xffff;
+                }
+                c >>= 1;
+            }
+        }
+        ofj += width;
+        ifj += (w >> 3);
     }
 }
 
@@ -42,27 +42,27 @@ void screen_drawChar(void *video, int width, int height, unsigned int c, int xp,
 
     static unsigned char *font = NULL;
     if (!font) {
-		font = loadCharGenRom(2048);
+        font = loadCharGenRom(2048);
     }
 
     c = ((c<<1) | (c>>7)) & 0xff;
     c = c * 8;
     for (j = 0; (j < 8) && (yp + j < height); j++) {
-		unsigned char d = font[c + j];
-		for (i=0; i < 8; i++) {
-			vscr[offset + i] = (d & 0x80)?fg:bg;
-			d<<=1;
-		}
-		offset += width;
+        unsigned char d = font[c + j];
+        for (i=0; i < 8; i++) {
+            vscr[offset + i] = (d & 0x80)?fg:bg;
+            d<<=1;
+        }
+        offset += width;
     }
 }
 
 void screen_drawString(void *video, int width, int height, char *str, int xp, int yp, unsigned int fg, unsigned int bg)
 {
-	yp *= 8;
-	while (*str != 0) {
-	    screen_drawChar(video, width, height, *str, xp, yp, fg, bg);
-	    xp += 8;
-	    str++;
-	}
+    yp *= 8;
+    while (*str != 0) {
+        screen_drawChar(video, width, height, *str, xp, yp, fg, bg);
+        xp += 8;
+        str++;
+    }
 }

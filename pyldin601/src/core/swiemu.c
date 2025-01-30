@@ -73,12 +73,12 @@ O_INLINE int SWIemulator(int swi, byte *A, byte *B, word *X, byte *t, word *PC)
 	return 1;
     }
 #else
-    swi = swi;
-    A = A;
-    B = B;
-    X = X;
-    t = t;
-    PC = PC;
+    (void)swi;
+    (void)A;
+    (void)B;
+    (void)X;
+    (void)t;
+    (void)PC;
 #endif
     return 0;
 }
