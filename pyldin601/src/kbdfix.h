@@ -1,7 +1,8 @@
 #ifndef __KBD_FIX_H__
 #define __KBD_FIX_H__
 
-#ifdef __APPLE__
+#if 0
+//#ifdef __APPLE__
 
 #define xSDLK_q	171
 #define xSDLK_w	172
