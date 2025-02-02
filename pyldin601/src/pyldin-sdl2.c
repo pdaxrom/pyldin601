@@ -1425,6 +1425,8 @@ int main(int argc, char *argv[])
 
     drawInfo = 0;
 
+    datadir = SDL_GetPrefPath("org.pdaXrom", "pyldin601");
+
     SDL_Log("Portable Pyldin-601 emulator version " VERSION " (http://pyldin.info)\n");
     SDL_Log("Copyright (c) 1997-2016 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
 
@@ -1472,6 +1474,21 @@ int main(int argc, char *argv[])
 
     for ( ; optind < argc; optind++) {
         bootFloppy = argv[optind];
+    }
+
+    if (datadir) {
+        const char *dirs[] = { "Bios", "Floppy", "Rom", NULL };
+        char tmp[PATH_MAX];
+        for (int i = 0; dirs[i] != NULL; i++) {
+            struct stat statbuf;
+            snprintf(tmp, sizeof(tmp) - 1, "%s/%s", datadir, dirs[i]);
+            tmp[sizeof(tmp) - 1] = '\0';
+            if (stat(tmp, &statbuf)) {
+                if (mkdir(tmp, 0777)) {
+                    SDL_Log("Cannot create directory %s", tmp);
+                }
+            }
+        }
     }
 
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);

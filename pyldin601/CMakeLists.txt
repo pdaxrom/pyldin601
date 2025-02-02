@@ -60,28 +60,28 @@ target_include_directories(${TARGET} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src)
 target_link_libraries(${TARGET}
     SDL2::SDL2
     SDL2_image::SDL2_image
-#    ${libpng16_LIBRARIES}
-#    ${libjxl_LIBRARIES}
-#    ${libjpeg_LIBRARIES}
-#    ${libtiff-4_LIBRARIES}
-#    ${libavif_LIBRARIES}
-#    ${libwebp_LIBRARUES}
-#    ${libwebpdemux_LIBRARIES}
+    # ${libpng16_LIBRARIES}
+    # ${libjxl_LIBRARIES}
+    # ${libjpeg_LIBRARIES}
+    # ${libtiff-4_LIBRARIES}
+    # ${libavif_LIBRARIES}
+    # ${libwebp_LIBRARUES}
+    # ${libwebpdemux_LIBRARIES}
     -lz
     -fsanitize=address
 )
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    add_custom_command(TARGET ${TARGET}
-        POST_BUILD
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS
-        COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/Pyldin-601 ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS
-        COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/Info.plist ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents
-        COMMAND cp -f pyldin ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/pyldin
-        COMMAND chmod 755 ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/pyldin
-        COMMAND echo 'APPLhiti' > ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/PkgInfo
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/Resources
-        COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/pyldin.icns ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/Resources
+add_custom_command(TARGET ${TARGET}
+    POST_BUILD
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/Pyldin-601 ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/Info.plist ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents
+    COMMAND cp -f pyldin ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/pyldin
+    COMMAND chmod 755 ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/pyldin
+    COMMAND echo 'APPLhiti' > ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/PkgInfo
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/Resources
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/pyldin.icns ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/Resources
 
-    )
+)
 ENDIF()
