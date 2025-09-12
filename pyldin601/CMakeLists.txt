@@ -82,6 +82,11 @@ add_custom_command(TARGET ${TARGET}
     COMMAND echo 'APPLhiti' > ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/PkgInfo
     COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/Resources
     COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/addon/MacOSX/pyldin.icns ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/Resources
-
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/lib
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/share/pyldin/{Bios,Floppy,Rom}
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/../native/Bios/*.roz ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/share/pyldin/Bios/
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/../native/Floppy/*.imz ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/share/pyldin/Floppy/
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/../native/Rom/*.roz ${CMAKE_CURRENT_BINARY_DIR}/Pyldin-601.app/Contents/MacOS/share/pyldin/Rom/
+    COMMAND zip -r9 pyldin-601_${APP_VERSION}-${GIT_HASH}_macos.zip Pyldin-601.app
 )
 ENDIF()
