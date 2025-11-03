@@ -92,6 +92,7 @@ static FILE *printerFile = NULL;
 #if USE_GLES2 || USE_OPENGL
 static SDL_GLContext context;
 
+#ifndef __ANDROID__
 static PFNGLCREATEPROGRAMPROC glCreateProgram;
 static PFNGLLINKPROGRAMPROC glLinkProgram;
 static PFNGLCREATESHADERPROC glCreateShader;
@@ -112,6 +113,7 @@ static PFNGLACTIVETEXTUREPROC _glActiveTexture;
 static PFNGLUNIFORM1IPROC glUniform1i;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
 static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
+#endif
 
 static GLuint shader_object;
 
@@ -175,6 +177,7 @@ void exitRequested(void)
 #if USE_GLES2 || USE_OPENGL
 static int LoadContext(void)
 {
+#ifndef __ANDROID__
     glCreateProgram = (PFNGLCREATEPROGRAMPROC) SDL_GL_GetProcAddress("glCreateProgram");
     glLinkProgram = (PFNGLLINKPROGRAMPROC) SDL_GL_GetProcAddress("glLinkProgram");
     glCreateShader = (PFNGLCREATESHADERPROC) SDL_GL_GetProcAddress("glCreateShader");
@@ -219,6 +222,9 @@ static int LoadContext(void)
     }
 
     return 1;
+#else
+    return 0;
+#endif
 }
 #endif
 
@@ -318,7 +324,9 @@ static void check_keyboard(SDL_Event *event)
 #else
         case JOYBUT_SELECT:
 #endif
+#ifndef __ANDROID__
             savepng(framebuffer);
+#endif
             break;
         default:
             KBDKeyDown(0x39);
@@ -467,7 +475,9 @@ static void check_keyboard(SDL_Event *event)
         case SDLK_RSHIFT:	KBDModKeyDown(2); break;
 #endif
 
+#ifndef __ANDROID__
         case SDLK_PRINTSCREEN:	savepng(framebuffer); break;
+#endif
         case SDLK_PAUSE:	resetRequested(); break;
         case SDLK_SCROLLLOCK: {
             Uint32 flags = SDL_GetWindowFlags(window);
@@ -560,7 +570,9 @@ static void check_keyboard(SDL_Event *event)
                         SDL_Log("Unable change video mode!\n");
                     }
                 } else if (x > 123 && x < 140) {
+#ifndef __ANDROID__
                     savepng(framebuffer);
+#endif
                 } else if (x > 153 && x < 160) {
 #ifdef USE_GUI
                     open_config_window(window, surface, &enable_sound, &enable_turbo, &keyboard_opaque);
@@ -797,7 +809,7 @@ int initVideo(int w, int h)
 #ifndef __BIONIC__
     snprintf(ftemp, sizeof(ftemp), "%s/shaders/shader.vert", datadir);
 #else
-    strcpu(ftemp, "shaders/shader.vert");
+    strcpy(ftemp, "shaders/shader.vert");
 #endif
 
     if (process_shader(&vertex_shader, ftemp, GL_VERTEX_SHADER)) {
@@ -808,7 +820,7 @@ int initVideo(int w, int h)
 #ifndef __BIONIC__
     snprintf(ftemp, sizeof(ftemp), "%s/shaders/shader.frag", datadir);
 #else
-    strcpu(ftemp, "shaders/shader.frag");
+    strcpy(ftemp, "shaders/shader.frag");
 #endif
     if (process_shader(&fragment_shader, ftemp, GL_FRAGMENT_SHADER)) {
         SDL_Log("Unable load fragment shader");

@@ -15,12 +15,19 @@ LOCAL_SRC_FILES := 			\
     ../../../src/screen.c		\
     ../../../src/floppymanager.c	\
     ../../../src/wave.c			\
-    ../../../src/shader.c		\
     ../../../src/pyldin-sdl2.c
 
 #    ../../../src/gui.c
 
-LOCAL_CFLAGS := -DUSE_GLES2 -Wall -g -Ofast -fomit-frame-pointer -I../src/core -I../src -ISDL2/include -Ijni/SDL2_gfx/include -DVERSION=\"$(shell cat ../VERSION)-$(shell LANG=en_US svn info .. 2>&1 | grep Revision | awk '{print $$2}')\"
+ifndef PYLDIN_VERSION
+PYLDIN_VERSION := 0.0.0
+endif
+
+LOCAL_C_INCLUDES += \
+    $(LOCAL_PATH)/../../../src/core \
+    $(LOCAL_PATH)/../../../src
+
+LOCAL_CFLAGS := -Wall -g -Ofast -fomit-frame-pointer -DVERSION=\"$(PYLDIN_VERSION)\"
 # -DUSE_GUI
 
 LOCAL_LDLIBS := -lGLESv2 -lz -llog

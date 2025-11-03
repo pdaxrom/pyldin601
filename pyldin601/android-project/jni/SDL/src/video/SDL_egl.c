@@ -20,6 +20,8 @@
  */
 #include "../SDL_internal.h"
 
+#include <android/native_window.h>
+
 #if SDL_VIDEO_OPENGL_EGL
 
 #if SDL_VIDEO_DRIVER_WINDOWS || SDL_VIDEO_DRIVER_WINRT

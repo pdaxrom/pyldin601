@@ -1,0 +1,113 @@
+plugins {
+    id 'com.android.application'
+}
+
+def repoRoot = rootProject.projectDir.parentFile.parentFile
+def legacyRoot = repoRoot?.parentFile
+
+def resolveVersionName = {
+    def versionFile = repoRoot ? new File(repoRoot, "VERSION") : null
+    if (versionFile?.exists()) {
+        return versionFile.text.trim()
+    }
+    return "0.0.0"
+}
+
+android {
+    namespace "com.pdaxrom.pyldin601"
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.pdaxrom.pyldin601"
+        minSdk 21
+        targetSdk 21
+        versionCode 3
+        versionName resolveVersionName()
+
+        externalNativeBuild {
+            ndkBuild {
+                // Leverage the existing Android.mk in ../jni
+                arguments "NDK_APPLICATION_MK=../jni/Application.mk",
+                        "PYLDIN_VERSION=${resolveVersionName()}"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path file("../jni/Android.mk")
+        }
+    }
+
+    buildTypes {
+        debug {
+            ndk {
+                // mirrors previous NDK_DEBUG=1 behaviour
+                debuggable true
+            }
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    packaging {
+        resources {
+            excludes += [
+                    "META-INF/**",
+            ]
+        }
+    }
+
+    def generatedAssetsDir = layout.buildDirectory.dir("generated/assets/main")
+
+    tasks.register("prepareAssets", Copy) {
+        into generatedAssetsDir
+
+        if (legacyRoot) {
+            def romSource = new File(legacyRoot, "native/RAMROMDiskPipnet")
+            if (romSource.exists()) {
+                from(romSource) {
+                    include "rom*.roz"
+                    into "Rom"
+                }
+            }
+
+            def biosSource = new File(legacyRoot, "native/Bios")
+            if (biosSource.exists()) {
+                from(biosSource) {
+                    into "Bios"
+                }
+            }
+        }
+
+        if (repoRoot) {
+            def shadersSource = new File(repoRoot, "shaders")
+            if (shadersSource.exists()) {
+                from(shadersSource) {
+                    into "shaders"
+                }
+            }
+        }
+    }
+
+    applicationVariants.configureEach { variant ->
+        variant.mergeAssetsProvider.configure { dependsOn(tasks.named("prepareAssets")) }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir generatedAssetsDir
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: "libs", include: ["*.jar"])
+}
