@@ -1384,17 +1384,7 @@ int install_resources(void)
     char tmp_src[PATH_MAX];
     char tmp_dst[PATH_MAX];
 
-    if (mkdir(datadir, 0755) == -1) {
-        struct stat sb;
-
-        if (stat(datadir, &sb) == 0) {
-            if (S_ISDIR(sb.st_mode)) {
-                return 0;
-            }
-        }
-
-        return 1;
-    }
+    mkdir(datadir, 0755);
 
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios", datadir);
     mkdir(tmp_dst, 0755);
@@ -1403,20 +1393,24 @@ int install_resources(void)
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Floppy", datadir);
     mkdir(tmp_dst, 0755);
 
-    snprintf(tmp_src, sizeof(tmp_src), "Bios/bios.roz");
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/bios.roz", datadir);
-    copy_file(tmp_src, tmp_dst);
+    if (access(tmp_dst, F_OK) != 0) {
+        copy_file("Bios/bios.roz", tmp_dst);
+    }
 
-    snprintf(tmp_src, sizeof(tmp_src), "Bios/video.roz");
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/video.roz", datadir);
-    copy_file(tmp_src, tmp_dst);
+    if (access(tmp_dst, F_OK) != 0) {
+        copy_file("Bios/video.roz", tmp_dst);
+    }
 
     int i;
 
     for (i = 0; i < 5; i++) {
-        snprintf(tmp_src, sizeof(tmp_src), "Rom/%s", romDiskName[i]);
         snprintf(tmp_dst, sizeof(tmp_dst), "%s/Rom/%s", datadir, romDiskName[i]);
-        copy_file(tmp_src, tmp_dst);
+        if (access(tmp_dst, F_OK) != 0) {
+            snprintf(tmp_src, sizeof(tmp_src), "Rom/%s", romDiskName[i]);
+            copy_file(tmp_src, tmp_dst);
+        }
     }
 
     return 0;
@@ -1524,17 +1518,6 @@ int main(int argc, char *argv[])
     datadir = malloc(PATH_MAX);
     snprintf(datadir, PATH_MAX, "%s", SDL_AndroidGetExternalStoragePath());
 
-    {
-        char *endp = strstr(datadir, "Android/data");
-
-        if (endp) {
-            strcpy(endp, "Pyldin-601");
-        } else {
-            strcpy(datadir, "/sdcard/Pyldin-601");
-        }
-    }
-
-    //    snprintf(datadir, 512, "/sdcard/Pyldin-601");
     SDL_Log("Data directory ... %s\n", datadir);
     SDL_Log("Internal directory ... %s\n", SDL_AndroidGetInternalStoragePath());
 

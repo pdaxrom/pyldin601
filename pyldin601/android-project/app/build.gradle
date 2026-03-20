@@ -17,25 +17,29 @@ android {
     namespace "com.pdaxrom.pyldin601"
     compileSdk 33
 
+    ndkVersion "27.2.12479018"
+
     defaultConfig {
         applicationId "com.pdaxrom.pyldin601"
-        minSdk 21
-        targetSdk 21
+        minSdk 28
+        targetSdk 33
         versionCode 3
         versionName resolveVersionName()
 
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+
         externalNativeBuild {
-            ndkBuild {
-                // Leverage the existing Android.mk in ../jni
-                arguments "NDK_APPLICATION_MK=../jni/Application.mk",
-                        "PYLDIN_VERSION=${resolveVersionName()}"
+            cmake {
+                arguments "-DVCPKG_ROOT=/Users/sash/Work/vcpkg"
             }
         }
     }
 
     externalNativeBuild {
-        ndkBuild {
-            path file("../jni/Android.mk")
+        cmake {
+            path file("../jni/CMakeLists.txt")
         }
     }
 
@@ -53,8 +57,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     packaging {
