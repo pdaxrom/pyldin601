@@ -88,6 +88,117 @@ static SDL_atomic_t poweroff_request;
 #define PRNFILE	"pyldin.prn"
 static FILE *printerFile = NULL;
 
+#ifndef __BIONIC__
+static int path_exists(const char *path)
+{
+    struct stat statbuf;
+
+    return path && stat(path, &statbuf) == 0;
+}
+
+static char *join_path(const char *left, const char *right)
+{
+    size_t left_len;
+    size_t right_len;
+    int add_sep;
+    char *path;
+
+    if (!left || !right) {
+        return NULL;
+    }
+
+    left_len = strlen(left);
+    right_len = strlen(right);
+    add_sep = left_len > 0 && left[left_len - 1] != '/' && left[left_len - 1] != '\\';
+
+    path = SDL_malloc(left_len + add_sep + right_len + 1);
+    if (!path) {
+        return NULL;
+    }
+
+    strcpy(path, left);
+    if (add_sep) {
+        path[left_len] = '/';
+        path[left_len + 1] = '\0';
+    }
+    strcat(path, right);
+
+    return path;
+}
+
+static int data_root_exists(const char *root)
+{
+    char path[PATH_MAX];
+
+    if (!root || !root[0]) {
+        return 0;
+    }
+
+    snprintf(path, sizeof(path), "%s/Bios/bios.roz", root);
+    if (!path_exists(path)) {
+        return 0;
+    }
+
+    snprintf(path, sizeof(path), "%s/Bios/video.roz", root);
+    if (!path_exists(path)) {
+        return 0;
+    }
+
+    snprintf(path, sizeof(path), "%s/Rom", root);
+    if (!path_exists(path)) {
+        return 0;
+    }
+
+    snprintf(path, sizeof(path), "%s/Floppy", root);
+    if (!path_exists(path)) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static char *resolve_default_datadir(void)
+{
+    static const char *relative_paths[] = {
+#ifdef __APPLE__
+        "../Resources/share/pyldin",
+#endif
+        "share/pyldin",
+        "../share/pyldin",
+        NULL
+    };
+
+    char *base_path = SDL_GetBasePath();
+    char *pref_path = NULL;
+    int i;
+
+    if (base_path) {
+        for (i = 0; relative_paths[i] != NULL; i++) {
+            char *candidate = join_path(base_path, relative_paths[i]);
+            if (candidate && data_root_exists(candidate)) {
+                SDL_free(base_path);
+                return candidate;
+            }
+            SDL_free(candidate);
+        }
+
+        SDL_free(base_path);
+    }
+
+    if (data_root_exists(DATADIR)) {
+        return SDL_strdup(DATADIR);
+    }
+
+    pref_path = SDL_GetPrefPath("org.pdaXrom", "pyldin601");
+    if (data_root_exists(pref_path)) {
+        return pref_path;
+    }
+
+    SDL_free(pref_path);
+    return NULL;
+}
+#endif
+
 //
 #if USE_GLES2 || USE_OPENGL
 static SDL_GLContext context;
@@ -1423,6 +1534,10 @@ int main(int argc, char *argv[])
     int setTimeFromHost = 0;
     int printerPortDevice = PRINTER_NONE;
     char *bootFloppy = NULL;
+    char *resolved_datadir = NULL;
+#ifdef __BIONIC__
+    char *android_datadir = NULL;
+#endif
 
     int width = 0;
     int height = 0;
@@ -1431,7 +1546,15 @@ int main(int argc, char *argv[])
 
     drawInfo = 0;
 
-    datadir = SDL_GetPrefPath("org.pdaXrom", "pyldin601");
+#ifdef __BIONIC__
+    resolved_datadir = SDL_GetPrefPath("org.pdaXrom", "pyldin601");
+#else
+    resolved_datadir = resolve_default_datadir();
+#endif
+
+    if (resolved_datadir) {
+        datadir = resolved_datadir;
+    }
 
     SDL_Log("Portable Pyldin-601 emulator version " VERSION " (http://pyldin.info)\n");
     SDL_Log("Copyright (c) 1997-2016 Sasha Chukov <sash@pdaXrom.org>, Yura Kuznetsov <yura@petrsu.ru>\n");
@@ -1515,13 +1638,16 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef __BIONIC__
-    datadir = malloc(PATH_MAX);
+    android_datadir = malloc(PATH_MAX);
+    datadir = android_datadir;
     snprintf(datadir, PATH_MAX, "%s", SDL_AndroidGetExternalStoragePath());
 
     SDL_Log("Data directory ... %s\n", datadir);
     SDL_Log("Internal directory ... %s\n", SDL_AndroidGetInternalStoragePath());
 
     install_resources();
+#else
+    SDL_Log("Data directory ... %s\n", datadir);
 #endif
 
     MC6800Init();
@@ -1624,11 +1750,12 @@ int main(int argc, char *argv[])
 
     finishVideo();
 
-#ifdef __BIONIC__
-    free(datadir);
-#endif
-
     SDL_Quit();
+
+#ifdef __BIONIC__
+    free(android_datadir);
+#endif
+    SDL_free(resolved_datadir);
 
 #ifdef __BIONIC__
     exit(0);

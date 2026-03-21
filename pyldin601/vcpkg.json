@@ -1,0 +1,10 @@
+{
+  "name": "pyldin601",
+  "version-string": "3.4",
+  "description": "Portable emulator for the Pyldin-601 8-bit computer",
+  "dependencies": [
+    "sdl2",
+    "sdl2-image",
+    "zlib"
+  ]
+}
