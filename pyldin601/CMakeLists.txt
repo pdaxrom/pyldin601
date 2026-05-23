@@ -26,6 +26,7 @@ option(PYLDIN_UNIBIOS_ONLY "Install only the UniBios ROM set" OFF)
 option(PYLDIN_BUNDLE_RUNTIME_DEPS "Copy non-system runtime libraries into install/package bundles" ON)
 
 set(PYLDIN_NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../native")
+set(PYLDIN_HD6303_NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../native-hd6303")
 set(PYLDIN_DATA_SUBDIR "pyldin")
 set(PYLDIN_DATA_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/${PYLDIN_DATA_SUBDIR}")
 set(PYLDIN_STAGE_DIR "${CMAKE_BINARY_DIR}/bundle")
@@ -191,6 +192,35 @@ if(APPLE)
     set(PYLDIN_RUNTIME_INSTALL_DESTINATION ".")
     set(PYLDIN_LIBRARY_INSTALL_DESTINATION "${PYLDIN_APP_BUNDLE_NAME}.app/Contents/Frameworks")
     set(PYLDIN_DATA_INSTALL_DESTINATION "${PYLDIN_APP_BUNDLE_NAME}.app/Contents/Resources/${PYLDIN_DATA_INSTALL_DIR}")
+
+    set(PYLDIN_BUILD_APP_DATA_DIR "$<TARGET_BUNDLE_CONTENT_DIR:pyldin>/Resources/${PYLDIN_DATA_INSTALL_DIR}")
+    if(PYLDIN_UNIBIOS_ONLY)
+        set(PYLDIN_BUILD_ROM_SOURCE_DIR "${PYLDIN_NATIVE_DIR}/Rom")
+    else()
+        set(PYLDIN_BUILD_ROM_SOURCE_DIR "${PYLDIN_NATIVE_DIR}/RAMROMDiskPipnet")
+    endif()
+
+    add_custom_command(
+        TARGET pyldin
+        POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${PYLDIN_BUILD_APP_DATA_DIR}"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${PYLDIN_NATIVE_DIR}/Bios" "${PYLDIN_BUILD_APP_DATA_DIR}/Bios"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${PYLDIN_NATIVE_DIR}/Floppy" "${PYLDIN_BUILD_APP_DATA_DIR}/Floppy"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${PYLDIN_BUILD_ROM_SOURCE_DIR}" "${PYLDIN_BUILD_APP_DATA_DIR}/Rom"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "${PYLDIN_BUILD_APP_DATA_DIR}/shaders"
+        COMMENT "Copying Pyldin data resources into the build app bundle"
+        VERBATIM
+    )
+
+    if(EXISTS "${PYLDIN_HD6303_NATIVE_DIR}/Hd6303")
+        add_custom_command(
+            TARGET pyldin
+            POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_directory "${PYLDIN_HD6303_NATIVE_DIR}/Hd6303" "${PYLDIN_BUILD_APP_DATA_DIR}/Hd6303"
+            COMMENT "Copying HD6303 data resources into the build app bundle"
+            VERBATIM
+        )
+    endif()
 else()
     set(PYLDIN_RUNTIME_INSTALL_DESTINATION "${CMAKE_INSTALL_BINDIR}")
     set(PYLDIN_DATA_INSTALL_DESTINATION "${PYLDIN_DATA_INSTALL_DIR}")
@@ -293,6 +323,15 @@ else()
     install(
         DIRECTORY "${PYLDIN_NATIVE_DIR}/RAMROMDiskPipnet/"
         DESTINATION "${PYLDIN_DATA_INSTALL_DESTINATION}/Rom"
+        FILES_MATCHING
+            PATTERN "*.roz"
+    )
+endif()
+
+if(EXISTS "${PYLDIN_HD6303_NATIVE_DIR}/Hd6303")
+    install(
+        DIRECTORY "${PYLDIN_HD6303_NATIVE_DIR}/Hd6303/"
+        DESTINATION "${PYLDIN_DATA_INSTALL_DESTINATION}/Hd6303"
         FILES_MATCHING
             PATTERN "*.roz"
     )

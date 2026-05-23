@@ -2,6 +2,7 @@
 #include <string.h>
 #include "core/mc6800.h"
 #include "core/mc6845.h"
+#include "core/devices.h"
 
 static int curBlink = 0;
 static byte video_regs[16];
@@ -88,6 +89,11 @@ void MC6845DrawScreen(void *video, int width, int height)
 
     byte rHor = mc6845InternalReadByte(0x01);
     byte rVer = mc6845InternalReadByte(0x06);
+
+    if (MC6800GetMachine() == PYLDIN_MACHINE_HD6303) {
+	SuperIoDrawVideo(video, width, height);
+	return;
+    }
 
     if ((rHor != old_rHor) ||
 	(rVer != old_rVer))

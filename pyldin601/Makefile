@@ -65,6 +65,8 @@ install:
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Rom
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Floppy
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Bios
+	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Hd6303/Bios
+	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/Hd6303/Rom
 	mkdir -p $(DESTDIR)$(DATADIR)/pyldin/shaders
 	cp -f ../native/Bios/*.roz			$(DESTDIR)$(DATADIR)/pyldin/Bios/
 	cp -f ../native/Floppy/*.imz			$(DESTDIR)$(DATADIR)/pyldin/Floppy/
@@ -73,6 +75,8 @@ ifeq (yes, $(UNIBIOSONLY))
 else
 	cp -f ../native/RAMROMDiskPipnet/rom*.roz	$(DESTDIR)$(DATADIR)/pyldin/Rom/
 endif
+	cp -f ../native-hd6303/Hd6303/Bios/*.roz	$(DESTDIR)$(DATADIR)/pyldin/Hd6303/Bios/
+	cp -f ../native-hd6303/Hd6303/Rom/*.roz		$(DESTDIR)$(DATADIR)/pyldin/Hd6303/Rom/
 	cp -f shaders/*.* $(DESTDIR)$(DATADIR)/pyldin/shaders/
 	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m 755 $(TARGET)      $(DESTDIR)$(BINDIR)

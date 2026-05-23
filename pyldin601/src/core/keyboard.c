@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "core/mc6800.h"
 #include "core/keyboard.h"
+#include "core/devices.h"
 
 #ifdef __BIONIC__
 
@@ -150,6 +151,7 @@ static unsigned char keyCode = 0;
 static unsigned char flagKey = 0;
 static unsigned char cyrMode=0;
 static byte trigger = 0;
+static unsigned int lastKeyCode = 0xff;
 
 unsigned char getkeycode(int x, int y)
 {
@@ -263,8 +265,12 @@ void KBDVirtKeyDown(int x, int y)
     unsigned int tempKeyCode = getkeycode(x, y);
     if (tempKeyCode == 0xff) {
     	return;
+	}
+    lastKeyCode = tempKeyCode;
+    SuperIoPs2KeyDown(tempKeyCode);
+    if (MC6800GetMachine() == PYLDIN_MACHINE_601) {
+	MC6800SetInterrupt(1);
     }
-    MC6800SetInterrupt(1);
     keyReady--;
     switch(flagKey | cyrMode) {
 		case 1:
@@ -280,6 +286,8 @@ void KBDVirtKeyDown(int x, int y)
 
 void KBDVirtKeyUp(void)
 {
+    SuperIoPs2KeyUp(lastKeyCode);
+    lastKeyCode = 0xff;
     keyReady = 0;
 }
 
@@ -288,7 +296,11 @@ void KBDKeyDown(unsigned int tempKeyCode)
     if (tempKeyCode == 0xff) {
     	return;
     }
-    MC6800SetInterrupt(1);
+    lastKeyCode = tempKeyCode;
+    SuperIoPs2KeyDown(tempKeyCode);
+    if (MC6800GetMachine() == PYLDIN_MACHINE_601) {
+	MC6800SetInterrupt(1);
+    }
     keyReady--;
 
 #ifdef __BIONIC__
@@ -326,16 +338,20 @@ void KBDKeyDown(unsigned int tempKeyCode)
 
 void KBDKeyUp(void)
 {
+    SuperIoPs2KeyUp(lastKeyCode);
+    lastKeyCode = 0xff;
     keyReady = 0;
 }
 
 void KBDModKeyDown(byte mode)
 {
+    SuperIoPs2ModKeyDown(mode);
     flagKey |= mode;
 }
 
 void KBDModKeyUp(byte mode)
 {
+    SuperIoPs2ModKeyUp(mode);
     flagKey &= ~mode;
 }
 

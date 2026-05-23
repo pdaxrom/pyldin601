@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "core/mc6800.h"
 #include "core/devices.h"
@@ -27,9 +28,757 @@ static int tick50;	// устанавливается в 1 при TIMER INT 50Hz
 
 static byte fSpeaker;		// бит состояния динамика
 
+#define HD6303_RAM_SIZE 131072
+#define HD6303_ROM_PAGE_SIZE 8192
+#define HD6303_ROM_PAGES 16
+#define HD6303_VRAM_SIZE 8192
+
+#define HD_REG_RMCR     0x10
+#define HD_REG_TRCSR1   0x11
+#define HD_REG_RDR      0x12
+#define HD_REG_TDR      0x13
+#define HD_REG_RP5CR    0x14
+#define HD_REG_PORT5    0x15
+#define HD_REG_DDRP6    0x16
+#define HD_REG_PORT6    0x17
+#define HD_REG_DDRP5    0x20
+
+#define HD_MEMPAGE_ROM  0x08
+#define HD_MEMPAGE_FMASK 0xe0
+
+#define HD_PS2_IRQ      0x80
+#define HD_PS2_IEN      0x40
+#define HD_PS2_RDY      0x20
+#define HD_PS2_BSY      0x10
+#define HD_PS2_TIM      0x08
+#define HD_PS2_E1       0x04
+#define HD_PS2_E0       0x02
+#define HD_PS2_REL      0x01
+
+#define HD_VPU_IRQ      0x80
+#define HD_VPU_IEN      0x40
+#define HD_VPU_VBL      0x20
+#define HD_VPU_GRF      0x10
+#define HD_VPU_CURINV   0x08
+#define HD_VPU_CUR      0x04
+#define HD_VPU_ID       0x02
+#define HD_VPU_AUTO     0x01
+
+static byte *hdBios;
+static byte *hdRom[HD6303_ROM_PAGES];
+static byte *hdVideoRom;
+static byte hdRegs[0x28];
+
+static struct {
+	byte vram[HD6303_VRAM_SIZE];
+	word addr;
+	byte config;
+	byte autoOffset;
+	word startAddr;
+	byte hOffset;
+	byte vOffset;
+	byte hSize;
+	byte vSize;
+	byte curPos;
+	byte curLineStart;
+	byte curLineEnd;
+} HdVpu;
+
+static struct {
+	byte data;
+	byte status;
+	byte writeData;
+	byte queueData[16];
+	byte queueFlags[16];
+	int queueHead;
+	int queueTail;
+	int queueCount;
+} HdPs2;
+
+static byte hdSimpleIo[0x20];
+static byte hdPsg[16];
+static byte hdPsgAddr;
+static byte hdSpi[8];
+static word hdIntRouter;
+
+static const byte set1_to_set2[128] = {
+	0x00, 0x76, 0x16, 0x1e, 0x26, 0x25, 0x2e, 0x36,
+	0x3d, 0x3e, 0x46, 0x45, 0x4e, 0x55, 0x66, 0x0d,
+	0x15, 0x1d, 0x24, 0x2d, 0x2c, 0x35, 0x3c, 0x43,
+	0x44, 0x4d, 0x54, 0x5b, 0x5a, 0x00, 0x1c, 0x1b,
+	0x23, 0x2b, 0x34, 0x33, 0x3b, 0x42, 0x4b, 0x4c,
+	0x52, 0x0e, 0x00, 0x5d, 0x1a, 0x22, 0x21, 0x2a,
+	0x32, 0x31, 0x3a, 0x41, 0x49, 0x4a, 0x00, 0x00,
+	0x00, 0x29, 0x58, 0x05, 0x06, 0x04, 0x0c, 0x03,
+	0x0b, 0x83, 0x0a, 0x01, 0x09, 0x00, 0x7e, 0x00,
+	0x00, 0x00, 0x70, 0x00, 0x00, 0x6c, 0x00, 0x00,
+	0x00, 0x69, 0x00, 0x6b, 0x00, 0x74, 0x00, 0x00,
+	0x00, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+static int hd6303_is_active(void)
+{
+	return MC6800GetMachine() == PYLDIN_MACHINE_HD6303;
+}
+
+static byte hd6303_page_number(void)
+{
+	byte port6 = hdRegs[HD_REG_PORT6];
+
+	return ((port6 & 0x10) >> 1) | (port6 & 0x07);
+}
+
+static int hd6303_bios_visible(void)
+{
+	byte fn = hdRegs[HD_REG_PORT6] & HD_MEMPAGE_FMASK;
+
+	return fn == 0 || fn == HD_MEMPAGE_FMASK;
+}
+
+static dword hd6303_ram_offset(word a)
+{
+	if (a >= 0xc000 && a < 0xe000) {
+		return (dword)hd6303_page_number() * HD6303_ROM_PAGE_SIZE + (a - 0xc000);
+	}
+
+	if (a >= 0xe000) {
+		return 0xe000 + (a - 0xe000);
+	}
+
+	return a;
+}
+
+static int hd6303_page_ram_visible(void)
+{
+	return !(hdRegs[HD_REG_PORT6] & HD_MEMPAGE_ROM) && hd6303_page_number() < 8;
+}
+
+static int hd6303_page_rom_visible(void)
+{
+	return (hdRegs[HD_REG_PORT6] & HD_MEMPAGE_ROM) != 0;
+}
+
+static byte hd6303_internal_read(word a)
+{
+	switch (a) {
+		case HD_REG_TRCSR1:
+			return hdRegs[a] | 0x20;
+		case HD_REG_RDR:
+			return 0xff;
+		case HD_REG_PORT6:
+			return hdRegs[HD_REG_PORT6];
+		default:
+			return hdRegs[a];
+	}
+}
+
+static void hd6303_internal_write(word a, byte d)
+{
+	if (a >= sizeof(hdRegs)) {
+		return;
+	}
+
+	hdRegs[a] = d;
+}
+
+static int hd6303_interrupt_select(int shift)
+{
+	return (hdIntRouter >> shift) & 0x03;
+}
+
+static void hd6303_raise_interrupt(int shift)
+{
+	int route = hd6303_interrupt_select(shift);
+
+	if (route == 0 || route == 1) {
+		MC6800SetInterrupt(1);
+	}
+}
+
+static void hd6303_vpu_reset(void)
+{
+	memset(&HdVpu, 0, sizeof(HdVpu));
+	HdVpu.config = HD_VPU_AUTO;
+	HdVpu.autoOffset = 1;
+	HdVpu.hOffset = 96;
+	HdVpu.vOffset = 50;
+	HdVpu.hSize = 39;
+	HdVpu.vSize = 199;
+}
+
+static void hd6303_reset(void)
+{
+	memset(hdRegs, 0, sizeof(hdRegs));
+	memset(hdSimpleIo, 0, sizeof(hdSimpleIo));
+	memset(hdPsg, 0, sizeof(hdPsg));
+	memset(hdSpi, 0, sizeof(hdSpi));
+	memset(&HdPs2, 0, sizeof(HdPs2));
+
+	hdRegs[HD_REG_PORT6] = HD_MEMPAGE_FMASK;
+	hdRegs[HD_REG_DDRP6] = 0xff;
+	hdRegs[HD_REG_RP5CR] = 0x40;
+
+	hdIntRouter = 0;
+	hdPsgAddr = 0;
+	hd6303_vpu_reset();
+}
+
+static void hd6303_vpu_inc_addr(void)
+{
+	if (!(HdVpu.config & HD_VPU_AUTO)) {
+		return;
+	}
+
+	if (HdVpu.config & HD_VPU_ID) {
+		HdVpu.addr -= HdVpu.autoOffset;
+	} else {
+		HdVpu.addr += HdVpu.autoOffset;
+	}
+	HdVpu.addr &= HD6303_VRAM_SIZE - 1;
+}
+
+static byte hd6303_vpu_read(word a)
+{
+	switch (a & 0x0f) {
+		case 0x00: {
+			byte d = HdVpu.vram[HdVpu.addr & (HD6303_VRAM_SIZE - 1)];
+			hd6303_vpu_inc_addr();
+			return d;
+		}
+		case 0x01:
+			return (HdVpu.addr >> 8) & 0x1f;
+		case 0x02:
+			return HdVpu.addr & 0xff;
+		case 0x03: {
+			byte d = HdVpu.config;
+			HdVpu.config &= ~HD_VPU_IRQ;
+			return d;
+		}
+		case 0x04:
+			return HdVpu.autoOffset;
+		case 0x05:
+			return (HdVpu.startAddr >> 8) & 0x1f;
+		case 0x06:
+			return HdVpu.startAddr & 0xff;
+		case 0x07:
+			return HdVpu.hOffset;
+		case 0x08:
+			return HdVpu.vOffset;
+		case 0x09:
+			return HdVpu.hSize;
+		case 0x0a:
+			return HdVpu.vSize;
+		case 0x0b:
+			return HdVpu.curPos;
+		case 0x0c:
+			return HdVpu.curLineStart;
+		case 0x0d:
+			return HdVpu.curLineEnd;
+	}
+
+	return 0xa5;
+}
+
+static void hd6303_vpu_write(word a, byte d)
+{
+	switch (a & 0x0f) {
+		case 0x00:
+			HdVpu.vram[HdVpu.addr & (HD6303_VRAM_SIZE - 1)] = d;
+			hd6303_vpu_inc_addr();
+			break;
+		case 0x01:
+			HdVpu.addr = ((d & 0x1f) << 8) | (HdVpu.addr & 0xff);
+			break;
+		case 0x02:
+			HdVpu.addr = (HdVpu.addr & 0x1f00) | d;
+			break;
+		case 0x03:
+			HdVpu.config = (HdVpu.config & (HD_VPU_IRQ | HD_VPU_VBL)) |
+				(d & (HD_VPU_IEN | HD_VPU_GRF | HD_VPU_CURINV | HD_VPU_CUR | HD_VPU_ID | HD_VPU_AUTO));
+			break;
+		case 0x04:
+			HdVpu.autoOffset = d;
+			break;
+		case 0x05:
+			HdVpu.startAddr = ((d & 0x1f) << 8) | (HdVpu.startAddr & 0xff);
+			break;
+		case 0x06:
+			HdVpu.startAddr = (HdVpu.startAddr & 0x1f00) | d;
+			break;
+		case 0x07:
+			HdVpu.hOffset = d;
+			break;
+		case 0x08:
+			HdVpu.vOffset = d;
+			break;
+		case 0x09:
+			HdVpu.hSize = d;
+			break;
+		case 0x0a:
+			HdVpu.vSize = d;
+			break;
+		case 0x0b:
+			HdVpu.curPos = d;
+			break;
+		case 0x0c:
+			HdVpu.curLineStart = d;
+			break;
+		case 0x0d:
+			HdVpu.curLineEnd = d;
+			break;
+	}
+}
+
+static void hd6303_ps2_load_next(void)
+{
+	if ((HdPs2.status & HD_PS2_RDY) || HdPs2.queueCount == 0) {
+		return;
+	}
+
+	HdPs2.data = HdPs2.queueData[HdPs2.queueHead];
+	HdPs2.status = (HdPs2.status & HD_PS2_IEN) |
+		HD_PS2_RDY | HdPs2.queueFlags[HdPs2.queueHead];
+	HdPs2.queueHead = (HdPs2.queueHead + 1) & 0x0f;
+	HdPs2.queueCount--;
+
+	if (HdPs2.status & HD_PS2_IEN) {
+		HdPs2.status |= HD_PS2_IRQ;
+		hd6303_raise_interrupt(12);
+	}
+}
+
+static void hd6303_ps2_enqueue(byte d, byte flags)
+{
+	if (HdPs2.queueCount < 16) {
+		HdPs2.queueData[HdPs2.queueTail] = d;
+		HdPs2.queueFlags[HdPs2.queueTail] = flags;
+		HdPs2.queueTail = (HdPs2.queueTail + 1) & 0x0f;
+		HdPs2.queueCount++;
+	}
+
+	hd6303_ps2_load_next();
+}
+
+static byte hd6303_ps2_read(word a)
+{
+	if ((a & 0x01) == 0) {
+		byte d = HdPs2.data;
+
+		HdPs2.status &= HD_PS2_IEN;
+		hd6303_ps2_load_next();
+		return d;
+	}
+
+	byte d = HdPs2.status;
+	HdPs2.status &= ~HD_PS2_IRQ;
+	return d;
+}
+
+static void hd6303_ps2_write(word a, byte d)
+{
+	if ((a & 0x01) == 0) {
+		HdPs2.writeData = d;
+		HdPs2.status &= ~HD_PS2_BSY;
+		hd6303_ps2_enqueue(0xfa, 0);
+		if (d == 0xff) {
+			hd6303_ps2_enqueue(0xaa, 0);
+		}
+		return;
+	}
+
+	HdPs2.status = (HdPs2.status & ~HD_PS2_IEN) | (d & HD_PS2_IEN);
+	if (HdPs2.status & HD_PS2_RDY) {
+		if (HdPs2.status & HD_PS2_IEN) {
+			HdPs2.status |= HD_PS2_IRQ;
+			hd6303_raise_interrupt(12);
+		}
+	} else {
+		hd6303_ps2_load_next();
+	}
+}
+
+static byte hd6303_simpleio_read(word a)
+{
+	switch (a & 0x0f) {
+		case 0x00:
+			return ~hdSimpleIo[0x00];
+		case 0x01:
+		case 0x02:
+			return hdSimpleIo[a & 0x0f];
+		case 0x03:
+			return ((~hdSimpleIo[0x03]) & 0x77);
+		case 0x04:
+			return 0xf0;
+		case 0x08: {
+			byte d = hdSimpleIo[0x08];
+			hdSimpleIo[0x08] &= ~0x80;
+			return d;
+		}
+		case 0x09:
+		case 0x0a:
+		case 0x0b:
+			return hdSimpleIo[a & 0x0f];
+	}
+
+	return 0xa5;
+}
+
+static void hd6303_simpleio_write(word a, byte d)
+{
+	switch (a & 0x0f) {
+		case 0x00:
+		case 0x01:
+		case 0x02:
+		case 0x03:
+			hdSimpleIo[a & 0x0f] = d;
+			break;
+		case 0x08:
+			hdSimpleIo[0x08] = d & 0x41;
+			break;
+		case 0x09:
+		case 0x0a:
+		case 0x0b:
+			hdSimpleIo[a & 0x0f] = d;
+			break;
+	}
+}
+
+static byte hd6303_spi_read(word a)
+{
+	switch (a & 0x07) {
+		case 0x00:
+		case 0x01:
+			return 0xff;
+		case 0x02:
+			return 0x80 | (hdSpi[0x02] & 0x33);
+		case 0x03:
+		case 0x04:
+			return hdSpi[a & 0x07];
+	}
+
+	return 0xa5;
+}
+
+static void hd6303_spi_write(word a, byte d)
+{
+	hdSpi[a & 0x07] = d;
+}
+
+static byte hd6303_io_read(word a)
+{
+	if (a >= 0xe610 && a <= 0xe61f) {
+		return hd6303_vpu_read(a);
+	}
+	if (a >= 0xe6a0 && a <= 0xe6af) {
+		return hd6303_simpleio_read(a);
+	}
+	if (a == 0xe6b0) {
+		return hdPsg[hdPsgAddr & 0x0f];
+	}
+	if (a >= 0xe6c0 && a <= 0xe6c7) {
+		return hd6303_spi_read(a);
+	}
+	if (a == 0xe6d0 || a == 0xe6d1) {
+		return hd6303_ps2_read(a);
+	}
+	if (a == 0xe6fe) {
+		return hdIntRouter >> 8;
+	}
+	if (a == 0xe6ff) {
+		return hdIntRouter & 0xff;
+	}
+
+	return 0xa5;
+}
+
+static void hd6303_io_write(word a, byte d)
+{
+	if (a >= 0xe610 && a <= 0xe61f) {
+		hd6303_vpu_write(a, d);
+		return;
+	}
+	if (a >= 0xe6a0 && a <= 0xe6af) {
+		hd6303_simpleio_write(a, d);
+		return;
+	}
+	if (a == 0xe6b0) {
+		hdPsg[hdPsgAddr & 0x0f] = d;
+		return;
+	}
+	if (a == 0xe6b1) {
+		hdPsgAddr = d & 0x0f;
+		return;
+	}
+	if (a >= 0xe6c0 && a <= 0xe6c7) {
+		hd6303_spi_write(a, d);
+		return;
+	}
+	if (a == 0xe6d0 || a == 0xe6d1) {
+		hd6303_ps2_write(a, d);
+		return;
+	}
+	if (a == 0xe6fe) {
+		hdIntRouter = (hdIntRouter & 0x00ff) | ((word)d << 8);
+		return;
+	}
+	if (a == 0xe6ff) {
+		hdIntRouter = (hdIntRouter & 0xff00) | d;
+		return;
+	}
+}
+
+static int hd6303_read_byte(word a, byte *t)
+{
+	if (a < sizeof(hdRegs)) {
+		*t = hd6303_internal_read(a);
+		return 1;
+	}
+
+	if (a >= 0xf000 && hd6303_bios_visible()) {
+		*t = hdBios ? hdBios[a - 0xf000] : 0xff;
+		return 1;
+	}
+
+	if (a >= 0xc000 && a < 0xe000) {
+		if (hd6303_page_rom_visible()) {
+			byte page = hd6303_page_number();
+			*t = hdRom[page] ? hdRom[page][a - 0xc000] : 0xff;
+			return 1;
+		}
+
+		if (!hd6303_page_ram_visible()) {
+			*t = 0xff;
+			return 1;
+		}
+	}
+
+	if ((a & 0xff00) == 0xe600) {
+		*t = hd6303_io_read(a);
+		return 1;
+	}
+
+	*t = MEM[hd6303_ram_offset(a) % HD6303_RAM_SIZE];
+	return 1;
+}
+
+static void hd6303_write_byte(word a, byte d)
+{
+	if (a < sizeof(hdRegs)) {
+		hd6303_internal_write(a, d);
+		return;
+	}
+
+	if ((a & 0xff00) == 0xe600) {
+		hd6303_io_write(a, d);
+		return;
+	}
+
+	if (a >= 0xc000 && a < 0xe000) {
+		if (hd6303_page_rom_visible() || !hd6303_page_ram_visible()) {
+			return;
+		}
+	}
+
+	MEM[hd6303_ram_offset(a) % HD6303_RAM_SIZE] = d;
+}
+
+static byte hd6303_set2_from_set1(unsigned int set1ScanCode, byte *flags)
+{
+	*flags = 0;
+
+	switch (set1ScanCode) {
+		case 0x47:
+			*flags = HD_PS2_E0;
+			return 0x6c;
+		case 0x48:
+			*flags = HD_PS2_E0;
+			return 0x75;
+		case 0x49:
+			*flags = HD_PS2_E0;
+			return 0x7d;
+		case 0x4b:
+			*flags = HD_PS2_E0;
+			return 0x6b;
+		case 0x4d:
+			*flags = HD_PS2_E0;
+			return 0x74;
+		case 0x4f:
+			*flags = HD_PS2_E0;
+			return 0x69;
+		case 0x50:
+			*flags = HD_PS2_E0;
+			return 0x72;
+		case 0x51:
+			*flags = HD_PS2_E0;
+			return 0x7a;
+		case 0x52:
+			*flags = HD_PS2_E0;
+			return 0x70;
+		case 0x53:
+			*flags = HD_PS2_E0;
+			return 0x71;
+	}
+
+	if (set1ScanCode < sizeof(set1_to_set2)) {
+		return set1_to_set2[set1ScanCode];
+	}
+
+	return 0;
+}
+
+static void hd6303_ps2_key_event(unsigned int set1ScanCode, byte flags)
+{
+	byte prefixFlags;
+	byte set2 = hd6303_set2_from_set1(set1ScanCode, &prefixFlags);
+
+	if (!set2) {
+		return;
+	}
+
+	hd6303_ps2_enqueue(set2, flags | prefixFlags);
+}
+
+void SuperIoPs2KeyDown(unsigned int set1ScanCode)
+{
+	if (!hd6303_is_active()) {
+		return;
+	}
+
+	hd6303_ps2_key_event(set1ScanCode, 0);
+}
+
+void SuperIoPs2KeyUp(unsigned int set1ScanCode)
+{
+	if (!hd6303_is_active()) {
+		return;
+	}
+
+	hd6303_ps2_key_event(set1ScanCode, HD_PS2_REL);
+}
+
+void SuperIoPs2ModKeyDown(byte mode)
+{
+	if (!hd6303_is_active()) {
+		return;
+	}
+
+	if (mode & 1) {
+		hd6303_ps2_enqueue(0x14, 0);
+	}
+	if (mode & 2) {
+		hd6303_ps2_enqueue(0x12, 0);
+	}
+	if (mode & (8 | 16)) {
+		hd6303_ps2_enqueue(0x11, 0);
+	}
+}
+
+void SuperIoPs2ModKeyUp(byte mode)
+{
+	if (!hd6303_is_active()) {
+		return;
+	}
+
+	if (mode & 1) {
+		hd6303_ps2_enqueue(0x14, HD_PS2_REL);
+	}
+	if (mode & 2) {
+		hd6303_ps2_enqueue(0x12, HD_PS2_REL);
+	}
+	if (mode & (8 | 16)) {
+		hd6303_ps2_enqueue(0x11, HD_PS2_REL);
+	}
+}
+
+void SuperIoDrawVideo(void *video, int width, int height)
+{
+	word *vmem = (word *)video;
+	int visibleHeight = (height > 24) ? height - 24 : height;
+	int cols = (HdVpu.hSize & 0x7f) + 1;
+	int rowsOrLines = HdVpu.vSize + 1;
+	int x0;
+	int y0;
+	int y;
+
+	if (!hd6303_is_active()) {
+		return;
+	}
+
+	if (cols < 1) {
+		cols = 1;
+	}
+	if (cols > 64) {
+		cols = 64;
+	}
+	if (rowsOrLines < 1) {
+		rowsOrLines = 1;
+	}
+
+	memset(video, 0, width * visibleHeight * sizeof(word));
+
+	x0 = (width - cols * 8) / 2;
+	if (x0 < 0) {
+		x0 = 0;
+	}
+	y0 = (visibleHeight - rowsOrLines) / 2;
+	if (y0 < 0) {
+		y0 = 0;
+	}
+
+	for (y = 0; y < rowsOrLines && y0 + y < visibleHeight; y++) {
+		int xbyte;
+
+		for (xbyte = 0; xbyte < cols && x0 + xbyte * 8 < width; xbyte++) {
+			byte data;
+			int bit;
+
+			if (HdVpu.config & HD_VPU_GRF) {
+				dword addr = (HdVpu.startAddr + y * cols + xbyte) & (HD6303_VRAM_SIZE - 1);
+				data = HdVpu.vram[addr];
+			} else {
+				int charLine = y & 7;
+				int row = y >> 3;
+				dword addr = (HdVpu.startAddr + row * cols + xbyte) & (HD6303_VRAM_SIZE - 1);
+				byte code = HdVpu.vram[addr];
+				dword fontAddr = ((code & 0x7f) << 4) | ((code & 0x80) ? 8 : 0) | charLine;
+				data = hdVideoRom ? hdVideoRom[fontAddr & 0x7ff] : 0;
+			}
+
+			if ((HdVpu.config & HD_VPU_CUR) &&
+				xbyte == HdVpu.curPos &&
+				y >= HdVpu.curLineStart &&
+				y <= HdVpu.curLineEnd) {
+				data = (HdVpu.config & HD_VPU_CURINV) ? (byte)~data : 0xff;
+			}
+
+			for (bit = 0; bit < 8 && x0 + xbyte * 8 + bit < width; bit++) {
+				word pixel = (data & 0x80) ? PIXEL_ON : PIXEL_OFF;
+				vmem[(y0 + y) * width + x0 + xbyte * 8 + bit] = pixel;
+				data <<= 1;
+			}
+		}
+	}
+}
+
 int SuperIoInit(void)
 {
     int i;
+
+    if (hd6303_is_active()) {
+		hdBios = (byte *) loadHd6303BiosRom(4096);
+		for (i = 0; i < HD6303_ROM_PAGES; i++) {
+			hdRom[i] = (byte *) loadHd6303RomPage(i, HD6303_ROM_PAGE_SIZE);
+		}
+		hdVideoRom = (byte *) loadCharGenRom(2048);
+		memset(MEM, 0, HD6303_RAM_SIZE);
+		hd6303_reset();
+		PrinterPort.mode = PRINTER_NONE;
+		return 0;
+    }
 
     BMEM 	= (byte *) loadBiosRom(4096);
     vdiskMEM 	= (byte *) loadRamDisk(vdiskSIZE);
@@ -51,13 +800,20 @@ int SuperIoInit(void)
 
 int SuperIoFinish(void)
 {
-	unloadRamDisk(vdiskSIZE);
+	if (!hd6303_is_active()) {
+		unloadRamDisk(vdiskSIZE);
+	}
 
     return 0;
 }
 
 void SuperIoReset(void)
 {
+	if (hd6303_is_active()) {
+		hd6303_reset();
+		return;
+	}
+
     tick50 = 0;
 }
 
@@ -71,6 +827,21 @@ void SuperIoPrinterPortMode(int mode)
 
 void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, word sec)
 {
+	if (hd6303_is_active()) {
+		year = (year % 100) + 1000 * (1 + year / 100);
+		MC6800MemWriteByte(0x40, 0);
+		MC6800MemWriteByte(0x41, sec);
+		MC6800MemWriteByte(0x42, min);
+		MC6800MemWriteByte(0x43, hour);
+		MC6800MemWriteByte(0x44, mday);
+		MC6800MemWriteByte(0x45, mon + 1);
+		MC6800MemWriteByte(0x46, year >> 8);
+		MC6800MemWriteByte(0x47, year & 0xff);
+		MC6800MemWriteByte(0xed00, 0xa5);
+		MC6800MemWriteByte(0xed01, 0x5a);
+		return;
+	}
+
     MC6800MemWriteByte(0x1c, mday);
     MC6800MemWriteByte(0x1d, mon + 1);
 
@@ -90,6 +861,9 @@ void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, wor
 
 O_INLINE int SuperIoReadByte(word a, byte *t)
 {
+    if (hd6303_is_active()) {
+		return hd6303_read_byte(a, t);
+    }
 
     if (a >= 0xf000) {
     	*t = BMEM[a - 0xf000]; //чтение системного BIOS
@@ -164,6 +938,11 @@ O_INLINE int SuperIoReadByte(word a, byte *t)
 
 O_INLINE int SuperIoWriteByte(word a, byte d)
 {
+    if (hd6303_is_active()) {
+		hd6303_write_byte(a, d);
+		return 1;
+    }
+
     if ((a & 0xff00) != 0xe600) {
     	return 0;
     }
@@ -253,5 +1032,18 @@ O_INLINE int SuperIoWriteByte(word a, byte d)
 
 O_INLINE void SuperIoSetTick50(void)
 {
+    if (hd6303_is_active()) {
+		HdVpu.config |= HD_VPU_VBL;
+		if (HdVpu.config & HD_VPU_IEN) {
+			HdVpu.config |= HD_VPU_IRQ;
+			hd6303_raise_interrupt(0);
+		}
+		if ((hdSimpleIo[0x08] & 0x41) == 0x41) {
+			hdSimpleIo[0x08] |= 0x80;
+			hd6303_raise_interrupt(10);
+		}
+		return;
+    }
+
     tick50 = 0x80;
 }

@@ -2,6 +2,14 @@
 
 Эмулятор болгарского 8-битного компьютера Pyldin-601 на базе MC6800.
 
+Также добавлен экспериментальный режим нового FPGA-компьютера Pyldin-601 HD6303:
+
+```sh
+./pyldin -m hd6303
+```
+
+Запуск без `-m` остается старым Pyldin-601.
+
 Основной desktop-проект находится в каталоге [`pyldin601/`](./pyldin601).
 
 ## Сборка desktop-версии
@@ -127,6 +135,7 @@ cmake --install out/build/release --prefix /tmp/pyldin601-install
 - `Bios`
 - `Floppy`
 - `Rom`
+- `Hd6303`
 - `shaders`
 
 Источники данных:
@@ -134,6 +143,7 @@ cmake --install out/build/release --prefix /tmp/pyldin601-install
 - [`native/Bios/`](./native/Bios)
 - [`native/Floppy/`](./native/Floppy)
 - [`native/RAMROMDiskPipnet/`](./native/RAMROMDiskPipnet)
+- [`native-hd6303/Hd6303/`](./native-hd6303/Hd6303)
 - [`pyldin601/shaders/`](./pyldin601/shaders)
 
 ## Платформенные замечания

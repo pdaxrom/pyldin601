@@ -240,5 +240,45 @@
 
 #define	DAA		0x19
 
+#define	LSRD		0x04
+#define	ASLD		0x05
+#define	XGDX		0x18
+#define	SLP		0x1a
+#define	BRN		0x21
+#define	PULX		0x38
+#define	ABX		0x3a
+#define	PSHX		0x3c
+#define	MUL		0x3d
+
+#define	AIM_idx		0x61
+#define	OIM_idx		0x62
+#define	EIM_idx		0x65
+#define	TIM_idx		0x6b
+#define	AIM_dir		0x71
+#define	OIM_dir		0x72
+#define	EIM_dir		0x75
+#define	TIM_dir		0x7b
+
+#define	JSR_dir		0x9d
+
+#define	SUBD_imm	0x83
+#define	SUBD_dir	0x93
+#define	SUBD_idx	0xa3
+#define	SUBD		0xb3
+
+#define	ADDD_imm	0xc3
+#define	ADDD_dir	0xd3
+#define	ADDD_idx	0xe3
+#define	ADDD		0xf3
+
+#define	LDD_imm		0xcc
+#define	LDD_dir		0xdc
+#define	LDD_idx		0xec
+#define	LDD		0xfc
+
+#define	STD_dir		0xdd
+#define	STD_idx		0xed
+#define	STD		0xfd
+
 #define	SWI		0x3f
 #define	WAI		0x3e

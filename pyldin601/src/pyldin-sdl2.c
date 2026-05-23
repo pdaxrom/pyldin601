@@ -339,6 +339,95 @@ static int LoadContext(void)
 }
 #endif
 
+static unsigned int sdl_scancode_to_set1(SDL_Scancode scancode)
+{
+    switch (scancode) {
+    case SDL_SCANCODE_UP: return 0x48;
+    case SDL_SCANCODE_DOWN: return 0x50;
+    case SDL_SCANCODE_LEFT: return 0x4b;
+    case SDL_SCANCODE_RIGHT: return 0x4d;
+    case SDL_SCANCODE_ESCAPE: return 0x01;
+
+    case SDL_SCANCODE_F1: return 0x3b;
+    case SDL_SCANCODE_F2: return 0x3c;
+    case SDL_SCANCODE_F3: return 0x3d;
+    case SDL_SCANCODE_F4: return 0x3e;
+    case SDL_SCANCODE_F5: return 0x3f;
+    case SDL_SCANCODE_F6: return 0x40;
+    case SDL_SCANCODE_F7: return 0x41;
+    case SDL_SCANCODE_F8: return 0x42;
+    case SDL_SCANCODE_F9: return 0x43;
+    case SDL_SCANCODE_F10: return 0x44;
+    case SDL_SCANCODE_F11: return 0x57;
+    case SDL_SCANCODE_F12: return 0x58;
+
+    case SDL_SCANCODE_HOME: return 0x47;
+    case SDL_SCANCODE_END: return 0x4f;
+    case SDL_SCANCODE_INSERT: return 0x52;
+
+    case SDL_SCANCODE_1: return 0x02;
+    case SDL_SCANCODE_2: return 0x03;
+    case SDL_SCANCODE_3: return 0x04;
+    case SDL_SCANCODE_4: return 0x05;
+    case SDL_SCANCODE_5: return 0x06;
+    case SDL_SCANCODE_6: return 0x07;
+    case SDL_SCANCODE_7: return 0x08;
+    case SDL_SCANCODE_8: return 0x09;
+    case SDL_SCANCODE_9: return 0x0a;
+    case SDL_SCANCODE_0: return 0x0b;
+    case SDL_SCANCODE_MINUS: return 0x0c;
+    case SDL_SCANCODE_EQUALS: return 0x0d;
+    case SDL_SCANCODE_BACKSLASH: return 0x2b;
+    case SDL_SCANCODE_BACKSPACE: return 0x0e;
+    case SDL_SCANCODE_LGUI: return 0x46;
+
+    case SDL_SCANCODE_TAB: return 0x0f;
+    case SDL_SCANCODE_Q: return 0x10;
+    case SDL_SCANCODE_W: return 0x11;
+    case SDL_SCANCODE_E: return 0x12;
+    case SDL_SCANCODE_R: return 0x13;
+    case SDL_SCANCODE_T: return 0x14;
+    case SDL_SCANCODE_Y: return 0x15;
+    case SDL_SCANCODE_U: return 0x16;
+    case SDL_SCANCODE_I: return 0x17;
+    case SDL_SCANCODE_O: return 0x18;
+    case SDL_SCANCODE_P: return 0x19;
+    case SDL_SCANCODE_GRAVE: return 0x29;
+    case SDL_SCANCODE_RETURN: return 0x1c;
+
+    case SDL_SCANCODE_A: return 0x1e;
+    case SDL_SCANCODE_S: return 0x1f;
+    case SDL_SCANCODE_D: return 0x20;
+    case SDL_SCANCODE_F: return 0x21;
+    case SDL_SCANCODE_G: return 0x22;
+    case SDL_SCANCODE_H: return 0x23;
+    case SDL_SCANCODE_J: return 0x24;
+    case SDL_SCANCODE_K: return 0x25;
+    case SDL_SCANCODE_L: return 0x26;
+    case SDL_SCANCODE_SEMICOLON: return 0x27;
+    case SDL_SCANCODE_APOSTROPHE: return 0x28;
+    case SDL_SCANCODE_LEFTBRACKET: return 0x1a;
+    case SDL_SCANCODE_RIGHTBRACKET: return 0x1b;
+
+    case SDL_SCANCODE_Z: return 0x2c;
+    case SDL_SCANCODE_X: return 0x2d;
+    case SDL_SCANCODE_C: return 0x2e;
+    case SDL_SCANCODE_V: return 0x2f;
+    case SDL_SCANCODE_B: return 0x30;
+    case SDL_SCANCODE_N: return 0x31;
+    case SDL_SCANCODE_M: return 0x32;
+    case SDL_SCANCODE_COMMA: return 0x33;
+    case SDL_SCANCODE_PERIOD: return 0x34;
+    case SDL_SCANCODE_SLASH: return 0x35;
+
+    case SDL_SCANCODE_SPACE: return 0x39;
+    case SDL_SCANCODE_CAPSLOCK: return 0x3a;
+
+    default:
+        return 0xff;
+    }
+}
+
 static void check_keyboard(SDL_Event *event)
 {
     int x = 0, y = 0;
@@ -603,7 +692,15 @@ static void check_keyboard(SDL_Event *event)
             break;
         }
         default:
-            SDL_Log("unknown key=%d\n", sdlkey);
+            {
+                unsigned int set1 = sdl_scancode_to_set1(event->key.keysym.scancode);
+
+                if (set1 != 0xff) {
+                    KBDKeyDown(set1);
+                } else {
+                    SDL_Log("unknown key=%d scancode=%d\n", sdlkey, event->key.keysym.scancode);
+                }
+            }
         }
         break;
     }
@@ -1240,11 +1337,12 @@ int cpu_thread(void *arg)
 
 void usage(char *app)
 {
-    SDL_Log("Usage: %s [-d <dir>][-h][-i][-t][-p <type>][-s <N>][boot floppy image]\n", app);
+    SDL_Log("Usage: %s [-d <dir>][-h][-i][-t][-m <model>][-p <type>][-s <N>][boot floppy image]\n", app);
     SDL_Log("-d <dir>  - path to directory with Rom/Floppy images\n");
     SDL_Log("-g WxH    - set screen geometry WxH\n");
     SDL_Log("-h        - this help\n");
     SDL_Log("-i        - show cpu performance\n");
+    SDL_Log("-m <model>- machine model: 601 or hd6303\n");
     SDL_Log("-t        - setup date&time from host\n");
     SDL_Log("-p <type> - function of printer port:\n");
     SDL_Log("            file   - output to file\n");
@@ -1258,6 +1356,8 @@ static byte *pyldin_bios_mem = NULL;
 static byte *pyldin_ramdisk_mem = NULL;
 static byte *pyldin_romchip_mem[MAX_ROMCHIPS] = {NULL, NULL, NULL, NULL, NULL };
 static byte *pyldin_videorom_mem = NULL;
+static byte *pyldin_hd6303_bios_mem = NULL;
+static byte *pyldin_hd6303_rom_mem[16];
 
 static char *romName[] = {
     "str$08.roz",
@@ -1334,8 +1434,13 @@ byte *loadCharGenRom(dword size)
     }
 
     pyldin_videorom_mem = (byte *) malloc(sizeof(byte) * size);
+    memset(pyldin_videorom_mem, 0, size);
 
-    snprintf(ftemp, sizeof(ftemp), "%s/Bios/video.roz", datadir);
+    if (MC6800GetMachine() == PYLDIN_MACHINE_HD6303) {
+        snprintf(ftemp, sizeof(ftemp), "%s/Hd6303/Bios/video.roz", datadir);
+    } else {
+        snprintf(ftemp, sizeof(ftemp), "%s/Bios/video.roz", datadir);
+    }
 
     if (load_packed_file(ftemp, pyldin_videorom_mem, size)) {
         SDL_Log("Loading font rom... Ok\n");
@@ -1344,6 +1449,49 @@ byte *loadCharGenRom(dword size)
     }
 
     return pyldin_videorom_mem;
+}
+
+byte *loadHd6303BiosRom(dword size)
+{
+    char ftemp[PATH_MAX];
+
+    if (pyldin_hd6303_bios_mem) {
+        return pyldin_hd6303_bios_mem;
+    }
+
+    pyldin_hd6303_bios_mem = (byte *) malloc(sizeof(byte) * size);
+    memset(pyldin_hd6303_bios_mem, 0xff, size);
+
+    snprintf(ftemp, sizeof(ftemp), "%s/Hd6303/Bios/bios.roz", datadir);
+
+    if (load_packed_file(ftemp, pyldin_hd6303_bios_mem, size)) {
+        SDL_Log("Loading HD6303 main rom... Ok\r\n");
+    } else {
+        SDL_Log("Loading HD6303 main rom... Failed!\r\n");
+    }
+
+    return pyldin_hd6303_bios_mem;
+}
+
+byte *loadHd6303RomPage(byte page, dword size)
+{
+    char ftemp[PATH_MAX];
+
+    page &= 0x0f;
+    if (pyldin_hd6303_rom_mem[page]) {
+        return pyldin_hd6303_rom_mem[page];
+    }
+
+    pyldin_hd6303_rom_mem[page] = (byte *) malloc(sizeof(byte) * size);
+    memset(pyldin_hd6303_rom_mem[page], 0xff, size);
+
+    snprintf(ftemp, sizeof(ftemp), "%s/Hd6303/Rom/page%02x.roz", datadir, page);
+
+    if (load_packed_file(ftemp, pyldin_hd6303_rom_mem[page], size)) {
+        SDL_Log("HD6303 ROM page %02x... Ok\n", page);
+    }
+
+    return pyldin_hd6303_rom_mem[page];
 }
 
 byte *loadRamDisk(dword size)
@@ -1503,6 +1651,12 @@ int install_resources(void)
     mkdir(tmp_dst, 0755);
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Floppy", datadir);
     mkdir(tmp_dst, 0755);
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303", datadir);
+    mkdir(tmp_dst, 0755);
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Bios", datadir);
+    mkdir(tmp_dst, 0755);
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Rom", datadir);
+    mkdir(tmp_dst, 0755);
 
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/bios.roz", datadir);
     if (access(tmp_dst, F_OK) != 0) {
@@ -1524,6 +1678,24 @@ int install_resources(void)
         }
     }
 
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Bios/bios.roz", datadir);
+    if (access(tmp_dst, F_OK) != 0) {
+        copy_file("Hd6303/Bios/bios.roz", tmp_dst);
+    }
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Bios/video.roz", datadir);
+    if (access(tmp_dst, F_OK) != 0) {
+        copy_file("Hd6303/Bios/video.roz", tmp_dst);
+    }
+    for (i = 0; i < 16; i++) {
+        snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Rom/page%02x.roz", datadir, i);
+        if (access(tmp_dst, F_OK) != 0) {
+            snprintf(tmp_src, sizeof(tmp_src), "Hd6303/Rom/page%02x.roz", i);
+            if (access(tmp_src, F_OK) == 0) {
+                copy_file(tmp_src, tmp_dst);
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -1533,6 +1705,7 @@ int main(int argc, char *argv[])
 {
     int setTimeFromHost = 0;
     int printerPortDevice = PRINTER_NONE;
+    PyldinMachine machine = PYLDIN_MACHINE_601;
     char *bootFloppy = NULL;
     char *resolved_datadir = NULL;
 #ifdef __BIONIC__
@@ -1563,7 +1736,7 @@ int main(int argc, char *argv[])
     extern int optind, optopt, opterr;
     int c;
 
-    while ((c = getopt(argc, argv, "hits:d:p:g:")) != -1)
+    while ((c = getopt(argc, argv, "hits:d:p:g:m:")) != -1)
     {
         switch (c)
         {
@@ -1595,6 +1768,15 @@ int main(int argc, char *argv[])
         case 'g':
             sscanf(optarg, "%dx%d", &width, &height);
             break;
+        case 'm':
+            if (!strcmp(optarg, "601") || !strcmp(optarg, "pyldin601")) {
+                machine = PYLDIN_MACHINE_601;
+            } else if (!strcmp(optarg, "hd6303") || !strcmp(optarg, "6303")) {
+                machine = PYLDIN_MACHINE_HD6303;
+            } else {
+                usage(argv[0]);
+            }
+            break;
         default:
             usage(argv[0]);
             break;
@@ -1606,7 +1788,7 @@ int main(int argc, char *argv[])
     }
 
     if (datadir) {
-        const char *dirs[] = { "Bios", "Floppy", "Rom", NULL };
+        const char *dirs[] = { "Bios", "Floppy", "Rom", "Hd6303", "Hd6303/Bios", "Hd6303/Rom", NULL };
         char tmp[PATH_MAX];
         for (int i = 0; dirs[i] != NULL; i++) {
             struct stat statbuf;
@@ -1649,6 +1831,9 @@ int main(int argc, char *argv[])
 #else
     SDL_Log("Data directory ... %s\n", datadir);
 #endif
+
+    MC6800SetMachine(machine);
+    SDL_Log("Machine model ... %s\n", machine == PYLDIN_MACHINE_HD6303 ? "HD6303" : "Pyldin-601");
 
     MC6800Init();
     SuperIoPrinterPortMode(printerPortDevice);

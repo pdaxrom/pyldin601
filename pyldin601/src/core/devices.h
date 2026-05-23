@@ -23,8 +23,15 @@ void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, wor
 O_INLINE void SuperIoSetTick50(void);
 O_INLINE int SuperIoReadByte(word a, byte *t);
 O_INLINE int SuperIoWriteByte(word a, byte d);
+void SuperIoPs2KeyDown(unsigned int set1ScanCode);
+void SuperIoPs2KeyUp(unsigned int set1ScanCode);
+void SuperIoPs2ModKeyDown(byte mode);
+void SuperIoPs2ModKeyUp(byte mode);
+void SuperIoDrawVideo(void *video, int width, int height);
 
 byte *loadBiosRom(dword size);
+byte *loadHd6303BiosRom(dword size);
+byte *loadHd6303RomPage(byte page, dword size);
 byte *loadRamDisk(dword size);
 void  unloadRamDisk(dword size);
 byte *loadRomDisk(byte chip, dword size);

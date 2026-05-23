@@ -20,6 +20,7 @@
 #endif
 
 static	byte	*MEM;
+static	PyldinMachine machine = PYLDIN_MACHINE_601;
 
 static	word	fWai;			// установлен после WAI
 
@@ -63,12 +64,23 @@ static unsigned char mpu_cycles[] = {
 /*0f*/  4,  4,  4, 02,  4,  4,  4,  5,  4,  4,  4,  4, 02, 02,  5,  6
 };
 
+void MC6800SetMachine(PyldinMachine newMachine)
+{
+    machine = newMachine;
+}
+
+PyldinMachine MC6800GetMachine(void)
+{
+    return machine;
+}
+
 int MC6800Init(void)
 {
     mc6800_global_takts = 0;
 
-    MEM = (byte *) allocateCpuRam(65536);
-    memset(MEM, 0, 65536);
+    dword ram_size = (machine == PYLDIN_MACHINE_HD6303) ? 131072 : 65536;
+    MEM = (byte *) allocateCpuRam(ram_size);
+    memset(MEM, 0, ram_size);
 
     SuperIoInit();
 
@@ -151,16 +163,85 @@ static INLINE void TestWord(word w)
 
 static INLINE void Bcpx(word a, word b)
 {
-    int ans = (((a >> 8) - (b >> 8)) << 8) | ((a - b) & 255);
-    //int wans = a - b;
-    //int ans = wans & 0xffff;
+    if (machine == PYLDIN_MACHINE_HD6303) {
+	int ans = (int)a - (int)b;
+	word r = ans & 0xffff;
 
-    TestWord(ans);
+	TestWord(r);
+	c = (ans & 0x10000) != 0;
 
-    if (((a ^ b) & (a ^ ans) & 0x8000) != 0 )
-	v = 1; 
-    else 
-	v = 0;
+	if (((a ^ b) & (a ^ r) & 0x8000) != 0 )
+	    v = 1;
+	else
+	    v = 0;
+    } else {
+	int ans = (((a >> 8) - (b >> 8)) << 8) | ((a - b) & 255);
+
+	TestWord(ans);
+
+	if (((a ^ b) & (a ^ ans) & 0x8000) != 0 )
+	    v = 1;
+	else
+	    v = 0;
+    }
+}
+
+static INLINE word GetD(void)
+{
+    return ((word)A << 8) | B;
+}
+
+static INLINE void SetD(word d)
+{
+    A = d >> 8;
+    B = d & 0xff;
+}
+
+static INLINE word Wadd(word o1, word o2)
+{
+    unsigned int ans = o1 + o2;
+    word r = ans & 0xffff;
+
+    TestWord(r);
+    c = (ans & 0x10000) != 0;
+    v = (((o1 ^ ~o2) & (o1 ^ r) & 0x8000) != 0);
+
+    return r;
+}
+
+static INLINE word Wsub(word o1, word o2)
+{
+    int ans = (int)o1 - (int)o2;
+    word r = ans & 0xffff;
+
+    TestWord(r);
+    c = (ans & 0x10000) != 0;
+    v = (((o1 ^ o2) & (o1 ^ r) & 0x8000) != 0);
+
+    return r;
+}
+
+static INLINE word Wasl(word d)
+{
+    word r = d << 1;
+
+    c = (d & 0x8000) != 0;
+    TestWord(r);
+    v = c ^ n;
+
+    return r;
+}
+
+static INLINE word Wlsr(word d)
+{
+    word r = d >> 1;
+
+    c = d & 1;
+    v = c;
+    z = r ? 0 : 1;
+    n = 0;
+
+    return r;
 }
 
 static INLINE byte Blsr(byte a)
@@ -410,6 +491,65 @@ int MC6800Step(void)
     byte opnum = MC6800MemReadByte(PC++);
 
     takt = mpu_cycles[opnum];
+    if (machine == PYLDIN_MACHINE_HD6303) {
+	switch (opnum) {
+	    case LSRD:
+	    case ASLD:
+	    case XGDX:
+	    case ABX:
+		takt = 3;
+		break;
+	    case BRN:
+	    case SLP:
+		takt = 4;
+		break;
+	    case PULX:
+		takt = 5;
+		break;
+	    case PSHX:
+		takt = 4;
+		break;
+	    case MUL:
+		takt = 10;
+		break;
+	    case JSR_dir:
+		takt = 5;
+		break;
+	    case LDD_imm:
+		takt = 3;
+		break;
+	    case ADDD_imm:
+	    case SUBD_imm:
+	    case LDD_dir:
+	    case STD_dir:
+		takt = 4;
+		break;
+	    case ADDD_dir:
+	    case SUBD_dir:
+	    case LDD_idx:
+	    case LDD:
+	    case STD_idx:
+	    case STD:
+		takt = 5;
+		break;
+	    case ADDD_idx:
+	    case ADDD:
+	    case SUBD_idx:
+	    case SUBD:
+	    case AIM_dir:
+	    case OIM_dir:
+	    case EIM_dir:
+	    case TIM_dir:
+		takt = 6;
+		break;
+	    case AIM_idx:
+	    case OIM_idx:
+	    case EIM_idx:
+	    case TIM_idx:
+		takt = 7;
+		break;
+	}
+    }
 
     switch (opnum) {
 	case CLC:	c = 0; break;
@@ -427,10 +567,57 @@ int MC6800Step(void)
 
 	case DAA:	oh=h; Bdaa(); h=oh; break;
 
+	case ABX:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		X += B;
+	    }
+	    break;
+	case XGDX:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		r16 = X;
+		X = GetD();
+		SetD(r16);
+	    }
+	    break;
+	case MUL:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		word r = A * B;
+		SetD(r);
+		c = (r & 0x80) != 0;
+	    }
+	    break;
+	case ASLD:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		SetD(Wasl(GetD()));
+	    }
+	    break;
+	case LSRD:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		SetD(Wlsr(GetD()));
+	    }
+	    break;
+	case SLP:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		fWai = 1;
+	    }
+	    break;
+
 	case PSHA:	MC6800MemWriteByte(SP--, A); break;
 	case PSHB:	MC6800MemWriteByte(SP--, B); break;
 	case PULA:	A = MC6800MemReadByte(++SP); break;
 	case PULB:	B = MC6800MemReadByte(++SP); break;
+	case PSHX:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		MC6800MemWriteByte(SP--, X & 0xff);
+		MC6800MemWriteByte(SP--, X >> 8);
+	    }
+	    break;
+	case PULX:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		X = MC6800MemReadByte(++SP) << 8;
+		X |= MC6800MemReadByte(++SP);
+	    }
+	    break;
 
 	case DEC_idx:	ofs=NextByte()+X; oc=c; MC6800MemWriteByte(ofs,Bsub(MC6800MemReadByte(ofs),1)); c=oc; break;
 	case DEC:	FetchAddr(); oc=c; MC6800MemWriteByte(EAR, Bsub(MC6800MemReadByte(EAR),1)); c=oc; break;
@@ -469,6 +656,38 @@ int MC6800Step(void)
 	case LDAB_dir: B = MC6800MemReadByte(NextByte()); v = 0; TestByte(B); break;
 	case LDAB_idx: B = MC6800MemReadByte(X + NextByte()); v = 0; TestByte(B); break;
 	case LDAB:	FetchAddr(); B = MC6800MemReadByte(EAR); v = 0; TestByte(B); break;
+	case LDD_imm:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		SetD(EAR);
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
+	case LDD_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = NextByte();
+		SetD((MC6800MemReadByte(ofs) << 8) | MC6800MemReadByte(ofs + 1));
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
+	case LDD_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = X + NextByte();
+		SetD((MC6800MemReadByte(ofs) << 8) | MC6800MemReadByte(ofs + 1));
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
+	case LDD:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		SetD((MC6800MemReadByte(EAR) << 8) | MC6800MemReadByte(EAR + 1));
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
 
 	case LDS_imm: FetchAddr(); SP = EAR; v = 0; TestWord(SP); break;
 	case LDS_dir: ofs=NextByte(); SP = MC6800MemReadByte(ofs) << 8; SP |= MC6800MemReadByte(ofs + 1); v = 0; TestWord(SP); break;
@@ -485,6 +704,33 @@ int MC6800Step(void)
 	case STAB_dir: MC6800MemWriteByte(NextByte(), B); v = 0; TestByte(B); break;
 	case STAB_idx: MC6800MemWriteByte(X + NextByte(), B); v = 0; TestByte(B); break;
 	case STAB:	FetchAddr(); MC6800MemWriteByte(EAR, B); v = 0; TestByte(B); break;
+	case STD_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = NextByte();
+		MC6800MemWriteByte(ofs, A);
+		MC6800MemWriteByte(ofs + 1, B);
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
+	case STD_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = X + NextByte();
+		MC6800MemWriteByte(ofs, A);
+		MC6800MemWriteByte(ofs + 1, B);
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
+	case STD:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		MC6800MemWriteByte(EAR, A);
+		MC6800MemWriteByte(EAR + 1, B);
+		v = 0;
+		TestWord(GetD());
+	    }
+	    break;
 
 	case STS_dir: ofs=NextByte(); MC6800MemWriteByte(ofs,SP>>8); MC6800MemWriteByte(ofs+1, SP&0xff); v=0; TestWord(SP); break;
 	case STS_idx: ofs=X+NextByte(); MC6800MemWriteByte(ofs,SP>>8); MC6800MemWriteByte(ofs+1,SP&0xff); v=0; TestWord(SP); break;
@@ -512,6 +758,36 @@ int MC6800Step(void)
 	case ADDB_dir: B = Badd(B, MC6800MemReadByte(NextByte())); break;
 	case ADDB_idx: B = Badd(B, MC6800MemReadByte(X + NextByte())); break;
 	case ADDB:	FetchAddr(); B = Badd(B, MC6800MemReadByte(EAR)); break;
+	case ADDD_imm:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		SetD(Wadd(GetD(), EAR));
+	    }
+	    break;
+	case ADDD_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = NextByte();
+		r16 = MC6800MemReadByte(ofs) << 8;
+		r16 |= MC6800MemReadByte(ofs + 1);
+		SetD(Wadd(GetD(), r16));
+	    }
+	    break;
+	case ADDD_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = X + NextByte();
+		r16 = MC6800MemReadByte(ofs) << 8;
+		r16 |= MC6800MemReadByte(ofs + 1);
+		SetD(Wadd(GetD(), r16));
+	    }
+	    break;
+	case ADDD:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		r16 = MC6800MemReadByte(EAR) << 8;
+		r16 |= MC6800MemReadByte(EAR + 1);
+		SetD(Wadd(GetD(), r16));
+	    }
+	    break;
 
 	case SBA:	A = Bsub(A, B); break;
 
@@ -532,6 +808,36 @@ int MC6800Step(void)
 	case SUBB_dir: B = Bsub(B, MC6800MemReadByte(NextByte())); break;
 	case SUBB_idx: B = Bsub(B, MC6800MemReadByte(X + NextByte())); break;
 	case SUBB:	FetchAddr(); B = Bsub(B, MC6800MemReadByte(EAR)); break;
+	case SUBD_imm:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		SetD(Wsub(GetD(), EAR));
+	    }
+	    break;
+	case SUBD_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = NextByte();
+		r16 = MC6800MemReadByte(ofs) << 8;
+		r16 |= MC6800MemReadByte(ofs + 1);
+		SetD(Wsub(GetD(), r16));
+	    }
+	    break;
+	case SUBD_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		ofs = X + NextByte();
+		r16 = MC6800MemReadByte(ofs) << 8;
+		r16 |= MC6800MemReadByte(ofs + 1);
+		SetD(Wsub(GetD(), r16));
+	    }
+	    break;
+	case SUBD:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		FetchAddr();
+		r16 = MC6800MemReadByte(EAR) << 8;
+		r16 |= MC6800MemReadByte(EAR + 1);
+		SetD(Wsub(GetD(), r16));
+	    }
+	    break;
 
 	case ANDA_imm: A &= NextByte(); v = 0; TestByte(A); break;
 	case ANDA_dir: A &= MC6800MemReadByte(NextByte()); v = 0; TestByte(A); break;
@@ -593,6 +899,82 @@ int MC6800Step(void)
 	case BITB_dir: v = 0; TestByte(B & MC6800MemReadByte(NextByte())); break;
 	case BITB_idx: v = 0; TestByte(B & MC6800MemReadByte(X + NextByte())); break;
 	case BITB: FetchAddr(); v = 0; TestByte(B & MC6800MemReadByte(EAR)); break;
+	case AIM_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = NextByte();
+		t = MC6800MemReadByte(ofs) & oc;
+		MC6800MemWriteByte(ofs, t);
+		v = 0;
+		TestByte(t);
+	    }
+	    break;
+	case AIM_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = X + NextByte();
+		t = MC6800MemReadByte(ofs) & oc;
+		MC6800MemWriteByte(ofs, t);
+		v = 0;
+		TestByte(t);
+	    }
+	    break;
+	case OIM_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = NextByte();
+		t = MC6800MemReadByte(ofs) | oc;
+		MC6800MemWriteByte(ofs, t);
+		v = 0;
+		TestByte(t);
+	    }
+	    break;
+	case OIM_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = X + NextByte();
+		t = MC6800MemReadByte(ofs) | oc;
+		MC6800MemWriteByte(ofs, t);
+		v = 0;
+		TestByte(t);
+	    }
+	    break;
+	case EIM_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = NextByte();
+		t = MC6800MemReadByte(ofs) ^ oc;
+		MC6800MemWriteByte(ofs, t);
+		v = 0;
+		TestByte(t);
+	    }
+	    break;
+	case EIM_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = X + NextByte();
+		t = MC6800MemReadByte(ofs) ^ oc;
+		MC6800MemWriteByte(ofs, t);
+		v = 0;
+		TestByte(t);
+	    }
+	    break;
+	case TIM_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = NextByte();
+		v = 0;
+		TestByte(MC6800MemReadByte(ofs) & oc);
+	    }
+	    break;
+	case TIM_idx:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		oc = NextByte();
+		ofs = X + NextByte();
+		v = 0;
+		TestByte(MC6800MemReadByte(ofs) & oc);
+	    }
+	    break;
 
 	case CBA:	Bsub(A, B); break;
 
@@ -630,11 +1012,20 @@ int MC6800Step(void)
 	case BVC: EAR=NextByte(); if (v==0) Branch(); break;
 	case BVS: EAR=NextByte(); if (v==1) Branch(); break;
 
+	case BRN: if (machine == PYLDIN_MACHINE_HD6303) EAR=NextByte(); break;
 	case BRA: EAR=NextByte(); Branch(); break;
 	case BSR: EAR=NextByte(); MC6800MemWriteByte(SP--, PC&0xff); MC6800MemWriteByte(SP--, PC>>8); Branch(); break;
 
 	case JMP_idx: PC = X + NextByte(); break;
 	case JMP: FetchAddr(); PC = EAR; break;
+	case JSR_dir:
+	    if (machine == PYLDIN_MACHINE_HD6303) {
+		EAR = PC + 1;
+		MC6800MemWriteByte(SP--, EAR&0xff);
+		MC6800MemWriteByte(SP--, EAR>>8);
+		PC = NextByte();
+	    }
+	    break;
 	case JSR_idx: EAR = PC + 1; MC6800MemWriteByte(SP--, EAR&0xff); MC6800MemWriteByte(SP--, EAR>>8); PC=X+NextByte(); break;
 	case JSR: FetchAddr(); MC6800MemWriteByte(SP--, PC&0xff); MC6800MemWriteByte(SP--, PC>>8); PC=EAR; break;
 

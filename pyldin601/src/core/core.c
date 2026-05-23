@@ -25,5 +25,7 @@ void core_50Hz_irq(void)
 {
     SuperIoSetTick50();
     MC6845CursorBlink();
-    MC6800SetInterrupt(1);
+    if (MC6800GetMachine() == PYLDIN_MACHINE_601) {
+        MC6800SetInterrupt(1);
+    }
 }
