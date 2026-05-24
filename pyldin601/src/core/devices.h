@@ -20,6 +20,7 @@ int SuperIoFinish(void);
 void SuperIoReset(void);
 void SuperIoPrinterPortMode(int mode);
 void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, word sec);
+void SuperIoUpdate(void);
 O_INLINE void SuperIoSetTick50(void);
 O_INLINE int SuperIoReadByte(word a, byte *t);
 O_INLINE int SuperIoWriteByte(word a, byte d);

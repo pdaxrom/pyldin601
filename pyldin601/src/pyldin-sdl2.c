@@ -718,8 +718,16 @@ static void check_keyboard(SDL_Event *event)
 #else
         case SDLK_RSHIFT:	KBDModKeyUp(2); break;
 #endif
-        default:
-            KBDKeyUp();
+        default: {
+            unsigned int set1 = sdl_scancode_to_set1(event->key.keysym.scancode);
+
+            if (set1 != 0xff) {
+                KBDKeyUpCode(set1);
+            } else {
+                KBDKeyUp();
+            }
+            break;
+        }
         }
         break;
     }

@@ -56,6 +56,7 @@ static byte fSpeaker;		// бит состояния динамика
 #define HD_PS2_E1       0x04
 #define HD_PS2_E0       0x02
 #define HD_PS2_REL      0x01
+#define HD_PS2_BYTE_DELAY_CYCLES 2048
 
 #define HD_SPI_READY    0x80
 #define HD_SPI_SSM      0x20
@@ -107,6 +108,7 @@ static struct {
 	int queueHead;
 	int queueTail;
 	int queueCount;
+	dword nextReadyCycle;
 } HdPs2;
 
 static byte hdSimpleIo[0x20];
@@ -596,6 +598,30 @@ static void hd6303_ps2_load_next(void)
 		HdPs2.status |= HD_PS2_IRQ;
 		hd6303_raise_interrupt(12);
 	}
+
+	HdPs2.nextReadyCycle = 0;
+}
+
+static void hd6303_ps2_schedule_next(void)
+{
+	if (HdPs2.queueCount == 0) {
+		HdPs2.nextReadyCycle = 0;
+		return;
+	}
+
+	HdPs2.nextReadyCycle = MC6800GetCyclesCounter() + HD_PS2_BYTE_DELAY_CYCLES;
+}
+
+static void hd6303_ps2_update(void)
+{
+	if ((HdPs2.status & HD_PS2_RDY) || HdPs2.queueCount == 0) {
+		return;
+	}
+
+	if (HdPs2.nextReadyCycle == 0 ||
+	    (int)(MC6800GetCyclesCounter() - HdPs2.nextReadyCycle) >= 0) {
+		hd6303_ps2_load_next();
+	}
 }
 
 static void hd6303_ps2_enqueue(byte d, byte flags)
@@ -607,7 +633,7 @@ static void hd6303_ps2_enqueue(byte d, byte flags)
 		HdPs2.queueCount++;
 	}
 
-	hd6303_ps2_load_next();
+	hd6303_ps2_update();
 }
 
 static byte hd6303_ps2_read(word a)
@@ -616,7 +642,7 @@ static byte hd6303_ps2_read(word a)
 		byte d = HdPs2.data;
 
 		HdPs2.status &= HD_PS2_IEN;
-		hd6303_ps2_load_next();
+		hd6303_ps2_schedule_next();
 		return d;
 	}
 
@@ -644,7 +670,7 @@ static void hd6303_ps2_write(word a, byte d)
 			hd6303_raise_interrupt(12);
 		}
 	} else {
-		hd6303_ps2_load_next();
+		hd6303_ps2_update();
 	}
 }
 
@@ -1155,6 +1181,13 @@ void SuperIoSetDateTime(word year, word mon, word mday, word hour, word min, wor
 
     MC6800MemWriteByte(0xed00, 0xa5);
     MC6800MemWriteByte(0xed01, 0x5a);
+}
+
+void SuperIoUpdate(void)
+{
+	if (hd6303_is_active()) {
+		hd6303_ps2_update();
+	}
 }
 
 O_INLINE int SuperIoReadByte(word a, byte *t)

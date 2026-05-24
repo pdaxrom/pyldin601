@@ -491,6 +491,10 @@ int MC6800Step(void)
 
     int	takt = 0;
 
+    if (machine == PYLDIN_MACHINE_HD6303) {
+	SuperIoUpdate();
+    }
+
     if (fWai == 1 && IRQrequest == 0) {
 	mc6800_global_takts += 4;
 	return 4;

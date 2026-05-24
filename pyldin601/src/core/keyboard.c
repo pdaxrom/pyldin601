@@ -286,9 +286,7 @@ void KBDVirtKeyDown(int x, int y)
 
 void KBDVirtKeyUp(void)
 {
-    SuperIoPs2KeyUp(lastKeyCode);
-    lastKeyCode = 0xff;
-    keyReady = 0;
+    KBDKeyUpCode(lastKeyCode);
 }
 
 void KBDKeyDown(unsigned int tempKeyCode)
@@ -336,11 +334,20 @@ void KBDKeyDown(unsigned int tempKeyCode)
     }
 }
 
+void KBDKeyUpCode(unsigned int tempKeyCode)
+{
+    if (tempKeyCode != 0xff) {
+	SuperIoPs2KeyUp(tempKeyCode);
+	if (lastKeyCode == tempKeyCode) {
+	    lastKeyCode = 0xff;
+	}
+    }
+    keyReady = 0;
+}
+
 void KBDKeyUp(void)
 {
-    SuperIoPs2KeyUp(lastKeyCode);
-    lastKeyCode = 0xff;
-    keyReady = 0;
+    KBDKeyUpCode(lastKeyCode);
 }
 
 void KBDModKeyDown(byte mode)

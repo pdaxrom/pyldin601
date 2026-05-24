@@ -49,6 +49,7 @@ void KBDSetCyrMode(byte mode);
 void KBDVirtKeyDown(int x, int y);
 void KBDVirtKeyUp(void);
 void KBDKeyDown(unsigned int tempKeyCode);
+void KBDKeyUpCode(unsigned int tempKeyCode);
 void KBDKeyUp(void);
 void KBDModKeyDown(byte mode);
 void KBDModKeyUp(byte mode);
