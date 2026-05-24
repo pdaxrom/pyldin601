@@ -1821,11 +1821,47 @@ int install_resources(void)
 
 #endif
 
+static int select_startup_machine(PyldinMachine *machine)
+{
+    const SDL_MessageBoxButtonData buttons[] = {
+        { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 2, "Quit" },
+        { 0, 1, "HD6303" },
+        { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Pyldin-601" }
+    };
+    const SDL_MessageBoxData messagebox = {
+        SDL_MESSAGEBOX_INFORMATION,
+        NULL,
+        "PYLDIN 601",
+        "Select machine model to start:",
+        SDL_arraysize(buttons),
+        buttons,
+        NULL
+    };
+    int buttonid = -1;
+
+    if (SDL_ShowMessageBox(&messagebox, &buttonid) < 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot show machine selector: %s\n", SDL_GetError());
+        return 0;
+    }
+
+    switch (buttonid) {
+    case 0:
+        *machine = PYLDIN_MACHINE_601;
+        return 0;
+    case 1:
+        *machine = PYLDIN_MACHINE_HD6303;
+        return 0;
+    default:
+        return 1;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int setTimeFromHost = 0;
     int printerPortDevice = PRINTER_NONE;
     PyldinMachine machine = PYLDIN_MACHINE_601;
+    int machineFromCommandLine = 0;
     char *bootFloppy = NULL;
     char *resolved_datadir = NULL;
 #ifdef __BIONIC__
@@ -1889,6 +1925,7 @@ int main(int argc, char *argv[])
             sscanf(optarg, "%dx%d", &width, &height);
             break;
         case 'm':
+            machineFromCommandLine = 1;
             if (!strcmp(optarg, "601") || !strcmp(optarg, "pyldin601")) {
                 machine = PYLDIN_MACHINE_601;
             } else if (!strcmp(optarg, "hd6303") || !strcmp(optarg, "6303")) {
@@ -1951,6 +1988,15 @@ int main(int argc, char *argv[])
 #else
     SDL_Log("Data directory ... %s\n", datadir);
 #endif
+
+    if (!machineFromCommandLine && select_startup_machine(&machine)) {
+        SDL_Quit();
+#ifdef __BIONIC__
+        free(android_datadir);
+#endif
+        SDL_free(resolved_datadir);
+        return 0;
+    }
 
     MC6800SetMachine(machine);
     SDL_Log("Machine model ... %s\n", machine == PYLDIN_MACHINE_HD6303 ? "HD6303" : "Pyldin-601");
