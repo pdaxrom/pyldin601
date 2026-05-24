@@ -1136,6 +1136,7 @@ void SuperIoReset(void)
 	}
 
     tick50 = 0;
+    KBDReset();
 }
 
 void SuperIoPrinterPortMode(int mode)

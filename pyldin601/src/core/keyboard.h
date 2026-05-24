@@ -55,5 +55,7 @@ void KBDModKeyDown(byte mode);
 void KBDModKeyUp(byte mode);
 unsigned char KBDCheckKey(void);
 unsigned char KBDReadKey(void);
+void KBDUpdate(void);
+void KBDReset(void);
 
 extern void resetRequested(void);

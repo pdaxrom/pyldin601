@@ -153,6 +153,130 @@ static unsigned char cyrMode=0;
 static byte trigger = 0;
 static unsigned int lastKeyCode = 0xff;
 
+#define KBD_QUEUE_SIZE 32
+#define KBD_RELEASE_DELAY_TICKS 3
+
+typedef struct {
+    unsigned int scanCode;
+    unsigned char code;
+} KBDQueuedKey;
+
+static KBDQueuedKey keyQueue[KBD_QUEUE_SIZE];
+static unsigned char keyQueueHead = 0;
+static unsigned char keyQueueTail = 0;
+static unsigned char keyQueueCount = 0;
+static unsigned char keyConsumed = 0;
+static unsigned char keyReleaseDelay = 0;
+static unsigned int keyScanCode = 0xff;
+static unsigned char keyDown[128];
+
+static int KBDScanIsDown(unsigned int scanCode)
+{
+    return scanCode < sizeof(keyDown) && keyDown[scanCode];
+}
+
+static unsigned char KBDTranslateKey(unsigned int tempKeyCode)
+{
+    if (tempKeyCode >= sizeof(keytable)) {
+	return 0xff;
+    }
+
+#ifdef __BIONIC__
+
+    if (flagKey & 8) {
+	switch(flagKey & 7) {
+	    case 2:	return BBPriv_shift_keytable[tempKeyCode];
+	    default:	return BBPriv_keytable[tempKeyCode];
+	}
+    }
+
+    if (flagKey & 16) {
+	switch(flagKey & 7) {
+	    case 1:
+	    case 5:	return BBPriv_sym_ctrl_keytable[tempKeyCode];
+	    case 2:
+	    case 6:	return BBPriv_sym_shift_keytable[tempKeyCode];
+	    default:	return BBPriv_sym_keytable[tempKeyCode];
+	}
+    }
+
+#endif
+
+    switch(flagKey | cyrMode) {
+	case 1:
+	case 5: return Ct_keytable[tempKeyCode];
+	case 3:
+	case 7: return Ct_Sh_keytable[tempKeyCode];
+	case 2: return Sh_keytable[tempKeyCode];
+	case 4: return cyr_keytable[tempKeyCode];
+	case 6: return cyr_Sh_keytable[tempKeyCode];
+	default: return keytable[tempKeyCode];
+    }
+}
+
+static void KBDPresentKey(unsigned int scanCode, unsigned char code)
+{
+    keyScanCode = scanCode;
+    keyCode = code;
+    keyReady = 1;
+    keyConsumed = 0;
+    trigger = 0xff;
+    MC6800SetInterrupt(1);
+}
+
+static void KBDQueueKey(unsigned int scanCode, unsigned char code)
+{
+    if (keyQueueCount >= KBD_QUEUE_SIZE) {
+	return;
+    }
+
+    keyQueue[keyQueueTail].scanCode = scanCode;
+    keyQueue[keyQueueTail].code = code;
+    keyQueueTail = (keyQueueTail + 1) % KBD_QUEUE_SIZE;
+    keyQueueCount++;
+}
+
+static int KBDDequeueKey(KBDQueuedKey *key)
+{
+    if (!keyQueueCount) {
+	return 0;
+    }
+
+    *key = keyQueue[keyQueueHead];
+    keyQueueHead = (keyQueueHead + 1) % KBD_QUEUE_SIZE;
+    keyQueueCount--;
+    return 1;
+}
+
+static void KBDReleaseCurrentKey(void)
+{
+    keyReady = 0;
+    keyConsumed = 0;
+    keyScanCode = 0xff;
+    trigger = 0;
+    keyReleaseDelay = KBD_RELEASE_DELAY_TICKS;
+}
+
+static void KBDSubmitKey(unsigned int scanCode, unsigned char code)
+{
+    if (code == 0xff) {
+	return;
+    }
+
+    if (MC6800GetMachine() != PYLDIN_MACHINE_601) {
+	keyCode = code;
+	keyReady = 1;
+	return;
+    }
+
+    if (!keyReady && !keyReleaseDelay) {
+	KBDPresentKey(scanCode, code);
+	return;
+    }
+
+    KBDQueueKey(scanCode, code);
+}
+
 unsigned char getkeycode(int x, int y)
 {
     unsigned char retc = 0xff;
@@ -268,20 +392,10 @@ void KBDVirtKeyDown(int x, int y)
 	}
     lastKeyCode = tempKeyCode;
     SuperIoPs2KeyDown(tempKeyCode);
-    if (MC6800GetMachine() == PYLDIN_MACHINE_601) {
-	MC6800SetInterrupt(1);
+    if (tempKeyCode < sizeof(keyDown)) {
+	keyDown[tempKeyCode] = 1;
     }
-    keyReady--;
-    switch(flagKey | cyrMode) {
-		case 1:
-		case 5: keyCode=Ct_keytable[tempKeyCode]; break;
-		case 3:
-		case 7: keyCode=Ct_Sh_keytable[tempKeyCode]; break;
-		case 2: keyCode=Sh_keytable[tempKeyCode]; break;
-		case 4: keyCode=cyr_keytable[tempKeyCode]; break;
-		case 6: keyCode=cyr_Sh_keytable[tempKeyCode]; break;
-		default: keyCode=keytable[tempKeyCode]; break;
-    }
+    KBDSubmitKey(tempKeyCode, KBDTranslateKey(tempKeyCode));
 }
 
 void KBDVirtKeyUp(void)
@@ -296,53 +410,32 @@ void KBDKeyDown(unsigned int tempKeyCode)
     }
     lastKeyCode = tempKeyCode;
     SuperIoPs2KeyDown(tempKeyCode);
-    if (MC6800GetMachine() == PYLDIN_MACHINE_601) {
-	MC6800SetInterrupt(1);
+    if (tempKeyCode < sizeof(keyDown)) {
+	keyDown[tempKeyCode] = 1;
     }
-    keyReady--;
-
-#ifdef __BIONIC__
-
-    if (flagKey & 8) {
-		switch(flagKey & 7) {
-			case 2:	keyCode = BBPriv_shift_keytable[tempKeyCode]; return;
-			default:	keyCode = BBPriv_keytable[tempKeyCode]; return;
-		}
-    }
-
-    if (flagKey & 16) {
-		switch(flagKey & 7) {
-			case 1:
-			case 5:	keyCode = BBPriv_sym_ctrl_keytable[tempKeyCode]; return;
-			case 2:
-			case 6:	keyCode = BBPriv_sym_shift_keytable[tempKeyCode]; return;
-			default:	keyCode = BBPriv_sym_keytable[tempKeyCode]; return;
-		}
-    }
-
-#endif
-
-    switch(flagKey | cyrMode) {
-		case 1:
-		case 5: keyCode=Ct_keytable[tempKeyCode]; break;
-		case 3:
-		case 7: keyCode=Ct_Sh_keytable[tempKeyCode]; break;
-		case 2: keyCode=Sh_keytable[tempKeyCode]; break;
-		case 4: keyCode=cyr_keytable[tempKeyCode]; break;
-		case 6: keyCode=cyr_Sh_keytable[tempKeyCode]; break;
-		default: keyCode=keytable[tempKeyCode]; break;
-    }
+    KBDSubmitKey(tempKeyCode, KBDTranslateKey(tempKeyCode));
 }
 
 void KBDKeyUpCode(unsigned int tempKeyCode)
 {
     if (tempKeyCode != 0xff) {
 	SuperIoPs2KeyUp(tempKeyCode);
+	if (tempKeyCode < sizeof(keyDown)) {
+	    keyDown[tempKeyCode] = 0;
+	}
 	if (lastKeyCode == tempKeyCode) {
 	    lastKeyCode = 0xff;
 	}
     }
-    keyReady = 0;
+
+    if (MC6800GetMachine() == PYLDIN_MACHINE_601) {
+	if (keyReady && keyScanCode == tempKeyCode && keyConsumed) {
+	    KBDReleaseCurrentKey();
+	}
+    } else {
+	keyReady = 0;
+	keyConsumed = 0;
+    }
 }
 
 void KBDKeyUp(void)
@@ -382,7 +475,51 @@ unsigned char KBDReadKey(void)
     if (keyReady == 0) {
     	return 0xff;
     }
+    keyConsumed = 1;
     return keyCode;
+}
+
+void KBDUpdate(void)
+{
+    KBDQueuedKey queuedKey;
+
+    if (MC6800GetMachine() != PYLDIN_MACHINE_601) {
+	return;
+    }
+
+    if (keyReady && keyConsumed && !KBDScanIsDown(keyScanCode)) {
+	KBDReleaseCurrentKey();
+    }
+
+    if (keyReady) {
+	return;
+    }
+
+    if (keyReleaseDelay) {
+	keyReleaseDelay--;
+	return;
+    }
+
+    if (KBDDequeueKey(&queuedKey)) {
+	KBDPresentKey(queuedKey.scanCode, queuedKey.code);
+    }
+}
+
+void KBDReset(void)
+{
+    keyReady = 0;
+    keyCode = 0;
+    trigger = 0;
+    lastKeyCode = 0xff;
+    keyQueueHead = 0;
+    keyQueueTail = 0;
+    keyQueueCount = 0;
+    keyConsumed = 0;
+    keyReleaseDelay = 0;
+    keyScanCode = 0xff;
+    for (unsigned int i = 0; i < sizeof(keyDown); i++) {
+	keyDown[i] = 0;
+    }
 }
 
 void KBDSetCyrMode(byte mode)
