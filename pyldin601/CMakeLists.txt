@@ -216,6 +216,7 @@ if(APPLE)
         add_custom_command(
             TARGET pyldin
             POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E remove_directory "${PYLDIN_BUILD_APP_DATA_DIR}/Hd6303"
             COMMAND "${CMAKE_COMMAND}" -E copy_directory "${PYLDIN_HD6303_NATIVE_DIR}/Hd6303" "${PYLDIN_BUILD_APP_DATA_DIR}/Hd6303"
             COMMENT "Copying HD6303 data resources into the build app bundle"
             VERBATIM
@@ -334,6 +335,7 @@ if(EXISTS "${PYLDIN_HD6303_NATIVE_DIR}/Hd6303")
         DESTINATION "${PYLDIN_DATA_INSTALL_DESTINATION}/Hd6303"
         FILES_MATCHING
             PATTERN "*.roz"
+            PATTERN "*.gz"
     )
 endif()
 
@@ -360,6 +362,7 @@ endif()
 
 add_custom_target(
     bundle
+    COMMAND "${CMAKE_COMMAND}" -E remove_directory "${PYLDIN_STAGE_DIR}/${PYLDIN_DATA_INSTALL_DESTINATION}/Hd6303"
     COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --prefix "${PYLDIN_STAGE_DIR}" --config "$<CONFIG>"
     DEPENDS pyldin
     COMMENT "Staging a portable Pyldin-601 bundle in ${PYLDIN_STAGE_DIR}"

@@ -1358,6 +1358,8 @@ static byte *pyldin_romchip_mem[MAX_ROMCHIPS] = {NULL, NULL, NULL, NULL, NULL };
 static byte *pyldin_videorom_mem = NULL;
 static byte *pyldin_hd6303_bios_mem = NULL;
 static byte *pyldin_hd6303_rom_mem[16];
+static byte *pyldin_hd6303_sd_mem = NULL;
+static dword pyldin_hd6303_sd_size = 0;
 
 static char *romName[] = {
     "str$08.roz",
@@ -1492,6 +1494,116 @@ byte *loadHd6303RomPage(byte page, dword size)
     }
 
     return pyldin_hd6303_rom_mem[page];
+}
+
+byte *loadHd6303SdImage(dword *size)
+{
+    char ftemp[PATH_MAX];
+    gzFile fi;
+    byte *mem;
+    dword used = 0;
+    dword capacity = 1024 * 1024;
+
+    if (size) {
+        *size = pyldin_hd6303_sd_size;
+    }
+    if (pyldin_hd6303_sd_mem) {
+        return pyldin_hd6303_sd_mem;
+    }
+
+    snprintf(ftemp, sizeof(ftemp), "%s/Hd6303/SD/lil601.img.gz", datadir);
+    fi = gzopen(ftemp, "rb");
+    if (!fi) {
+        SDL_Log("Loading HD6303 SD image... Failed!\n");
+        return NULL;
+    }
+
+    mem = (byte *) malloc(capacity);
+    if (!mem) {
+        gzclose(fi);
+        SDL_Log("Loading HD6303 SD image... Failed!\n");
+        return NULL;
+    }
+
+    for (;;) {
+        int n;
+
+        if (used == capacity) {
+            byte *newMem;
+            dword newCapacity = capacity + 1024 * 1024;
+
+            newMem = (byte *) realloc(mem, newCapacity);
+            if (!newMem) {
+                free(mem);
+                gzclose(fi);
+                SDL_Log("Loading HD6303 SD image... Failed!\n");
+                return NULL;
+            }
+            mem = newMem;
+            capacity = newCapacity;
+        }
+
+        n = gzread(fi, mem + used, capacity - used);
+        if (n < 0) {
+            free(mem);
+            gzclose(fi);
+            SDL_Log("Loading HD6303 SD image... Failed!\n");
+            return NULL;
+        }
+        if (n == 0) {
+            break;
+        }
+        used += n;
+    }
+    gzclose(fi);
+
+    pyldin_hd6303_sd_mem = mem;
+    pyldin_hd6303_sd_size = used;
+    if (size) {
+        *size = used;
+    }
+
+    SDL_Log("Loading HD6303 SD image... Ok (%u KB)\n", used / 1024);
+    return pyldin_hd6303_sd_mem;
+}
+
+void unloadHd6303SdImage(byte *mem, dword size, int dirty)
+{
+    char ftemp[PATH_MAX];
+
+    if (!mem) {
+        return;
+    }
+
+    if (dirty) {
+        gzFile fo;
+        dword written = 0;
+
+        snprintf(ftemp, sizeof(ftemp), "%s/Hd6303/SD/lil601.img.gz", datadir);
+        fo = gzopen(ftemp, "wb");
+        if (fo) {
+            while (written < size) {
+                unsigned int chunk = (size - written) > (1024 * 1024) ? (1024 * 1024) : (size - written);
+                int n = gzwrite(fo, mem + written, chunk);
+
+                if (n <= 0) {
+                    break;
+                }
+                written += n;
+            }
+            gzclose(fo);
+        }
+
+        if (written == size) {
+            SDL_Log("Saving HD6303 SD image... Ok\n");
+        } else {
+            SDL_Log("Saving HD6303 SD image... Failed!\n");
+        }
+    }
+
+    free(mem);
+    pyldin_hd6303_sd_mem = NULL;
+    pyldin_hd6303_sd_size = 0;
 }
 
 byte *loadRamDisk(dword size)

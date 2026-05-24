@@ -43,7 +43,9 @@ static byte fSpeaker;		// бит состояния динамика
 #define HD_REG_PORT6    0x17
 #define HD_REG_DDRP5    0x20
 
+#define HD_MEMPAGE_PAGE_MASK 0x07
 #define HD_MEMPAGE_ROM  0x08
+#define HD_MEMPAGE_HI   0x10
 #define HD_MEMPAGE_FMASK 0xe0
 
 #define HD_PS2_IRQ      0x80
@@ -55,6 +57,12 @@ static byte fSpeaker;		// бит состояния динамика
 #define HD_PS2_E0       0x02
 #define HD_PS2_REL      0x01
 
+#define HD_SPI_READY    0x80
+#define HD_SPI_SSM      0x20
+#define HD_SPI_16B      0x10
+#define HD_SPI_SS0      0x01
+#define HD_SPI_SS1      0x02
+
 #define HD_VPU_IRQ      0x80
 #define HD_VPU_IEN      0x40
 #define HD_VPU_VBL      0x20
@@ -64,9 +72,15 @@ static byte fSpeaker;		// бит состояния динамика
 #define HD_VPU_ID       0x02
 #define HD_VPU_AUTO     0x01
 
+#define HD_SD_BLOCK_SIZE 512
+#define HD_SD_RESP_SIZE  1024
+
 static byte *hdBios;
 static byte *hdRom[HD6303_ROM_PAGES];
 static byte *hdVideoRom;
+static byte *hdSdImage;
+static dword hdSdImageSize;
+static int hdSdDirty;
 static byte hdRegs[0x28];
 
 static struct {
@@ -98,8 +112,31 @@ static struct {
 static byte hdSimpleIo[0x20];
 static byte hdPsg[16];
 static byte hdPsgAddr;
-static byte hdSpi[8];
 static word hdIntRouter;
+
+static struct {
+	byte config;
+	byte prescaler;
+	byte pout;
+	byte rxData[2];
+	byte txData[2];
+	byte resp[HD_SD_RESP_SIZE];
+	byte cmd[6];
+	byte writeBlock[HD_SD_BLOCK_SIZE];
+	dword writeLba;
+	int respHead;
+	int respTail;
+	int respCount;
+	int cmdLen;
+	int selected;
+	int idle;
+	int appCmd;
+	int blockAddressing;
+	int writeState;
+	int writeIndex;
+	int writeCrc;
+	int txHighPending;
+} HdSpi;
 
 static const byte set1_to_set2[128] = {
 	0x00, 0x76, 0x16, 0x1e, 0x26, 0x25, 0x2e, 0x36,
@@ -129,7 +166,7 @@ static byte hd6303_page_number(void)
 {
 	byte port6 = hdRegs[HD_REG_PORT6];
 
-	return ((port6 & 0x10) >> 1) | (port6 & 0x07);
+	return ((port6 & HD_MEMPAGE_HI) >> 1) | (port6 & HD_MEMPAGE_PAGE_MASK);
 }
 
 static int hd6303_bios_visible(void)
@@ -154,7 +191,7 @@ static dword hd6303_ram_offset(word a)
 
 static int hd6303_page_ram_visible(void)
 {
-	return !(hdRegs[HD_REG_PORT6] & HD_MEMPAGE_ROM) && hd6303_page_number() < 8;
+	return (hdRegs[HD_REG_PORT6] & HD_MEMPAGE_ROM) == 0;
 }
 
 static int hd6303_page_rom_visible(void)
@@ -210,12 +247,222 @@ static void hd6303_vpu_reset(void)
 	HdVpu.vSize = 199;
 }
 
+static void hd6303_sd_queue_clear(void)
+{
+	HdSpi.respHead = 0;
+	HdSpi.respTail = 0;
+	HdSpi.respCount = 0;
+}
+
+static void hd6303_sd_queue(byte d)
+{
+	if (HdSpi.respCount >= HD_SD_RESP_SIZE) {
+		return;
+	}
+
+	HdSpi.resp[HdSpi.respTail] = d;
+	HdSpi.respTail = (HdSpi.respTail + 1) % HD_SD_RESP_SIZE;
+	HdSpi.respCount++;
+}
+
+static byte hd6303_sd_dequeue(byte def)
+{
+	byte d;
+
+	if (HdSpi.respCount == 0) {
+		return def;
+	}
+
+	d = HdSpi.resp[HdSpi.respHead];
+	HdSpi.respHead = (HdSpi.respHead + 1) % HD_SD_RESP_SIZE;
+	HdSpi.respCount--;
+	return d;
+}
+
+static dword hd6303_sd_arg(void)
+{
+	return ((dword)HdSpi.cmd[1] << 24) |
+		((dword)HdSpi.cmd[2] << 16) |
+		((dword)HdSpi.cmd[3] << 8) |
+		HdSpi.cmd[4];
+}
+
+static int hd6303_sd_lba(dword arg, dword *lba)
+{
+	if (HdSpi.blockAddressing) {
+		*lba = arg;
+	} else {
+		*lba = arg >> 9;
+	}
+
+	return hdSdImage && *lba < (hdSdImageSize / HD_SD_BLOCK_SIZE);
+}
+
+static void hd6303_sd_command(void)
+{
+	byte cmd = HdSpi.cmd[0] & 0x3f;
+	dword arg = hd6303_sd_arg();
+	dword lba;
+	int app = HdSpi.appCmd;
+
+	HdSpi.cmdLen = 0;
+	HdSpi.appCmd = 0;
+
+	if (!hdSdImage) {
+		hd6303_sd_queue(0x05);
+		return;
+	}
+
+	if (app && cmd == 41) {
+		HdSpi.idle = 0;
+		HdSpi.blockAddressing = 1;
+		hd6303_sd_queue(0x00);
+		return;
+	}
+
+	switch (cmd) {
+		case 0:
+			HdSpi.idle = 1;
+			HdSpi.blockAddressing = 0;
+			hd6303_sd_queue(0x01);
+			break;
+		case 1:
+			HdSpi.idle = 0;
+			HdSpi.blockAddressing = 0;
+			hd6303_sd_queue(0x00);
+			break;
+		case 8:
+			hd6303_sd_queue(HdSpi.idle ? 0x01 : 0x00);
+			hd6303_sd_queue(0x00);
+			hd6303_sd_queue(0x00);
+			hd6303_sd_queue(0x01);
+			hd6303_sd_queue(0xaa);
+			break;
+		case 16:
+			hd6303_sd_queue(arg == HD_SD_BLOCK_SIZE ? 0x00 : 0x04);
+			break;
+		case 17:
+			if (!hd6303_sd_lba(arg, &lba)) {
+				hd6303_sd_queue(0x04);
+				break;
+			}
+			hd6303_sd_queue(0x00);
+			hd6303_sd_queue(0xff);
+			hd6303_sd_queue(0xfe);
+			for (int i = 0; i < HD_SD_BLOCK_SIZE; i++) {
+				hd6303_sd_queue(hdSdImage[lba * HD_SD_BLOCK_SIZE + i]);
+			}
+			hd6303_sd_queue(0xff);
+			hd6303_sd_queue(0xff);
+			break;
+		case 24:
+			if (!hd6303_sd_lba(arg, &lba)) {
+				hd6303_sd_queue(0x04);
+				break;
+			}
+			hd6303_sd_queue(0x00);
+			HdSpi.writeState = 1;
+			HdSpi.writeLba = lba;
+			HdSpi.writeIndex = 0;
+			HdSpi.writeCrc = 0;
+			break;
+		case 55:
+			HdSpi.appCmd = 1;
+			hd6303_sd_queue(HdSpi.idle ? 0x01 : 0x00);
+			break;
+		case 58:
+			hd6303_sd_queue(HdSpi.idle ? 0x01 : 0x00);
+			hd6303_sd_queue(HdSpi.blockAddressing ? 0x40 : 0x00);
+			hd6303_sd_queue(0x00);
+			hd6303_sd_queue(0x00);
+			hd6303_sd_queue(0x00);
+			break;
+		default:
+			hd6303_sd_queue(0x04);
+			break;
+	}
+}
+
+static int hd6303_spi_sd_selected(void)
+{
+	return (HdSpi.config & HD_SPI_SS1) == 0;
+}
+
+static byte hd6303_spi_transfer(byte d)
+{
+	if (!HdSpi.selected || !hdSdImage) {
+		return 0xff;
+	}
+
+	if (HdSpi.writeState == 1) {
+		if (d == 0xfe) {
+			HdSpi.writeState = 2;
+			HdSpi.writeIndex = 0;
+			HdSpi.writeCrc = 0;
+		}
+		return hd6303_sd_dequeue(0xff);
+	}
+
+	if (HdSpi.writeState == 2) {
+		HdSpi.writeBlock[HdSpi.writeIndex++] = d;
+		if (HdSpi.writeIndex == HD_SD_BLOCK_SIZE) {
+			HdSpi.writeState = 3;
+		}
+		return 0xff;
+	}
+
+	if (HdSpi.writeState == 3) {
+		HdSpi.writeCrc++;
+		if (HdSpi.writeCrc == 2) {
+			memcpy(hdSdImage + HdSpi.writeLba * HD_SD_BLOCK_SIZE,
+				HdSpi.writeBlock, HD_SD_BLOCK_SIZE);
+			hdSdDirty = 1;
+			HdSpi.writeState = 0;
+			hd6303_sd_queue(0xff);
+			hd6303_sd_queue(0xff);
+			hd6303_sd_queue(0x05);
+			hd6303_sd_queue(0xff);
+		}
+		return 0xff;
+	}
+
+	if (HdSpi.respCount) {
+		return hd6303_sd_dequeue(0xff);
+	}
+
+	if (HdSpi.cmdLen == 0) {
+		if ((d & 0xc0) == 0x40) {
+			HdSpi.cmd[HdSpi.cmdLen++] = d;
+		}
+		return 0xff;
+	}
+
+	HdSpi.cmd[HdSpi.cmdLen++] = d;
+	if (HdSpi.cmdLen == sizeof(HdSpi.cmd)) {
+		hd6303_sd_command();
+	}
+
+	return 0xff;
+}
+
+static void hd6303_spi_reset(void)
+{
+	memset(&HdSpi, 0, sizeof(HdSpi));
+	HdSpi.config = HD_SPI_SSM | HD_SPI_SS0 | HD_SPI_SS1;
+	HdSpi.rxData[0] = 0xff;
+	HdSpi.rxData[1] = 0xff;
+	HdSpi.txData[0] = 0xff;
+	HdSpi.txData[1] = 0xff;
+	HdSpi.idle = 1;
+	HdSpi.selected = hd6303_spi_sd_selected();
+}
+
 static void hd6303_reset(void)
 {
 	memset(hdRegs, 0, sizeof(hdRegs));
 	memset(hdSimpleIo, 0, sizeof(hdSimpleIo));
 	memset(hdPsg, 0, sizeof(hdPsg));
-	memset(hdSpi, 0, sizeof(hdSpi));
+	hd6303_spi_reset();
 	memset(&HdPs2, 0, sizeof(HdPs2));
 
 	hdRegs[HD_REG_PORT6] = HD_MEMPAGE_FMASK;
@@ -451,13 +698,15 @@ static byte hd6303_spi_read(word a)
 {
 	switch (a & 0x07) {
 		case 0x00:
+			return HdSpi.rxData[0];
 		case 0x01:
-			return 0xff;
+			return HdSpi.rxData[1];
 		case 0x02:
-			return 0x80 | (hdSpi[0x02] & 0x33);
+			return HD_SPI_READY | (HdSpi.config & (HD_SPI_SSM | HD_SPI_16B | HD_SPI_SS1 | HD_SPI_SS0));
 		case 0x03:
+			return HdSpi.prescaler;
 		case 0x04:
-			return hdSpi[a & 0x07];
+			return HdSpi.pout & 0x03;
 	}
 
 	return 0xa5;
@@ -465,7 +714,49 @@ static byte hd6303_spi_read(word a)
 
 static void hd6303_spi_write(word a, byte d)
 {
-	hdSpi[a & 0x07] = d;
+	switch (a & 0x07) {
+		case 0x00:
+			HdSpi.txData[0] = d;
+			if (HdSpi.config & HD_SPI_16B) {
+				HdSpi.txHighPending = 1;
+			}
+			break;
+		case 0x01:
+			HdSpi.txData[1] = d;
+			if (HdSpi.config & HD_SPI_16B) {
+				if (HdSpi.txHighPending) {
+					HdSpi.rxData[0] = hd6303_spi_transfer(HdSpi.txData[0]);
+					HdSpi.rxData[1] = hd6303_spi_transfer(HdSpi.txData[1]);
+					HdSpi.txHighPending = 0;
+				}
+			} else {
+				HdSpi.rxData[1] = hd6303_spi_transfer(d);
+			}
+			break;
+		case 0x02: {
+			int wasSelected = HdSpi.selected;
+			HdSpi.config = d & (HD_SPI_SSM | HD_SPI_16B | HD_SPI_SS1 | HD_SPI_SS0);
+			HdSpi.selected = hd6303_spi_sd_selected();
+			if (!(HdSpi.config & HD_SPI_16B)) {
+				HdSpi.txHighPending = 0;
+			}
+			if (wasSelected != HdSpi.selected) {
+				HdSpi.cmdLen = 0;
+				if (!HdSpi.selected) {
+					hd6303_sd_queue_clear();
+					HdSpi.writeState = 0;
+					HdSpi.txHighPending = 0;
+				}
+			}
+			break;
+		}
+		case 0x03:
+			HdSpi.prescaler = d;
+			break;
+		case 0x04:
+			HdSpi.pout = d & 0x03;
+			break;
+	}
 }
 
 static byte hd6303_io_read(word a)
@@ -774,6 +1065,8 @@ int SuperIoInit(void)
 			hdRom[i] = (byte *) loadHd6303RomPage(i, HD6303_ROM_PAGE_SIZE);
 		}
 		hdVideoRom = (byte *) loadCharGenRom(2048);
+		hdSdImage = loadHd6303SdImage(&hdSdImageSize);
+		hdSdDirty = 0;
 		memset(MEM, 0, HD6303_RAM_SIZE);
 		hd6303_reset();
 		PrinterPort.mode = PRINTER_NONE;
@@ -800,7 +1093,12 @@ int SuperIoInit(void)
 
 int SuperIoFinish(void)
 {
-	if (!hd6303_is_active()) {
+	if (hd6303_is_active()) {
+		unloadHd6303SdImage(hdSdImage, hdSdImageSize, hdSdDirty);
+		hdSdImage = NULL;
+		hdSdImageSize = 0;
+		hdSdDirty = 0;
+	} else {
 		unloadRamDisk(vdiskSIZE);
 	}
 

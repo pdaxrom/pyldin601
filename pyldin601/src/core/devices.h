@@ -32,6 +32,8 @@ void SuperIoDrawVideo(void *video, int width, int height);
 byte *loadBiosRom(dword size);
 byte *loadHd6303BiosRom(dword size);
 byte *loadHd6303RomPage(byte page, dword size);
+byte *loadHd6303SdImage(dword *size);
+void unloadHd6303SdImage(byte *mem, dword size, int dirty);
 byte *loadRamDisk(dword size);
 void  unloadRamDisk(dword size);
 byte *loadRomDisk(byte chip, dword size);

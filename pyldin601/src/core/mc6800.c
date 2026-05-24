@@ -44,7 +44,7 @@ static	dword	mc6800_global_takts;
 
 static int IRQrequest = 0;
 
-static unsigned char mpu_cycles[] = {
+static const unsigned char mpu_cycles[] = {
 /*     00  01  02  03  04  05  06  07  08  09  0a  0b  0c  0d  0e  0f */
 /*00*/ 02,  2, 02, 02, 02, 02,  2,  2,  4,  4,  2,  2,  2,  2,  2,  2,
 /*01*/  2,  2, 02, 02, 02, 02,  2,  2, 02,  2, 02,  2, 02, 02, 02, 02,
@@ -64,9 +64,32 @@ static unsigned char mpu_cycles[] = {
 /*0f*/  4,  4,  4, 02,  4,  4,  4,  5,  4,  4,  4,  4, 02, 02,  5,  6
 };
 
+static const unsigned char hd6303_cycles[] = {
+/*     00  01  02  03  04  05  06  07  08  09  0a  0b  0c  0d  0e  0f */
+/*00*/ 02,  2, 02, 02,  3,  3,  2,  2,  4,  4,  2,  2,  2,  2,  2,  2,
+/*01*/  2,  2, 02, 02, 02, 02,  2,  2,  3,  2,  4,  2, 02, 02, 02, 02,
+/*02*/  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,
+/*03*/  4,  4,  4,  4,  4,  4,  4,  4,  5,  5,  3, 10,  4, 10,  9, 12,
+/*04*/  2, 02, 02,  2,  2, 02,  2,  2,  2,  2,  2, 02,  2,  2, 02,  2,
+/*05*/  2, 02, 02,  2,  2, 02,  2,  2,  2,  2,  2, 02,  2,  2, 02,  2,
+/*06*/  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  4,  7,
+/*07*/  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  3,  6,
+/*08*/  2,  2,  2,  4,  2,  2,  2, 02,  2,  2,  2,  2,  3,  8,  3, 02,
+/*09*/  3,  3,  3,  5,  3,  3,  3,  4,  3,  3,  3,  3,  4,  5,  4,  5,
+/*0a*/  5,  5,  5,  6,  5,  5,  5,  6,  5,  5,  5,  5,  6,  8,  6,  7,
+/*0b*/  4,  4,  4,  6,  4,  4,  4,  5,  4,  4,  4,  4,  5,  9,  5,  6,
+/*0c*/  2,  2,  2,  4,  2,  2,  2, 02,  2,  2,  2,  2,  3, 02,  3, 02,
+/*0d*/  3,  3,  3,  5,  3,  3,  3,  4,  3,  3,  3,  3,  4,  4,  4,  5,
+/*0e*/  5,  5,  5,  6,  5,  5,  5,  6,  5,  5,  5,  5,  5,  5,  6,  7,
+/*0f*/  4,  4,  4,  6,  4,  4,  4,  5,  4,  4,  4,  4,  5,  5,  5,  6
+};
+
+static const unsigned char *cycle_table = mpu_cycles;
+
 void MC6800SetMachine(PyldinMachine newMachine)
 {
     machine = newMachine;
+    cycle_table = (machine == PYLDIN_MACHINE_HD6303) ? hd6303_cycles : mpu_cycles;
 }
 
 PyldinMachine MC6800GetMachine(void)
@@ -490,66 +513,7 @@ int MC6800Step(void)
 
     byte opnum = MC6800MemReadByte(PC++);
 
-    takt = mpu_cycles[opnum];
-    if (machine == PYLDIN_MACHINE_HD6303) {
-	switch (opnum) {
-	    case LSRD:
-	    case ASLD:
-	    case XGDX:
-	    case ABX:
-		takt = 3;
-		break;
-	    case BRN:
-	    case SLP:
-		takt = 4;
-		break;
-	    case PULX:
-		takt = 5;
-		break;
-	    case PSHX:
-		takt = 4;
-		break;
-	    case MUL:
-		takt = 10;
-		break;
-	    case JSR_dir:
-		takt = 5;
-		break;
-	    case LDD_imm:
-		takt = 3;
-		break;
-	    case ADDD_imm:
-	    case SUBD_imm:
-	    case LDD_dir:
-	    case STD_dir:
-		takt = 4;
-		break;
-	    case ADDD_dir:
-	    case SUBD_dir:
-	    case LDD_idx:
-	    case LDD:
-	    case STD_idx:
-	    case STD:
-		takt = 5;
-		break;
-	    case ADDD_idx:
-	    case ADDD:
-	    case SUBD_idx:
-	    case SUBD:
-	    case AIM_dir:
-	    case OIM_dir:
-	    case EIM_dir:
-	    case TIM_dir:
-		takt = 6;
-		break;
-	    case AIM_idx:
-	    case OIM_idx:
-	    case EIM_idx:
-	    case TIM_idx:
-		takt = 7;
-		break;
-	}
-    }
+    takt = cycle_table[opnum];
 
     switch (opnum) {
 	case CLC:	c = 0; break;
