@@ -420,10 +420,7 @@ static byte hd6303_spi_transfer(byte d)
 				HdSpi.writeBlock, HD_SD_BLOCK_SIZE);
 			hdSdDirty = 1;
 			HdSpi.writeState = 0;
-			hd6303_sd_queue(0xff);
-			hd6303_sd_queue(0xff);
 			hd6303_sd_queue(0x05);
-			hd6303_sd_queue(0xff);
 		}
 		return 0xff;
 	}
