@@ -2,11 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
-def repoRoot = rootProject.projectDir.parentFile.parentFile
-def legacyRoot = repoRoot?.parentFile
+def sourceRoot = rootProject.projectDir.parentFile
+def dataRoot = sourceRoot?.parentFile
 
 def resolveVersionName = {
-    def versionFile = repoRoot ? new File(repoRoot, "VERSION") : null
+    def versionFile = sourceRoot ? new File(sourceRoot, "VERSION") : null
     if (versionFile?.exists()) {
         return versionFile.text.trim()
     }
@@ -74,31 +74,61 @@ android {
     tasks.register("prepareAssets", Copy) {
         into generatedAssetsDir
 
-        if (legacyRoot) {
-            def romSource = new File(legacyRoot, "native/RAMROMDiskPipnet")
-            if (romSource.exists()) {
-                from(romSource) {
-                    include "rom*.roz"
-                    into "Rom"
-                }
-            }
+        doFirst {
+            delete generatedAssetsDir
+        }
 
-            def biosSource = new File(legacyRoot, "native/Bios")
+        if (dataRoot) {
+            def nativeSource = new File(dataRoot, "native")
+            def hd6303Source = new File(dataRoot, "native-hd6303/Hd6303")
+
+            def biosSource = new File(nativeSource, "Bios")
             if (biosSource.exists()) {
                 from(biosSource) {
                     into "Bios"
                 }
             }
-        }
 
-        if (repoRoot) {
-            def shadersSource = new File(repoRoot, "shaders")
-            if (shadersSource.exists()) {
-                from(shadersSource) {
-                    into "shaders"
+            def romSource = new File(nativeSource, "RAMROMDiskPipnet")
+            if (romSource.exists()) {
+                from(romSource) {
+                    include "*.roz"
+                    into "Rom"
+                }
+            }
+
+            def romPagesSource = new File(nativeSource, "Rom")
+            if (romPagesSource.exists()) {
+                from(romPagesSource) {
+                    include "*.roz"
+                    into "Rom"
+                }
+            }
+
+            def floppySource = new File(nativeSource, "Floppy")
+            if (floppySource.exists()) {
+                from(floppySource) {
+                    include "*.imz"
+                    into "Floppy"
+                }
+            }
+
+            if (hd6303Source.exists()) {
+                from(hd6303Source) {
+                    exclude "SD/lil601.img.gz"
+                    into "Hd6303"
+                }
+
+                def hd6303SdSource = new File(hd6303Source, "SD/lil601.img.gz")
+                if (hd6303SdSource.exists()) {
+                    from(hd6303SdSource) {
+                        rename { "lil601.img.gz.asset" }
+                        into "Hd6303/SD"
+                    }
                 }
             }
         }
+
     }
 
     applicationVariants.configureEach { variant ->
@@ -107,7 +137,7 @@ android {
 
     sourceSets {
         main {
-            assets.srcDir generatedAssetsDir
+            assets.srcDirs = [generatedAssetsDir.get().asFile]
         }
     }
 }

@@ -1720,7 +1720,7 @@ void PrinterPutChar(byte data)
 
 #ifdef __BIONIC__
 
-int copy_file(char *from, char *to)
+int copy_file(const char *from, const char *to)
 {
     char tmp[65536];
 
@@ -1758,10 +1758,41 @@ int copy_file(char *from, char *to)
     return 0;
 }
 
+static void copy_asset_if_missing(const char *asset, const char *to)
+{
+    if (access(to, F_OK) != 0) {
+        copy_file(asset, to);
+    }
+}
+
 int install_resources(void)
 {
     char tmp_src[PATH_MAX];
     char tmp_dst[PATH_MAX];
+    static const char *floppyName[] = {
+        "arch1.imz",
+        "arch2.imz",
+        "arch3.imz",
+        "arch4.imz",
+        "arch5.imz",
+        "arch6.imz",
+        "arch7.imz",
+        "disk2.imz",
+        "disk3.imz",
+        "disk4.imz",
+        "disk5.imz",
+        "games.imz",
+        "sash.imz",
+        "sys1.imz",
+        "system.imz",
+        NULL
+    };
+    static const char *hd6303RomName[] = {
+        "page08.roz",
+        "page09.roz",
+        "page0a.roz",
+        NULL
+    };
 
     mkdir(datadir, 0755);
 
@@ -1777,44 +1808,49 @@ int install_resources(void)
     mkdir(tmp_dst, 0755);
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Rom", datadir);
     mkdir(tmp_dst, 0755);
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/SD", datadir);
+    mkdir(tmp_dst, 0755);
 
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/bios.roz", datadir);
-    if (access(tmp_dst, F_OK) != 0) {
-        copy_file("Bios/bios.roz", tmp_dst);
-    }
+    copy_asset_if_missing("Bios/bios.roz", tmp_dst);
 
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Bios/video.roz", datadir);
-    if (access(tmp_dst, F_OK) != 0) {
-        copy_file("Bios/video.roz", tmp_dst);
-    }
+    copy_asset_if_missing("Bios/video.roz", tmp_dst);
 
     int i;
 
     for (i = 0; i < 5; i++) {
         snprintf(tmp_dst, sizeof(tmp_dst), "%s/Rom/%s", datadir, romDiskName[i]);
-        if (access(tmp_dst, F_OK) != 0) {
-            snprintf(tmp_src, sizeof(tmp_src), "Rom/%s", romDiskName[i]);
-            copy_file(tmp_src, tmp_dst);
-        }
+        snprintf(tmp_src, sizeof(tmp_src), "Rom/%s", romDiskName[i]);
+        copy_asset_if_missing(tmp_src, tmp_dst);
+    }
+
+    for (i = 0; i < 8; i++) {
+        snprintf(tmp_dst, sizeof(tmp_dst), "%s/Rom/%s", datadir, romName[i]);
+        snprintf(tmp_src, sizeof(tmp_src), "Rom/%s", romName[i]);
+        copy_asset_if_missing(tmp_src, tmp_dst);
+    }
+
+    for (i = 0; floppyName[i] != NULL; i++) {
+        snprintf(tmp_dst, sizeof(tmp_dst), "%s/Floppy/%s", datadir, floppyName[i]);
+        snprintf(tmp_src, sizeof(tmp_src), "Floppy/%s", floppyName[i]);
+        copy_asset_if_missing(tmp_src, tmp_dst);
     }
 
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Bios/bios.roz", datadir);
-    if (access(tmp_dst, F_OK) != 0) {
-        copy_file("Hd6303/Bios/bios.roz", tmp_dst);
-    }
+    copy_asset_if_missing("Hd6303/Bios/bios.roz", tmp_dst);
+
     snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Bios/video.roz", datadir);
-    if (access(tmp_dst, F_OK) != 0) {
-        copy_file("Hd6303/Bios/video.roz", tmp_dst);
+    copy_asset_if_missing("Hd6303/Bios/video.roz", tmp_dst);
+
+    for (i = 0; hd6303RomName[i] != NULL; i++) {
+        snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Rom/%s", datadir, hd6303RomName[i]);
+        snprintf(tmp_src, sizeof(tmp_src), "Hd6303/Rom/%s", hd6303RomName[i]);
+        copy_asset_if_missing(tmp_src, tmp_dst);
     }
-    for (i = 0; i < 16; i++) {
-        snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/Rom/page%02x.roz", datadir, i);
-        if (access(tmp_dst, F_OK) != 0) {
-            snprintf(tmp_src, sizeof(tmp_src), "Hd6303/Rom/page%02x.roz", i);
-            if (access(tmp_src, F_OK) == 0) {
-                copy_file(tmp_src, tmp_dst);
-            }
-        }
-    }
+
+    snprintf(tmp_dst, sizeof(tmp_dst), "%s/Hd6303/SD/lil601.img.gz", datadir);
+    copy_asset_if_missing("Hd6303/SD/lil601.img.gz.asset", tmp_dst);
 
     return 0;
 }
