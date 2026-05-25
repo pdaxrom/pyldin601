@@ -56,7 +56,7 @@ static byte fSpeaker;		// бит состояния динамика
 #define HD_PS2_E1       0x04
 #define HD_PS2_E0       0x02
 #define HD_PS2_REL      0x01
-#define HD_PS2_BYTE_DELAY_CYCLES 2048
+#define HD_PS2_BYTE_DELAY_USEC 2048
 
 #define HD_SPI_READY    0x80
 #define HD_SPI_SSM      0x20
@@ -606,7 +606,7 @@ static void hd6303_ps2_schedule_next(void)
 		return;
 	}
 
-	HdPs2.nextReadyCycle = MC6800GetCyclesCounter() + HD_PS2_BYTE_DELAY_CYCLES;
+	HdPs2.nextReadyCycle = MC6800GetCyclesCounter() + MC6800UsecToCycles(HD_PS2_BYTE_DELAY_USEC);
 }
 
 static void hd6303_ps2_update(void)

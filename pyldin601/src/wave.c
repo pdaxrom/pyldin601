@@ -26,6 +26,9 @@ static byte dac_out = 0;
 
 static unsigned int sound_count = 0;
 static unsigned int sound_tick;
+static unsigned int sound_tick_remainder;
+static unsigned int sound_remainder;
+static unsigned int sound_cpu_clock = 1000000;
 
 typedef struct {
     short *buf;
@@ -62,6 +65,11 @@ void BeeperFlush(unsigned int ticks, int enable_flag)
     while(ticks >= sound_count) {
         sound_buf[cur_buf].buf[sound_buf[cur_buf].ptr++] = enable_flag?(dac_out << 7):0;
         sound_count += sound_tick;
+        sound_remainder += sound_tick_remainder;
+        if (sound_remainder >= (unsigned int)sdl_audio.freq) {
+            sound_count++;
+            sound_remainder -= sdl_audio.freq;
+        }
         if (sound_buf[cur_buf].ptr == sound_buf[cur_buf].size) {
             sound_buf[cur_buf].ptr = 0;
             cur_buf = (cur_buf + 1) % NUMBUF;
@@ -69,6 +77,20 @@ void BeeperFlush(unsigned int ticks, int enable_flag)
                 SDL_SemWait(sem);
             }
         }
+    }
+}
+
+void BeeperSetCpuClock(unsigned int clock_hz)
+{
+    if (clock_hz == 0) {
+        clock_hz = 1000000;
+    }
+
+    sound_cpu_clock = clock_hz;
+
+    if (sdl_audio.freq > 0) {
+        sound_tick = sound_cpu_clock / sdl_audio.freq;
+        sound_tick_remainder = sound_cpu_clock % sdl_audio.freq;
     }
 }
 
@@ -137,7 +159,8 @@ int BeeperInit(int fullspeed)
     cur_buf = 0;
     cur_out_buf = 0;
     sound_count = 0;
-    sound_tick = 1000000 / sdl_audio.freq;
+    sound_remainder = 0;
+    BeeperSetCpuClock(sound_cpu_clock);
 
     sem = SDL_CreateSemaphore(NUMBUF);
 

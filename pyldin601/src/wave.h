@@ -10,3 +10,4 @@
 int  BeeperInit(int fullspeed);
 void BeeperFinish(void);
 void BeeperFlush(unsigned int ticks, int enable_flag);
+void BeeperSetCpuClock(unsigned int clock_hz);

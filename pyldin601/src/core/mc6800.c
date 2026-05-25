@@ -22,6 +22,10 @@
 static	byte	*MEM;
 static	PyldinMachine machine = PYLDIN_MACHINE_601;
 
+#define PYLDIN_601_CPU_CLOCK_HZ     1000000u
+#define PYLDIN_HD6303_CPU_CLOCK_HZ  4000000u
+#define PYLDIN_FRAME_RATE_HZ        50u
+
 static	word	fWai;			// установлен после WAI
 
 	//registers here
@@ -95,6 +99,23 @@ void MC6800SetMachine(PyldinMachine newMachine)
 PyldinMachine MC6800GetMachine(void)
 {
     return machine;
+}
+
+dword MC6800GetCpuClockHz(void)
+{
+    return (machine == PYLDIN_MACHINE_HD6303) ?
+	PYLDIN_HD6303_CPU_CLOCK_HZ : PYLDIN_601_CPU_CLOCK_HZ;
+}
+
+dword MC6800GetCyclesPerFrame(void)
+{
+    return MC6800GetCpuClockHz() / PYLDIN_FRAME_RATE_HZ;
+}
+
+dword MC6800UsecToCycles(dword usec)
+{
+    unsigned long long cycles = (unsigned long long)MC6800GetCpuClockHz() * usec;
+    return (dword)(cycles / 1000000u);
 }
 
 int MC6800Init(void)

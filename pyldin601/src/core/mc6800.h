@@ -9,6 +9,9 @@ typedef enum {
 
 void			MC6800SetMachine(PyldinMachine machine);
 PyldinMachine	MC6800GetMachine(void);
+dword			MC6800GetCpuClockHz(void);
+dword			MC6800GetCyclesPerFrame(void);
+dword			MC6800UsecToCycles(dword usec);
 int				MC6800Init(void);
 void			MC6800Reset(void);
 int				MC6800Step(void);

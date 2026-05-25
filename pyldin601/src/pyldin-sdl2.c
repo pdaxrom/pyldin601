@@ -275,6 +275,15 @@ static uint64_t current_cpu_frequency = 0;
 // Optimized for core
 void core_50Hz_irq(void);
 
+static int cpu_turbo_enabled(void)
+{
+#ifdef USE_GUI
+    return enable_turbo;
+#else
+    return 0;
+#endif
+}
+
 void resetRequested(void)
 {
     SDL_AtomicSet(&reset_request, 1);
@@ -1314,10 +1323,16 @@ int cpu_thread(void *arg)
 {
     (void)arg;
 
+    Uint64 perf_frequency = SDL_GetPerformanceFrequency();
+    Uint64 cycle_deadline = SDL_GetPerformanceCounter();
+    Uint64 cycle_remainder = 0;
+
     do {
         if (SDL_AtomicGet(&reset_request)) {
             MC6800Reset();
             SDL_AtomicSet(&reset_request, 0);
+            cycle_deadline = SDL_GetPerformanceCounter();
+            cycle_remainder = 0;
         }
 
         if (SDL_AtomicGet(&irq_request)) {
@@ -1329,13 +1344,39 @@ int cpu_thread(void *arg)
 
         BeeperFlush(MC6800GetCyclesCounter(), enable_sound);
 
+        if (!cpu_turbo_enabled()) {
+            Uint64 scaled_ticks = (Uint64)ticks * perf_frequency + cycle_remainder;
+            Uint64 wait_ticks = scaled_ticks / MC6800GetCpuClockHz();
+            cycle_remainder = scaled_ticks % MC6800GetCpuClockHz();
+            cycle_deadline += wait_ticks;
+
+            for (;;) {
+                Uint64 now = SDL_GetPerformanceCounter();
+                if ((Sint64)(now - cycle_deadline) >= 0) {
+                    if ((Sint64)(now - cycle_deadline) > (Sint64)(perf_frequency / 10)) {
+                        cycle_deadline = now;
+                        cycle_remainder = 0;
+                    }
+                    break;
+                }
+
+                if (cycle_deadline - now > perf_frequency / 1000) {
+                    SDL_Delay(1);
+                }
+            }
+        } else {
+            cycle_deadline = SDL_GetPerformanceCounter();
+            cycle_remainder = 0;
+        }
+
         {
             static Uint32 refresh_counter = 0;
+            Uint32 cycles_per_frame = MC6800GetCyclesPerFrame();
 
             refresh_counter += ticks;
-            if (refresh_counter > 20000) {
+            while (refresh_counter >= cycles_per_frame) {
                 rtc_timer_callback(0);
-                refresh_counter = 0;
+                refresh_counter -= cycles_per_frame;
             }
         }
     } while(!SDL_AtomicGet(&poweroff_request));
@@ -2047,6 +2088,7 @@ int main(int argc, char *argv[])
     }
 
     // sound initialization
+    BeeperSetCpuClock(MC6800GetCpuClockHz());
     BeeperInit(0);
 
     drawMenu = 1;

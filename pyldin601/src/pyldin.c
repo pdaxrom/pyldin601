@@ -992,7 +992,8 @@ int main(int argc, char *argv[])
     SuperIoPrinterPortMode(printerPortDevice);
 
     // sound initialization
-    BeeperInit();
+    BeeperSetCpuClock(MC6800GetCpuClockHz());
+    BeeperInit(0);
 
     drawScreen = 0;
     drawMenu = 1;
@@ -1032,7 +1033,7 @@ int main(int argc, char *argv[])
 
 	vSyncCounter += cpuCycles;
 
-	if (vSyncCounter >= 20000) {
+	if (vSyncCounter >= (int)MC6800GetCyclesPerFrame()) {
 	    core_50Hz_irq();
 
 	    drawScreen = 1;
@@ -1041,9 +1042,10 @@ int main(int argc, char *argv[])
 	    currentCpuFrequency = (vSyncCounter * 1000) / ((newClockCounter - oldClockCounter) / oneUSecDelayConst);
 	
 	    oldClockCounter = newClockCounter;
-	    vSyncCounter = 0;
+	    vSyncCounter -= MC6800GetCyclesPerFrame();
 
-	    int diff = abs(1000 - currentCpuFrequency);
+	    int targetCpuFrequency = MC6800GetCpuClockHz() / 1000;
+	    int diff = abs(targetCpuFrequency - currentCpuFrequency);
 //SDL_Log("--- %d", diff);
 	    if (diff < 10) {
 		diff = 1;
@@ -1051,10 +1053,10 @@ int main(int argc, char *argv[])
 		diff /= 10;
 	    }
 
-	if (currentCpuFrequency && currentCpuFrequency < 1000) {
+	if (currentCpuFrequency && currentCpuFrequency < targetCpuFrequency) {
 //SDL_Log("+++ %lld, %lld, %d", one_takt_delay, actual_speed, diff);
 	    oneUSecDelay -= diff;
-	} else if (currentCpuFrequency && currentCpuFrequency > 1000) {
+	} else if (currentCpuFrequency && currentCpuFrequency > targetCpuFrequency) {
 //SDL_Log("--- %lld, %lld, %d", one_takt_delay, actual_speed, diff);
 	    oneUSecDelay += diff;
 	}
@@ -1069,7 +1071,8 @@ int main(int argc, char *argv[])
 	volatile uint64_t emulatorCycleFinished;
 	do {
 	    emulatorCycleFinished = rdtsc();
-	} while ((emulatorCycleFinished - emulatorCycleStarted) < (oneUSecDelay * cpuCycles));
+	} while ((emulatorCycleFinished - emulatorCycleStarted) <
+		 ((oneUSecDelay * (uint64_t)cpuCycles * 1000000u) / MC6800GetCpuClockHz()));
 	emulatorCycleStarted = emulatorCycleFinished;
     } while( exitRequest == 0);	//
 
