@@ -4,12 +4,14 @@ use ieee.numeric_std.all;
 use std.textio.all;
 use ieee.std_logic_textio.all;
 use std.env.all;
-entity tb_boot_lockstep is end;
+entity tb_boot_lockstep is
+ generic(PREFIX:string:="boot-lockstep";ROM_FILE:string:="build/rom.reference.mem";HD:boolean:=false);
+end;
 architecture test of tb_boot_lockstep is
  type bytes is array(0 to 399359)of std_logic_vector(7 downto 0);
  type base_bytes is array(0 to 65535)of std_logic_vector(7 downto 0);
  impure function expected_ram return base_bytes is
-  file f:text open read_mode is "build/boot-lockstep-base.mem";
+  file f:text open read_mode is "build/"&PREFIX&"-base.mem";
   variable l:line;variable data:base_bytes;variable v:std_logic_vector(7 downto 0);
  begin
   for a in data'range loop readline(f,l);hread(l,v);data(a):=v;end loop;
@@ -17,7 +19,7 @@ architecture test of tb_boot_lockstep is
  end;
  constant final_ram:base_bytes:=expected_ram;
  impure function rom_image return bytes is
-  file f:text open read_mode is "build/rom.reference.mem";
+  file f:text open read_mode is ROM_FILE;
   variable l:line;variable data:bytes:=(others=>x"00");variable v:std_logic_vector(7 downto 0);
  begin
   for a in 65536 to 399359 loop readline(f,l);hread(l,v);data(a):=v;end loop;
@@ -30,8 +32,9 @@ architecture test of tb_boot_lockstep is
  signal opcode:std_logic_vector(7 downto 0);
  signal io_value:std_logic_vector(7 downto 0):=x"00";
  signal physical:natural range 0 to 399359;
- signal count:natural:=0;
+ signal count:natural:=0;signal hd_mode:std_logic;
 begin
+ hd_mode<='1' when HD else '0';
  clk<=not clk after 5 ns;reset<='0' after 45 ns;
  process(all)variable a:natural;begin
   a:=to_integer(unsigned(address));physical<=a;
@@ -45,10 +48,10 @@ begin
  end process;
  din<=io_value when address(15 downto 8)=x"e6" else memory(physical);
  dut:entity work.cpu6800_lockstep port map(clk,reset,rw,vma,address,din,dout,
-  '0','0','0','0',open,registers,opcode,decode,open);
+  '0','0','0','0',open,registers,opcode,decode,open,hd_mode);
  process
-  file io:text open read_mode is "build/boot-lockstep-io.mem";
-  file expected:text open read_mode is "build/boot-lockstep-registers.mem";
+  file io:text open read_mode is "build/"&PREFIX&"-io.mem";
+  file expected:text open read_mode is "build/"&PREFIX&"-registers.mem";
   variable l:line;variable state:std_logic_vector(71 downto 0);
   variable read_record:std_logic_vector(23 downto 0);variable steps:natural:=0;
  begin

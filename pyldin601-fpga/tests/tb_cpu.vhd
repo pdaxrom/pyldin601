@@ -4,24 +4,27 @@ use ieee.numeric_std.all;
 use std.textio.all;
 use ieee.std_logic_textio.all;
 use std.env.all;
-entity tb_cpu is end;
+entity tb_cpu is
+ generic(PREFIX:string:="cpu";HD:boolean:=false;LAST_RESULT:integer:=16#abff#);
+end;
 architecture test of tb_cpu is
  type bytes is array(0 to 65535)of std_logic_vector(7 downto 0);
  impure function load(path:string)return bytes is
   file f:text open read_mode is path;variable l:line;variable data:bytes;variable v:std_logic_vector(7 downto 0);
  begin for n in data'range loop readline(f,l);hread(l,v);data(n):=v;end loop;return data;end;
- signal memory:bytes:=load("build/cpu.mem");
- constant expected:bytes:=load("build/cpu.expected.mem");
+ signal memory:bytes:=load("build/"&PREFIX&".mem");
+ constant expected:bytes:=load("build/"&PREFIX&".expected.mem");
  signal clk:std_logic:='0';signal reset:std_logic:='1';signal rw,vma:std_logic;
  signal address:std_logic_vector(15 downto 0);signal din,dout:std_logic_vector(7 downto 0);
- signal irq:std_logic:='0';
+ signal irq:std_logic:='0';signal hd_mode:std_logic;
  signal hold:std_logic:='0';signal alu:std_logic_vector(15 downto 0);signal cc:std_logic_vector(7 downto 0);
  signal cycles:integer:=0;
  begin
+ hd_mode<='1' when HD else '0';
  clk<=not clk after 5 ns;
  reset<='0' after 45 ns;
  din<=memory(to_integer(unsigned(address)));
- dut:entity work.cpu6800 port map(clk,reset,rw,vma,address,din,dout,hold,'0',irq,'0',alu,cc);
+ dut:entity work.cpu6800 port map(clk,reset,rw,vma,address,din,dout,hold,'0',irq,'0',alu,cc,hd_mode);
  process(clk)begin if rising_edge(clk)then
   cycles<=cycles+1;
   if reset='0' and vma='1' and rw='0' then memory(to_integer(unsigned(address)))<=dout;end if;
@@ -31,11 +34,11 @@ architecture test of tb_cpu is
  process begin wait until memory(16#effe#)=x"01";wait for 500 ns;irq<='1';wait until memory(16#effe#)=x"00";irq<='0';wait;end process;
  process begin
  wait until memory(16#efff#)=x"aa";wait for 20 ns;
- for n in 16#a000# to 16#abff# loop
+ for n in 16#a000# to LAST_RESULT loop
   assert memory(n)=expected(n) report "CPU mismatch at "&integer'image(n)&" actual="&to_hstring(memory(n))&" expected="&to_hstring(expected(n)) severity failure;
  end loop;
- report "PASS actual VHDL MC6800 differential ALU, flags, addressing, CPX, JSR/BSR/RTS, SWI/IRQ/RTI and hold";
+ report "PASS actual VHDL CPU ("&PREFIX&") differential ALU, flags, addressing, CPX, JSR/BSR/RTS, SWI/IRQ/RTI and hold";
  finish;
  end process;
- process begin wait for 5 ms;assert false report "CPU timeout" severity failure;end process;
+ process begin wait for 20 ms;assert false report "CPU timeout" severity failure;end process;
 end;

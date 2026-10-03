@@ -3,9 +3,10 @@ entity tb_system is end;
 architecture test of tb_system is
  component system_fixture is
  port(cpu_rw,cpu_vma:in std_logic;cpu_addr:in std_logic_vector(15 downto 0);cpu_out:in std_logic_vector(7 downto 0);
- cpu_clk,cpu_reset,cpu_hold,cpu_irq:out std_logic;cpu_in:out std_logic_vector(7 downto 0));end component;
+ cpu_clk,cpu_reset,cpu_hold,cpu_irq:out std_logic;cpu_in:out std_logic_vector(7 downto 0);hd6303_en:out std_logic);end component;
+ signal hd6303_en:std_logic;
  signal rw,vma,clk,reset,hold,irq:std_logic;signal address:std_logic_vector(15 downto 0);signal din,dout:std_logic_vector(7 downto 0);
 begin
- fixture:system_fixture port map(rw,vma,address,dout,clk,reset,hold,irq,din);
- cpu:entity work.cpu6800 port map(clk,reset,rw,vma,address,din,dout,hold,'0',irq,'0',open,open);
+ fixture:system_fixture port map(rw,vma,address,dout,clk,reset,hold,irq,din,hd6303_en);
+ cpu:entity work.cpu6800 port map(clk,reset,rw,vma,address,din,dout,hold,'0',irq,'0',open,open,hd6303_en);
 end;

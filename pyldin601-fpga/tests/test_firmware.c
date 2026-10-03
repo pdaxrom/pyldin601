@@ -18,8 +18,8 @@ static unsigned char cmd[6],queue[520];static unsigned cmd_index,queue_count,que
 static unsigned char page,crtc_index,crtc[16],tick;
 static unsigned fdc_reads;
 static unsigned caps_off=1;
-static unsigned model_a,menu_key,menu_key_sent,boot_tick_number;
-static uint32_t menu_start_cycles,menu_end_cycles;
+static unsigned model_a,cpu_hd,menu_phase,menu_key[2],menu_key_sent[2],boot_tick_number;
+static uint32_t menu_start_cycles[2],menu_end_cycles[2];
 static int screen_is(unsigned address,const char*text){
  unsigned char*r=MC6800GetCpuRam();
  for(unsigned n=0;text[n];n++)if(r[address+n*(model_a?2:1)+model_a]!=(unsigned char)text[n])return 0;
@@ -76,16 +76,17 @@ int SuperIoReadByte(word a,byte*out){
  if(committed&&a>=0xc000&&a<0xe000&&(page&8)){*out=physical[0x10000+(page>>4)%5*65536+(page&7)*8192+a-0xc000];return 1;}
  if(a>=0xe660&&a<=0xe664){switch(a&7){case 0:*out=spi_high;break;case 1:*out=spi_low;break;case 2:*out=0x80|spi_control;break;case 3:*out=spi_div;break;default:*out=spi_pout;}return 1;}
  if(a>=0xe6a0&&a<=0xe6af){unsigned p=a&15;*out=255;
-  if(p==0)*out=(committed?0x80:0)|model_a;else if(p==1)*out=debug;else if(p==8)*out=error?128:0;
+  if(p==0)*out=(committed?0x80:0)|(cpu_hd<<1)|model_a;else if(p==1)*out=debug;else if(p==8)*out=error?128:0;
   else if(p==11)*out=aperture_byte;
   else if(p>=12)*out=(crc^0xffffffff)>>((p-12)*8);return 1;}
  if(!committed&&a==0xe62b){
   unsigned number=MC6800GetCyclesCounter()/80000;
   *out=0x37|(number!=boot_tick_number?128:0);boot_tick_number=number;
-  if(!menu_start_cycles)menu_start_cycles=MC6800GetCyclesCounter();return 1;
+  if(menu_phase<2&&!menu_start_cycles[menu_phase])menu_start_cycles[menu_phase]=MC6800GetCyclesCounter();return 1;
  }
  if(a==0xe628||a==0xe62a||a==0xe62e){
-  if(!committed&&menu_key&&!menu_key_sent){KBDKeyDown(menu_key);menu_key_sent=1;}
+  KBDUpdate();
+  if(!committed&&menu_phase<2&&menu_key[menu_phase]&&!menu_key_sent[menu_phase]){KBDKeyDown(menu_key[menu_phase]);menu_key_sent[menu_phase]=1;}
   *out=a==0xe628?KBDReadKey():KBDCheckKey()|0x37|(caps_off?8:0);return 1;
  }
  if(committed){switch(a){
@@ -128,7 +129,7 @@ int SuperIoWriteByte(word a,byte d){
   else if(p==11){if(physical_address>=sizeof(physical)){error=1;return 1;}
    aperture_byte=physical_address<65536?MC6800GetCpuRam()[physical_address]:physical[physical_address];physical_address++;aperture_reads++;}
   else if(p==9)crc=crc_byte(crc,d);else if(p==10)crc=0xffffffff;
-  else if(p==0){if(d<=1&&config_index==0){model_a=d;menu_end_cycles=MC6800GetCyclesCounter();KBDKeyUp();return 1;}if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
+  else if(p==0){if(d<=3&&config_index==0){model_a=d&1;cpu_hd=(d>>1)&1;menu_end_cycles[menu_phase++]=MC6800GetCyclesCounter();MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);KBDKeyUp();return 1;}if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
    ||config[25]!=model_a||le32(config+8)!=1||le32(config+12)!=0x10000||le32(config+16)!=0x51800
    ||le32(config+20)!=(crc^0xffffffff)||(spi_control&2)==0)error=1;else committed=1;}
   return 1;
@@ -158,13 +159,20 @@ static unsigned char*load(const char*path,size_t*size){FILE*f=fopen(path,"rb");i
 int main(int argc,char**argv){
  if(argc<3)return 2;size_t n;unsigned char*b=load(argv[1],&n);if(n!=4096)return 2;memcpy(resident,b,n);free(b);
  image=load(argv[2],&image_size);sdsc=argc>3&&!strcmp(argv[3],"sdsc");missing_sd=argc>3&&!strcmp(argv[3],"no-sd");sram_fault=argc>3&&!strcmp(argv[3],"sram-fault");unsigned reject=missing_sd||sram_fault||(argc>3&&!strcmp(argv[3],"reject"));
- if(argc>3){if(!strcmp(argv[3],"601a")||!strcmp(argv[3],"601a-reject"))menu_key=3;
-  else if(!strcmp(argv[3],"enter"))menu_key=0x1c;else if(!strcmp(argv[3],"key1"))menu_key=2;
+ if(argc>3){if(!strcmp(argv[3],"601a")||!strcmp(argv[3],"601a-reject")||!strcmp(argv[3],"601a-hd6303"))menu_key[0]=3;
+  else if(!strcmp(argv[3],"enter"))menu_key[0]=0x1c;else if(!strcmp(argv[3],"key1"))menu_key[0]=2;
+  if(!strcmp(argv[3],"hd6303")||!strcmp(argv[3],"601a-hd6303")){menu_key[0]=!strcmp(argv[3],"601a-hd6303")?3:2;menu_key[1]=3;}
+  if(!strcmp(argv[3],"both-enter")){menu_key[0]=menu_key[1]=0x1c;}
+  if(!strcmp(argv[3],"both-key1")){menu_key[0]=menu_key[1]=2;}
   if(!strcmp(argv[3],"601a-reject"))reject=1;}
  MC6800Init();memset(physical,0xcc,sizeof(physical));memset(MC6800GetCpuRam(),0xcc,65536);MC6800Reset();
  unsigned steps;for(steps=0;steps<100000000&&!committed&&debug!=0xee;steps++)MC6800Step();
- if(menu_key){if(!menu_key_sent||menu_end_cycles-menu_start_cycles>1000){fprintf(stderr,"menu key not immediate\n");return 1;}}
- else if(menu_end_cycles-menu_start_cycles<19920000||menu_end_cycles-menu_start_cycles>20001000){fprintf(stderr,"menu timeout not 5 seconds: %u cycles\n",menu_end_cycles-menu_start_cycles);return 1;}
+ if(menu_phase!=2){fprintf(stderr,"both menus were not completed\n");return 1;}
+ for(unsigned k=0;k<2;k++){
+  unsigned elapsed=menu_end_cycles[k]-menu_start_cycles[k];
+  if(menu_key[k]){if(!menu_key_sent[k]||elapsed>1200){fprintf(stderr,"menu %u key not immediate: %u\n",k,elapsed);return 1;}}
+  else if(elapsed<19920000||elapsed>20001000){fprintf(stderr,"menu %u timeout not 5 seconds: %u cycles\n",k,elapsed);return 1;}
+ }
  if(reject){
   char message[40];snprintf(message,sizeof(message),"BOOT ERROR AT STEP %02X",MC6800GetCpuRam()[0x18a]);
   if(committed||debug!=0xee||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[12]!=4
@@ -185,9 +193,9 @@ int main(int argc,char**argv){
  if(PC!=reset_vector){fprintf(stderr,"handoff failed pc=%04x expected=%04x\n",PC,reset_vector);return 1;}
  for(unsigned n=0;n<200000;n++){if(n%10000==0){tick=128;MC6800SetInterrupt(1);}MC6800Step();}
  unsigned reads=sd_reads,writes=all_writes;physical[0x81234]=0x5a;
- unsigned saved_model=model_a;MC6800Reset();if(model_a!=saved_model||PC!=reset_vector||!committed||physical[0x81234]!=0x5a){fprintf(stderr,"warm reset failed\n");return 1;}
+ unsigned saved_model=model_a,saved_cpu=cpu_hd;MC6800Reset();if(cpu_hd!=saved_cpu||MC6800GetMachine()!=(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601)||model_a!=saved_model||PC!=reset_vector||!committed||physical[0x81234]!=0x5a){fprintf(stderr,"warm reset failed\n");return 1;}
  for(unsigned n=0;n<1000;n++)MC6800Step();
  if(reads!=sd_reads||writes!=all_writes||physical[0x81234]!=0x5a){fprintf(stderr,"warm reload/memory loss\n");return 1;}
- printf("PASS MC6800 software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads);
+ printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads);
  return 0;
 }

@@ -7,7 +7,7 @@ use std.env.all;
 use work.cpu_interrupt_labels.all;
 
 entity tb_cpu_interrupts is
- generic(SCENARIO:natural:=0;IRQ_DELAY:natural:=0);
+ generic(SCENARIO:natural:=0;IRQ_DELAY:natural:=0;HD:boolean:=false);
 end;
 architecture test of tb_cpu_interrupts is
  type bytes is array(0 to 65535)of std_logic_vector(7 downto 0);
@@ -31,12 +31,13 @@ architecture test of tb_cpu_interrupts is
  signal irq:std_logic:='0';signal registers:std_logic_vector(71 downto 0);
  signal nmi:std_logic:='0';
  signal opcode:std_logic_vector(7 downto 0);signal decode:std_logic;
- signal injected:boolean:=false;
+ signal injected:boolean:=false;signal hd_mode:std_logic;
 begin
+ hd_mode<='1' when HD else '0';
  clk<=not clk after 5 ns;reset<='0' after 45 ns;
  din<=memory(to_integer(unsigned(address)));
  cpu:entity work.cpu6800_lockstep port map(clk,reset,rw,vma,address,din,dout,
-  '0','0',irq,nmi,open,registers,opcode,decode,open);
+  '0','0',irq,nmi,open,registers,opcode,decode,open,hd_mode);
  process
   variable armed:boolean:=false;variable remaining:natural:=0;
   variable swi_seen,irq_seen:boolean:=false;

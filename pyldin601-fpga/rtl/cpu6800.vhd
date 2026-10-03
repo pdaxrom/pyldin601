@@ -79,13 +79,15 @@ entity cpu6800 is
 		irq:      in  std_logic;
 		nmi:      in  std_logic;
 		test_alu: out std_logic_vector(15 downto 0);
-		test_cc:  out std_logic_vector(7 downto 0)
+		test_cc:  out std_logic_vector(7 downto 0);
+      hd6303_en: in std_logic := '0'
 		);
 end;
 
 -- Local classic-MC6800 adaptation. Keep vendor/cpu68.vhd unmodified.
--- Disable 6801-only opcodes at fetch; CPX compares high and low bytes separately,
--- preserving carry as in MC6800 (no low-byte borrow into N/V).
+-- hd6303_en is sampled at instruction fetch: 0 = MC6800, 1 = HD6303 ISA.
+-- MC6800 unknown opcodes retain the existing one-byte NOP behaviour.
+-- HD6303 undefined opcodes trap through FFEE; no on-chip peripherals are added.
 architecture CPU_ARCH of cpu6800 is
   function classic_opcode(op : std_logic_vector(7 downto 0)) return boolean is
   begin
@@ -114,6 +116,26 @@ architecture CPU_ARCH of cpu6800 is
         end if;
         return false;
     end case;
+  end function;
+
+
+  function hd_opcode(op : std_logic_vector(7 downto 0)) return boolean is
+  begin
+    if classic_opcode(op) then return true; end if;
+    case op is
+      when x"04" | x"05" | x"18" | x"1A" | x"21" | x"38" | x"3A" | x"3C" | x"3D" |
+           x"61" | x"62" | x"65" | x"6B" | x"71" | x"72" | x"75" | x"7B" |
+           x"83" | x"93" | x"A3" | x"B3" | x"9D" |
+           x"C3" | x"D3" | x"E3" | x"F3" | x"CC" | x"DC" | x"EC" | x"FC" |
+           x"DD" | x"ED" | x"FD" => return true;
+      when others => return false;
+    end case;
+  end function;
+  function mask_opcode(op : std_logic_vector(7 downto 0)) return boolean is
+  begin
+    return (op(7 downto 4)=x"6" or op(7 downto 4)=x"7") and
+           (op(3 downto 0)=x"1" or op(3 downto 0)=x"2" or
+            op(3 downto 0)=x"5" or op(3 downto 0)=x"B");
   end function;
 
 
@@ -146,7 +168,8 @@ architecture CPU_ARCH of cpu6800 is
 							  pula_state, psha_state, pulb_state, pshb_state,
 						     pulx_lo_state, pulx_hi_state, pshx_lo_state, pshx_hi_state,
 							  vect_lo_state, vect_hi_state,
-							  stall1_state, stall2_state );
+							  stall1_state, stall2_state, mask_address_state, mask_index_state,
+                       xgdx_ix_state, xgdx_d_state, sleep_state, mul_finish_state );
 	type addr_type is (idle_ad, fetch_ad, read_ad, write_ad, push_ad, pull_ad, int_hi_ad, int_lo_ad );
 	type dout_type is (md_lo_dout, md_hi_dout, acca_dout, accb_dout, ix_lo_dout, ix_hi_dout, cc_dout, pc_lo_dout, pc_hi_dout );
    type op_type is (reset_op, fetch_op, latch_op );
@@ -155,13 +178,13 @@ architecture CPU_ARCH of cpu6800 is
    type cc_type is (reset_cc, load_cc, pull_cc, latch_cc );
 	type ix_type is (reset_ix, load_ix, pull_lo_ix, pull_hi_ix, latch_ix );
 	type sp_type is (reset_sp, latch_sp, load_sp );
-	type pc_type is (reset_pc, latch_pc, load_ea_pc, add_ea_pc, pull_lo_pc, pull_hi_pc, inc_pc );
+	type pc_type is (reset_pc, latch_pc, load_ea_pc, add_ea_pc, pull_lo_pc, pull_hi_pc, inc_pc, dec_pc );
    type md_type is (reset_md, latch_md, load_md, fetch_first_md, fetch_next_md, shiftl_md );
    type ea_type is (reset_ea, latch_ea, add_ix_ea, load_accb_ea, inc_ea, fetch_first_ea, fetch_next_ea );
-	type iv_type is (reset_iv, wai_iv, latch_iv, swi_iv, nmi_iv, irq_iv );
+	type iv_type is (reset_iv, wai_iv, latch_iv, swi_iv, nmi_iv, irq_iv, trap_iv );
 	type nmi_type is (reset_nmi, set_nmi, latch_nmi );
 	type left_type is (acca_left, accb_left, accd_left, md_left, ix_left, sp_left );
-	type right_type is (md_right, zero_right, plus_one_right, accb_right );
+	type right_type is (md_right, zero_right, plus_one_right, accb_right, mask_right );
    type alu_type   is (alu_add8, alu_sub8, alu_add16, alu_sub16, alu_adc, alu_sbc, 
                        alu_and, alu_ora, alu_eor,
                        alu_tst, alu_inc, alu_dec, alu_clr, alu_neg, alu_com,
@@ -170,7 +193,7 @@ architecture CPU_ARCH of cpu6800 is
 						     alu_ror8, alu_rol8,
 						     alu_asr8, alu_asl8, alu_lsr8,
 						     alu_sei, alu_cli, alu_sec, alu_clc, alu_sev, alu_clv, alu_tpa, alu_tap,
-						     alu_ld8, alu_st8, alu_ld16, alu_st16, alu_nop, alu_daa );
+						     alu_ld8, alu_st8, alu_ld16, alu_st16, alu_nop, alu_daa, alu_mul_flags );
 
 	signal op_code:     std_logic_vector(7 downto 0);
   	signal acca:        std_logic_vector(7 downto 0);
@@ -185,7 +208,9 @@ architecture CPU_ARCH of cpu6800 is
    signal left:        std_logic_vector(15 downto 0);
    signal right:       std_logic_vector(15 downto 0);
 	signal out_alu:     std_logic_vector(15 downto 0);
-	signal iv:          std_logic_vector(1 downto 0);
+	signal iv:          std_logic_vector(3 downto 0);
+   signal op_hd, illegal_op : std_logic;
+   signal immediate_mask : std_logic_vector(7 downto 0);
 	signal nmi_req:     std_logic;
 	signal nmi_ack:     std_logic;
 
@@ -245,11 +270,11 @@ begin
 		vma     <= '1';
 		rw      <= '1';
 	 when int_hi_ad =>
-	   address <= "1111111111111" & iv & "0";
+	   address <= "11111111111" & iv & "0";
 		vma     <= '1';
 		rw      <= '1';
     when int_lo_ad =>
-	   address <= "1111111111111" & iv & "1";
+	   address <= "11111111111" & iv & "1";
 		vma     <= '1';
 		rw      <= '1';
 	 when others =>
@@ -310,6 +335,8 @@ begin
     end if;
   when inc_pc =>
 	 tempof := "0000000000000001";
+  when dec_pc =>
+    tempof := x"FFFF";
   when others =>
     tempof := "0000000000000000";
   end case;
@@ -564,13 +591,15 @@ begin
 	 else
     case iv_ctrl is
 	 when reset_iv | wai_iv =>
-	   iv <= "11";
+	   iv <= x"F";
 	 when nmi_iv =>
-      iv <= "10";
+      iv <= x"E";
   	 when swi_iv =>
-      iv <= "01";
+      iv <= x"D";
 	 when irq_iv =>
-      iv <= "00";
+      iv <= x"C";
+    when trap_iv =>
+      iv <= x"7";
 	 when others =>
 	   iv <= iv;
     end case;
@@ -593,8 +622,14 @@ begin
     case op_ctrl is
 	 when reset_op =>
 	   op_code <= "00000001"; -- nop
+      op_hd <= '0'; illegal_op <= '0';
   	 when fetch_op =>
-      if classic_opcode(data_in) then op_code <= data_in;
+      op_hd <= hd6303_en;
+      illegal_op <= '0';
+      if hd6303_en='1' then
+        op_code <= data_in;
+        if not hd_opcode(data_in) then illegal_op <= '1'; end if;
+      elsif classic_opcode(data_in) then op_code <= data_in;
       else op_code <= x"01"; end if;
 	 when others =>
 --	 when latch_op =>
@@ -609,6 +644,15 @@ end process;
 -- Left Mux
 --
 ----------------------------------
+
+mask_latch: process(clk)
+begin
+  if falling_edge(clk) then
+    if hold='0' and state=decode_state and mask_opcode(op_code) and op_hd='1' then
+      immediate_mask <= data_in;
+    end if;
+  end if;
+end process;
 
 left_mux: process( left_ctrl, acca, accb, xreg, sp, pc, ea, md )
 begin
@@ -637,7 +681,7 @@ end process;
 --
 ----------------------------------
 
-right_mux: process( right_ctrl, data_in, md, accb, ea )
+right_mux: process( right_ctrl, data_in, md, accb, ea, immediate_mask )
 begin
   case right_ctrl is
 	 when zero_right =>
@@ -646,6 +690,8 @@ begin
 	   right <= "0000000000000001";
 	 when accb_right =>
 	   right <= "00000000" & accb;
+    when mask_right =>
+      right <= x"00" & immediate_mask;
 	 when others =>
 --	 when md_right =>
 	   right <= md;
@@ -743,7 +789,7 @@ begin
 						         (right(15) and out_alu(15));
 	 when alu_ror8 | alu_lsr16 | alu_lsr8 | alu_asr8 =>
 	   cc_out(CBIT) <= left(0);
-	 when alu_rol8 | alu_asl8 =>
+	 when alu_rol8 | alu_asl8 | alu_mul_flags =>
 	   cc_out(CBIT) <= left(7);
 	 when alu_lsl16 =>
 	   cc_out(CBIT) <= left(15);
@@ -955,7 +1001,7 @@ end process;
 -- state sequencer
 --
 ------------------------------------
-process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
+process( state, op_code, op_hd, illegal_op, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt, hd6303_en, data_in )
   	begin
 		  case state is
           when reset_state =>        --  released from reset
@@ -1176,7 +1222,8 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
 					  when "1100" => -- cpx
 					    left_ctrl   <= ix_left;
 					    right_ctrl  <= md_right;
-					    alu_ctrl    <= alu_cpx;
+					    if op_hd='1' then alu_ctrl <= alu_sub16;
+                   else alu_ctrl <= alu_cpx; end if;
 						 cc_ctrl     <= load_cc;
 					    acca_ctrl   <= latch_acca;
                    accb_ctrl   <= latch_accb;
@@ -2964,7 +3011,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(0) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -2992,7 +3039,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(1) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3020,7 +3067,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(2) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3048,7 +3095,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(3) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3076,7 +3123,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(4) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3104,7 +3151,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(5) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3132,7 +3179,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(6) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3160,7 +3207,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
                  right_ctrl <= md_right;
                  alu_ctrl   <= alu_add16;
 					  if ea(7) = '1' then
-                   cc_ctrl    <= load_cc;
+                   cc_ctrl    <= latch_cc;
                    acca_ctrl  <= load_hi_acca;
                    accb_ctrl  <= load_accb;
 					  else
@@ -3172,7 +3219,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
 					  -- idle bus
                  addr_ctrl  <= idle_ad;
                  dout_ctrl  <= md_lo_dout;
-				     next_state <= fetch_state;
+				     next_state <= mul_finish_state;
 
 			    when execute_state => -- execute single operand instruction
 				   -- default
@@ -3819,7 +3866,7 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
              -- was decoded. Never choose it again from live pins or op_code:
              -- the latter can contain an instruction fetched but not executed.
              iv_ctrl <= latch_iv;
-             if iv = "11" then -- WAI frame; no vector until an interrupt
+             if iv = x"F" then -- WAI frame; no vector until an interrupt
                next_state <= int_wai_state;
              else
                -- Save the original CCR, then mask IRQ for IRQ/NMI/SWI entry.
@@ -3961,6 +4008,75 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
              dout_ctrl  <= md_lo_dout;
 			    next_state <= fetch_state;
 
+
+    when mask_address_state =>
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+      addr_ctrl <= fetch_ad; pc_ctrl <= inc_pc; ea_ctrl <= fetch_first_ea;
+      if op_code(4)='0' then next_state <= mask_index_state;
+      else next_state <= read8_state; end if;
+    when mask_index_state =>
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+      ea_ctrl <= add_ix_ea; next_state <= read8_state;
+    when xgdx_ix_state =>
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+      left_ctrl <= accd_left; alu_ctrl <= alu_st16; ix_ctrl <= load_ix;
+      next_state <= xgdx_d_state;
+    when xgdx_d_state =>
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+      right_ctrl <= md_right; alu_ctrl <= alu_ld16;
+      acca_ctrl <= load_hi_acca; accb_ctrl <= load_accb;
+      next_state <= fetch_state;
+    when mul_finish_state =>
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+      left_ctrl <= accd_left; alu_ctrl <= alu_mul_flags; cc_ctrl <= load_cc;
+      next_state <= fetch_state;
+    when sleep_state =>
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+      next_state <= sleep_state;
+      if nmi_req='1' and nmi_ack='0' then
+        nmi_ctrl <= set_nmi; iv_ctrl <= nmi_iv; next_state <= int_pcl_state;
+      elsif irq='1' then
+        if cc(IBIT)='0' then iv_ctrl <= irq_iv; next_state <= int_pcl_state;
+        else next_state <= fetch_state; end if;
+      elsif nmi_req='0' then nmi_ctrl <= reset_nmi;
+      end if;
+
 			  when others => -- error state halt on undefine states
 				 -- default
              acca_ctrl  <= latch_acca;
@@ -3983,6 +4099,68 @@ process( state, op_code, cc, ea, iv, irq, nmi_req, nmi_ack, hold, halt )
              dout_ctrl  <= md_lo_dout;
 				 next_state <= error_state;
 		  end case;
+
+    -- Undefined HD6303 fetch has priority over NMI/IRQ (Hitachi TRAP).
+    -- Do not acknowledge a competing interrupt or let it steal this frame.
+    if state=fetch_state and hd6303_en='1' and not hd_opcode(data_in) and halt='0' then
+      pc_ctrl <= inc_pc; iv_ctrl <= latch_iv; nmi_ctrl <= latch_nmi;
+      next_state <= decode_state;
+    end if;
+    if state=decode_state and op_hd='1' then
+      if illegal_op='1' then
+
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+        -- Save the offending opcode address, allowing a handler to inspect it.
+        pc_ctrl <= dec_pc; iv_ctrl <= trap_iv; next_state <= int_pcl_state;
+      elsif mask_opcode(op_code) then
+
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+        addr_ctrl <= fetch_ad; pc_ctrl <= inc_pc; next_state <= mask_address_state;
+      elsif op_code=x"18" then
+
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+        left_ctrl <= ix_left; alu_ctrl <= alu_st16; md_ctrl <= load_md;
+        next_state <= xgdx_ix_state;
+      elsif op_code=x"1A" then
+
+      acca_ctrl <= latch_acca; accb_ctrl <= latch_accb; ix_ctrl <= latch_ix;
+      sp_ctrl <= latch_sp; pc_ctrl <= latch_pc; md_ctrl <= latch_md;
+      iv_ctrl <= latch_iv; op_ctrl <= latch_op; nmi_ctrl <= latch_nmi;
+      ea_ctrl <= latch_ea; left_ctrl <= acca_left; right_ctrl <= zero_right;
+      alu_ctrl <= alu_nop; cc_ctrl <= latch_cc;
+      addr_ctrl <= idle_ad; dout_ctrl <= md_lo_dout;
+
+        next_state <= sleep_state;
+      end if;
+    elsif state=execute_state and mask_opcode(op_code) then
+      right_ctrl <= mask_right; cc_ctrl <= load_cc;
+      case op_code(3 downto 0) is
+        when x"1" | x"B" => alu_ctrl <= alu_and;
+        when x"2" => alu_ctrl <= alu_ora;
+        when others => alu_ctrl <= alu_eor;
+      end case;
+      if op_code(3 downto 0)=x"B" then
+        md_ctrl <= latch_md; next_state <= fetch_state; -- TIM never writes.
+      else md_ctrl <= load_md; next_state <= write8_state; end if;
+    end if;
 end process;
 
 --------------------------------

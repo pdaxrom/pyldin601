@@ -1,6 +1,7 @@
 `timescale 1ns/1ps
-module system_fixture(input cpu_rw,cpu_vma,input[15:0]cpu_addr,input[7:0]cpu_out,output cpu_clk,cpu_reset,cpu_hold,cpu_irq,output[7:0]cpu_in);
+module system_fixture(input cpu_rw,cpu_vma,input[15:0]cpu_addr,input[7:0]cpu_out,output cpu_clk,cpu_reset,cpu_hold,cpu_irq,output[7:0]cpu_in,output hd6303_en);
 reg clk=0;always #5 clk=~clk;
+integer menu_writes=0;always @(posedge clk)if(dut.bus_write&&cpu_addr==16'he6a0)menu_writes=menu_writes+1;
 reg resetn=1,psclk=1,psdata=1;wire cs,sck,mosi;reg miso=1;
 wire[19:0]sa;wire[15:0]sd;wire ce,oe,we,ub,lb;
 wire[5:0]tv;wire[1:0]audio;
@@ -10,7 +11,7 @@ classic_system #(
  `else
  .BOOT_FILE("build/boot.mem")
  `endif
- ) dut(.clk(clk),.pll_locked(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),.cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),.btn_resetn(resetn),.ps2clk(psclk),.ps2dat(psdata),.rxd(1'b1),
+ ) dut(.clk(clk),.pll_locked(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),.cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),.hd6303_en(hd6303_en),.btn_resetn(resetn),.ps2clk(psclk),.ps2dat(psdata),.rxd(1'b1),
  .mss(cs),.msck(sck),.mosi(mosi),.miso(miso),.SRAM_ADDR(sa),.SRAM_DATA(sd),
  .SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb),.tvout(tv),.audio(audio),.seg_led_h(),.seg_led_l(),.led_rgb(),.txd());
 task key_byte;input[7:0]b;reg[10:0]frame;integer n;
@@ -24,6 +25,24 @@ initial begin
  // Wait for the real menu's timer read, then enter using physical PS/2.
  wait(dut.bus_read&&cpu_addr==16'he62b);
  `ifdef BOOT_MODEL_A
+ key_byte(8'h1e);
+ `else
+ key_byte(8'h5a);
+ `endif
+ // Hold the first selection across the whole redraw and into the second
+ // menu: it must not count as a fresh CPU choice.
+ wait(menu_writes>=1);
+ wait(dut.bus_read&&cpu_addr==16'he62b);
+ #500000;
+ if(menu_writes!=1)$fatal(1,"held model key also selected CPU");
+ key_byte(8'hf0);
+ `ifdef BOOT_MODEL_A
+ key_byte(8'h1e);
+ `else
+ key_byte(8'h5a);
+ `endif
+ #100000;
+ `ifdef BOOT_HD6303
  key_byte(8'h1e);key_byte(8'hf0);key_byte(8'h1e);
  `else
  key_byte(8'h5a);key_byte(8'hf0);key_byte(8'h5a);
@@ -70,6 +89,12 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
                     cmd_count=0;
                     case(command[0][5:0])
                         0:begin
+                            if(menu_writes!=2)$fatal(1,"SD started before both selections");
+ `ifdef BOOT_HD6303
+                            if(!hd6303_en)$fatal(1,"HD6303 menu did not enable CPU input");
+ `else
+                            if(hd6303_en)$fatal(1,"MC6800 menu enabled extended ISA");
+ `endif
                             if(dut.video.stride!==
  `ifdef BOOT_MODEL_A
  8'd80

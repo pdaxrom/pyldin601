@@ -10,7 +10,7 @@ module classic_boot_ports(
  output reg locked,output wire boot_mode,output reg error,output reg[7:0]debug,
  output reg sd_block_addressing,output wire[31:0]a_start,a_sectors,b_start,b_sectors,
  output wire[7:0]a_spt,a_heads,b_spt,b_heads,
- output wire[8:0]a_cylinders,b_cylinders,output wire boot_b,output reg model_a
+ output wire[8:0]a_cylinders,b_cylinders,output wire boot_b,output reg model_a,output reg hd6303_en
 );
  reg[23:0]write_address;reg[7:0]write_data,read_data;reg pending,issued,writing;
  reg[31:0]crc;reg[767:0]configuration;reg[6:0]config_index;
@@ -42,7 +42,7 @@ module classic_boot_ports(
  always @*begin
   bus_result=8'hff;
   case(address)
-   0:bus_result={locked,error,5'b0,model_a};1:bus_result=debug;2:bus_result={7'b0,sd_block_addressing};
+   0:bus_result={locked,error,4'b0,hd6303_en,model_a};1:bus_result=debug;2:bus_result={7'b0,sd_block_addressing};
    8:bus_result={error,6'b0,pending};
    11:bus_result=read_data;
    12:bus_result=crc[7:0]^8'hff;13:bus_result=crc[15:8]^8'hff;
@@ -51,7 +51,7 @@ module classic_boot_ports(
  end
  always @(posedge clk)begin
   if(cold_reset)begin
-   locked<=0;model_a<=0;error<=0;debug<=0;sd_block_addressing<=0;write_address<=0;write_data<=0;
+   locked<=0;model_a<=0;hd6303_en<=0;error<=0;debug<=0;sd_block_addressing<=0;write_address<=0;write_data<=0;
    pending<=0;issued<=0;writing<=0;read_data<=0;crc<=32'hffffffff;configuration<=0;config_index<=0;
   end else begin
    if(mem_request&&mem_ready)issued<=1;
@@ -69,8 +69,8 @@ module classic_boot_ports(
     7:if(!pending&&write_address<24'h200000)begin write_data<=bus_data;writing<=1;pending<=1;issued<=0;end else error<=1;
     11:if(!pending&&write_address<24'h200000)begin writing<=0;pending<=1;issued<=0;end else error<=1;
     9:crc<=crc32(crc,bus_data);10:crc<=32'hffffffff;
-    // Model is selected before loading configuration and retained with ROM.
-    0:if(bus_data<=1&&config_index==0&&!pending)model_a<=bus_data[0];
+    // Machine and ISA are selected before configuration and retained with ROM.
+    0:if(bus_data<=3&&config_index==0&&!pending)begin model_a<=bus_data[0];hd6303_en<=bus_data[1];end
       else if(bus_data==8'ha5&&!error&&!pending&&spi_idle&&config_index==96
        &&configuration[63:0]==64'h544f4f4231303650&&version==1&&base==32'h10000&&length==32'h51800
        &&configuration[200+:8]=={7'b0,model_a}&&configuration[192+:8]<=1&&(crc^32'hffffffff)==expected_crc&&geometry_valid&&bounds_valid)

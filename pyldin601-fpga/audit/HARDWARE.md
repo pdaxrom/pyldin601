@@ -1,4 +1,41 @@
-# Запись SD и FPGA, 2 октября 2026
+# Запись SD и FPGA
+
+## Последняя записанная версия с выбором CPU, 3 октября 2026
+
+Записан `build/diamond/cpu-isa/impl1/pyldin601_classic_impl1.jed`:
+SHA-256 `769bfaa459ff931c37fadc91da779bcd9cd948c4e153900ff25d2b2d490753e8`.
+Все 31 входной файл совпали с `build/diamond/source-cpu-isa.sha256.json`.
+FLASH Verify ID и Erase,Program,Verify завершились успешно;
+JTAG Chain Verification без ошибок. Programmer: 56 секунд, wall: 67.19 секунды.
+uJ11 `hgfsd --jtag-only` подтвердил высокий JTAGENB через FTDI до и после.
+Журналы/XCF/result — `build/hardware-cpu-isa`.
+
+После выбора 601/601A отдельное меню выбирает MC6800 или HD6303 ISA;
+по умолчанию MC6800, таймаут 5 секунд. Меню находится в FPGA ROM,
+SD не перезаписывалась. Физическая проверка выбора CPU пользователем
+ещё не выполнена. [Файл, ресурсы и проверки](HD6303.md).
+
+## Предыдущая записанная версия 601/601A, 3 октября 2026
+
+Записан `build/diamond/models-ebr/impl1/pyldin601_classic_impl1.jed`:
+SHA-256 `23aed1527bf33304f413f177a7ca2452ccff7d694c418609a0bec872bd603398`.
+Все 31 входной файл совпали с `build/diamond/source-models-ebr.sha256.json`.
+FLASH Verify ID и Erase,Program,Verify успешны, wall time 66.45 секунды.
+uJ11 `hgfsd --jtag-only` и FTDI readback подтвердили высокий JTAGENB
+до и после записи. Журналы/XCF/result — `build/hardware-models`.
+
+На SD обновлены только 16 МиБ первого раздела со смещения 1 МиБ:
+текущий LOADER.BIN, прежний P601.ROM, новый P601A.ROM и P601.CFG.
+Прямое чтение подтвердило записанный том; MBR и диски A/B сохранены
+побайтно. Копии/отчёт — `build/sd-models/sd-before.img`, `sd-after.img`,
+`sd-write.json`. [Разметка и подготовка обновления](../SD-card.md).
+
+Пользователь подтвердил: 601A загрузился, текст 80 колонок и DIR работают.
+Аппаратная runtime-отладка выключена, электронный диск включён.
+Цветные режимы 601A физически ещё не подтверждены; ранее пользователь
+подтвердил цвет классической 601 и электронный диск.
+
+## Первоначальная запись, 2 октября 2026
 
 По явному разрешению пользователя JED записан во внутреннюю FLASH
 LCMXO2-7000HC на Linux-машине `sash@192.168.1.108` через Diamond Programmer

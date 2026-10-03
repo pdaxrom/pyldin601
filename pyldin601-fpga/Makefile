@@ -46,7 +46,7 @@ test-runtime-irq: fixtures $(STABILITY_IMAGE)
 	@cat $(BUILD)/runtime-irq.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-irq.log').read_text()"
 
-test: test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
 firmware: | $(BUILD)
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
 	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
@@ -81,6 +81,10 @@ test-firmware: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img 601a
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img hd6303
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img 601a-hd6303
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img both-enter
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img both-key1
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img enter
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img key1
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/wrong-model.img 601a-reject
@@ -143,3 +147,30 @@ DIAMOND_LIBSTDCPP ?= /lib/x86_64-linux-gnu/libstdc++.so.6
 .PHONY: diamond
 diamond: firmware
 	LD_PRELOAD="$(DIAMOND_LIBSTDCPP)" "$(DIAMOND_HOME)/bin/lin64/diamondc" build-diamond.tcl
+
+.PHONY: test-hd6303
+test-hd6303: test-cpu test-hd6303-edges
+	$(BUILD)/cpu_reference $(BUILD)/cpu.bin $(BUILD)/classic-hd.expected.mem hd6303
+	cp $(BUILD)/cpu.mem $(BUILD)/classic-hd.mem
+	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -e -gPREFIX=classic-hd -gHD=true tb_cpu -r tb_cpu
+	$(PYTHON) tests/prepare_hd6303.py
+	$(BUILD)/cpu_reference $(BUILD)/hd6303.bin $(BUILD)/hd6303.expected.mem hd6303
+	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -e -gPREFIX=hd6303 -gHD=true -gLAST_RESULT=57343 tb_cpu -r tb_cpu
+
+.PHONY: test-hd6303-edges
+test-hd6303-edges: fixtures
+	$(PYTHON) tests/prepare_boot_lockstep.py
+	$(PYTHON) tests/prepare_hd6303_edges.py
+	$(NVC) --std=2008 --work=work:$(BUILD)/hd-edges --ieee-warnings=off -a $(BUILD)/cpu6800_lockstep.vhd $(BUILD)/hd-edge-labels.vhd tests/tb_hd6303_edges.vhd
+	@set -e; for scenario in 0 1 2 3 4 5; do $(NVC) --std=2008 --work=work:$(BUILD)/hd-edges --ieee-warnings=off -e -gSCENARIO=$$scenario tb_hd6303_edges -r tb_hd6303_edges; done
+
+# Both ROM bundles use the same classic machine peripherals; ISA selection is independent.
+.PHONY: test-stage1-hd
+test-stage1-hd: fixtures
+	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-hd --ieee-warnings=off -a -D BOOT_HD6303=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-hd.log 2>&1
+	@cat $(BUILD)/stage1-hd.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-hd.log').read_text()"
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a-hd --ieee-warnings=off -a -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a-hd.log 2>&1
+	@cat $(BUILD)/stage1-a-hd.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a-hd.log').read_text()"

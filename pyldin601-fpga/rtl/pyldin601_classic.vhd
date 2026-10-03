@@ -27,6 +27,7 @@ entity pyldin601_classic is
  );end;
 architecture board_hardware_lcd of pyldin601_classic is
  signal clk,pll_locked,cpu_clk,cpu_reset,cpu_hold,cpu_irq,cpu_rw,cpu_vma:std_logic;
+ signal hd6303_en:std_logic;
  signal cpu_addr:std_logic_vector(15 downto 0);signal cpu_out,cpu_in:std_logic_vector(7 downto 0);
  component classic_system is
  port(
@@ -61,12 +62,13 @@ architecture board_hardware_lcd of pyldin601_classic is
   SRAM_UB:out std_logic;
   SRAM_LB:out std_logic;
   tvout:out std_logic_vector(5 downto 0);
-  audio:out std_logic_vector(1 downto 0)
+  audio:out std_logic_vector(1 downto 0);
+  hd6303_en:out std_logic
  );end component;
 begin
  flash_cs<='1';flash_wp<='1';flash_hold<='1';flash_si<='0';flash_sck<='0';
  pll:entity work.classic_pll port map(clk_ext,clk,open,open,pll_locked);
- cpu:entity work.cpu6800 port map(cpu_clk,cpu_reset,cpu_rw,cpu_vma,cpu_addr,cpu_in,cpu_out,cpu_hold,'0',cpu_irq,'0',open,open);
+ cpu:entity work.cpu6800 port map(cpu_clk,cpu_reset,cpu_rw,cpu_vma,cpu_addr,cpu_in,cpu_out,cpu_hold,'0',cpu_irq,'0',open,open,hd6303_en);
  system:classic_system port map(
   clk=>clk,
   pll_locked=>pll_locked,
@@ -99,5 +101,5 @@ begin
   SRAM_UB=>SRAM_UB,
   SRAM_LB=>SRAM_LB,
   tvout=>tvout,
-  audio=>audio);
+  audio=>audio,hd6303_en=>hd6303_en);
 end;

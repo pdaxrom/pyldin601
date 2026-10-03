@@ -78,11 +78,12 @@ initial begin
  put(0,1);header[25]=1;for(i=0;i<96;i=i+1)put(3,header[i]);
  put(0,0);#1;if(!dut.model_a||!error)$fatal(1,"model changed after configuration");
  cold=1;repeat(2)@(negedge clk);cold=0;
- put(0,1);for(i=0;i<96;i=i+1)put(3,header[i]);put(0,8'ha5);
+ put(0,3);address=0;#1;if(result!=3||!dut.hd6303_en)$fatal(1,"CPU ISA selection/status");
+ for(i=0;i<96;i=i+1)put(3,header[i]);put(0,8'ha5);
  if(!locked||!dut.model_a||error)$fatal(1,"601A commit failed");
  warm=1;repeat(2)@(negedge clk);warm=0;put(0,0);
- if(!locked||!dut.model_a||error)$fatal(1,"warm reset or runtime model change");
- cold=1;repeat(2)@(negedge clk);cold=0;put(4,0);put(5,0);put(6,8'h20);put(11,0);#20;
+ if(!locked||!dut.model_a||!dut.hd6303_en||error)$fatal(1,"warm reset or runtime mode change");
+ cold=1;repeat(2)@(negedge clk);cold=0;if(dut.hd6303_en)$fatal(1,"cold CPU not MC6800");put(4,0);put(5,0);put(6,8'h20);put(11,0);#20;
  if(!error||request||reads!=3)$fatal(1,"out-of-range SRAM read accepted");
  $display("PASS boot aperture readback, warm drain, bounds, retained lock; 512KiB electronic disk initialized with one SRAM transaction per byte");$finish;
 end

@@ -8,7 +8,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  output wire mss,msck,mosi,input wire miso,
  output wire[19:0]SRAM_ADDR,inout wire[15:0]SRAM_DATA,
  output wire SRAM_CE,SRAM_OE,SRAM_WE,SRAM_UB,SRAM_LB,
- output wire[5:0]tvout,output wire[1:0]audio
+ output wire[5:0]tvout,output wire[1:0]audio,output wire hd6303_en
 );
  reg[7:0]power_delay=255;
  always @(posedge clk)if(!pll_locked)power_delay<=255;else if(power_delay!=0)power_delay<=power_delay-1'b1;
@@ -80,7 +80,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  classic_boot_ports boot(clk,cold_reset,cpu_reset,bus_read&&boot_io,bus_write&&boot_io,
   cpu_addr[3:0],cpu_out,boot_result,boot_request,boot_write,boot_address,boot_data,boot_accept,boot_done,memory_read_data,
   !raw_busy&&raw_cs,locked,boot_mode,boot_error,boot_debug,sd_mode,
-  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a);
+  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a,hd6303_en);
  wire fdc_request,fdc_write,fdc_buffer_write,fdc_active;wire[31:0]fdc_lba;
  wire[8:0]fdc_buffer_address;wire[7:0]fdc_buffer_data,fdc_result,sd_buffer_result;
  classic_fdc fdc(clk,cpu_reset,bus_read&&fdc_io,bus_write&&fdc_io,cpu_addr[4:0],cpu_out,

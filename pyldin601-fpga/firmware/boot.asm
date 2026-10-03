@@ -47,6 +47,7 @@ UI_BLOCK equ $18b
 UI_TOTAL equ $18c
 VERIFY_BLOCKS equ $18d
 MENU_TICKS equ $18e
+MENU_KEY equ $18f
 MODEL equ $e6a0
     org $f000
     jmp cold_start
@@ -60,7 +61,10 @@ cold_start:
     sei
     lds #$1fff
     jsr ui_init
+    ldaa #$ff
+    staa MENU_KEY
     jsr choose_model
+    jsr choose_cpu
     ldaa #1
     jsr ui_status
     jsr sd_init
@@ -921,9 +925,25 @@ loader_name:
  ; Model selection occurs before any SD access or ROM load. 1/2 select and
  ; start immediately; Enter starts the default. PAL ticks give a 5-second wait.
 choose_model:
+    ldx #menu_choices
+    jsr choose_option
+    staa MODEL
+    jmp ui_init
+choose_cpu:
+    ldx #cpu_choices
+    jsr choose_option
+    asla
+    oraa MODEL
+    staa MODEL
+    jmp ui_init
+; Both menus return 0/1. Remember the last key until it changes (normally
+; through FF on release), so one held make cannot select both screens.
+choose_option:
+    pshb
+    stx UI_TEXT
     ldx #$450
     stx UI_DEST
-    ldx #menu_choices
+    ldx UI_TEXT
     jsr ui_puts
     ldx #$4a0
     stx UI_DEST
@@ -934,28 +954,34 @@ choose_model:
     staa MENU_TICKS
 menu_wait:
     ldaa $e628
+    cmpa MENU_KEY
+    beq menu_tick
+    staa MENU_KEY
     cmpa #'2'
-    beq menu_a
+    beq menu_second
     cmpa #'1'
-    beq menu_601
+    beq menu_first
     cmpa #$c0
-    beq menu_601
+    beq menu_first
+menu_tick:
     ldaa $e62b
     bpl menu_wait
     dec MENU_TICKS
     bne menu_wait
-menu_601:
+menu_first:
     clra
     bra menu_selected
-menu_a:
+menu_second:
     ldaa #1
 menu_selected:
-    staa MODEL
-    jmp ui_init
+    pulb
+    rts
 menu_choices:
     db "1 = PYLDIN 601   2 = PYLDIN 601A",0
+cpu_choices:
+    db "1 = MC6800       2 = HD6303",0
 menu_default:
-    db "DEFAULT 601 IN 5S / ENTER TO START",0
+    db "DEFAULT 1 IN 5S / ENTER TO START",0
     org $fa00
 crc16_hi:
     db $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$a1,$b1,$c1,$d1,$e1,$f1
