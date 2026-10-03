@@ -7,7 +7,7 @@ NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout fdc fdc_sd video video_text video_cursor transparent_video sram_stress
+BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability
 .PHONY: test-runtime-irq
@@ -58,6 +58,8 @@ test-python:
 test-rtl: firmware
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_video_reference.c -o $(BUILD)/prepare_video_reference
 	$(BUILD)/prepare_video_reference
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_keyboard_reference.c -o $(BUILD)/prepare_keyboard_reference
+	$(BUILD)/prepare_keyboard_reference
 	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
 	$(VVP) $(BUILD)/tb_sd +sdsc
 	$(VVP) $(BUILD)/tb_sd +badcrc

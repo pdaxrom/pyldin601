@@ -112,3 +112,37 @@ SHA-256: `5e47fb1106705af4c7783c44f86667e3a8090f96ffb6696fd6f067fabdb64d72`.
 Отчёты и result: `build/diamond/precommit`; архив исходников:
 `build/diamond/source-precommit.tar.gz` и `.sha256.json`.
 Повторная сборка не программировала плату.
+
+## Клавиатура и PAL, 3 октября 2026
+
+Исправлены PS/2-коды навигации и лишняя Кир/Лат от Scroll Lock.
+Номер строки шрифта во втором поле PAL теперь меняется на границе полной
+горизонтальной строки. Подробности и отрицательные проверки старого RTL:
+[IO-FIXES.md](IO-FIXES.md).
+
+`make test-rtl test-board-syntax test-memory-bus test-runtime-irq
+STABILITY_IMAGE=build/sd-text.img` прошёл с кодом 0:
+`build/io-pal-regression.log`. Новые проверки: 184 случая клавиатуры,
+128000 пикселей шрифта и 768000 пикселей MC6845 в обоих полях PAL.
+Оба профиля SRAM прошли прежние 145400 CPU-слотов, 67160 видеочтений и
+606/630 чтений/записей электронного диска; настоящий CPU/BIOS выполнил
+двадцать IRQ/RTI с совпадением RAM, целым баннером и 172800 видеочтений.
+CPU и прошивки не менялись.
+
+Diamond 3.14: `/tmp/pyldin601-io-pal.l3TTXa`.
+Все 29 входных файлов сверены с `build/diamond/source-io-pal.sha256.json`.
+Synthesis/Translate/MAP/PAR/TRACE/Jedecgen прошли. Занято 5892/6864 LUT,
+3010/3432 slices, 1899/7209 registers, 8/26 EBR и 1/2 PLL.
+EBR: bootstrap 4, шрифт 2, SD/FDD buffer 2.
+Setup/hold negative slack 0, unconstrained paths 0. Все 1994 полупериодных
+пути system→CPU проходят 20 ns; worst 15.767 ns, margin 4.233 ns.
+
+JED: `build/diamond/io-pal/impl1/pyldin601_classic_impl1.jed`.
+SHA-256: `4fb2815b4e90849f2d3745abe0183dd72385e33c09184f5d979faad85fe2eca5`.
+Отчёты и результат: `build/diamond/io-pal`.
+Процедура записи и журналы: `build/hardware-io-pal`.
+
+FLASH Verify ID и Erase,Program,Verify прошли, JTAG Chain без ошибок.
+FTDI подтвердил высокий JTAGENB до и после записи. Wall time 65.88 секунды.
+SD не перезаписывалась, аппаратная отладка выключена, электронный диск
+включён. Визуальную проверку новых исправлений выполняет пользователь.

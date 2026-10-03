@@ -26,7 +26,10 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     reg [10:0] half_line;
     wire [9:0] field_half=half_line<625?half_line:half_line-625;
     wire [8:0] horizontal={half_line[0],half_pixel};
-    wire [8:0] field_line=field_half>>1;
+    // Raster rows follow complete horizontal lines in both fields. The PAL
+    // second field begins halfway through a line; using field_half >> 1
+    // changes y at x=156 and gives its left half the preceding font row.
+    wire [8:0] field_line=(half_line>>1)-(half_line<625?9'd0:9'd312);
     wire [8:0] y=field_line-50;
     wire [8:0] next_y=field_line+1-50;
     wire [15:0] start_addr={registers[12],registers[13]};
