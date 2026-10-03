@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import struct
 import sys
+import zlib
 
 project=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('make_sd',project/'tools/make_sd.py')
@@ -40,3 +41,17 @@ for copy in range(2):struct.pack_into('<H',short,fat+copy*spf*512+chain[0]*2,0xf
 output.joinpath('short-chain.img').write_bytes(short)
 output.joinpath('boot-config.mem').write_text(''.join(f'{v:02x}\n' for v in payload[:64]+image[462:494]))
 print('Prepared classic, fragmented, CRC-corrupt and truncated FAT-chain fixtures')
+
+# Preserve classic fixtures and also exercise both BIOS choices on one SD.
+a_image,_=sd.build(native,[disk,disk],bios_a=project.parent/'native-src/BIOS_A.ROM')
+output.joinpath('models-sd.img').write_bytes(a_image)
+a_entry=next(p for p in range(root,data,32) if a_image[p:p+11]==b'P601A   ROM')
+a_cluster=sd.u16(a_image,a_entry+26);a_size=sd.u32(a_image,a_entry+28)
+a_offset=data+(a_cluster-2)*512
+output.joinpath('rom-a.reference').write_bytes(a_image[a_offset:a_offset+a_size])
+output.joinpath('rom-a-payload.mem').write_text(''.join(f'{v:02x}\n' for v in a_image[a_offset+512:a_offset+a_size]))
+wrong=bytearray(a_image);wrong[a_offset+25]=0
+struct.pack_into('<I',wrong,a_offset+508,zlib.crc32(wrong[a_offset:a_offset+508]))
+output.joinpath('wrong-model.img').write_bytes(wrong)
+missing=bytearray(a_image);missing[a_entry]=0xe5
+output.joinpath('missing-model.img').write_bytes(missing)

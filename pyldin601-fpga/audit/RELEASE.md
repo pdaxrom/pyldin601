@@ -194,3 +194,32 @@ FLASH Verify ID и Erase,Program,Verify завершились успешно; J
 Wall time 66.15 секунды; SHA JED совпал с указанным выше.
 SD не перезаписывалась, электронный диск включён, runtime-отладка выключена.
 После записи пользователь подтвердил работу цветного режима на плате.
+
+
+## 3 октября 2026 — 601/601A
+
+Меню до первого SD command: 1=601, 2=601A, Enter/default=601, timeout пять
+секунд по PAL ticks. Новый loader выбирает P601.ROM/P601A.ROM и проверяет
+модель; Reset сохраняет model_a и lock. Поддержаны все пять видеорежимов A,
+включая 80 колонок, текстовые атрибуты и мигание. Буферы строк перенесены
+в один EBR; фиксированные SRAM-слоты и CPU без HOLD сохранены.
+
+Проверки и источники: [MODELS.md](MODELS.md). Девять Python-тестов,
+software boot всех ветвей, HDL периферии и обоих renderer, 7618560 A-пикселей,
+реальные BIOS/XBIOS, mixed CPU/SPI/PS2 boot, handoff/Reset A,
+два профиля SRAM. Прежние mono/colour/DAC эталоны сохранены.
+
+Diamond `/tmp/pyldin601-models-ebr.5bW9s1`, 31 входной файл по
+`source-models-ebr.sha256.json`. LUT 6182/6864, slices 3156/3432,
+registers 2117/7209, EBR 10/26, PLL 1/2. EBR: bootstrap 4, font 2,
+SD/FDD 2, waveform 1, line cache 1. Свободны 682 LUT, 276 slices и 16 EBR.
+Setup/hold negative slack 0, unconstrained 0; 1994 system→CPU пути,
+worst 15.396 ns, margin 4.604 ns. Clock-to-output margin 2.000 ns.
+
+JED SHA-256: `23aed1527bf33304f413f177a7ca2452ccff7d694c418609a0bec872bd603398`.
+FLASH Verify ID и Erase,Program,Verify успешны, wall time 66.45 секунды.
+JTAGENB HIGH/readback подтверждён до и после записи.
+Первый раздел SD обновлён с прямой проверкой чтением; MBR и A/B побайтно
+сохранены. Пользователь подтвердил: 601A загрузился, текст и DIR работают.
+Архивы и журналы — `build/diamond/models-ebr`, `build/hardware-models`,
+`build/sd-models`; аппаратная runtime-отладка выключена.

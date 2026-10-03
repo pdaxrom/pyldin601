@@ -7,9 +7,9 @@ NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour transparent_video sram_stress
+BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
-.PHONY: test-native-stability
+.PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
 .PHONY: test-boot-lockstep test-cpu-interrupts
 LOCKSTEP_IMAGE ?= $(STABILITY_IMAGE)
@@ -63,7 +63,11 @@ test-rtl: fixtures
 	$(BUILD)/prepare_keyboard_reference
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_colour_reference.c -o $(BUILD)/prepare_colour_reference
 	$(BUILD)/prepare_colour_reference
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_601a_reference.c -o $(BUILD)/prepare_601a_reference
+	$(BUILD)/prepare_601a_reference
 	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
+	$(IVERILOG) -g2012 -s tb_transparent_video -Ptb_transparent_video.MODEL_A=1 -o $(BUILD)/tb_transparent_video-a $(RTL) tests/tb_transparent_video.v
+	$(VVP) $(BUILD)/tb_transparent_video-a
 	$(VVP) $(BUILD)/tb_sd +sdsc
 	$(VVP) $(BUILD)/tb_sd +badcrc
 test-cpu: | $(BUILD)
@@ -76,6 +80,11 @@ fixtures: firmware
 test-firmware: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img 601a
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img enter
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img key1
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/wrong-model.img 601a-reject
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/missing-model.img 601a-reject
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/fragmented.img
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img sdsc
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/corrupt-rom.img reject
@@ -108,6 +117,12 @@ test-stage1: fixtures
 	$(NVC) --std=2008 --work=work:$(BUILD)/stage1 --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1.log 2>&1
 	@cat $(BUILD)/stage1.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1.log').read_text()"
+
+test-stage1-a: fixtures
+	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a --ieee-warnings=off -a -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a.log 2>&1
+	@cat $(BUILD)/stage1-a.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a.log').read_text()"
 
 sram-diagnostic: | $(BUILD)
 	$(PYTHON) tools/asm6800.py firmware/sram_test.asm --origin 0xf000 --size 4096 --output $(BUILD)/sram-test.bin --mem $(BUILD)/sram-test.mem

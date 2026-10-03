@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // Worst-case runtime bus load: a SRAM transaction on every 1 MHz CPU cycle,
 // while PAL video fetches all 40 bytes of every displayed line.
-module tb_transparent_video;
+module tb_transparent_video #(parameter MODEL_A=0);
     reg clk=0;always #5 clk=~clk;
     reg rw=1,vma=0;reg[15:0]address=0;reg[7:0]data=0;
     wire cpu_clk,cpu_reset,cpu_hold;wire[7:0]result;
@@ -21,7 +21,7 @@ module tb_transparent_video;
             @(negedge cpu_clk);vma=0;rw=1;
         end
     endtask
-    integer i,cycles=0,fetches=0,lines=0;reg stress=0;
+    integer i,cycles=0,fetches=0,lines=0;integer bank_line[0:1],fetch_line;reg stress=0;
     always @(negedge cpu_clk)if(stress)begin
         if(cpu_reset||cpu_hold)$fatal(1,"video stretched classic CPU cycle phase=%d",dut.phase);
         cycles=cycles+1;
@@ -32,9 +32,13 @@ module tb_transparent_video;
             if(dut.phase!=10&&dut.phase!=17)$fatal(1,"video escaped its SRAM slots");
             fetches=fetches+1;
         end
+        if(MODEL_A&&dut.video.dma_state==2&&dut.video_done&&dut.video.dma_column==79)
+            bank_line[dut.video.dma_bank]=fetch_line;
+        if(MODEL_A&&dut.video.divide==2&&dut.video.horizontal==80&&dut.video.field_line>=49)
+            fetch_line=dut.video.field_line+1;
         if(dut.video.divide==2&&dut.video.horizontal==100&&dut.video.field_line>=50
             &&dut.video.y<224)begin
-            if(dut.video.dma_state!=0)$fatal(1,"video fetch missed visible-line deadline");
+            if(MODEL_A?bank_line[dut.video.y[0]]!=dut.video.field_line:dut.video.dma_state!=0)$fatal(1,"video fetch missed visible-line deadline");
             lines=lines+1;
         end
     end
@@ -50,9 +54,10 @@ module tb_transparent_video;
         header[68]=1;header[73]=8'h88;header[76]=8'h40;header[77]=8'h0b;
         header[84]=1;header[89]=8'h98;header[92]=8'h40;header[93]=8'h0b;
         wait(cpu_reset===1'b0);
+        if(MODEL_A)begin header[25]=1;put(16'he6a0,1);end
         for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);
         put(16'he6a0,8'ha5);if(!dut.locked)$fatal(1,"fixture commit failed");
-        put(16'he600,1);put(16'he601,48);
+        put(16'he600,1);put(16'he601,MODEL_A?80:48);
         put(16'he600,6);put(16'he601,28);
         put(16'he600,12);put(16'he601,8'h08);
         put(16'he600,13);put(16'he601,0);
@@ -63,8 +68,8 @@ module tb_transparent_video;
             if(rw&&result!==(i==0?8'h00:8'ha5))$fatal(1,"CPU data lost under video load cycle=%d got=%x",i,result);
             address=16'h8000;rw=i[0];data=8'ha5;
         end
-        if(fetches<10000||lines<200)$fatal(1,"insufficient video traffic fetches=%d lines=%d",fetches,lines);
-        $display("PASS transparent SRAM slots: %d CPU cycles without hold, %d video fetches, %d lines before deadline",cycles,fetches,lines);$finish;
+        if(fetches<(MODEL_A?20000:10000)||lines<200)$fatal(1,"insufficient video traffic fetches=%d lines=%d",fetches,lines);
+        $display("PASS model %0d transparent SRAM slots: %d CPU cycles without hold, %d video fetches, %d lines before deadline",MODEL_A,cycles,fetches,lines);$finish;
     end
     initial begin #12000000;$fatal(1,"transparent video timeout");end
 endmodule

@@ -64,7 +64,9 @@ class SDTests(unittest.TestCase):
         native = Path(__file__).parents[1]/'tests/native_fixture'
         native.joinpath('Bios').mkdir(parents=True,exist_ok=True)
         native.joinpath('RAMROMDiskPipnet').mkdir(exist_ok=True)
-        native.joinpath('Bios/bios.roz').write_bytes(bytes([0xaa])*4096)
+        bios = bytearray([0xaa])*4096
+        bios[0xff7] = 0
+        native.joinpath('Bios/bios.roz').write_bytes(bios)
         native.joinpath('Bios/video.roz').write_bytes(bytes([0xbb])*2048)
         for i in range(5):
             native.joinpath(f'RAMROMDiskPipnet/rom{i}.roz').write_bytes(bytes([i])*32768)
@@ -72,12 +74,24 @@ class SDTests(unittest.TestCase):
         self.assertEqual(len(files['ROM4.BIN']),65536)
         self.assertEqual(files['ROM4.BIN'][:32768],files['ROM4.BIN'][32768:])
         disk = sd.blank_disk()
-        image, config = sd.build(native,[disk,disk],1)
+        bios[0xff7] = 0x80
+        a_path = native/'BIOS_A.ROM'
+        a_path.write_bytes(bios)
+        image, config = sd.build(native,[disk,disk],1,bios_a=a_path)
         first = image[2048*512:(2048+sd.BOOT_SECTORS)*512]
         contents = root_files(first)
         bundle = contents['P601    ROM']
         self.assertEqual(bundle[:8],b'P601BOOT')
         self.assertEqual(bundle[24],1)
+        self.assertEqual(bundle[25],0)
+        alternate = contents['P601A   ROM']
+        self.assertEqual(alternate[25],1)
+        self.assertEqual(alternate[512+5*65536:512+5*65536+4096],bios)
+        self.assertEqual(sd.u32(alternate,508),zlib.crc32(alternate[:508]))
+        self.assertEqual(sd.u32(alternate,20),zlib.crc32(alternate[512:]))
+        with self.assertRaises(ValueError):
+            sd.bundle({**files, 'BIOS.BIN':bytes(bios)}, config['drives'],1,0)
+        self.assertEqual(config['models'],['601','601A'])
         self.assertEqual(sd.u32(bundle,508),zlib.crc32(bundle[:508]))
         self.assertEqual(sd.u32(bundle,20),zlib.crc32(bundle[512:]))
         for i, drive in enumerate(config['drives']):

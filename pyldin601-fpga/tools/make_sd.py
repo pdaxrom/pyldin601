@@ -119,14 +119,20 @@ def rom_files(native):
     return files
 
 
-def bundle(files, drives, boot):
+def bundle(files, drives, boot, model=0):
     payload = b''.join(files[f'ROM{i}.BIN'] for i in range(5))
     payload += files['BIOS.BIN'] + files['FONT.BIN']
     assert len(payload) == ROM_SIZE
     header = bytearray(SECTOR)
     header[:8] = b'P601BOOT'
     struct.pack_into('<IIII', header, 8, 1, ROM_BASE, len(payload), zlib.crc32(payload))
+    if model not in (0, 1):
+        raise ValueError('model must be 0 (601) or 1 (601A)')
+    expected_version = 0x80 if model else 0
+    if files['BIOS.BIN'][0xff7] != expected_version:
+        raise ValueError('BIOS hardware version does not match selected model')
     header[24] = boot
+    header[25] = model
     for i, drive in enumerate(drives):
         struct.pack_into('<IIHHH', header, 32 + i * 16, drive['start_lba'],
                          drive['sectors'], drive['sectors_per_track'],
@@ -178,7 +184,7 @@ def fat16(files):
     return bytes(volume)
 
 
-def build(native, disks, boot=0, allow_large=False):
+def build(native, disks, boot=0, allow_large=False, bios_a=None):
     files = rom_files(native)
     start = ALIGN + BOOT_SECTORS
     drives = []
@@ -191,7 +197,13 @@ def build(native, disks, boot=0, allow_large=False):
         info['start_lba'] = start
         drives.append(info)
         start = ((start + len(data)//SECTOR + ALIGN-1)//ALIGN)*ALIGN
-    files = {'P601.ROM': bundle(files, drives, boot)}
+    classic_files = files
+    files = {'P601.ROM': bundle(classic_files, drives, boot)}
+    if bios_a is not None:
+        data = unpack_file(bios_a)
+        if len(data) != 4096:
+            raise ValueError('601A BIOS must be exactly 4096 bytes')
+        files['P601A.ROM'] = bundle({**classic_files, 'BIOS.BIN': data}, drives, boot, 1)
     script = Path(__file__).resolve().parent/'asm6800.py'
     spec = importlib.util.spec_from_file_location('asm6800',script)
     assembler = importlib.util.module_from_spec(spec)
@@ -201,6 +213,9 @@ def build(native, disks, boot=0, allow_large=False):
     config = dict(version=1, controller='experimental-lba' if allow_large else 'i8272',
                   boot_drive='B' if boot else 'A', drives=drives,
                   rom_crc32=f'{zlib.crc32(files["P601.ROM"][SECTOR:]):08x}')
+    config['models'] = ['601', '601A'] if bios_a is not None else ['601']
+    if bios_a is not None:
+        config['rom_a_crc32'] = f'{zlib.crc32(files["P601A.ROM"][SECTOR:]):08x}'
     files['P601.CFG'] = (json.dumps(config, indent=2)+'\n').encode('ascii')
     image = bytearray(start * SECTOR)
     image[510:512] = b'\x55\xaa'
@@ -222,6 +237,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--native', type=Path, required=True,
                         help='classic emulator native directory')
+    default_a = Path(__file__).resolve().parents[2]/'native-src/BIOS_A.ROM'
+    parser.add_argument('--bios-a', type=Path, default=default_a if default_a.is_file() else None,
+                        help='original 4096-byte 601A BIOS; defaults to native-src/BIOS_A.ROM when available')
     parser.add_argument('--disk-a', type=Path, help='raw FAT12 or gzip image')
     parser.add_argument('--disk-b', type=Path, help='raw FAT12 or gzip image')
     parser.add_argument('--blank-kib', type=int, default=1440,
@@ -236,7 +254,7 @@ def main():
     disks = [unpack_file(path) if path else blank_disk(
         args.blank_kib*1024, args.blank_spt, args.blank_heads)
         for path in (args.disk_a, args.disk_b)]
-    image, config = build(args.native, disks, int(args.boot == 'B'),args.allow_large)
+    image, config = build(args.native, disks, int(args.boot == 'B'),args.allow_large,args.bios_a)
     # Exclusive creation: no implicit overwrites and no raw device writes.
     with args.output.open('xb') as out:
         out.write(image)

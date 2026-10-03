@@ -7,7 +7,7 @@ module tb_video_colour;
     wire request;wire [20:0] ma;wire [5:0] tv;
     reg done=0;reg [7:0] memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,mode,
-        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,);
+        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0);
     reg [7:0] ram[0:65535],reference[0:63999],crtc_values[0:16];
     reg [3:0] expected_colour;
     reg expected_sync,expected_burst,expected_alternate,valid;

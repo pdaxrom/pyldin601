@@ -18,6 +18,13 @@ static unsigned char cmd[6],queue[520];static unsigned cmd_index,queue_count,que
 static unsigned char page,crtc_index,crtc[16],tick;
 static unsigned fdc_reads;
 static unsigned caps_off=1;
+static unsigned model_a,menu_key,menu_key_sent,boot_tick_number;
+static uint32_t menu_start_cycles,menu_end_cycles;
+static int screen_is(unsigned address,const char*text){
+ unsigned char*r=MC6800GetCpuRam();
+ for(unsigned n=0;text[n];n++)if(r[address+n*(model_a?2:1)+model_a]!=(unsigned char)text[n])return 0;
+ return 1;
+}
 static uint16_t le16(const unsigned char*p){return p[0]|p[1]<<8;}
 static uint32_t le32(const unsigned char*p){return le16(p)|(uint32_t)le16(p+2)<<16;}
 static uint32_t crc_byte(uint32_t c,unsigned char b){c^=b;for(int n=0;n<8;n++)c=c&1?(c>>1)^0xedb88320:c>>1;return c;}
@@ -25,9 +32,9 @@ static void screen_dump(const char*path){FILE*f=fopen(path,"wb");if(!f||fwrite(M
 static void sd_command(void){
  unsigned op=cmd[0]&63;uint32_t arg=(uint32_t)cmd[1]<<24|(uint32_t)cmd[2]<<16|cmd[3]<<8|cmd[4];
  if(!screen_checked){
-  if(video_mode||crtc[1]!=40||crtc[6]!=24||crtc[10]!=0x20||crtc[12]!=4||crtc[13]
-   ||memcmp(MC6800GetCpuRam()+0x400,"PYLDIN-601 SYSTEM INITIALIZATION",31)
-   ||memcmp(MC6800GetCpuRam()+0x450,"STEP 01: INITIALIZING SD",23)){
+  if(video_mode||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[10]!=0x20||crtc[12]!=4||crtc[13]
+   ||!screen_is(0x400,model_a?"PYLDIN-601A SYSTEM INITIALIZATION":"PYLDIN-601 SYSTEM INITIALIZATION")
+   ||!screen_is(0x450,"STEP 01: INITIALIZING SD")){
    fprintf(stderr,"boot text screen not initialized before SD\n");exit(1);
   }screen_checked=1;
  }
@@ -69,9 +76,18 @@ int SuperIoReadByte(word a,byte*out){
  if(committed&&a>=0xc000&&a<0xe000&&(page&8)){*out=physical[0x10000+(page>>4)%5*65536+(page&7)*8192+a-0xc000];return 1;}
  if(a>=0xe660&&a<=0xe664){switch(a&7){case 0:*out=spi_high;break;case 1:*out=spi_low;break;case 2:*out=0x80|spi_control;break;case 3:*out=spi_div;break;default:*out=spi_pout;}return 1;}
  if(a>=0xe6a0&&a<=0xe6af){unsigned p=a&15;*out=255;
-  if(p==0)*out=committed?0x80:0;else if(p==1)*out=debug;else if(p==8)*out=error?128:0;
+  if(p==0)*out=(committed?0x80:0)|model_a;else if(p==1)*out=debug;else if(p==8)*out=error?128:0;
   else if(p==11)*out=aperture_byte;
   else if(p>=12)*out=(crc^0xffffffff)>>((p-12)*8);return 1;}
+ if(!committed&&a==0xe62b){
+  unsigned number=MC6800GetCyclesCounter()/80000;
+  *out=0x37|(number!=boot_tick_number?128:0);boot_tick_number=number;
+  if(!menu_start_cycles)menu_start_cycles=MC6800GetCyclesCounter();return 1;
+ }
+ if(a==0xe628||a==0xe62a||a==0xe62e){
+  if(!committed&&menu_key&&!menu_key_sent){KBDKeyDown(menu_key);menu_key_sent=1;}
+  *out=a==0xe628?KBDReadKey():KBDCheckKey()|0x37|(caps_off?8:0);return 1;
+ }
  if(committed){switch(a){
   case 0xe600:case 0xe604:*out=crtc_index;return 1;
   case 0xe601:case 0xe605:*out=crtc[crtc_index&15];return 1;
@@ -97,9 +113,9 @@ int SuperIoWriteByte(word a,byte d){
  if(a>=0xe6a0&&a<=0xe6af&&!committed){unsigned p=a&15;
   if(p==1){
    if(d>=1&&d<=12)seen_stages|=1u<<d;
-   if(d==7){if(memcmp(MC6800GetCpuRam()+0x4a0,"BLOCK 05/05",11)){fprintf(stderr,"ROM block progress failed\n");exit(1);}screen_dump("build/boot-status-screen.bin");}
+   if(d==7){if(!screen_is(0x4a0,"BLOCK 05/05")){fprintf(stderr,"ROM block progress failed\n");exit(1);}screen_dump("build/boot-status-screen.bin");}
    if(d==12){
-    if(memcmp(MC6800GetCpuRam()+0x4a0,"BLOCK 08/08",11)){fprintf(stderr,"electronic disk progress missing\n");exit(1);}
+    if(!screen_is(0x4a0,"BLOCK 08/08")){fprintf(stderr,"electronic disk progress missing\n");exit(1);}
     if(sram_fault)physical[0x31234]^=0x80;
    }
    debug=d;
@@ -112,8 +128,8 @@ int SuperIoWriteByte(word a,byte d){
   else if(p==11){if(physical_address>=sizeof(physical)){error=1;return 1;}
    aperture_byte=physical_address<65536?MC6800GetCpuRam()[physical_address]:physical[physical_address];physical_address++;aperture_reads++;}
   else if(p==9)crc=crc_byte(crc,d);else if(p==10)crc=0xffffffff;
-  else if(p==0){if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
-   ||le32(config+8)!=1||le32(config+12)!=0x10000||le32(config+16)!=0x51800
+  else if(p==0){if(d<=1&&config_index==0){model_a=d;menu_end_cycles=MC6800GetCyclesCounter();KBDKeyUp();return 1;}if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
+   ||config[25]!=model_a||le32(config+8)!=1||le32(config+12)!=0x10000||le32(config+16)!=0x51800
    ||le32(config+20)!=(crc^0xffffffff)||(spi_control&2)==0)error=1;else committed=1;}
   return 1;
  }
@@ -142,13 +158,18 @@ static unsigned char*load(const char*path,size_t*size){FILE*f=fopen(path,"rb");i
 int main(int argc,char**argv){
  if(argc<3)return 2;size_t n;unsigned char*b=load(argv[1],&n);if(n!=4096)return 2;memcpy(resident,b,n);free(b);
  image=load(argv[2],&image_size);sdsc=argc>3&&!strcmp(argv[3],"sdsc");missing_sd=argc>3&&!strcmp(argv[3],"no-sd");sram_fault=argc>3&&!strcmp(argv[3],"sram-fault");unsigned reject=missing_sd||sram_fault||(argc>3&&!strcmp(argv[3],"reject"));
+ if(argc>3){if(!strcmp(argv[3],"601a")||!strcmp(argv[3],"601a-reject"))menu_key=3;
+  else if(!strcmp(argv[3],"enter"))menu_key=0x1c;else if(!strcmp(argv[3],"key1"))menu_key=2;
+  if(!strcmp(argv[3],"601a-reject"))reject=1;}
  MC6800Init();memset(physical,0xcc,sizeof(physical));memset(MC6800GetCpuRam(),0xcc,65536);MC6800Reset();
  unsigned steps;for(steps=0;steps<100000000&&!committed&&debug!=0xee;steps++)MC6800Step();
+ if(menu_key){if(!menu_key_sent||menu_end_cycles-menu_start_cycles>1000){fprintf(stderr,"menu key not immediate\n");return 1;}}
+ else if(menu_end_cycles-menu_start_cycles<19920000||menu_end_cycles-menu_start_cycles>20001000){fprintf(stderr,"menu timeout not 5 seconds: %u cycles\n",menu_end_cycles-menu_start_cycles);return 1;}
  if(reject){
   char message[40];snprintf(message,sizeof(message),"BOOT ERROR AT STEP %02X",MC6800GetCpuRam()[0x18a]);
-  if(committed||debug!=0xee||crtc[1]!=40||crtc[6]!=24||crtc[12]!=4
-   ||memcmp(MC6800GetCpuRam()+0x4f0,message,strlen(message))
-   ||memcmp(MC6800GetCpuRam()+0x590,"PRESS RESET TO RETRY",19)){
+  if(committed||debug!=0xee||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[12]!=4
+   ||!screen_is(0x4f0,message)
+   ||!screen_is(0x590,"PRESS RESET TO RETRY")){
    fprintf(stderr,"bad ROM accepted/stalled or missing text error pc=%04x error=%u\n",PC,error);return 1;
   }screen_dump("build/boot-error-screen.bin");
   if(sram_fault&&(aperture_reads!=0x51800||MC6800GetCpuRam()[0x18a]!=12)){fprintf(stderr,"SRAM fault not rejected by readback\n");return 1;}
@@ -157,14 +178,14 @@ int main(int argc,char**argv){
  if(!committed||error||rom_writes!=0x51800||sd_reads<650){fprintf(stderr,"boot failure pc=%04x err=%u debug=%02x writes=%u steps=%u SD reads=%u commands=%u\n",PC,error,debug,rom_writes,steps,sd_reads,sd_commands);return 1;}
  if(seen_stages!=0x1ffe||!screen_checked||aperture_reads!=0x51800){fprintf(stderr,"missing boot text stages/readback mask=%x reads=%u\n",seen_stages,aperture_reads);return 1;}
  for(unsigned a=0x80000;a<0x100000;a++)if(physical[a]!=0){fprintf(stderr,"electronic disk not initialized at %x\n",a);return 1;}
- size_t reference_size;unsigned char*reference=load("build/rom.reference",&reference_size);
+ size_t reference_size;unsigned char*reference=load(model_a?"build/rom-a.reference":"build/rom.reference",&reference_size);
  if(reference_size!=0x51a00||memcmp(physical+0x10000,reference+512,0x51800)){fprintf(stderr,"physical ROM content mismatch\n");return 1;}free(reference);
  unsigned reset_vector=physical[0x60ffe]*256+physical[0x60fff];
  for(unsigned n=0;n<10&&PC!=reset_vector;n++)MC6800Step();
  if(PC!=reset_vector){fprintf(stderr,"handoff failed pc=%04x expected=%04x\n",PC,reset_vector);return 1;}
  for(unsigned n=0;n<200000;n++){if(n%10000==0){tick=128;MC6800SetInterrupt(1);}MC6800Step();}
  unsigned reads=sd_reads,writes=all_writes;physical[0x81234]=0x5a;
- MC6800Reset();if(PC!=reset_vector||!committed||physical[0x81234]!=0x5a){fprintf(stderr,"warm reset failed\n");return 1;}
+ unsigned saved_model=model_a;MC6800Reset();if(model_a!=saved_model||PC!=reset_vector||!committed||physical[0x81234]!=0x5a){fprintf(stderr,"warm reset failed\n");return 1;}
  for(unsigned n=0;n<1000;n++)MC6800Step();
  if(reads!=sd_reads||writes!=all_writes||physical[0x81234]!=0x5a){fprintf(stderr,"warm reload/memory loss\n");return 1;}
  printf("PASS MC6800 software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads);

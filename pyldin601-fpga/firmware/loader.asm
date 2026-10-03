@@ -23,6 +23,11 @@ TMP equ $85
     ldaa #4
     jsr STATUS
     ldx #rom_name
+    ldaa COMMIT
+    bita #1
+    beq selected_rom
+    ldx #rom_a_name
+selected_rom:
     jsr OPEN
     ldaa SIZE
     bne bad_size
@@ -94,6 +99,10 @@ no_header_crc:
 bad:
     jmp FAIL
 header_ok:
+    ldaa COMMIT
+    anda #1
+    cmpa $1019
+    lbne FAIL
     ; Provide ROM header and the MBR entries mounted by resident CPU firmware.
     ldx #$1000
     clrb
@@ -221,3 +230,5 @@ mem_failed:
     jmp FAIL
 rom_name:
     db "P601    ROM"
+rom_a_name:
+    db "P601A   ROM"

@@ -46,6 +46,8 @@ UI_STAGE equ $18a
 UI_BLOCK equ $18b
 UI_TOTAL equ $18c
 VERIFY_BLOCKS equ $18d
+MENU_TICKS equ $18e
+MODEL equ $e6a0
     org $f000
     jmp cold_start
     jmp file_open
@@ -58,6 +60,7 @@ cold_start:
     sei
     lds #$1fff
     jsr ui_init
+    jsr choose_model
     ldaa #1
     jsr ui_status
     jsr sd_init
@@ -886,40 +889,21 @@ handoff:
     ldaa #11
     jsr ui_status
     ldx #handoff_code
+    stx UI_TEXT
+    ldx #$e000
+    stx UI_DEST
+    ldab #17
+handoff_copy:
+    ldx UI_TEXT
     ldaa 0,x
-    staa $e000
-    ldaa 1,x
-    staa $e001
-    ldaa 2,x
-    staa $e002
-    ldaa 3,x
-    staa $e003
-    ldaa 4,x
-    staa $e004
-    ldaa 5,x
-    staa $e005
-    ldaa 6,x
-    staa $e006
-    ldaa 7,x
-    staa $e007
-    ldaa 8,x
-    staa $e008
-    ldaa 9,x
-    staa $e009
-    ldaa 10,x
-    staa $e00a
-    ldaa 11,x
-    staa $e00b
-    ldaa 12,x
-    staa $e00c
-    ldaa 13,x
-    staa $e00d
-    ldaa 14,x
-    staa $e00e
-    ldaa 15,x
-    staa $e00f
-    ldaa 16,x
-    staa $e010
+    inx
+    stx UI_TEXT
+    ldx UI_DEST
+    staa 0,x
+    inx
+    stx UI_DEST
+    decb
+    bne handoff_copy
     ldaa SDMODE
     staa $e6a2
     ldx #0
@@ -934,6 +918,44 @@ handoff_code:
     db $86,$a5,$b7,$e6,$a0,$b6,$e6,$a0,$2b,$02,$20,$fe,$fe,$ff,$fe,$6e,$00
 loader_name:
     db "LOADER  BIN"
+ ; Model selection occurs before any SD access or ROM load. 1/2 select and
+ ; start immediately; Enter starts the default. PAL ticks give a 5-second wait.
+choose_model:
+    ldx #$450
+    stx UI_DEST
+    ldx #menu_choices
+    jsr ui_puts
+    ldx #$4a0
+    stx UI_DEST
+    ldx #menu_default
+    jsr ui_puts
+    ldaa $e62b
+    ldaa #250
+    staa MENU_TICKS
+menu_wait:
+    ldaa $e628
+    cmpa #'2'
+    beq menu_a
+    cmpa #'1'
+    beq menu_601
+    cmpa #$c0
+    beq menu_601
+    ldaa $e62b
+    bpl menu_wait
+    dec MENU_TICKS
+    bne menu_wait
+menu_601:
+    clra
+    bra menu_selected
+menu_a:
+    ldaa #1
+menu_selected:
+    staa MODEL
+    jmp ui_init
+menu_choices:
+    db "1 = PYLDIN 601   2 = PYLDIN 601A",0
+menu_default:
+    db "DEFAULT 601 IN 5S / ENTER TO START",0
     org $fa00
 crc16_hi:
     db $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$a1,$b1,$c1,$d1,$e1,$f1
@@ -974,7 +996,10 @@ crc16_lo:
     ; The last handoff clear erases it just before the classic BIOS starts.
     org $fc00
 ui_init:
-    ldaa #1
+    ldaa MODEL
+    anda #1
+    asla
+    oraa #1
     staa $e629
     clr UI_STAGE
     ldx #$400
@@ -994,9 +1019,26 @@ ui_crtc_write:
     incb
     cmpb #16
     bne ui_crtc_write
+    ldaa MODEL
+    bita #1
+    beq ui_geometry_done
+    ldaa #1
+    staa $e600
+    ldaa #80
+    staa $e601
+    ldaa #6
+    staa $e600
+    ldaa #12
+    staa $e601
+ui_geometry_done:
     ldx #$400
     stx UI_DEST
     ldx #ui_title
+    ldaa MODEL
+    bita #1
+    beq ui_title_selected
+    ldx #ui_title_a
+ui_title_selected:
     jmp ui_puts
 ; A=stage. Preserve A/B/X; display stage name and retain it for failures.
 ui_status:
@@ -1076,6 +1118,15 @@ ui_clear_line:
 ui_clear_char:
     staa 0,x
     inx
+    psha
+    ldaa MODEL
+    bita #1
+    beq ui_clear_601
+    ldaa #' '
+    staa 0,x
+    inx
+ui_clear_601:
+    pula
     decb
     bne ui_clear_char
     rts
@@ -1091,6 +1142,14 @@ ui_string_done:
     rts
 ui_putc:
     ldx UI_DEST
+    psha
+    ldaa MODEL
+    bita #1
+    beq ui_putc_601
+    clr 0,x
+    inx
+ui_putc_601:
+    pula
     stab 0,x
     inx
     stx UI_DEST
@@ -1116,6 +1175,8 @@ ui_crtc:
     db 63,40,46,8,38,0,24,36,0,7,$20,7,4,0,0,0
 ui_title:
     db "PYLDIN-601 SYSTEM INITIALIZATION",0
+ui_title_a:
+    db "PYLDIN-601A SYSTEM INITIALIZATION",0
 ui_step:
     db "STEP ",0
 ui_block_message:
@@ -1137,7 +1198,7 @@ ui_fat:
 ui_loader:
     db "LOADING LOADER.BIN",0
 ui_rom:
-    db "OPENING P601.ROM",0
+    db "OPENING SELECTED ROM",0
 ui_header:
     db "CHECKING ROM HEADER",0
 ui_banks:
@@ -1151,7 +1212,7 @@ ui_ram:
 ui_disk:
     db "INITIALIZING ROM DISK",0
 ui_start:
-    db "STARTING CLASSIC BIOS",0
+    db "STARTING SELECTED BIOS",0
 ui_sram:
     db "VERIFYING SRAM CRC32",0
 verify_sram:

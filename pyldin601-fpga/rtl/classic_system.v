@@ -76,11 +76,11 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire boot_request,boot_write,boot_accept,boot_done;wire[20:0]boot_address;wire[7:0]boot_data,boot_result,boot_debug;
  wire[7:0]memory_read_data;
  wire[31:0]a_start,a_length,b_start,b_length;wire[7:0]aspt,ah,bspt,bh;wire[8:0]ac,bc;
- wire boot_b,sd_mode;
+ wire boot_b,sd_mode,model_a;
  classic_boot_ports boot(clk,cold_reset,cpu_reset,bus_read&&boot_io,bus_write&&boot_io,
   cpu_addr[3:0],cpu_out,boot_result,boot_request,boot_write,boot_address,boot_data,boot_accept,boot_done,memory_read_data,
   !raw_busy&&raw_cs,locked,boot_mode,boot_error,boot_debug,sd_mode,
-  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b);
+  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a);
  wire fdc_request,fdc_write,fdc_buffer_write,fdc_active;wire[31:0]fdc_lba;
  wire[8:0]fdc_buffer_address;wire[7:0]fdc_buffer_data,fdc_result,sd_buffer_result;
  classic_fdc fdc(clk,cpu_reset,bus_read&&fdc_io,bus_write&&fdc_io,cpu_addr[4:0],cpu_out,
@@ -122,7 +122,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire font_write=memory_request&&memory_ready&&memory_write&&memory_address>=21'h61000&&memory_address<21'h61800;
  classic_video video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
   video_result,mode,font_write,memory_address[10:0],memory_data,
-  video_request,video_address,video_accept,video_done,memory_read_data,tvout,video_tick);
+  video_request,video_address,video_accept,video_done,memory_read_data,tvout,video_tick,model_a);
  wire[20:0]cpu_mem_address;wire[7:0]cpu_mem_data;wire cpu_mem_write,disk_advance;
  // Clients present persistent requests; the arbiter alone owns scheduling.
  // Each 7-clock slot includes the SRAM setup/access/hold/release and response.

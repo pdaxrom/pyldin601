@@ -68,7 +68,21 @@ initial begin
  warm=1;#20;if(!locked)$fatal(1,"warm unlock");warm=0;
  put(7,8'h5a);#20;put(11,0);#20;if(writes!=524289||reads!=3)$fatal(1,"access after lock");
  cold=1;#20;if(locked||!boot_mode)$fatal(1,"cold unlock");
- cold=0;put(4,0);put(5,0);put(6,8'h20);put(11,0);#20;
+ cold=0;
+ // Model 601A status, mismatch rejection, pre-load selection and warm retention.
+ put(0,1);address=0;#1;if(result!=1||!dut.model_a)$fatal(1,"601A selection/status");
+ for(i=0;i<96;i=i+1)put(3,header[i]);
+ put(0,8'ha5);#1;if(locked||!error)$fatal(1,"wrong model accepted");
+ cold=1;repeat(2)@(negedge clk);cold=0;
+ if(dut.model_a)$fatal(1,"cold model not classic");
+ put(0,1);header[25]=1;for(i=0;i<96;i=i+1)put(3,header[i]);
+ put(0,0);#1;if(!dut.model_a||!error)$fatal(1,"model changed after configuration");
+ cold=1;repeat(2)@(negedge clk);cold=0;
+ put(0,1);for(i=0;i<96;i=i+1)put(3,header[i]);put(0,8'ha5);
+ if(!locked||!dut.model_a||error)$fatal(1,"601A commit failed");
+ warm=1;repeat(2)@(negedge clk);warm=0;put(0,0);
+ if(!locked||!dut.model_a||error)$fatal(1,"warm reset or runtime model change");
+ cold=1;repeat(2)@(negedge clk);cold=0;put(4,0);put(5,0);put(6,8'h20);put(11,0);#20;
  if(!error||request||reads!=3)$fatal(1,"out-of-range SRAM read accepted");
  $display("PASS boot aperture readback, warm drain, bounds, retained lock; 512KiB electronic disk initialized with one SRAM transaction per byte");$finish;
 end

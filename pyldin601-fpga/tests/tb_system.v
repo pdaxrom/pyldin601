@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 module system_fixture(input cpu_rw,cpu_vma,input[15:0]cpu_addr,input[7:0]cpu_out,output cpu_clk,cpu_reset,cpu_hold,cpu_irq,output[7:0]cpu_in);
 reg clk=0;always #5 clk=~clk;
-reg resetn=1;wire cs,sck,mosi;reg miso=1;
+reg resetn=1,psclk=1,psdata=1;wire cs,sck,mosi;reg miso=1;
 wire[19:0]sa;wire[15:0]sd;wire ce,oe,we,ub,lb;
 wire[5:0]tv;wire[1:0]audio;
 classic_system #(
@@ -10,9 +10,26 @@ classic_system #(
  `else
  .BOOT_FILE("build/boot.mem")
  `endif
- ) dut(.clk(clk),.pll_locked(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),.cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),.btn_resetn(resetn),.ps2clk(1'b1),.ps2dat(1'b1),.rxd(1'b1),
+ ) dut(.clk(clk),.pll_locked(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),.cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),.btn_resetn(resetn),.ps2clk(psclk),.ps2dat(psdata),.rxd(1'b1),
  .mss(cs),.msck(sck),.mosi(mosi),.miso(miso),.SRAM_ADDR(sa),.SRAM_DATA(sd),
  .SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb),.tvout(tv),.audio(audio),.seg_led_h(),.seg_led_l(),.led_rgb(),.txd());
+task key_byte;input[7:0]b;reg[10:0]frame;integer n;
+ begin frame={1'b1,~^b,b,1'b0};
+  for(n=0;n<11;n++)begin psdata=frame[n];#300;psclk=0;#300;psclk=1;#300;end
+  psdata=1;#300;
+ end
+endtask
+`ifndef HANDOFF_CHECK
+initial begin
+ // Wait for the real menu's timer read, then enter using physical PS/2.
+ wait(dut.bus_read&&cpu_addr==16'he62b);
+ `ifdef BOOT_MODEL_A
+ key_byte(8'h1e);key_byte(8'hf0);key_byte(8'h1e);
+ `else
+ key_byte(8'h5a);key_byte(8'hf0);key_byte(8'h5a);
+ `endif
+end
+`endif
 reg[15:0]memory[0:1048575];
 assign sd=!ce&&!oe&&we?memory[sa]:16'bz;
 always @(posedge we)if(!ce)begin
@@ -53,8 +70,18 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
                     cmd_count=0;
                     case(command[0][5:0])
                         0:begin
-                            if(dut.video.stride!==8'd40||dut.video.start_addr!==16'h400
-                               ||memory[20'h200]!==16'h5950||memory[20'h201]!==16'h444c)
+                            if(dut.video.stride!==
+ `ifdef BOOT_MODEL_A
+ 8'd80
+ `else
+ 8'd40
+ `endif||dut.video.start_addr!==16'h400
+
+ `ifdef BOOT_MODEL_A
+ ||!dut.model_a||memory[20'h200]!==16'h5000||memory[20'h201]!==16'h5900)
+ `else
+ ||dut.model_a||memory[20'h200]!==16'h5950||memory[20'h201]!==16'h444c)
+ `endif
                                 $fatal(1,"actual CPU did not initialize text before SD");
                             put(1);
                         end
@@ -97,7 +124,11 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         high_capacity=1;
         image_path="build/test-sd.img";
         $readmemh("build/boot-sd.mem",sd_image);
+        `ifdef BOOT_MODEL_A
+        $readmemh("build/rom-a-payload.mem",expected_rom);
+        `else
         $readmemh("build/rom-payload.mem",expected_rom);
+        `endif
         `ifdef HANDOFF_CHECK
         for(i=0;i<333824;i=i+1)begin
             if(i%2==0)memory[(65536+i)/2][7:0]=expected_rom[i];else memory[(65536+i)/2][15:8]=expected_rom[i];
@@ -108,7 +139,11 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         `else
         wait(dut.cpu_addr==16'h2000&&dut.boot_mode);
         if(boot_text_pixels<20)$fatal(1,"boot text produced no visible PAL pixels");
+        `ifdef BOOT_MODEL_A
+        if(memory[20'h228]!==16'h5300||memory[20'h230]!==16'h2000)
+        `else
         if(memory[20'h228]!==16'h5453||memory[20'h22c]!==16'h4c20)
+        `endif
             $fatal(1,"actual CPU did not display loader stage");
         $display("MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI (%0d sectors)",sectors);
         $display("PASS actual HDL CPU text initialization and PAL boot status (%0d bright pixels)",boot_text_pixels);
@@ -125,7 +160,11 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         memory[20'h4091a]=16'h5a3c;
         resetn=0;repeat(80)@(negedge clk);resetn=1;
         wait(dut.cpu_reset===1'b0);repeat(2000)@(negedge clk);
-        if(!dut.locked||memory[20'h4091a]!=16'h5a3c)$fatal(1,"warm reset lost retained state locked=%b marker=%h cold=%b cpu_reset=%b",dut.locked,memory[20'h4091a],dut.cold_reset,dut.cpu_reset);
+        if(
+        `ifdef BOOT_MODEL_A
+        !dut.model_a||
+        `endif
+        !dut.locked||memory[20'h4091a]!=16'h5a3c)$fatal(1,"warm reset lost retained state locked=%b marker=%h cold=%b cpu_reset=%b",dut.locked,memory[20'h4091a],dut.cold_reset,dut.cpu_reset);
         if(sectors!=
         `ifdef HANDOFF_CHECK
         0
