@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-04",
+  "image": "sd.img",
+  "bytes": 20971520,
+  "sha256": "bd6c8c0b3fc60924a005e9883b0818603603c100c5d51a509e2dc91bbc4a057f",
+  "sector_bytes": 512,
+  "boot_disk": "A",
+  "matches_physical_card_readback": true,
+  "fpga_jed_sha256": "eefc5b75bdaf7e7e95b0917c857057e8c57fa97759aa33d99fd65e7e565065e0",
+  "models": [
+    "601",
+    "601A"
+  ],
+  "partitions": [
+    {
+      "number": 1,
+      "type": "06",
+      "start_lba": 2048,
+      "sectors": 32768,
+      "bytes": 16777216,
+      "sha256": "f6e72e74badd2f05d874e4a207ef8845e64cb58c03926a2f030934b5245ae24b",
+      "files": {
+        "P601.ROM": {
+          "bytes": 334336,
+          "sha256": "ccb4f707a01c0269230ddacbfe4ab8d6576ff9cd48ce924d3467e147e894c68f"
+        },
+        "LOADER.BIN": {
+          "bytes": 481,
+          "sha256": "4f93274293c4dd7326a94d39378646a2be8e6bfc79f81b203e153fda664e5dea"
+        },
+        "P601.CFG": {
+          "bytes": 614,
+          "sha256": "b2150effd7e84f7c3929c4a483ba0cc10ae170c8c812e37c8488540d63d1739d"
+        },
+        "P601A.ROM": {
+          "bytes": 334336,
+          "sha256": "9b275b91c5efcf00888eb654c2f08ae0a59111c5e4d075ef656fd3535b4167d1"
+        }
+      }
+    },
+    {
+      "number": 2,
+      "type": "01",
+      "start_lba": 34816,
+      "sectors": 1440,
+      "bytes": 737280,
+      "sha256": "d6144e9b7fc4ff19a963e87c92485a570e5bf6f5f87c8683047c3848d0e30c6e",
+      "geometry": {
+        "sectors": 1440,
+        "image_sectors": 1440,
+        "sectors_per_track": 9,
+        "heads": 2,
+        "cylinders": 80,
+        "sectors_per_cluster": 2,
+        "clusters": 713,
+        "start_lba": 34816
+      },
+      "files": {
+        "UNIDOS.CMD": {
+          "bytes": 10001,
+          "sha256": "ee6ee90f725c6a1314b508f9720f0f900097cbba84dc44fc052b8d1011ecf1b3"
+        },
+        "ATTRIB.CMD": {
+          "bytes": 625,
+          "sha256": "05a9ca1f9b00a4e6c13c579c56810b8e27b8fc30ce9c9a8ff82bf1cbc935bc98"
+        },
+        "DATETIME.PGM": {
+          "bytes": 3933,
+          "sha256": "cfa3e4a9d78ad24111a781edbebbcadccc2b87d81197b5b8d43cfc70e8144c0c"
+        },
+        "DISKCOPY.CMD": {
+          "bytes": 2084,
+          "sha256": "3ac768fe3231555cd8ce68a8b37ec6679ba471cd6d6b9c88a3eee79d61e5dd59"
+        },
+        "FORMAT.CMD": {
+          "bytes": 2977,
+          "sha256": "93e10df19dbe0980d2b7fa69a317b54ccb5500be94a3aa16fcff2197f5d2f76c"
+        },
+        "NC.PGM": {
+          "bytes": 5940,
+          "sha256": "74a92f3b2d0d1b396ed22f360805e1c95ee48f12893a3be9e0df00e49467fd0d"
+        },
+        "READ_NCM.TXT": {
+          "bytes": 6994,
+          "sha256": "24f04305f484364219df22163676fb4926c35109908c8ffa6366a6d244515033"
+        },
+        "TEST.CMD": {
+          "bytes": 11987,
+          "sha256": "4658584df855c694ed1a028abc3f7924b1464cfa058bb6f639183e679b420efc"
+        },
+        "UNARC.CMD": {
+          "bytes": 2655,
+          "sha256": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525"
+        },
+        "VDISK.PGM": {
+          "bytes": 366,
+          "sha256": "39f64f3a5e367ca1b14ef376ec1bd549f5bf37d8401e3f02da6c0e886cdc9f72"
+        },
+        "DOSEDIT.PGM": {
+          "bytes": 369,
+          "sha256": "a0fd0660d767c28164695402e41b27894a1a3666d3a4be4bf3f88e39e19be80f"
+        },
+        "VDISK.JOB": {
+          "bytes": 173,
+          "sha256": "8ce6301dd16a379dc5d57e9c35893938abbf51947fdebf5c397e560e034752ae"
+        },
+        "CALC.CMD": {
+          "bytes": 13681,
+          "sha256": "7aac03fe11452e2926cc5f072f2169cdccc1aab53c22d86af0ed5b42d346fd6e"
+        }
+      }
+    },
+    {
+      "number": 3,
+      "type": "01",
+      "start_lba": 36864,
+      "sectors": 2880,
+      "bytes": 1474560,
+      "sha256": "d7f81f7b1fa653a8ef6276f042b8e1097e9ee3980905635f338bcb9d8e6b970c",
+      "geometry": {
+        "sectors": 2880,
+        "image_sectors": 2880,
+        "sectors_per_track": 18,
+        "heads": 2,
+        "cylinders": 80,
+        "sectors_per_cluster": 1,
+        "clusters": 2829,
+        "start_lba": 36864
+      },
+      "files": {
+        "HDMUL.ASM": {
+          "bytes": 2923,
+          "sha256": "74589b6f13c785b3c1d5e8fe4bf3efe8c68d7997f27c438255430e16b898c37f"
+        },
+        "HDMUL.CMD": {
+          "bytes": 445,
+          "sha256": "b9037ce23c1cae670991c36b438b66127d30b3821991d91f3cc25175384a5e31"
+        },
+        "HDSLEEP.ASM": {
+          "bytes": 2485,
+          "sha256": "1935717befd176fbb8ea1a3a9f60247201c3f8226a03f3848ac3594c25c13abd"
+        },
+        "HDSLEEP.CMD": {
+          "bytes": 381,
+          "sha256": "2719e621e0cf2ef1450e837897ab8b2a95c6c2c6b9fe71fb2061fb5bd666c30a"
+        },
+        "HDTEST.ASM": {
+          "bytes": 205282,
+          "sha256": "5c0b81dfbc43586b129c97627725e15a253f6318cdcecd632afd38ca18d4d542"
+        },
+        "HDTEST.CMD": {
+          "bytes": 25638,
+          "sha256": "a892601cb5c7f306600897124a8c4020b703556fa83d03f7c0c54fcee100ec45"
+        },
+        "README.TXT": {
+          "bytes": 1315,
+          "sha256": "8ad0695c0905012fa559d5a2a0f2035e10603b83363eba657b0d62acc9865d3c"
+        }
+      }
+    }
+  ],
+  "physical_hd6303_program_execution_verified": false,
+  "validation": {
+    "loader_matches_current_firmware": true,
+    "rom_header_and_payload_crc32": true,
+    "rom_payloads_match_native_sources": true,
+    "rom_and_partition_geometries_match": true,
+    "all_B_files_match_built_tests": true,
+    "software_boot_modes_passed": [
+      "601/MC6800",
+      "601A/MC6800",
+      "601/HD6303",
+      "601A/HD6303"
+    ],
+    "unidos_HD6303_tests_passed": {
+      "601": [
+        "HDTEST",
+        "HDMUL",
+        "HDSLEEP"
+      ],
+      "601A": [
+        "HDTEST",
+        "HDMUL",
+        "HDSLEEP"
+      ]
+    },
+    "unidos_DIR_resumed_after_each_test": true
+  }
+}

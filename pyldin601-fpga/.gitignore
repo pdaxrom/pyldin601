@@ -3,4 +3,5 @@ work/
 impl1/
 __pycache__/
 *.img
+!images/sd.img
 tests/native_fixture/
