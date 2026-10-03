@@ -1,0 +1,168 @@
+; UniDOS .CMD, assembled by UniAS for HD6303. No disk writes.
+; Generated cases use independently calculated register/CCR expectations.
+        org $0100
+        tpa
+        staa entry_cc
+        sts entry_sp
+        ldaa $e6a0
+        bita #2
+        bne begin_test
+        ldx #wrong_cpu
+        int $23
+        int $38
+begin_test
+        sei
+        ldaa $80
+        staa saved_zp
+        ldaa $81
+        staa saved_zp+1
+        ldx entry_sp
+        dex
+        dex
+        stx verify_sp
+@@CASES@@
+        jsr restore
+        ldx #success
+        int $23
+        int $38
+
+; Vector: A,B,X,CCR,memory,expected A/B/X/CCR/memory,case ID,address,stack check.
+seed
+        ldx vector
+        ldaa 5,x
+        ldab 6,x
+        ldx 16,x
+        staa 0,x
+        stab 1,x
+        ldx vector
+        ldaa 0,x
+        psha
+        ldab 1,x
+        ldaa 4,x
+        ldx 2,x
+        tap
+        pula
+        rts
+
+verify
+        psha
+        tpa
+        staa actual_cc
+        pula
+        staa actual_d
+        stab actual_d+1
+        stx actual_x
+        sts actual_sp
+        ldx vector
+        ldaa actual_d
+        cmpa 7,x
+        bne failed
+        ldaa actual_d+1
+        cmpa 8,x
+        bne failed
+        ldaa actual_x
+        cmpa 9,x
+        bne failed
+        ldaa actual_x+1
+        cmpa 10,x
+        bne failed
+        ldaa actual_cc
+        cmpa 11,x
+        bne failed
+        ldx actual_sp
+        cpx verify_sp
+        bne failed
+        ldx vector
+        ldaa 12,x
+        ldab 13,x
+        ldx 16,x
+        cmpa 0,x
+        bne failed
+        cmpb 1,x
+        bne failed
+        ldx vector
+        tst 18,x
+        beq verified
+        ldaa stack_cc
+        cmpa 4,x
+        bne failed
+        ldaa stack_hi
+        cmpa 2,x
+        bne failed
+        ldaa stack_lo
+        cmpa 3,x
+        bne failed
+verified
+        rts
+
+failed
+        lds entry_sp
+        jsr restore
+        ldx #fail_message
+        int $23
+        ldx vector
+        ldx 14,x
+        jsr print_word
+        ldx #d_message
+        int $23
+        ldx actual_d
+        jsr print_word
+        ldx #x_message
+        int $23
+        ldx actual_x
+        jsr print_word
+        ldx #cc_message
+        int $23
+        ldaa actual_cc
+        jsr print_byte
+        ldx #expected_message
+        int $23
+        ldx vector
+        ldx 7,x
+        jsr print_word
+        ldx #x_message
+        int $23
+        ldx vector
+        ldx 9,x
+        jsr print_word
+        ldx #cc_message
+        int $23
+        ldx vector
+        ldaa 11,x
+        jsr print_byte
+        ldx #newline
+        int $23
+        int $38
+
+restore
+        ldaa saved_zp
+        staa $80
+        ldaa saved_zp+1
+        staa $81
+        ldaa entry_cc
+        tap
+        rts
+@@PRINT@@
+entry_cc db 0
+entry_sp dw 0
+verify_sp dw 0
+saved_zp dw 0
+vector dw 0
+actual_d dw 0
+actual_x dw 0
+actual_cc db 0
+actual_sp dw 0
+stack_cc db 0
+stack_hi db 0
+stack_lo db 0
+scratch dw 0
+wrong_cpu db 'SKIP: select HD6303 in the boot menu',13,10,0
+success db 'PASS HDTEST: @@COUNT@@ cases, registers/CCR/memory/stack',13,10,0
+fail_message db 'FAIL HDTEST CASE $',0
+d_message db ' D=',0
+x_message db ' X=',0
+cc_message db ' CC=',0
+expected_message db 13,10,'EXPECTED D=',0
+newline db 13,10,0
+@@VECTORS@@
+        end

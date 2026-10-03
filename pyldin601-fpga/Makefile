@@ -5,6 +5,8 @@ NVC ?= nvc
 CC ?= cc
 NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
+UNIAS ?= unias
+HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
 BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
@@ -156,6 +158,15 @@ test-hd6303: test-cpu test-hd6303-edges
 	$(PYTHON) tests/prepare_hd6303.py
 	$(BUILD)/cpu_reference $(BUILD)/hd6303.bin $(BUILD)/hd6303.expected.mem hd6303
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -e -gPREFIX=hd6303 -gHD=true -gLAST_RESULT=57343 tb_cpu -r tb_cpu
+
+.PHONY: hd6303-apps test-hd6303-apps hd6303-test-image
+hd6303-apps: | $(BUILD)
+	$(PYTHON) tools/build_hd6303_tests.py --unias "$(UNIAS)" --output $(BUILD)/hd6303-apps
+test-hd6303-apps: hd6303-apps
+	$(CC) -O2 -I$(EMUSRC) tests/test_hd6303_apps.c -o $(BUILD)/test_hd6303_apps
+	$(PYTHON) tests/run_hd6303_apps.py --nvc "$(NVC)"
+hd6303-test-image: hd6303-apps
+	$(PYTHON) tools/add_disk_files.py --image "$(HD_TEST_SD)" --drive B --files $(BUILD)/hd6303-apps --output $(BUILD)/sd-hd6303-tests.img
 
 .PHONY: test-hd6303-edges
 test-hd6303-edges: fixtures

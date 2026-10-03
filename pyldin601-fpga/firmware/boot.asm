@@ -47,7 +47,7 @@ UI_BLOCK equ $18b
 UI_TOTAL equ $18c
 VERIFY_BLOCKS equ $18d
 MENU_TICKS equ $18e
-MENU_KEY equ $18f
+MENU_KEY equ $190
 MODEL equ $e6a0
     org $f000
     jmp cold_start
@@ -923,7 +923,7 @@ handoff_code:
 loader_name:
     db "LOADER  BIN"
  ; Model selection occurs before any SD access or ROM load. 1/2 select and
- ; start immediately; Enter starts the default. PAL ticks give a 5-second wait.
+ ; start immediately; Enter starts the default. PAL ticks give a 10-second wait.
 choose_model:
     ldx #menu_choices
     jsr choose_option
@@ -950,8 +950,8 @@ choose_option:
     ldx #menu_default
     jsr ui_puts
     ldaa $e62b
-    ldaa #250
-    staa MENU_TICKS
+    ldx #500
+    stx MENU_TICKS
 menu_wait:
     ldaa $e628
     cmpa MENU_KEY
@@ -966,7 +966,9 @@ menu_wait:
 menu_tick:
     ldaa $e62b
     bpl menu_wait
-    dec MENU_TICKS
+    ldx MENU_TICKS
+    dex
+    stx MENU_TICKS
     bne menu_wait
 menu_first:
     clra
@@ -981,7 +983,7 @@ menu_choices:
 cpu_choices:
     db "1 = MC6800       2 = HD6303",0
 menu_default:
-    db "DEFAULT 1 IN 5S / ENTER TO START",0
+    db "DEFAULT 1 IN 10S / ENTER TO START",0
     org $fa00
 crc16_hi:
     db $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$a1,$b1,$c1,$d1,$e1,$f1

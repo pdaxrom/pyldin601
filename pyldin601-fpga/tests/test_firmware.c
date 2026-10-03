@@ -171,7 +171,7 @@ int main(int argc,char**argv){
  for(unsigned k=0;k<2;k++){
   unsigned elapsed=menu_end_cycles[k]-menu_start_cycles[k];
   if(menu_key[k]){if(!menu_key_sent[k]||elapsed>1200){fprintf(stderr,"menu %u key not immediate: %u\n",k,elapsed);return 1;}}
-  else if(elapsed<19920000||elapsed>20001000){fprintf(stderr,"menu %u timeout not 5 seconds: %u cycles\n",k,elapsed);return 1;}
+  else if(elapsed<39920000||elapsed>40001000){fprintf(stderr,"menu %u timeout not 10 seconds: %u cycles\n",k,elapsed);return 1;}
  }
  if(reject){
   char message[40];snprintf(message,sizeof(message),"BOOT ERROR AT STEP %02X",MC6800GetCpuRam()[0x18a]);

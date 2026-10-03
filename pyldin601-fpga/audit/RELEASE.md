@@ -1,12 +1,16 @@
 # Выпуски FPGA, 3 октября 2026
 
 Текущая прошивка содержит выбор 601/601A и отдельный выбор MC6800/HD6303 ISA:
-`build/diamond/cpu-isa/impl1/pyldin601_classic_impl1.jed`, SHA-256
-`769bfaa459ff931c37fadc91da779bcd9cd948c4e153900ff25d2b2d490753e8`.
+`build/diamond/hd-tests/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`eefc5b75bdaf7e7e95b0917c857057e8c57fa97759aa33d99fd65e7e565065e0`.
 Она записана во FLASH с успешными Verify ID / Erase,Program,Verify,
 JTAG Chain Verification и FTDI JTAGENB high до/после. SD не менялась.
 [ISA, ресурсы и проверки](HD6303.md), [журналы записи](HARDWARE.md).
 Физическая проверка выбора CPU пользователем ещё не выполнена.
+Оба boot-меню ждут по 10 секунд. UniAS-программы HDTEST/HDMUL/HDSLEEP
+и исходники добавлены на B нового SD-образа; все три прошли RTL CPU
+и штатный UniDOS в C-модели для обеих моделей.
+[Запуск и проверки](../tests/hd6303/README.md).
 Следующие указания на записанные JED относятся к предыдущим версиям.
 
 Предыдущая прошивка — 601/601A: `build/diamond/models-ebr/impl1/pyldin601_classic_impl1.jed`,

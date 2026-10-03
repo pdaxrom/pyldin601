@@ -32,7 +32,7 @@ DIR без сбоев и чтение/запись электронного ди
 | A22 | `--boot B` явно документирован как swap физических образов A/B |
 | A23 | Предел 80×2×18 и классические 720/1440 КиБ явно проверяются; экзотические геометрии emulator floppy.c не обещаются |
 | A24 | Аппаратный file-helper удалён из тестовой модели; реальные asm выполняются через байтовой SPI, metadata проверяется в boot ports RTL |
-| A25 | До первого SD command показывается меню 1/2/Enter, default 601 через пять секунд; bootstrap имеет ограниченные ожидания, экранные этапы 01–0C, прогресс/код ошибки, readback CRC SRAM; commit failure останавливает RAM-трамплин |
+| A25 | До первого SD command показывается меню 1/2/Enter, default 601 через десять секунд; bootstrap имеет ограниченные ожидания, экранные этапы 01–0C, прогресс/код ошибки, readback CRC SRAM; commit failure останавливает RAM-трамплин |
 | A26 | Загрузчик выбирает P601.ROM/P601A.ROM и проверяет байт модели до загрузки; отдельные дубли BIOS/FONT/ROM с SD убраны; CFG только информационный |
 | A27 | Выбранная комплектация BIOS + RAMROMDiskPipnet указана в README; пользовательское сравнение альтернативных ROM-комплектов не выполнено |
 | A28 | `make image` использует native/Floppy/system.imz на A; B пустой; фотографии пользователя подтверждают UniDOS 7.20 и A:\> на плате |
@@ -42,7 +42,7 @@ DIR без сбоев и чтение/запись электронного ди
 | A33 | PAL 50 полей/25 кадров; проверены текст/моно/цвет 601, все пять режимов 601A, палитры, атрибуты, курсоры, подчёркивания и blink; нестандартные программы всех регистров MC6845 не покрыты полностью |
 | A34–A36 | Очередь/unread/IRQ/trigger/Pause; исправлен E629 readback, обе Win=FB, Caps=FC, RGB; штатный BIOS подтверждает латиницу при старте/reset и переключения; полный PS/2 набор ещё не покрыт |
 | A37 | Page shadow E6F0, keyboard IRQ, printer-status и segment enable приведены к модели; полное периферийное сравнение не выполнено |
-| A38 | Diamond synthesis/MAP/PAR/TRACE/Jedecgen проходят; 6539 LUT, 10 EBR, setup/hold negative slack=0, unconstrained paths=0; cpu-isa JED прошёл FLASH Verify, FTDI JTAGENB high до/после; физический выбор CPU ещё не проверен; предыдущая models-ebr прошла FLASH/SD Verify, пользователь подтвердил 601A, текст 80 колонок и DIR |
+| A38 | Diamond synthesis/MAP/PAR/TRACE/Jedecgen проходят; 6539 LUT, 10 EBR, setup/hold negative slack=0, unconstrained paths=0; hd-tests JED с меню по 10 секунд прошёл FLASH Verify, FTDI JTAGENB high до/после; физический выбор CPU ещё не проверен; предыдущая models-ebr прошла FLASH/SD Verify, пользователь подтвердил 601A, текст 80 колонок и DIR |
 | A39 | Makefile воспроизводит Python, RTL, VHDL CPU и CPU/SPI firmware tests; отдельный длительный full-system target |
 | A40 | Исходный CPU68 сохранён с notice/SHA-256; изменения документированы в vendor/README.md |
 
@@ -53,7 +53,7 @@ Diamond подтвердил вместимость MachXO2-7000HC и timing clo
 Дополнительно исправлен доступ к чтению E6A0 после commit: без него проверка
 lock в RAM-трамплине останавливалась. Интеграционный handoff тест проходит.
 
-Текущий JED: `build/diamond/cpu-isa/impl1/pyldin601_classic_impl1.jed`.
+Текущий JED: `build/diamond/hd-tests/impl1/pyldin601_classic_impl1.jed`.
 SHA-256: `769bfaa459ff931c37fadc91da779bcd9cd948c4e153900ff25d2b2d490753e8`.
 [Выбор ISA, результаты и границы совместимости](HD6303.md).
 Шрифт включён в конфигурацию FPGA, меню и начальный статус доступны без SD.

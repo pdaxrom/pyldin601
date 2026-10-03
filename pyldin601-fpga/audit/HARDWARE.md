@@ -1,6 +1,21 @@
 # Запись SD и FPGA
 
-## Последняя записанная версия с выбором CPU, 3 октября 2026
+## Последняя записанная версия: меню 10 секунд, 4 октября 2026
+
+Записан `build/diamond/hd-tests/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`eefc5b75bdaf7e7e95b0917c857057e8c57fa97759aa33d99fd65e7e565065e0`.
+31 входной файл совпал с `build/diamond/source-hd-tests.sha256.json`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification успешны.
+Programmer: 56 секунд, wall: 66.99 секунды. uJ11 `hgfsd --jtag-only`
+подтвердил высокий JTAGENB через FTDI до и после записи.
+Журналы/XCF/result — `build/hardware-hd-tests`.
+
+Оба меню теперь ждут 500 PAL ticks, по 10 секунд; выборы и сохранение при
+Reset прежние. SD не перезаписывалась. Для тестов подготовлен отдельный
+образ с CMD/ASM на B: [подготовка и запуск](../tests/hd6303/README.md).
+Физическая проверка этих программ пользователем ещё не выполнена.
+
+## Предыдущая версия с выбором CPU, 3 октября 2026
 
 Записан `build/diamond/cpu-isa/impl1/pyldin601_classic_impl1.jed`:
 SHA-256 `769bfaa459ff931c37fadc91da779bcd9cd948c4e153900ff25d2b2d490753e8`.

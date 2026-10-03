@@ -1,6 +1,6 @@
 # Diamond
 
-Текущая cpu-isa сборка 601/601A: 6539 LUT, 3334 slices, 2128 registers,
+Текущая hd-tests сборка 601/601A с меню по 10 секунд: 6539 LUT, 3334 slices, 2128 registers,
 10 EBR. TRACE: setup/hold negative slack 0, unconstrained paths 0;
 system→CPU worst 18.525 ns при ограничении 20 ns, запас 1.475 ns.
 Чистая сборка выполнена в отдельном Linux-каталоге; все этапы реально
