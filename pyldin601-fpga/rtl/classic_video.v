@@ -1,4 +1,4 @@
-// Monochrome composite PAL 625/50, classic MC6845 register facade.
+// Composite PAL 625/50, classic MC6845 register facade and 601 IRGB graphics.
 // 24 MHz single domain, 8 MHz pixel enable. The existing font EBR is seeded at
 // FPGA configuration, then receives the SD font through physical SRAM writes.
 module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
@@ -6,7 +6,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     input wire bus_read,bus_write,bus_address,
     input wire [7:0] bus_data,
     output wire [7:0] bus_result,
-    input wire graphics,
+    input wire [7:0] mode,
     input wire font_write,
     input wire [10:0] font_address,
     input wire [7:0] font_data,
@@ -14,10 +14,12 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     output reg [20:0] mem_address,
     input wire mem_ready,mem_done,
     input wire [7:0] mem_data,
-    output reg [5:0] tvout,
+    output wire [5:0] tvout,
     output reg tick50
 );
     reg [7:0] registers[0:15];reg[7:0] register_index;
+    wire graphics=mode[5];
+    wire colour_enabled=graphics&&mode[2];
     (* syn_ramstyle = "block_ram" *) reg [7:0] font[0:2047];
     initial $readmemh(FONT_FILE,font);
     reg [7:0] line_cache[0:39],font_pixels;
@@ -30,6 +32,17 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     // second field begins halfway through a line; using field_half >> 1
     // changes y at x=156 and gives its left half the preceding font row.
     wire [8:0] field_line=(half_line>>1)-(half_line<625?9'd0:9'd312);
+    reg colour_frame;
+    // The established raster starts at pre-equalization. uJ11's BT.1700
+    // burst-blanking sequence starts five half-lines later, at broad sync.
+    wire [10:0] burst_half=half_line<5 ? half_line+11'd1245 : half_line-11'd5;
+    wire [9:0] burst_line=burst_half>>1;
+    wire burst_frame=half_line<5 ? !colour_frame : colour_frame;
+    wire burst_blank=burst_frame ?
+        (burst_line<5 || burst_line>=621 || (burst_line>=310&&burst_line<=318)) :
+        (burst_line<6 || burst_line>=622 || (burst_line>=309&&burst_line<=317));
+    // A frame has 625 full lines, so V polarity must also flip between frames.
+    wire alternate=half_line[1]^colour_frame;
     wire [8:0] y=field_line-50;
     wire [8:0] next_y=field_line+1-50;
     wire [15:0] start_addr={registers[12],registers[13]};
@@ -81,6 +94,35 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     reg [7:0] pixels;
     reg [5:0] blink;
     reg sync_low;
+    wire active=horizontal>=100&&horizontal<420&&field_line>=50&&field_line<282
+        &&y<registers[6]*8&&column<registers[1];
+    wire burst=colour_enabled&&!burst_blank&&horizontal>=45&&horizontal<63;
+    reg [1:0] four_colour;
+    reg [3:0] pixel_colour;
+    always @*begin
+        case(x[2:1])
+            0:four_colour=pixels[7:6];
+            1:four_colour=pixels[5:4];
+            2:four_colour=pixels[3:2];
+            3:four_colour=pixels[1:0];
+        endcase
+        pixel_colour=0;
+        if(active)begin
+            if(!colour_enabled)pixel_colour=pixels[7-x[2:0]]?4'hf:4'h0;
+            else if(mode[1])pixel_colour=x[2]?pixels[3:0]:pixels[7:4];
+            // Palettes 0/2 are cold (B=1), 1/3 warm (B=0); PB4 is I.
+            else pixel_colour={mode[4],four_colour,!mode[3]};
+        end
+    end
+    reg [3:0] held_colour;
+    reg held_sync,held_burst,held_alternate;
+    wire pixel_enable=divide==1;
+    // Feed the EBR one clock before the 8 MHz pixel boundary. Its following
+    // output register then changes the DAC on the original divide==2 edge.
+    // Hold colour/raster between pixels while DDS runs at 24 MHz.
+    classic_pal_encoder encoder(clk,reset,
+        pixel_enable?sync_low:held_sync,pixel_enable?burst:held_burst,
+        pixel_enable?alternate:held_alternate,pixel_enable?pixel_colour:held_colour,tvout);
     reg[1:0] dma_state;
     reg[5:0] dma_column;
     assign mem_request=dma_state==1;
@@ -110,25 +152,26 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
         tick50<=0;
         if(reset)begin
             register_index<=0;divide<=0;half_pixel<=0;half_line<=0;
-            tvout<=0;tick50<=0;blink<=0;dma_state<=0;dma_column<=0;mem_address<=0;
+            tick50<=0;blink<=0;dma_state<=0;dma_column<=0;mem_address<=0;
+            colour_frame<=0;held_colour<=0;held_sync<=1;held_burst<=0;held_alternate<=0;
             for(i=0;i<16;i=i+1)registers[i]<=0;
         end else begin
             if(bus_write)begin
                 if(!bus_address)register_index<=bus_data;
                 else registers[register_index[3:0]]<=bus_data;
             end
+            if(pixel_enable)begin
+                held_colour<=pixel_colour;held_sync<=sync_low;
+                held_burst<=burst;held_alternate<=alternate;
+            end
             if(divide==2)begin
                 divide<=0;
                 if(half_pixel==255)begin
                     half_pixel<=0;
-                    if(half_line==1249)half_line<=0;else half_line<=half_line+1'b1;
+                    if(half_line==1249)begin half_line<=0;colour_frame<=!colour_frame;end
+                    else half_line<=half_line+1'b1;
                     if(half_line==624||half_line==1249)begin tick50<=1;blink<=blink+1'b1;end
                 end else half_pixel<=half_pixel+1'b1;
-                if(sync_low)tvout<=0;
-                else if(horizontal>=100&&horizontal<420&&field_line>=50&&field_line<282
-                        &&y<registers[6]*8&&column<registers[1])
-                    tvout<=pixels[7-x[2:0]]?6'd49:6'd15;
-                else tvout<=15;
                 if(horizontal==430&&field_line>=49&&next_y<registers[6]*8&&dma_state==0)begin
                     dma_column<=0;
                     mem_address<=graphics?{5'b0,next_graphics}:{5'b0,next_text};

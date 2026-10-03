@@ -6,7 +6,7 @@ module tb_video_underscore;
     reg reset=1,wr=0,address=0;reg[7:0]data=0;
     wire request;wire[20:0]ma;wire[5:0]tv;
     reg done=0;reg[7:0]memory_data;
-    classic_video dut(clk,reset,1'b0,wr,address,data,,1'b0,
+    classic_video dut(clk,reset,1'b0,wr,address,data,,8'b0,
         1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,);
     reg[7:0]font[0:2047];
     integer raster_line,row,x,char_column,checked[0:1],field;

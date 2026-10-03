@@ -121,7 +121,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire[7:0]memory_data;
  wire font_write=memory_request&&memory_ready&&memory_write&&memory_address>=21'h61000&&memory_address<21'h61800;
  classic_video video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
-  video_result,mode[5],font_write,memory_address[10:0],memory_data,
+  video_result,mode,font_write,memory_address[10:0],memory_data,
   video_request,video_address,video_accept,video_done,memory_read_data,tvout,video_tick);
  wire[20:0]cpu_mem_address;wire[7:0]cpu_mem_data;wire cpu_mem_write,disk_advance;
  // Clients present persistent requests; the arbiter alone owns scheduling.

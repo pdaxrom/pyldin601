@@ -7,7 +7,7 @@ NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore transparent_video sram_stress
+BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability
 .PHONY: test-runtime-irq
@@ -49,17 +49,20 @@ test-runtime-irq: fixtures $(STABILITY_IMAGE)
 test: test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
 firmware: | $(BUILD)
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
+	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
 	$(PYTHON) tools/asm6800.py firmware/boot.asm --output $(BUILD)/boot.bin --origin 0xf000 --size 4096 --mem $(BUILD)/boot.mem
 	$(PYTHON) tools/asm6800.py firmware/loader.asm --output $(BUILD)/loader.bin --origin 0x2000
 $(BUILD):
 	mkdir -p $(BUILD)
 test-python:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
-test-rtl: firmware
+test-rtl: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_video_reference.c -o $(BUILD)/prepare_video_reference
 	$(BUILD)/prepare_video_reference
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_keyboard_reference.c -o $(BUILD)/prepare_keyboard_reference
 	$(BUILD)/prepare_keyboard_reference
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_colour_reference.c -o $(BUILD)/prepare_colour_reference
+	$(BUILD)/prepare_colour_reference
 	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
 	$(VVP) $(BUILD)/tb_sd +sdsc
 	$(VVP) $(BUILD)/tb_sd +badcrc

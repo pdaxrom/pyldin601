@@ -146,3 +146,51 @@ FLASH Verify ID и Erase,Program,Verify прошли, JTAG Chain без ошиб
 FTDI подтвердил высокий JTAGENB до и после записи. Wall time 65.88 секунды.
 SD не перезаписывалась, аппаратная отладка выключена, электронный диск
 включён. Визуальную проверку новых исправлений выполняет пользователь.
+
+## Цветной PAL классической 601, 3 октября 2026
+
+Добавлены 80×200×16 IRGB и 160×200×4, все четыре палитры E629.
+Использован подход PAL-кодировщика uJ11: непрерывная DDS и чередование V,
+burst и его гашение. Для 16 цветов расчёты заменены одним waveform EBR.
+Текст и 320×200×2 сохраняют прежние уровни и границы пикселей. CPU,
+арбитр, SRAM-контроллер, SD/FDD и электронный диск не изменялись.
+Подробности интерфейса и проверок — [COLOUR.md](COLOUR.md).
+
+`make test-rtl test-board-syntax test-memory-bus test-runtime-irq
+STABILITY_IMAGE=build/sd-text.img` завершился с кодом 0:
+`build/colour-pal-regression.log`. Проверены 1 280 000 цветных пикселей,
+3 038 260 DAC-отсчётов, реальные INT12/INT22/INT60/INT66 BIOS/XBIOS,
+прежние монохромные эталоны, периферия, SRAM/электронный диск и 20
+IRQ/RTI рабочего BIOS с совпадением RAM и 172800 видеочтений.
+
+Diamond 3.14: `/tmp/pyldin601-colour-pal-r2.yp9Yzs`.
+31 входной файл сверяется с `build/diamond/source-colour-pal.sha256.json`.
+Пройдены Synthesis/Translate/MAP/PAR/TRACE/Jedecgen.
+
+| Ресурс | Занято | Всего | Свободно |
+|---|---:|---:|---:|
+| LUT4 | 6006 | 6864 | 858 |
+| Slices | 3070 | 3432 | 362 |
+| Registers | 1941 | 7209 | 5268 |
+| EBR | 9 | 26 | 17 |
+| PLL | 1 | 2 | 1 |
+
+EBR: bootstrap 4, шрифт 2, SD/FDD buffer 2, PAL waveform 1.
+Относительно io-pal добавлено 114 LUT и один EBR.
+Setup/hold negative slack 0, unconstrained paths 0. Все 1994
+полупериодных пути system→CPU проходят 20 ns: worst 15.275 ns,
+margin 4.725 ns. System 24 MHz: worst 39.390 ns, margin 2.111 ns.
+Clock-to-output: margin 3.812 ns при требуемых 15 ns.
+Первая попытка выявила опоздание EBR→DAC до 0.770 ns; отдельный
+выходной регистр устранил его без изменения фаз пикселя или ослабления LPF.
+
+JED: `build/diamond/colour-pal/impl1/pyldin601_classic_impl1.jed`.
+SHA-256: `d7354d1077eac7190418d5837475b26f60eb5f88368c4847593ba8abe419cba0`.
+Отчёты и result — `build/diamond/colour-pal`.
+Процедура записи и журналы — `build/hardware-colour-pal`.
+
+FLASH Verify ID и Erase,Program,Verify завершились успешно; JTAG Chain
+без ошибок. FTDI подтвердил высокий JTAGENB до и после записи.
+Wall time 66.15 секунды; SHA JED совпал с указанным выше.
+SD не перезаписывалась, электронный диск включён, runtime-отладка выключена.
+После записи пользователь подтвердил работу цветного режима на плате.
