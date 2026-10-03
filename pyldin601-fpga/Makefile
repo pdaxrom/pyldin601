@@ -1,0 +1,125 @@
+PYTHON ?= python3
+IVERILOG ?= iverilog
+VVP ?= vvp
+NVC ?= nvc
+CC ?= cc
+NATIVE ?= ../native
+EMUSRC ?= ../pyldin601/src
+BUILD := build
+RTL := $(wildcard rtl/*.v)
+BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout fdc fdc_sd video video_text video_cursor transparent_video sram_stress
+.PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
+.PHONY: test-native-stability
+.PHONY: test-runtime-irq
+.PHONY: test-boot-lockstep test-cpu-interrupts
+LOCKSTEP_IMAGE ?= $(STABILITY_IMAGE)
+test-boot-lockstep: fixtures $(LOCKSTEP_IMAGE)
+	$(PYTHON) tests/prepare_boot_lockstep.py
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_boot_lockstep.c -o $(BUILD)/prepare_boot_lockstep
+	$(BUILD)/prepare_boot_lockstep $(LOCKSTEP_IMAGE)
+	$(NVC) --std=2008 --work=work:$(BUILD)/boot-lockstep --ieee-warnings=off -a $(BUILD)/cpu6800_lockstep.vhd tests/tb_boot_lockstep.vhd -e tb_boot_lockstep -r tb_boot_lockstep > $(BUILD)/boot-lockstep.log 2>&1
+	@cat $(BUILD)/boot-lockstep.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS 500000 consecutive native BIOS/ROM instructions' in Path('build/boot-lockstep.log').read_text()"
+test-cpu-interrupts: fixtures
+	$(PYTHON) tests/prepare_boot_lockstep.py
+	$(PYTHON) tests/prepare_cpu_interrupts.py
+	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-interrupts --ieee-warnings=off -a $(BUILD)/cpu6800_lockstep.vhd $(BUILD)/cpu-interrupts-labels.vhd tests/tb_cpu_interrupts.vhd
+	$(PYTHON) tests/run_cpu_interrupts.py --nvc $(NVC)
+.PHONY: test-memory-bus
+test-memory-bus: firmware
+	$(IVERILOG) -g2012 -s tb_memory_bus_audit -o $(BUILD)/tb_memory_bus_audit $(RTL) tests/tb_memory_bus_audit.v
+	$(VVP) $(BUILD)/tb_memory_bus_audit
+	$(IVERILOG) -g2012 -s tb_memory_bus_audit -Ptb_memory_bus_audit.ADDR_DELAY=1 -Ptb_memory_bus_audit.DATA_DELAY=1 -Ptb_memory_bus_audit.CONTROL_DELAY=1 -Ptb_memory_bus_audit.WE_DELAY=15 -o $(BUILD)/tb_memory_bus_audit-skew $(RTL) tests/tb_memory_bus_audit.v
+	$(VVP) $(BUILD)/tb_memory_bus_audit-skew
+STABILITY_IMAGE ?= build/stability-sd.img
+IDLE_SECONDS ?= 14400
+test-native-stability: fixtures $(STABILITY_IMAGE)
+	$(CC) -O2 -I$(EMUSRC) tests/test_native_stability.c -o $(BUILD)/test_native_stability
+	$(BUILD)/test_native_stability $(STABILITY_IMAGE) $(IDLE_SECONDS)
+$(BUILD)/stability-sd.img: | $(BUILD)
+	$(PYTHON) tools/make_sd.py --native $(NATIVE) --disk-a $(NATIVE)/Floppy/system.imz --output $@
+test-runtime-irq: fixtures $(STABILITY_IMAGE)
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_runtime.c -o $(BUILD)/prepare_runtime
+	$(BUILD)/prepare_runtime $(STABILITY_IMAGE) rollover
+	$(PYTHON) tests/prepare_runtime.py
+	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-irq --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd -e -j tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-irq.log 2>&1
+	@cat $(BUILD)/runtime-irq.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-irq.log').read_text()"
+
+test: test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
+firmware: | $(BUILD)
+	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
+	$(PYTHON) tools/asm6800.py firmware/boot.asm --output $(BUILD)/boot.bin --origin 0xf000 --size 4096 --mem $(BUILD)/boot.mem
+	$(PYTHON) tools/asm6800.py firmware/loader.asm --output $(BUILD)/loader.bin --origin 0x2000
+$(BUILD):
+	mkdir -p $(BUILD)
+test-python:
+	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
+test-rtl: firmware
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_video_reference.c -o $(BUILD)/prepare_video_reference
+	$(BUILD)/prepare_video_reference
+	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
+	$(VVP) $(BUILD)/tb_sd +sdsc
+	$(VVP) $(BUILD)/tb_sd +badcrc
+test-cpu: | $(BUILD)
+	$(PYTHON) tests/prepare_cpu.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_cpu_reference.c -o $(BUILD)/cpu_reference
+	$(BUILD)/cpu_reference $(BUILD)/cpu.bin $(BUILD)/cpu.expected.mem
+	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_cpu.vhd -e tb_cpu -r tb_cpu
+fixtures: firmware
+	$(PYTHON) tests/prepare_images.py $(NATIVE) $(BUILD)
+test-firmware: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/fragmented.img
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img sdsc
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/corrupt-rom.img reject
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/short-chain.img reject
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img no-sd
+	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img sram-fault
+	$(CC) -O2 -I$(EMUSRC) tests/test_bios_io.c -o $(BUILD)/test_bios_io
+	$(BUILD)/test_bios_io
+# Full mixed VHDL/Verilog simulation is much slower than the C firmware tests.
+test-system: fixtures
+	$(PYTHON) -c "from pathlib import Path; p=Path('build/test-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\\n'%v for v in p))"
+	$(NVC) --std=2008 --work=work:$(BUILD)/system-test --ieee-warnings=off -a -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system > $(BUILD)/system-test.log 2>&1
+	@cat $(BUILD)/system-test.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU+SRAM+SPI boot' in Path('build/system-test.log').read_text()"
+image: firmware
+	$(PYTHON) tools/make_sd.py --native $(NATIVE) --disk-a $(NATIVE)/Floppy/system.imz --output $(BUILD)/sd.img
+
+test-board-syntax: | $(BUILD)
+	$(NVC) --std=2008 --work=machxo2:$(BUILD)/machxo2 -a tests/machxo2_syntax.vhd
+	$(NVC) --std=2008 --work=work:$(BUILD)/board-syntax --map=machxo2:$(BUILD)/machxo2 -a rtl/classic_pll.vhd rtl/cpu6800.vhd rtl/pyldin601_classic.vhd
+
+test-handoff: fixtures
+	$(PYTHON) tests/prepare_handoff.py
+	$(NVC) --std=2008 --work=work:$(BUILD)/handoff --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff.log 2>&1
+	@cat $(BUILD)/handoff.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU handoff/ROM lock/warm reset' in Path('build/handoff.log').read_text()"
+
+test-stage1: fixtures
+	$(PYTHON) -c "from pathlib import Path; p=Path('build/test-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1 --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1.log 2>&1
+	@cat $(BUILD)/stage1.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1.log').read_text()"
+
+sram-diagnostic: | $(BUILD)
+	$(PYTHON) tools/asm6800.py firmware/sram_test.asm --origin 0xf000 --size 4096 --output $(BUILD)/sram-test.bin --mem $(BUILD)/sram-test.mem
+test-sram-diagnostic: sram-diagnostic
+	$(CC) -O2 -I$(EMUSRC) tests/test_sram_diagnostic.c -o $(BUILD)/test_sram_diagnostic
+	$(BUILD)/test_sram_diagnostic
+	$(BUILD)/test_sram_diagnostic fault
+	$(PYTHON) tests/prepare_sram_diagnostic.py
+	$(NVC) --std=2008 --work=work:$(BUILD)/sram-diagnostic --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_sram_diagnostic.v tests/tb_sram_diagnostic.vhd -e -j tb_sram_diagnostic -r tb_sram_diagnostic > $(BUILD)/sram-diagnostic-hdl.log 2>&1
+	@cat $(BUILD)/sram-diagnostic-hdl.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL MC6800 executes all five SRAM patterns' in Path('build/sram-diagnostic-hdl.log').read_text()"
+	$(NVC) --std=2008 --work=work:$(BUILD)/sram-diagnostic-fault --ieee-warnings=off -a -D SRAM_DIAGNOSTIC_FAULT=1 rtl/cpu6800.vhd $(RTL) tests/tb_sram_diagnostic.v tests/tb_sram_diagnostic.vhd -e -j tb_sram_diagnostic -r tb_sram_diagnostic > $(BUILD)/sram-diagnostic-fault-hdl.log 2>&1
+	@cat $(BUILD)/sram-diagnostic-fault-hdl.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL MC6800 diagnostic detects delayed SRAM corruption' in Path('build/sram-diagnostic-fault-hdl.log').read_text()"
+
+DIAMOND_HOME ?= $(HOME)/.local/lscc/diamond/3.14
+DIAMOND_LIBSTDCPP ?= /lib/x86_64-linux-gnu/libstdc++.so.6
+.PHONY: diamond
+diamond: firmware
+	LD_PRELOAD="$(DIAMOND_LIBSTDCPP)" "$(DIAMOND_HOME)/bin/lin64/diamondc" build-diamond.tcl
