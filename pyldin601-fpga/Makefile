@@ -75,6 +75,7 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 
 test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
 firmware: | $(BUILD)
+	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
 	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
 	$(PYTHON) tools/asm6800.py firmware/boot.asm --output $(BUILD)/boot.bin --origin 0xf000 --size 4096 --mem $(BUILD)/boot.mem

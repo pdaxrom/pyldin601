@@ -1,0 +1,91 @@
+# PS/2 Set 2 byte -> PC Set 1 index used by the native Pyldin translator.
+# Unlisted bytes map to FF. This ROM does not encode E0/F0/E1 prefixes.
+# Modifiers, Pause and E0 Windows keys are handled by classic_keyboard.v.
+set2,set1,key
+01,43,F9
+03,3F,F5
+04,3D,F3
+05,3B,F1
+06,3C,F2
+07,58,F12
+09,44,F10
+0A,42,F8
+0B,40,F6
+0C,3E,F4
+0D,0F,Tab
+0E,29,Grave
+11,FF,Alt (handled in RTL)
+12,FF,Left Shift (handled in RTL)
+14,FF,Control (handled in RTL)
+15,10,Q
+16,02,1
+1A,2C,Z
+1B,1F,S
+1C,1E,A
+1D,11,W
+1E,03,2
+1F,FF,Left Windows (E0; LAT/CYR override in RTL)
+21,2E,C
+22,2D,X
+23,20,D
+24,12,E
+25,05,4
+26,04,3
+27,FF,Right Windows (E0; LAT/CYR override in RTL)
+29,39,Space
+2A,2F,V
+2B,21,F
+2C,14,T
+2D,13,R
+2E,06,5
+31,31,N
+32,30,B
+33,23,H
+34,22,G
+35,15,Y
+36,07,6
+3A,32,M
+3B,24,J
+3C,16,U
+3D,08,7
+3E,09,8
+41,33,Comma
+42,25,K
+43,17,I
+44,18,O
+45,0B,0
+46,0A,9
+49,34,Period
+4A,35,Slash / keypad Divide (E0)
+4B,26,L
+4C,27,Semicolon
+4D,19,P
+4E,0C,Minus
+52,28,Quote
+54,1A,Left bracket
+55,0D,Equal
+58,3A,Caps Lock
+59,FF,Right Shift (handled in RTL)
+5A,1C,Enter / keypad Enter (E0)
+5B,1B,Right bracket
+5D,2B,Backslash
+66,0E,Backspace
+69,4F,Keypad 1 / End (E0)
+6B,4B,Keypad 4 / Left (E0)
+6C,47,Keypad 7 / Home (E0)
+70,52,Keypad 0 / Insert (E0)
+71,53,Keypad Decimal / Delete (E0)
+72,50,Keypad 2 / Down (E0)
+73,4C,Keypad 5
+74,4D,Keypad 6 / Right (E0)
+75,48,Keypad 8 / Up (E0)
+76,01,Escape
+77,FF,Num Lock (ignored in RTL)
+78,57,F11
+7A,51,Keypad 3 / Page Down (E0)
+7D,49,Keypad 9 / Page Up (E0)
+7E,FF,Scroll Lock (ignored)
+83,41,F7
+E0,FF,Extended prefix (handled in RTL)
+E1,FF,Pause prefix (handled in RTL)
+F0,FF,Break prefix (handled in RTL)

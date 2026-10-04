@@ -175,8 +175,8 @@ JED не экспортируется. Это не позволяет общем
 Журнал, MRP/PAR/TWR/PRF и JED сохранены в `build/diamond/turbo-final`.
 Исходный архив `build/diamond/source-turbo-final.tar.gz`:
 `1b056f5aa4019508fe1c17d62c2a208c5678a7ab8a2837199f82c2fccef1a25a`.
-Манифест `source-turbo-final.sha256.json` сверяет все 34 входных файла
-с текущими production-исходниками.
+Манифест `source-turbo-final.sha256.json` фиксирует все 34 входных файла
+этой проверенной сборки.
 JED `build/diamond/turbo-final/impl1/pyldin601_classic_impl1.jed`:
 `c3aa29a6fa656c08df8a93feadda8228970020ed9094521d9d9919ea69e42cdc`.
 4 октября сборка записана во FLASH: Verify ID, Erase/Program/Verify и
