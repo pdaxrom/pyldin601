@@ -1,6 +1,12 @@
 # Diamond
 
-Текущая hd-tests сборка 601/601A с меню по 10 секунд: 6539 LUT, 3334 slices, 2128 registers,
+Сборка с переключением 1/2/4/8 МГц и оптимизированной SRAM: 6437 LUT,
+3281 slices, 2044 registers, 10 EBR. TRACE setup/hold и unconstrained paths — 0.
+SRAM clock 96 МГц; путь SRAM→CPU worst 22,533 нс при ограничении 27 нс.
+Сборка записана во FLASH с успешным Verify и JTAGENB high до/после.
+[Архив и бюджет SRAM](TURBO-SRAM.md), [журналы записи](HARDWARE.md).
+
+Предыдущая записанная hd-tests сборка 601/601A с меню по 10 секунд: 6539 LUT, 3334 slices, 2128 registers,
 10 EBR. TRACE: setup/hold negative slack 0, unconstrained paths 0;
 system→CPU worst 18.525 ns при ограничении 20 ns, запас 1.475 ns.
 Чистая сборка выполнена в отдельном Linux-каталоге; все этапы реально
@@ -103,6 +109,9 @@ boot ROM и font RAM явно выводятся в EBR; удержание кл
 Аппаратный FDD-контроллер сохранён во всех этих версиях.
 
 ## Допущения внешних таймингов
+
+Ниже описаны тайминги исторической caps-led сборки. Текущая SRAM-10
+последовательность на 96 МГц и её ограничения — в [TURBO-SRAM.md](TURBO-SRAM.md).
 
 Схема hardware-lcd указывает IS61WV102416BLL-10; ограничения проверены
 также с более медленными значениями -20 из приложенного datasheet.

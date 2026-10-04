@@ -3,10 +3,11 @@ module sram_diagnostic_fixture(
  input cpu_rw,cpu_vma,input[15:0]cpu_addr,input[7:0]cpu_out,
  output cpu_clk,cpu_reset,cpu_hold,cpu_irq,output[7:0]cpu_in
 );
- reg clk=0;always #21 clk=~clk; // 24 MHz rounded to the simulator's ns time unit
+ reg clk=0;always #21 clk=~clk;
+ wire clk_fast;test_fast_clock fast_clock(clk_fast); // 24 MHz rounded to the simulator's ns time unit
  wire[19:0]sa;wire[15:0]sd;wire ce,oe,we,ub,lb;
  classic_system #(.BOOT_FILE("build/sram-smoke.mem")) dut(
-  .clk(clk),.pll_locked(1'b1),.btn_resetn(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),
+  .clk(clk),.clk_fast(clk_fast),.pll_locked(1'b1),.btn_resetn(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),
   .cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),
   .cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),
   .ps2clk(1'b1),.ps2dat(1'b1),.rxd(1'b1),.miso(1'b1),

@@ -1,10 +1,11 @@
 `timescale 1ns/1ps
 module tb_keyboard_layout;
     reg clk=0;always #5 clk=~clk;
+ reg clk_fast=0;always #1.25 clk_fast=~clk_fast;
     reg rw=1,vma=0,psclk=1,psdata=1,resetn=1;
     reg[15:0]address=0;reg[7:0]data=0;
     wire cpu_clk,cpu_reset;wire[7:0]result;wire[2:0]led;
-    classic_system dut(.clk(clk),.pll_locked(1'b1),.btn_resetn(resetn),
+    classic_system #(.BUTTON_TICK_DIV(1),.BUTTON_DEBOUNCE_MS(2),.BUTTON_LONG_MS(4)) dut(.clk(clk),.clk_fast(clk_fast),.pll_locked(1'b1),.btn_resetn(resetn),
         .cpu_rw(rw),.cpu_vma(vma),.cpu_addr(address),.cpu_out(data),
         .cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_in(result),.led_rgb(led),
         .ps2clk(psclk),.ps2dat(psdata),.rxd(1'b1),.miso(1'b1));

@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
+BENCHES := frequency_controls memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -27,11 +27,28 @@ test-cpu-interrupts: fixtures
 	$(PYTHON) tests/prepare_cpu_interrupts.py
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-interrupts --ieee-warnings=off -a $(BUILD)/cpu6800_lockstep.vhd $(BUILD)/cpu-interrupts-labels.vhd tests/tb_cpu_interrupts.vhd
 	$(PYTHON) tests/run_cpu_interrupts.py --nvc $(NVC)
+.PHONY: test-mixed-clock
+test-mixed-clock: | $(BUILD)
+	$(NVC) --work=work:$(BUILD)/mixed-clock -a tests/fast_clock.v tests/tb_fast_clock.v -e tb_fast_clock -r tb_fast_clock > $(BUILD)/mixed-clock.log 2>&1
+	@cat $(BUILD)/mixed-clock.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS mixed HDL clocks' in Path('build/mixed-clock.log').read_text()"
+.PHONY: test-turbo
+test-turbo: firmware
+	$(IVERILOG) -g2012 -s tb_turbo_memory -o $(BUILD)/tb_turbo_memory $(RTL) tests/fast_clock.v tests/tb_turbo_memory.v
+	$(VVP) $(BUILD)/tb_turbo_memory
+	$(IVERILOG) -g2012 -s tb_turbo_memory -Ptb_turbo_memory.ADDR_DELAY=1 -Ptb_turbo_memory.DATA_DELAY=1 -Ptb_turbo_memory.CONTROL_DELAY=1 -Ptb_turbo_memory.WE_DELAY=10 -o $(BUILD)/tb_turbo_memory-skew $(RTL) tests/fast_clock.v tests/tb_turbo_memory.v
+	$(VVP) $(BUILD)/tb_turbo_memory-skew
+	$(IVERILOG) -g2012 -s tb_turbo_memory -Ptb_turbo_memory.WE_RISE=0 -Ptb_turbo_memory.WE_FALL=10 -Ptb_turbo_memory.FAST_OFFSET=5.208 -o $(BUILD)/tb_turbo_memory-short-we $(RTL) tests/fast_clock.v tests/tb_turbo_memory.v
+	$(VVP) $(BUILD)/tb_turbo_memory-short-we
+	$(IVERILOG) -g2012 -s tb_turbo_memory -Ptb_turbo_memory.WE_DELAY=0 -Ptb_turbo_memory.FAST_OFFSET=5.208 -o $(BUILD)/tb_turbo_memory-setup $(RTL) tests/fast_clock.v tests/tb_turbo_memory.v
+	$(VVP) $(BUILD)/tb_turbo_memory-setup
+	@set -e; for model in 0 1; do for speed in 0 1 2 3; do $(IVERILOG) -g2012 -s tb_transparent_video -Ptb_transparent_video.MODEL_A=$$model -Ptb_transparent_video.SPEED=$$speed -o $(BUILD)/tb_transparent_video-turbo $(RTL) tests/fast_clock.v tests/tb_transparent_video.v; $(VVP) $(BUILD)/tb_transparent_video-turbo; done; done
+
 .PHONY: test-memory-bus
 test-memory-bus: firmware
-	$(IVERILOG) -g2012 -s tb_memory_bus_audit -o $(BUILD)/tb_memory_bus_audit $(RTL) tests/tb_memory_bus_audit.v
+	$(IVERILOG) -g2012 -s tb_memory_bus_audit -o $(BUILD)/tb_memory_bus_audit $(RTL) tests/fast_clock.v tests/tb_memory_bus_audit.v
 	$(VVP) $(BUILD)/tb_memory_bus_audit
-	$(IVERILOG) -g2012 -s tb_memory_bus_audit -Ptb_memory_bus_audit.ADDR_DELAY=1 -Ptb_memory_bus_audit.DATA_DELAY=1 -Ptb_memory_bus_audit.CONTROL_DELAY=1 -Ptb_memory_bus_audit.WE_DELAY=15 -o $(BUILD)/tb_memory_bus_audit-skew $(RTL) tests/tb_memory_bus_audit.v
+	$(IVERILOG) -g2012 -s tb_memory_bus_audit -Ptb_memory_bus_audit.ADDR_DELAY=1 -Ptb_memory_bus_audit.DATA_DELAY=1 -Ptb_memory_bus_audit.CONTROL_DELAY=1 -Ptb_memory_bus_audit.WE_DELAY=10 -o $(BUILD)/tb_memory_bus_audit-skew $(RTL) tests/fast_clock.v tests/tb_memory_bus_audit.v
 	$(VVP) $(BUILD)/tb_memory_bus_audit-skew
 STABILITY_IMAGE ?= build/stability-sd.img
 IDLE_SECONDS ?= 14400
@@ -40,13 +57,21 @@ test-native-stability: fixtures $(STABILITY_IMAGE)
 	$(BUILD)/test_native_stability $(STABILITY_IMAGE) $(IDLE_SECONDS)
 $(BUILD)/stability-sd.img: | $(BUILD)
 	$(PYTHON) tools/make_sd.py --native $(NATIVE) --disk-a $(NATIVE)/Floppy/system.imz --output $@
-test-runtime-irq: fixtures $(STABILITY_IMAGE)
+test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_runtime.c -o $(BUILD)/prepare_runtime
 	$(BUILD)/prepare_runtime $(STABILITY_IMAGE) rollover
 	$(PYTHON) tests/prepare_runtime.py
-	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-irq --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd -e -j tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-irq.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-irq --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd -e -j tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-irq.log 2>&1
 	@cat $(BUILD)/runtime-irq.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-irq.log').read_text()"
+
+.PHONY: test-runtime-turbo
+test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_runtime.c -o $(BUILD)/prepare_runtime
+	$(BUILD)/prepare_runtime $(STABILITY_IMAGE) rollover
+	$(PYTHON) tests/prepare_runtime.py
+	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
+	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
 test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
 firmware: | $(BUILD)
@@ -68,7 +93,7 @@ test-rtl: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_601a_reference.c -o $(BUILD)/prepare_601a_reference
 	$(BUILD)/prepare_601a_reference
 	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
-	$(IVERILOG) -g2012 -s tb_transparent_video -Ptb_transparent_video.MODEL_A=1 -o $(BUILD)/tb_transparent_video-a $(RTL) tests/tb_transparent_video.v
+	$(IVERILOG) -g2012 -s tb_transparent_video -Ptb_transparent_video.MODEL_A=1 -o $(BUILD)/tb_transparent_video-a $(RTL) tests/fast_clock.v tests/tb_transparent_video.v
 	$(VVP) $(BUILD)/tb_transparent_video-a
 	$(VVP) $(BUILD)/tb_sd +sdsc
 	$(VVP) $(BUILD)/tb_sd +badcrc
@@ -100,9 +125,9 @@ test-firmware: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_bios_io.c -o $(BUILD)/test_bios_io
 	$(BUILD)/test_bios_io
 # Full mixed VHDL/Verilog simulation is much slower than the C firmware tests.
-test-system: fixtures
+test-system: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/test-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/system-test --ieee-warnings=off -a -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system > $(BUILD)/system-test.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/system-test --ieee-warnings=off -a -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system > $(BUILD)/system-test.log 2>&1
 	@cat $(BUILD)/system-test.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU+SRAM+SPI boot' in Path('build/system-test.log').read_text()"
 image: firmware
@@ -112,35 +137,35 @@ test-board-syntax: | $(BUILD)
 	$(NVC) --std=2008 --work=machxo2:$(BUILD)/machxo2 -a tests/machxo2_syntax.vhd
 	$(NVC) --std=2008 --work=work:$(BUILD)/board-syntax --map=machxo2:$(BUILD)/machxo2 -a rtl/classic_pll.vhd rtl/cpu6800.vhd rtl/pyldin601_classic.vhd
 
-test-handoff: fixtures
+test-handoff: test-mixed-clock fixtures
 	$(PYTHON) tests/prepare_handoff.py
-	$(NVC) --std=2008 --work=work:$(BUILD)/handoff --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/handoff --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff.log 2>&1
 	@cat $(BUILD)/handoff.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU handoff/ROM lock/warm reset' in Path('build/handoff.log').read_text()"
 
-test-stage1: fixtures
+test-stage1: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/test-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1 --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1 --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1.log 2>&1
 	@cat $(BUILD)/stage1.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1.log').read_text()"
 
-test-stage1-a: fixtures
+test-stage1-a: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a --ieee-warnings=off -a -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a --ieee-warnings=off -a -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a.log 2>&1
 	@cat $(BUILD)/stage1-a.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a.log').read_text()"
 
 sram-diagnostic: | $(BUILD)
 	$(PYTHON) tools/asm6800.py firmware/sram_test.asm --origin 0xf000 --size 4096 --output $(BUILD)/sram-test.bin --mem $(BUILD)/sram-test.mem
-test-sram-diagnostic: sram-diagnostic
+test-sram-diagnostic: test-mixed-clock sram-diagnostic
 	$(CC) -O2 -I$(EMUSRC) tests/test_sram_diagnostic.c -o $(BUILD)/test_sram_diagnostic
 	$(BUILD)/test_sram_diagnostic
 	$(BUILD)/test_sram_diagnostic fault
 	$(PYTHON) tests/prepare_sram_diagnostic.py
-	$(NVC) --std=2008 --work=work:$(BUILD)/sram-diagnostic --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/tb_sram_diagnostic.v tests/tb_sram_diagnostic.vhd -e -j tb_sram_diagnostic -r tb_sram_diagnostic > $(BUILD)/sram-diagnostic-hdl.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/sram-diagnostic --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_sram_diagnostic.v tests/tb_sram_diagnostic.vhd -e -j tb_sram_diagnostic -r tb_sram_diagnostic > $(BUILD)/sram-diagnostic-hdl.log 2>&1
 	@cat $(BUILD)/sram-diagnostic-hdl.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL MC6800 executes all five SRAM patterns' in Path('build/sram-diagnostic-hdl.log').read_text()"
-	$(NVC) --std=2008 --work=work:$(BUILD)/sram-diagnostic-fault --ieee-warnings=off -a -D SRAM_DIAGNOSTIC_FAULT=1 rtl/cpu6800.vhd $(RTL) tests/tb_sram_diagnostic.v tests/tb_sram_diagnostic.vhd -e -j tb_sram_diagnostic -r tb_sram_diagnostic > $(BUILD)/sram-diagnostic-fault-hdl.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/sram-diagnostic-fault --ieee-warnings=off -a -D SRAM_DIAGNOSTIC_FAULT=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_sram_diagnostic.v tests/tb_sram_diagnostic.vhd -e -j tb_sram_diagnostic -r tb_sram_diagnostic > $(BUILD)/sram-diagnostic-fault-hdl.log 2>&1
 	@cat $(BUILD)/sram-diagnostic-fault-hdl.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL MC6800 diagnostic detects delayed SRAM corruption' in Path('build/sram-diagnostic-fault-hdl.log').read_text()"
 
@@ -177,11 +202,11 @@ test-hd6303-edges: fixtures
 
 # Both ROM bundles use the same classic machine peripherals; ISA selection is independent.
 .PHONY: test-stage1-hd
-test-stage1-hd: fixtures
+test-stage1-hd: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-hd --ieee-warnings=off -a -D BOOT_HD6303=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-hd.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-hd --ieee-warnings=off -a -D BOOT_HD6303=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-hd.log 2>&1
 	@cat $(BUILD)/stage1-hd.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-hd.log').read_text()"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a-hd --ieee-warnings=off -a -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a-hd.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a-hd --ieee-warnings=off -a -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a-hd.log 2>&1
 	@cat $(BUILD)/stage1-a-hd.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a-hd.log').read_text()"

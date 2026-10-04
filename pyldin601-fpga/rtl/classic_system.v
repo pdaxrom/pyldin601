@@ -1,6 +1,6 @@
 // Classic MC6800 core on hardware-lcd, byte SRAM and one SPI shifter.
-module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=6,parameter CLASSIC_DIV=24)(
- input wire clk,pll_locked,btn_resetn,
+module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=6,parameter CLASSIC_DIV=24,parameter BUTTON_TICK_DIV=24000,parameter BUTTON_DEBOUNCE_MS=20,parameter BUTTON_LONG_MS=2000)(
+ input wire clk,clk_fast,pll_locked,btn_resetn,
  input wire cpu_rw,cpu_vma,input wire[15:0]cpu_addr,input wire[7:0]cpu_out,
  output wire cpu_clk,cpu_reset,cpu_hold,cpu_irq,output wire[7:0]cpu_in,
  output wire[8:0]seg_led_h,seg_led_l,output wire[2:0]led_rgb,
@@ -13,11 +13,16 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  reg[7:0]power_delay=255;
  always @(posedge clk)if(!pll_locked)power_delay<=255;else if(power_delay!=0)power_delay<=power_delay-1'b1;
  wire cold_reset=power_delay!=0;
- reg[2:0]button_sync=7;
- always @(posedge clk)button_sync<={button_sync[1:0],btn_resetn};
- wire warm_request=!button_sync[2];
+ wire warm_request,speed_tap;
+ classic_reset_button #(.TICK_DIV(BUTTON_TICK_DIV),.DEBOUNCE_MS(BUTTON_DEBOUNCE_MS),.LONG_MS(BUTTON_LONG_MS))
+  button(clk,cold_reset,btn_resetn,speed_tap,warm_request);
+ reg[1:0]speed=0;reg speed_pending=0;
  wire raw_owned;
- wire memory_busy,sd_ready,sd_initialized,sd_done,sd_error,raw_busy,raw_cs;
+ wire fast_memory_busy;reg memory_busy=1;
+ // Sample the related fast-domain busy on the falling 24 MHz edge. It is
+ // then stable for half a system period before reset/speed decisions.
+ always @(negedge clk)if(cold_reset)memory_busy<=1;else memory_busy<=fast_memory_busy;
+ wire sd_ready,sd_initialized,sd_done,sd_error,raw_busy,raw_cs;
  wire locked,boot_mode,boot_error;
  // Stop new requests immediately, drain accepted SRAM/SD writes, then reset CPU.
  reg warm_hold;reg[5:0]reset_tail;
@@ -32,7 +37,18 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  end
  assign cpu_reset=cold_reset||warm_hold;
  reg[4:0]phase=0;
- wire[4:0]cpu_divisor=boot_mode?BOOT_DIV:CLASSIC_DIV;
+ wire[4:0]cpu_divisor=boot_mode?BOOT_DIV:(CLASSIC_DIV>>speed);
+ always @(posedge clk)begin
+  if(cold_reset)begin speed<=0;speed_pending<=0;end
+  else begin
+   if(speed_tap&&!boot_mode&&!cpu_reset)speed_pending<=1;
+   // Change only AFTER the previous falling CPU edge and after SRAM drains.
+   if(phase==0&&!memory_busy)begin
+    if(cpu_reset)begin speed<=0;speed_pending<=0;end
+    else if(speed_pending)begin speed<=speed+1'b1;speed_pending<=0;end
+   end
+  end
+ end
  // Clock is a flip-flop output, never a combinational decode of counter bits.
  (* syn_keep = 1 *) reg cpu_clock=0;
  always @(posedge clk)begin
@@ -54,7 +70,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  reg[7:0]boot_byte;
  initial $readmemh(BOOT_FILE,boot_rom);
  always @(posedge clk)boot_byte<=boot_rom[cpu_addr[11:0]];
- wire cycle;
+ wire cycle=phase==1&&!cpu_reset&&cpu_vma;
  wire bus_read=cycle&&cpu_rw,bus_write=cycle&&!cpu_rw;
  wire boot_io=(boot_mode||(cpu_rw&&cpu_addr==16'he6a0))&&cpu_addr[15:4]==12'he6a;
  wire spi_io=cpu_addr>=16'he660&&cpu_addr<=16'he664;
@@ -74,7 +90,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq);
  wire boot_request,boot_write,boot_accept,boot_done;wire[20:0]boot_address;wire[7:0]boot_data,boot_result,boot_debug;
- wire[7:0]memory_read_data;
+ wire[7:0]memory_read_data;wire[7:0]runtime_video_data,runtime_cpu_data;
  wire[31:0]a_start,a_length,b_start,b_length;wire[7:0]aspt,ah,bspt,bh;wire[8:0]ac,bc;
  wire boot_b,sd_mode,model_a;
  classic_boot_ports boot(clk,cold_reset,cpu_reset,bus_read&&boot_io,bus_write&&boot_io,
@@ -117,30 +133,56 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   raw_owned?raw_tx:host_tx,raw_owned?raw_div:host_div,miso,msck,mosi,byte_busy,byte_done,byte_rx);
  assign mss=raw_owned?raw_cs:block_cs;
  wire video_request,video_accept,video_done,video_tick;wire[20:0]video_address;wire[7:0]video_result;
- wire memory_request,memory_write,memory_ready,memory_done;wire[20:0]memory_address;
- wire[7:0]memory_data;
- wire font_write=memory_request&&memory_ready&&memory_write&&memory_address>=21'h61000&&memory_address<21'h61800;
+ wire font_write=boot_accept&&boot_write&&boot_address>=21'h61000&&boot_address<21'h61800;
  classic_video video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
-  video_result,mode,font_write,memory_address[10:0],memory_data,
-  video_request,video_address,video_accept,video_done,memory_read_data,tvout,video_tick,model_a);
- wire[20:0]cpu_mem_address;wire[7:0]cpu_mem_data;wire cpu_mem_write,disk_advance;
- // Clients present persistent requests; the arbiter alone owns scheduling.
- // Each 7-clock slot includes the SRAM setup/access/hold/release and response.
- // CPU: accept 3, complete 9. Video: accept 10/17, complete 16/23.
- // cpu_in is retained separately through both video reads and CPU capture.
- wire cpu_request;
- wire[2:0]accept,completed;
- wire requested_write;
- memory_arbiter #(.RUNTIME_SLOTS(1)) arbiter(clk,cold_reset,{video_request&&!cpu_reset,boot_request,cpu_request},
-  {1'b0,boot_write,cpu_mem_write},{video_address,boot_address,cpu_mem_address},{8'b0,boot_data,cpu_mem_data},
-  accept,completed,memory_busy,memory_request,requested_write,memory_address,memory_data,memory_ready,memory_done,
-  !boot_mode,phase);
- wire guard_locked;
- rom_write_guard guard(clk,cold_reset,locked,requested_write,memory_address,guard_locked,memory_write);
- assign boot_accept=accept[1];assign boot_done=completed[1];
- assign video_accept=accept[2];assign video_done=completed[2];
- sram_byte_controller memory(clk,cold_reset,memory_request,memory_write,memory_address,memory_data,
-  memory_ready,memory_done,memory_read_data,SRAM_ADDR,SRAM_DATA,SRAM_CE,SRAM_OE,SRAM_WE,SRAM_LB,SRAM_UB);
+  video_result,mode,font_write,boot_address[10:0],boot_data,
+  video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,model_a);
+ // One optimized physical SRAM sequencer for bootstrap, CPU and video.
+ // Registered requests cross to 96 MHz; completions remain until consumed.
+ wire disk_advance;
+ wire fast_video_accept,fast_video_done,fast_boot_accept,fast_boot_done;
+ reg runtime_prepare=0;
+ always @(posedge clk)runtime_prepare<=phase==0;
+ reg[1:0]video_accept_sync=0,video_done_sync=0,boot_accept_sync=0,boot_done_sync=0;
+ reg video_token=0,boot_token=0,video_pending=0,boot_pending=0;
+ reg video_accept_seen=0,video_done_seen=0,boot_accept_seen=0,boot_done_seen=0;
+ always @(posedge clk)begin
+  video_accept_sync<={video_accept_sync[0],fast_video_accept};video_done_sync<={video_done_sync[0],fast_video_done};
+  boot_accept_sync<={boot_accept_sync[0],fast_boot_accept};boot_done_sync<={boot_done_sync[0],fast_boot_done};
+  if(cold_reset)begin
+   video_token<=0;boot_token<=0;video_pending<=0;boot_pending<=0;
+   video_accept_seen<=0;video_done_seen<=0;boot_accept_seen<=0;boot_done_seen<=0;
+  end else if(cpu_reset)begin
+   // Cancel unaccepted requests by realigning their toggle to the last ACK.
+   // A boot request already ACKed to its client must still deliver DONE:
+   // classic_boot_ports drains an issued write before restarting bootstrap.
+   video_token<=video_accept_sync[1];boot_token<=boot_accept_sync[1];
+   video_pending<=0;
+   video_accept_seen<=video_accept_sync[1];video_done_seen<=video_done_sync[1];
+   if(boot_pending&&boot_accept_seen==boot_token)begin
+    if(boot_done)begin boot_pending<=0;boot_done_seen<=boot_done_sync[1];end
+   end else begin
+    boot_pending<=0;boot_accept_seen<=boot_accept_sync[1];boot_done_seen<=boot_done_sync[1];
+   end
+  end else begin
+   if(video_request&&!video_pending)begin video_token<=!video_token;video_pending<=1;end
+   if(boot_request&&!boot_pending)begin boot_token<=!boot_token;boot_pending<=1;end
+   if(video_accept&&video_request)video_accept_seen<=video_accept_sync[1];
+   if(boot_accept&&boot_request)boot_accept_seen<=boot_accept_sync[1];
+   if(video_done&&!video_request)begin video_done_seen<=video_done_sync[1];video_pending<=0;end
+   if(boot_done&&!boot_request)begin boot_done_seen<=boot_done_sync[1];boot_pending<=0;end
+  end
+ end
+ assign video_accept=video_pending&&(video_accept_sync[1]!=video_accept_seen);
+ assign video_done=video_pending&&(video_done_sync[1]!=video_done_seen);
+ assign boot_accept=boot_pending&&(boot_accept_sync[1]!=boot_accept_seen);
+ assign boot_done=boot_pending&&(boot_done_sync[1]!=boot_done_seen);
+ classic_runtime_memory runtime_memory(clk_fast,cold_reset,locked,cpu_reset,runtime_prepare,
+  cpu_vma,cpu_rw,peripheral,disk_data_io?21'h80000+ramdisk_address:mapped_address,cpu_out,
+  video_token,video_address,speed_pending,
+  boot_token,boot_write,boot_address,boot_data,fast_boot_accept,fast_boot_done,memory_read_data,
+  fast_video_accept,fast_video_done,runtime_video_data,runtime_cpu_data,fast_memory_busy,
+  SRAM_ADDR,SRAM_DATA,SRAM_CE,SRAM_OE,SRAM_WE,SRAM_LB,SRAM_UB);
  reg[7:0]peripheral_data;
  always @*begin
   peripheral_data=8'hff;
@@ -154,10 +196,14 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   // UniBIOS reads DRB before modifying video or LAT/CYR bits.
   else if(simple_io)peripheral_data=cpu_addr==16'he629 ? mode:cpu_addr==16'he632 ? 8'h80:0;
  end
- classic_cpu_bus cpu_bus(clk,cpu_reset,phase,cpu_vma,cpu_rw,cpu_out,
-  peripheral,peripheral_data,disk_data_io?21'h80000+ramdisk_address:mapped_address,disk_data_io,
-  cycle,cpu_request,cpu_hold,disk_advance,
-  cpu_mem_write,cpu_mem_address,cpu_mem_data,accept[0],completed[0],memory_read_data,cpu_in);
+ reg[7:0]runtime_peripheral_data;reg runtime_memory_read;
+ assign cpu_hold=1'b0;
+ assign cpu_in=runtime_memory_read?runtime_cpu_data:runtime_peripheral_data;
+ assign disk_advance=cycle&&disk_data_io;
+ always @(posedge clk)begin
+  if(cpu_reset)begin runtime_peripheral_data<=8'hff;runtime_memory_read<=0;end
+  else if(cycle)begin runtime_memory_read<=!peripheral;if(peripheral)runtime_peripheral_data<=peripheral_data;end
+ end
  always @(posedge clk)begin
   if(cpu_reset)begin
    page<=0;mode<=1;caps_off<=1;speaker<=0;ramdisk_address<=0;tick_pending<=0;
@@ -176,7 +222,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  // UART is unused in the normal machine; keep the board TX pin idle.
  assign txd=1'b1;
  assign audio={2{speaker}};
- assign seg_led_h=9'h0ff;assign seg_led_l=9'h0ff;
+ classic_frequency_display display(clk,cold_reset,speed,boot_mode,seg_led_h,seg_led_l);
  // Active-low cathodes: pin39 red, pin41 green, pin42 blue.
  // Schematic LED_B/LED_G names are swapped; use the actual LED cathodes.
  // Red indication is opposite to the PIA control-register bit 3 readback.

@@ -26,12 +26,13 @@ entity pyldin601_classic is
   audio:out std_logic_vector(1 downto 0)
  );end;
 architecture board_hardware_lcd of pyldin601_classic is
- signal clk,pll_locked,cpu_clk,cpu_reset,cpu_hold,cpu_irq,cpu_rw,cpu_vma:std_logic;
+ signal clk,clk_fast,pll_locked,cpu_clk,cpu_reset,cpu_hold,cpu_irq,cpu_rw,cpu_vma:std_logic;
  signal hd6303_en:std_logic;
  signal cpu_addr:std_logic_vector(15 downto 0);signal cpu_out,cpu_in:std_logic_vector(7 downto 0);
  component classic_system is
  port(
   clk:in std_logic;
+  clk_fast:in std_logic;
   pll_locked:in std_logic;
   btn_resetn:in std_logic;
   cpu_rw:in std_logic;
@@ -67,10 +68,10 @@ architecture board_hardware_lcd of pyldin601_classic is
  );end component;
 begin
  flash_cs<='1';flash_wp<='1';flash_hold<='1';flash_si<='0';flash_sck<='0';
- pll:entity work.classic_pll port map(clk_ext,clk,open,open,pll_locked);
+ pll:entity work.classic_pll port map(clk_ext,clk,clk_fast,open,pll_locked);
  cpu:entity work.cpu6800 port map(cpu_clk,cpu_reset,cpu_rw,cpu_vma,cpu_addr,cpu_in,cpu_out,cpu_hold,'0',cpu_irq,'0',open,open,hd6303_en);
  system:classic_system port map(
-  clk=>clk,
+  clk=>clk,clk_fast=>clk_fast,
   pll_locked=>pll_locked,
   btn_resetn=>btn_resetn,
   cpu_rw=>cpu_rw,

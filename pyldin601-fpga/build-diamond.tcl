@@ -1,5 +1,16 @@
 # Diamond build only; no Programmer or physical device access.
 cd [file dirname [file normalize [info script]]]
+# Fail closed if a broad/later preference overrides one of the SRAM budgets.
+proc require_scored {report preference} {
+    set start [string first "Preference: $preference" $report]
+    if {$start < 0} { error "Missing timing preference: $preference" }
+    set section [string range $report $start [expr {$start + 450}]]
+    if {![regexp {
+[ \t]*([0-9]+) items? scored, ([0-9]+) timing errors? detected} $section match scored errors]
+        || $scored == 0 || $errors != 0} {
+        error "Timing preference unmatched or failing: $preference"
+    }
+}
 if {[catch {
     prj_project open pyldin601_classic.ldf
     prj_run Synthesis -impl impl1
@@ -20,10 +31,21 @@ if {[catch {
     foreach {match count} $untimed {
         if {$count != 0} { error "Timing incomplete: $count unconstrained paths" }
     }
-    if {![regexp {Preference: MAXDELAY FROM CELL "system/\*" TO CELL "cpu/\*"[^\n]*\n[ \t]*([0-9]+) items scored, ([0-9]+) timing errors detected} $timing match scored errors]
-        || $scored == 0 || $errors != 0} {
-        error "CPU half-cycle constraint is missing, unmatched or failing"
-    }
+    foreach preference {
+        {FREQUENCY NET "clk_fast" 96.000000 MHz ;}
+        {FREQUENCY NET "cpu_clk" 8.000000 MHz ;}
+        {MULTICYCLE FROM CLKNET "cpu_clk" TO CLKNET "clk" 2.000000 X ;}
+        {MULTICYCLE FROM CLKNET "cpu_clk" TO CLKNET "clk_fast" 4.000000 X ;}
+        {MAXDELAY FROM CELL "system/runtime_memory/cpu_result*" TO CELL "cpu/*" 27.000000 ns DATAPATH_ONLY ;}
+        {CLOCK_TO_OUT PORT "SRAM_ADDR[*]" 6.000000 ns CLKNET "clk_fast" ;}
+        {CLOCK_TO_OUT PORT "SRAM_DATA[*]" 10.500000 ns CLKNET "clk_fast" ;}
+        {CLOCK_TO_OUT PORT "SRAM_CE" 6.000000 ns CLKNET "clk_fast" ;}
+        {CLOCK_TO_OUT PORT "SRAM_OE" 6.000000 ns CLKNET "clk_fast" ;}
+        {CLOCK_TO_OUT PORT "SRAM_LB" 6.000000 ns CLKNET "clk_fast" ;}
+        {CLOCK_TO_OUT PORT "SRAM_UB" 6.000000 ns CLKNET "clk_fast" ;}
+        {CLOCK_TO_OUT PORT "SRAM_WE" 6.000000 ns CLKNET "clk_fast" ;}
+        {INPUT_SETUP PORT "SRAM_DATA[*]" 8.000000 ns HOLD 0.000000 ns CLKNET "clk_fast" ;}
+    } { require_scored $timing $preference }
     prj_run Export -impl impl1 -task Jedecgen
     prj_project close
 } message]} {

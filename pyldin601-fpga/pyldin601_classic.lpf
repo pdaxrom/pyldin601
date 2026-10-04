@@ -2,18 +2,65 @@
 # Q1 expected 12 MHz. No global ASYNCPATHS/RESETPATHS suppression.
 FREQUENCY PORT "clk_ext" 12.000 MHz;
 FREQUENCY NET "clk" 24.000 MHz;
-FREQUENCY NET "cpu_clk" 4.000 MHz;
-# CPU clock is registered on the falling 24 MHz edge. In addition to clock
-# frequency analysis, bound every system-register -> CPU-register data path
-# to less than that half-cycle (20.833 ns), including boot/runtime switching.
-MAXDELAY FROM CELL "system/*" TO CELL "cpu/*" 20 ns DATAPATH_ONLY;
-# SRAM uses two access periods for reads and two periods of WE low for writes.
-# 15 ns pad-output budget leaves >=68.3 ns write pulse even with skew;
-# read budget: 15 ns output + 20 ns SRAM + 4 ns PCB + 10 ns input <83.3 ns.
+FREQUENCY NET "cpu_clk" 8.000 MHz;
+FREQUENCY NET "clk_fast" 96.000 MHz;
+# CPU IO is sampled 62.5 ns after its falling edge (phase 1); SRAM snapshot
+# follows the registered prepare pulse and two synchronizers (>=41.667 ns).
+MULTICYCLE FROM CLKNET "cpu_clk" TO CLKNET "clk" 2 X;
+MULTICYCLE FROM CLKNET "cpu_clk" TO CLKNET "clk_fast" 4 X;
+MAXDELAY FROM CELL "cpu/*" TO CELL "system/*" 50 ns DATAPATH_ONLY;
+# CDC exclusions apply only to the first stages; bundled payloads stay timed.
+# Registered prepare uses related PLL clocks: time its first-stage setup/hold.
+BLOCK PATH TO CELL "system/runtime_memory/locked_sync[0]";
+BLOCK PATH TO CELL "system/runtime_memory/reset_sync[0]";
+BLOCK PATH TO CELL "system/runtime_memory/cpu_reset_sync[0]";
+BLOCK PATH TO CELL "system/runtime_memory/pause_sync[0]";
+BLOCK PATH TO CELL "system/runtime_memory/video_sync[0]";
+BLOCK PATH TO CELL "system/video_accept_sync[0]";
+BLOCK PATH TO CELL "system/video_done_sync[0]";
+BLOCK PATH TO CELL "system/boot_accept_sync[0]";
+BLOCK PATH TO CELL "system/boot_done_sync[0]";
+BLOCK PATH TO CELL "system/runtime_memory/boot_sync[0]";
+# CPU page/disk-pointer writes finish >=41.667 ns before next payload capture.
+MAXDELAY FROM CELL "system/page*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
+MAXDELAY FROM CELL "system/ramdisk_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
+# Video address remains stable through the four-stage request synchronizer.
+MAXDELAY FROM CELL "system/boot/write_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
+MAXDELAY FROM CELL "system/boot/write_data*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
+MAXDELAY FROM CELL "system/video/mem_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
+# Lock changes during an IO cycle; next CPU snapshot follows >=41.667 ns later.
+MULTICYCLE FROM CELL "system/boot/locked*" TO CLKNET "clk_fast" 4 X;
+# Bundled addresses cross only after their request pipeline. Clock qualifiers
+# cover PIO registers even when MAP moves/renames them outside the hierarchy.
+MULTICYCLE FROM CELL "system/page*" TO CLKNET "clk_fast" 4 X;
+MULTICYCLE FROM CELL "system/ramdisk_address*" TO CLKNET "clk_fast" 4 X;
+MULTICYCLE FROM CELL "system/boot/write_address*" TO CLKNET "clk_fast" 4 X;
+MULTICYCLE FROM CELL "system/boot/write_data*" TO CLKNET "clk_fast" 4 X;
+MULTICYCLE FROM CELL "system/video/mem_address*" TO CLKNET "clk_fast" 4 X;
+# Returned video/AP data is consumed after a two-stage 24 MHz done pipeline.
+MULTICYCLE FROM CELL "system/runtime_memory/video_data*" TO CLKNET "clk" 2 X;
+MULTICYCLE FROM CELL "system/runtime_memory/boot_result*" TO CLKNET "clk" 2 X;
+# IO data/selection was registered at phase 1, >=62.5 ns before CPU capture.
+MULTICYCLE FROM CELL "system/runtime_peripheral_data*" TO CLKNET "cpu_clk" 2 X;
+MULTICYCLE FROM CELL "system/runtime_memory_read*" TO CLKNET "cpu_clk" 2 X;
+# SRAM-10 CPU read: OE/access 3 fast clocks =31.25 ns.
+# Budget 6 ns output +10 ns SRAM +4 ns PCB +8 ns input =28 ns.
+CLOCK_TO_OUT PORT "SRAM_ADDR[*]" 6 ns CLKNET "clk_fast";
+CLOCK_TO_OUT PORT "SRAM_DATA[*]" 10.5 ns CLKNET "clk_fast";
+CLOCK_TO_OUT PORT "SRAM_CE" 6 ns CLKNET "clk_fast";
+CLOCK_TO_OUT PORT "SRAM_OE" 6 ns CLKNET "clk_fast";
+CLOCK_TO_OUT PORT "SRAM_LB" 6 ns CLKNET "clk_fast";
+CLOCK_TO_OUT PORT "SRAM_UB" 6 ns CLKNET "clk_fast";
+# WE-low spans two clocks; DQ holds another clock after WE-high.
+# WE <=6 ns plus <=4 ns board skew leaves tDH >=0.417 ns.
+CLOCK_TO_OUT PORT "SRAM_WE" 6 ns CLKNET "clk_fast";
+INPUT_SETUP PORT "SRAM_DATA[*]" 8 ns HOLD 0 ns CLKNET "clk_fast";
+# Specific preferences follow broad ones: later MAXDELAY wins in TRACE.
+MAXDELAY FROM CELL "system/*" TO CELL "cpu/*" 50 ns DATAPATH_ONLY;
+# Earliest CPU result arrives >=31.25 ns before CPU capture.
+MAXDELAY FROM CELL "system/runtime_memory/cpu_result*" TO CELL "cpu/*" 27 ns DATAPATH_ONLY;
+# Non-SRAM outputs remain clocked by the 24 MHz system domain.
 CLOCK_TO_OUT ALLPORTS 15 ns CLKNET "clk";
-# SRAM CE/OE are released one full cycle after read capture; data stays held
-# much longer than this conservative 5 ns external hold requirement.
-INPUT_SETUP PORT "SRAM_DATA[*]" 10 ns HOLD 5 ns CLKNET "clk";
 # SD runs at 6 MHz during boot and FDC service (divider 1).
 # MISO changes on the next SCK falling edge, >=83 ns after sampling.
 INPUT_SETUP PORT "miso" 10 ns HOLD 5 ns CLKNET "clk";

@@ -1,5 +1,26 @@
 # Запись SD и FPGA
 
+## Последняя записанная версия: частоты и SRAM, 4 октября 2026
+
+По запросу пользователя записан
+`build/diamond/turbo-final/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`c3aa29a6fa656c08df8a93feadda8228970020ed9094521d9d9919ea69e42cdc`.
+Все 34 входных файла совпали с `source-turbo-final.sha256.json`;
+TRACE setup/hold negative slack и unconstrained paths — 0.
+
+Рабочий каталог Linux: `/tmp/pyldin601-turbo-final.0qohlD/hardware-turbo`.
+FTDI был свободен перед записью. uJ11 `hgfsd --jtag-only` подтвердил
+высокий JTAGENB до и после. FLASH Verify ID подтвердил LCMXO2-7000HC;
+FLASH Erase,Program,Verify и JTAG Chain Verification завершились без ошибок.
+Время Programmer — 55 секунд, wall time — 66,78 секунды.
+Журналы, XCF и result.json сохранены в `build/hardware-turbo`.
+
+Короткое нажатие Reset переключает 1/2/4/8 МГц, длинное около двух секунд
+вызывает warm reset с возвратом на 1 МГц. Индикатор показывает частоту;
+при bootstrap — 04. SRAM работает на 96 МГц, слот 62,5 нс, без HOLD.
+SD не перезаписывалась. Физическая проверка новых частот и таймингов
+пользователем ещё не получена. [Расчёты и тесты](TURBO-SRAM.md).
+
 ## Обновление SD: тесты HD6303 на B, 4 октября 2026
 
 По запросу пользователя обновлена карта в Linux-кардридере
@@ -42,7 +63,7 @@ Mac подтвердила сохранность MBR/boot/A и SHA-256 всех
 Он совпадает с `sd-readback.img`; `images/SHA256SUMS` и `images/sd.json`
 фиксируют контрольные суммы. [Запись карты и первый запуск](../images/README.md).
 
-## Последняя записанная версия: меню 10 секунд, 4 октября 2026
+## Предыдущая записанная версия: меню 10 секунд, 4 октября 2026
 
 Записан `build/diamond/hd-tests/impl1/pyldin601_classic_impl1.jed`, SHA-256
 `eefc5b75bdaf7e7e95b0917c857057e8c57fa97759aa33d99fd65e7e565065e0`.

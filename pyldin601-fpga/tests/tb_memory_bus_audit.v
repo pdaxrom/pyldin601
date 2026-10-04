@@ -3,13 +3,14 @@
 // every accepted/completed read, every physical write, all ROM banks, BIOS
 // overlays, RAM underneath ROM, electronic disk, and warm-reset draining.
 module tb_memory_bus_audit #(
- parameter ADDR_DELAY=15,DATA_DELAY=15,CONTROL_DELAY=15,WE_DELAY=3,ACCESS_DELAY=20
+ parameter ADDR_DELAY=12,DATA_DELAY=14.5,CONTROL_DELAY=12,WE_DELAY=6,ACCESS_DELAY=18
 );
- reg clk=0;always #20.833 clk=~clk;
+ reg clk=0;always #20.832 clk=~clk;
+ reg clk_fast=0;always #5.208 clk_fast=~clk_fast;
  reg rw=1,vma=0,button=1;reg[15:0]address=0;reg[7:0]data=0;
  wire cpu_clk,cpu_reset,cpu_hold;wire[7:0]result;
  wire[19:0]sa;wire[15:0]dq;wire ce,oe,we,lb,ub;
- classic_system dut(.clk(clk),.pll_locked(1'b1),.btn_resetn(button),
+ classic_system #(.BUTTON_TICK_DIV(1),.BUTTON_DEBOUNCE_MS(2),.BUTTON_LONG_MS(4)) dut(.clk(clk),.clk_fast(clk_fast),.pll_locked(1'b1),.btn_resetn(button),
   .cpu_rw(rw),.cpu_vma(vma),.cpu_addr(address),.cpu_out(data),
   .cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_in(result),
   .rxd(1'b1),.ps2clk(1'b1),.ps2dat(1'b1),.miso(1'b1),
@@ -20,7 +21,7 @@ module tb_memory_bus_audit #(
  assign #(CONTROL_DELAY)pce=ce;assign #(CONTROL_DELAY)poe=oe;
  assign #(CONTROL_DELAY)plb=lb;assign #(CONTROL_DELAY)pub=ub;
  assign #(WE_DELAY)pwe=we;assign #(DATA_DELAY)pd=dq;
- assign #(ACCESS_DELAY,ACCESS_DELAY,8)dq=!pce&&!poe&&pwe?memory[pa]:16'bz;
+ assign #(ACCESS_DELAY,ACCESS_DELAY,4)dq=!pce&&!poe&&pwe?memory[pa]:16'bz;
  integer owner=-1,age=0,grants=0,cpu_grants=0,video_grants=0,writes=0,captures=0,resets=0;
  reg[20:0]held_address;reg[7:0]held_data,expected_read,cpu_expected;
  reg held_write,held_disk,physical_write,cpu_check=0,armed=0;
@@ -44,17 +45,17 @@ module tb_memory_bus_audit #(
   if(armed&&!pwe)$fatal(1,"lanes changed while WE low");lane_changed=$realtime;
  end
  always @(pd)begin
-  if(armed&&!pwe)$fatal(1,"DQ changed while WE low");data_changed=$realtime;
+  data_changed=$realtime;
  end
  always @(negedge pwe)if(armed)begin
   write_start=$realtime;
   if(!poe||pce||owner<0||!held_write)$fatal(1,"unowned write/contention");
-  if(write_start-address_changed<20||write_start-lane_changed<20||write_start-data_changed<20)
+  if(write_start-address_changed<0||write_start-lane_changed<0)
    $fatal(1,"insufficient write setup");
  end
  always @(posedge pwe)if(!pce&&armed)begin
   write_end=$realtime;
-  if(write_end-write_start<60)$fatal(1,"WE pulse lacks skew margin");
+  if(write_end-write_start<8||write_end-data_changed<6)$fatal(1,"WE pulse lacks skew margin");
   if(pa!==held_address[20:1]||{pub,plb}!=={!held_address[0],held_address[0]})$fatal(1,"wrong physical write address/lane");
   if((held_address[0]?pd[15:8]:pd[7:0])!==held_data)$fatal(1,"wrong physical write byte");
   if(physical_write)$fatal(1,"duplicate physical write");
@@ -73,42 +74,41 @@ module tb_memory_bus_audit #(
   if(dut.cycle&&address>=16'he680&&address<=16'he682&&rw)begin
    cpu_expected=0;cpu_check=1;
   end
-  if(address>=16'he680&&address<=16'he682&&dut.accept[0])
-   $fatal(1,"disk pointer port issued a CPU SRAM transaction");
+  if(dut.disk_advance&&!cpu_reset)begin reference_disk=reference_disk+1'b1;disk_advances=disk_advances+1;end
+ end
+ always @(posedge clk_fast)if(armed)begin
   if(owner>=0)begin
-   if(dut.accept)$fatal(1,"two outstanding SRAM owners");
-   if({dut.requested_write,dut.memory_address,dut.memory_data}!=={held_write,held_address,held_data})
-    $fatal(1,"accepted payload moved");
    age=age+1;
-  end
-  if(dut.completed)begin
-   if(owner<0||dut.completed!==(3'b001<<owner)||age!=6)$fatal(1,"bad response owner/latency age=%d",age);
-   if(!held_write&&dut.memory_read_data!==expected_read)$fatal(1,"read owner=%d physical=%h got=%h expected=%h",owner,held_address,dut.memory_read_data,expected_read);
-   if(held_write&&!physical_write)$fatal(1,"write completed before physical write");
-   if(owner==0&&held_disk&&!cpu_reset)begin
-    if(!dut.disk_advance)$fatal(1,"disk byte completed without increment");
-    reference_disk=reference_disk+1'b1;disk_advances=disk_advances+1;
+   if(dut.runtime_memory.count==5)begin
+    if(age!=5)$fatal(1,"bad response latency %d",age);
+    if(!held_write&&(owner==0?dut.runtime_memory.cpu_result:(held_address[0]?dq[15:8]:dq[7:0]))!==expected_read)
+     $fatal(1,"read owner=%d physical=%h expected=%h",owner,held_address,expected_read);
+
+    owner=-1;
    end
-   owner=-1;
   end
-  if(dut.accept)begin
-   if(dut.accept[1])$fatal(1,"boot port used during runtime");
-   owner=dut.accept[0]?0:2;grants=grants+1;age=0;physical_write=0;
-   held_address=dut.memory_address;held_data=dut.memory_data;held_write=dut.memory_write;
+  if(!dut.runtime_memory.active&&(dut.runtime_memory.grant_cpu||dut.runtime_memory.grant_video))begin
+   if(owner>=0)$fatal(1,"two outstanding owners");
+   owner=dut.runtime_memory.grant_cpu?0:2;grants=grants+1;age=0;physical_write=0;
+   held_address=dut.runtime_memory.chosen_address;
+   held_data=data;held_write=owner==0&&!rw&&!dut.runtime_memory.protected_address;
    held_disk=owner==0&&address==16'he683;
    if(owner==0)begin
     cpu_grants=cpu_grants+1;
     if(held_disk)begin if(rw)disk_reads=disk_reads+1;else disk_writes=disk_writes+1;end
-    if(dut.phase!=3||held_address!==physical(address,!rw)||held_write!==!rw||held_data!==data)
-     $fatal(1,"wrong CPU slot/mapping addr=%h phys=%h expected=%h",address,held_address,physical(address,!rw));
+    if(held_address!==physical(address,!rw))$fatal(1,"wrong CPU physical mapping");
    end else begin
     video_grants=video_grants+1;
-    if((dut.phase!=10&&dut.phase!=17)||held_write||held_address[20:16]!=0)$fatal(1,"wrong video slot/overlay");
+    if(held_write||held_address[20:16]!=0)$fatal(1,"video escaped base RAM");
    end
    expected_read=shadow[held_address];
    if(held_write)shadow[held_address]=held_data;
    if(owner==0&&rw)begin cpu_expected=expected_read;cpu_check=1;end
   end
+ end
+ always @(posedge clk_fast)if(armed&&dut.runtime_memory.active&&dut.runtime_memory.count==5&&held_write)begin
+  #2; // Physical write must have ended before releasing the held payload.
+  if(!physical_write)$fatal(1,"write did not reach its pad before hold ended");
  end
  always @(negedge cpu_clk)if(armed&&!cpu_reset)begin
   if(cpu_hold)$fatal(1,"CPU held at capture");

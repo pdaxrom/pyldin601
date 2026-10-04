@@ -1,17 +1,19 @@
 `timescale 1ns/1ps
 module system_fixture(input cpu_rw,cpu_vma,input[15:0]cpu_addr,input[7:0]cpu_out,output cpu_clk,cpu_reset,cpu_hold,cpu_irq,output[7:0]cpu_in,output hd6303_en);
 reg clk=0;always #5 clk=~clk;
+ wire clk_fast;test_fast_clock fast_clock(clk_fast);
 integer menu_writes=0;always @(posedge clk)if(dut.bus_write&&cpu_addr==16'he6a0)menu_writes=menu_writes+1;
 reg resetn=1,psclk=1,psdata=1;wire cs,sck,mosi;reg miso=1;
 wire[19:0]sa;wire[15:0]sd;wire ce,oe,we,ub,lb;
 wire[5:0]tv;wire[1:0]audio;
 classic_system #(
+ .BUTTON_TICK_DIV(1),.BUTTON_DEBOUNCE_MS(2),.BUTTON_LONG_MS(4),
  `ifdef HANDOFF_CHECK
  .BOOT_FILE("build/handoff-boot.mem")
  `else
  .BOOT_FILE("build/boot.mem")
  `endif
- ) dut(.clk(clk),.pll_locked(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),.cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),.hd6303_en(hd6303_en),.btn_resetn(resetn),.ps2clk(psclk),.ps2dat(psdata),.rxd(1'b1),
+ ) dut(.clk(clk),.clk_fast(clk_fast),.pll_locked(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),.cpu_addr(cpu_addr),.cpu_out(cpu_out),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_irq(cpu_irq),.cpu_in(cpu_in),.hd6303_en(hd6303_en),.btn_resetn(resetn),.ps2clk(psclk),.ps2dat(psdata),.rxd(1'b1),
  .mss(cs),.msck(sck),.mosi(mosi),.miso(miso),.SRAM_ADDR(sa),.SRAM_DATA(sd),
  .SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb),.tvout(tv),.audio(audio),.seg_led_h(),.seg_led_l(),.led_rgb(),.txd());
 task key_byte;input[7:0]b;reg[10:0]frame;integer n;
@@ -148,7 +150,9 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
     initial begin
         high_capacity=1;
         image_path="build/test-sd.img";
+        `ifndef HANDOFF_CHECK
         $readmemh("build/boot-sd.mem",sd_image);
+        `endif
         `ifdef BOOT_MODEL_A
         $readmemh("build/rom-a-payload.mem",expected_rom);
         `else

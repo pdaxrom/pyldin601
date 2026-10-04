@@ -30,6 +30,9 @@
     <Source name="rtl/classic_pal_encoder.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
+    <Source name="rtl/classic_frequency_display.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_reset_button.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_runtime_memory.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_system.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
