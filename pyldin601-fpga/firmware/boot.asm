@@ -1,4 +1,4 @@
-; Classic MC6800 resident boot BIOS. All SD/FAT work runs on the CPU.
+; Resident HD6303 boot BIOS. All SD/FAT work runs on the CPU.
 ; SPI ABI matches current HD6303 machine, relocated to E660-E664.
 SPI_DATA equ $e661
 SPI_CTL equ $e662
@@ -63,14 +63,15 @@ cold_start:
     jsr ui_init
     ldaa #$ff
     staa MENU_KEY
-    jsr choose_model
-    jsr choose_cpu
+    clr SET_SAVING
+    clr SET_LOADING
     ldaa #1
     jsr ui_status
     jsr sd_init
     ldaa #2
     jsr ui_status
     jsr mount
+    jsr setup_configure
     ldaa #3
     jsr ui_status
     ldx #loader_name
@@ -100,6 +101,10 @@ copy_loader:
     bne copy_loader
     jmp $2000
 failed:
+    tst SET_SAVING
+    lbne setup_save_failed
+    tst SET_LOADING
+    lbne settings_load_failed
     jsr ui_error
     ldaa #$ee
     staa DEBUG
@@ -436,6 +441,11 @@ mount_save_partitions:
     ldaa SECTOR+12
     cmpa #2
     lbne failed
+    ldaa SECTOR+23
+    ldab SECTOR+22
+    std SET_FATSIZE
+    ldaa SECTOR+16
+    staa SET_FATCOPIES
     ldaa SECTOR+13
     lbeq failed
     staa SPC
@@ -649,6 +659,11 @@ signature:
     rts
 ; X points to 11-byte uppercase 8.3 filename. SIZE returned little endian in RAM.
 file_open:
+    jsr file_find
+    lbcs failed
+    jmp open_found
+; Optional root lookup: carry means absent; otherwise X/LBA identify the entry.
+file_find:
     stx MATCH
     ldx #NAME
     stx ENTRY
@@ -679,7 +694,7 @@ open_name:
 open_entry:
     ldx ENTRY
     ldaa 0,x
-    lbeq failed
+    lbeq open_absent
     cmpa #$e5
     beq open_next
     ldaa 11,x
@@ -702,6 +717,9 @@ open_compare:
     decb
     bne open_compare
     ldx ENTRY
+    clc
+    rts
+open_found:
     ldaa 20,x
     oraa 21,x
     lbne failed
@@ -750,12 +768,15 @@ open_advance:
     bne open_more
     ldaa LBA
     cmpa DATABASE
-    lbeq failed
+    lbeq open_absent
 open_more:
     jsr read_sector
     ldx #SECTOR
     stx ENTRY
     lbra open_entry
+open_absent:
+    sec
+    rts
 buffer_reset:
     ldx #SECTOR
     stx BUFP
@@ -922,68 +943,6 @@ handoff_code:
     db $86,$a5,$b7,$e6,$a0,$b6,$e6,$a0,$2b,$02,$20,$fe,$fe,$ff,$fe,$6e,$00
 loader_name:
     db "LOADER  BIN"
- ; Model selection occurs before any SD access or ROM load. 1/2 select and
- ; start immediately; Enter starts the default. PAL ticks give a 10-second wait.
-choose_model:
-    ldx #menu_choices
-    jsr choose_option
-    staa MODEL
-    jmp ui_init
-choose_cpu:
-    ldx #cpu_choices
-    jsr choose_option
-    asla
-    oraa MODEL
-    staa MODEL
-    jmp ui_init
-; Both menus return 0/1. Remember the last key until it changes (normally
-; through FF on release), so one held make cannot select both screens.
-choose_option:
-    pshb
-    stx UI_TEXT
-    ldx #$450
-    stx UI_DEST
-    ldx UI_TEXT
-    jsr ui_puts
-    ldx #$4a0
-    stx UI_DEST
-    ldx #menu_default
-    jsr ui_puts
-    ldaa $e62b
-    ldx #500
-    stx MENU_TICKS
-menu_wait:
-    ldaa $e628
-    cmpa MENU_KEY
-    beq menu_tick
-    staa MENU_KEY
-    cmpa #'2'
-    beq menu_second
-    cmpa #'1'
-    beq menu_first
-    cmpa #$c0
-    beq menu_first
-menu_tick:
-    ldaa $e62b
-    bpl menu_wait
-    ldx MENU_TICKS
-    dex
-    stx MENU_TICKS
-    bne menu_wait
-menu_first:
-    clra
-    bra menu_selected
-menu_second:
-    ldaa #1
-menu_selected:
-    pulb
-    rts
-menu_choices:
-    db "1 = PYLDIN 601   2 = PYLDIN 601A",0
-cpu_choices:
-    db "1 = MC6800       2 = HD6303",0
-menu_default:
-    db "DEFAULT 1 IN 10S / ENTER TO START",0
     org $fa00
 crc16_hi:
     db $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$a1,$b1,$c1,$d1,$e1,$f1

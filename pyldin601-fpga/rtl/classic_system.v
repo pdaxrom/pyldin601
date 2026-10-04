@@ -1,5 +1,5 @@
 // Classic MC6800 core on hardware-lcd, byte SRAM and one SPI shifter.
-module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=6,parameter CLASSIC_DIV=24,parameter BUTTON_TICK_DIV=24000,parameter BUTTON_DEBOUNCE_MS=20,parameter BUTTON_LONG_MS=2000)(
+module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=6,parameter CLASSIC_DIV=24,parameter BUTTON_TICK_DIV=24000,parameter BUTTON_DEBOUNCE_MS=20,parameter BUTTON_LONG_MS=2000,parameter BUTTON_RELOAD_MS=10000)(
  input wire clk,clk_fast,pll_locked,btn_resetn,
  input wire cpu_rw,cpu_vma,input wire[15:0]cpu_addr,input wire[7:0]cpu_out,
  output wire cpu_clk,cpu_reset,cpu_hold,cpu_irq,output wire[7:0]cpu_in,
@@ -12,11 +12,12 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
 );
  reg[7:0]power_delay=255;
  always @(posedge clk)if(!pll_locked)power_delay<=255;else if(power_delay!=0)power_delay<=power_delay-1'b1;
- wire cold_reset=power_delay!=0;
- wire warm_request,speed_tap;
- classic_reset_button #(.TICK_DIV(BUTTON_TICK_DIV),.DEBOUNCE_MS(BUTTON_DEBOUNCE_MS),.LONG_MS(BUTTON_LONG_MS))
-  button(clk,cold_reset,btn_resetn,speed_tap,warm_request);
- reg[1:0]speed=0;reg speed_pending=0;
+ wire power_reset=power_delay!=0;reg restart_reset=0,restart_seen=0;
+ wire cold_reset=power_reset||restart_reset;
+ wire warm_request,speed_tap,reload_request;
+ classic_reset_button #(.TICK_DIV(BUTTON_TICK_DIV),.DEBOUNCE_MS(BUTTON_DEBOUNCE_MS),.LONG_MS(BUTTON_LONG_MS),.RELOAD_MS(BUTTON_RELOAD_MS))
+  button(clk,power_reset,btn_resetn,speed_tap,warm_request,reload_request);
+ reg[1:0]speed=0;reg speed_pending=0;wire[1:0]boot_speed;
  wire raw_owned;
  wire fast_memory_busy;reg memory_busy=1;
  // Sample the related fast-domain busy on the falling 24 MHz edge. It is
@@ -36,15 +37,41 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   end
  end
  assign cpu_reset=cold_reset||warm_hold;
+ // At 10 s the CPU has already been held by the 2 s reset. Drain accepted
+ // memory/backend transfers before clearing ROM lock and starting bootstrap.
+ // The button counter uses power_reset, so holding it cannot restart repeatedly.
+ always @(posedge clk)begin
+  restart_reset<=0;
+  if(power_reset)restart_seen<=0;
+  else begin
+   if(!reload_request)restart_seen<=0;
+   else if(!restart_seen&&warm_hold&&!memory_busy&&!raw_busy&&(boot_mode||sd_ready||sd_error))begin
+    restart_reset<=1;restart_seen<=1;
+   end
+  end
+ end
  reg[4:0]phase=0;
- wire[4:0]cpu_divisor=boot_mode?BOOT_DIV:(CLASSIC_DIV>>speed);
+ reg[4:0]cpu_divisor=BOOT_DIV;
+ wire[1:0]next_speed=speed+1'b1;
+ // Commit may choose 8 MHz in the middle of a bootstrap bus cycle. Keep
+ // that cycle's divisor until its falling edge; latch the next divisor at 0.
+ always @(posedge clk)begin
+  if(cold_reset)cpu_divisor<=BOOT_DIV;
+  else if(phase==0)begin
+   if(boot_mode)cpu_divisor<=BOOT_DIV;
+   else if(cpu_reset)cpu_divisor<=CLASSIC_DIV>>boot_speed;
+   else if(speed_pending&&!memory_busy)cpu_divisor<=CLASSIC_DIV>>next_speed;
+   else cpu_divisor<=CLASSIC_DIV>>speed;
+  end
+ end
  always @(posedge clk)begin
   if(cold_reset)begin speed<=0;speed_pending<=0;end
   else begin
    if(speed_tap&&!boot_mode&&!cpu_reset)speed_pending<=1;
    // Change only AFTER the previous falling CPU edge and after SRAM drains.
    if(phase==0&&!memory_busy)begin
-    if(cpu_reset)begin speed<=0;speed_pending<=0;end
+    if(cpu_reset)begin speed<=boot_speed;speed_pending<=0;end
+    else if(boot_mode)begin speed<=boot_speed;speed_pending<=0;end
     else if(speed_pending)begin speed<=speed+1'b1;speed_pending<=0;end
    end
   end
@@ -66,10 +93,10 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  reg tick_pending;
  wire keyboard_irq;
  assign cpu_irq=(tick_pending||keyboard_irq)&&!boot_mode;
- (* syn_ramstyle = "block_ram" *) reg[7:0]boot_rom[0:4095];
+ (* syn_ramstyle = "block_ram" *) reg[7:0]boot_rom[0:8191];
  reg[7:0]boot_byte;
  initial $readmemh(BOOT_FILE,boot_rom);
- always @(posedge clk)boot_byte<=boot_rom[cpu_addr[11:0]];
+ always @(posedge clk)boot_byte<=boot_rom[{~cpu_addr[13],cpu_addr[11:0]}];
  wire cycle=phase==1&&!cpu_reset&&cpu_vma;
  wire bus_read=cycle&&cpu_rw,bus_write=cycle&&!cpu_rw;
  wire boot_io=(boot_mode||(cpu_rw&&cpu_addr==16'he6a0))&&cpu_addr[15:4]==12'he6a;
@@ -81,7 +108,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he682
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire disk_data_io=cpu_addr==16'he683;
- wire rom_read=boot_mode&&cpu_rw&&cpu_addr>=16'hf000;
+ wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
  wire peripheral=boot_io||spi_io||crtc_io||fdc_io||keyboard_io||timer_io||simple_io||rom_read;
  reg[7:0]page,mode;reg caps_off,speaker;reg[18:0]ramdisk_address;
  wire[20:0]mapped_address;wire ignored_io;
@@ -92,11 +119,13 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire boot_request,boot_write,boot_accept,boot_done;wire[20:0]boot_address;wire[7:0]boot_data,boot_result,boot_debug;
  wire[7:0]memory_read_data;wire[7:0]runtime_video_data,runtime_cpu_data;
  wire[31:0]a_start,a_length,b_start,b_length;wire[7:0]aspt,ah,bspt,bh;wire[8:0]ac,bc;
- wire boot_b,sd_mode,model_a;
+ wire boot_b,sd_mode,model_a,configured_hd;
+ // Resident firmware uses HD6303; the selected runtime ISA takes effect at lock.
+ assign hd6303_en=boot_mode||configured_hd;
  classic_boot_ports boot(clk,cold_reset,cpu_reset,bus_read&&boot_io,bus_write&&boot_io,
   cpu_addr[3:0],cpu_out,boot_result,boot_request,boot_write,boot_address,boot_data,boot_accept,boot_done,memory_read_data,
   !raw_busy&&raw_cs,locked,boot_mode,boot_error,boot_debug,sd_mode,
-  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a,hd6303_en);
+  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a,configured_hd,boot_speed);
  wire fdc_request,fdc_write,fdc_buffer_write,fdc_active;wire[31:0]fdc_lba;
  wire[8:0]fdc_buffer_address;wire[7:0]fdc_buffer_data,fdc_result,sd_buffer_result;
  classic_fdc fdc(clk,cpu_reset,bus_read&&fdc_io,bus_write&&fdc_io,cpu_addr[4:0],cpu_out,

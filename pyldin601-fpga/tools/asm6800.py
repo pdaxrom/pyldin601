@@ -2,7 +2,7 @@
 """Small deterministic two-pass MC6800 assembler for bootstrap firmware.
 
 All absolute operands use extended addressing. Supports labels, EQU, ORG,
-DB/DW and classic MC6800 instructions; no 6801/6303 opcodes are accepted.
+DB/DW and classic MC6800 instructions; HD6303 opcodes require explicit opt-in for the resident BIOS.
 """
 import argparse
 import ast
@@ -43,7 +43,11 @@ def expression(text, labels, first=False):
     return visit(ast.parse(text,mode='eval').body)
 
 
-def assemble(source, origin=None, size=None):
+def assemble(source, origin=None, size=None, hd6303=False):
+    inherent = {**INHERENT, **(dict(mul=0x3d, abx=0x3a, pshx=0x3c, pulx=0x38,
+        xgdx=0x18, lsrd=0x04, asld=0x05) if hd6303 else {})}
+    general = {**GENERAL, **(dict(ldd=0xcc, std=0xcd, addd=0xc3, subd=0x83)
+                            if hd6303 else {})}
     lines=[]
     for index,line in enumerate(source.splitlines(),1):
         line=line.split(';',1)[0].strip()
@@ -76,7 +80,7 @@ def assemble(source, origin=None, size=None):
                         else:
                             value=expression(item,labels,first)
                             data.extend([value>>8&255,value&255] if op=='dw' else [value&255])
-                elif op in INHERENT:data=[INHERENT[op]]
+                elif op in inherent:data=[inherent[op]]
                 elif op.startswith('lb') and op[1:] in BRANCH:
                     target=expression(arg,labels,first)
                     short=op[1:]
@@ -88,17 +92,17 @@ def assemble(source, origin=None, size=None):
                     value=expression(arg,labels,first)-pc-2
                     if not first and not -128<=value<=127:raise ValueError('branch out of range')
                     data=[BRANCH[op],value&255]
-                elif op in GENERAL or op in MEMORY:
+                elif op in general or op in MEMORY:
                     immediate=arg.startswith('#');indexed=arg.lower().endswith(',x')
                     value=expression(arg[1:] if immediate else arg[:-2] if indexed else arg,labels,first)
                     if op in MEMORY:
                         if immediate:raise ValueError('memory operand cannot be immediate')
                         opcode=MEMORY[op]+(0 if indexed else 0x10)
                     else:
-                        if immediate and op in ('staa','stab','stx','sts'):raise ValueError('store immediate')
-                        opcode=GENERAL[op]+(0 if immediate else 0x20 if indexed else 0x30)
+                        if immediate and op in ('staa','stab','stx','sts','std'):raise ValueError('store immediate')
+                        opcode=general[op]+(0 if immediate else 0x20 if indexed else 0x30)
                     if indexed and not 0<=value<=255:raise ValueError('indexed offset outside 0..255')
-                    wide=not indexed and (not immediate or op in ('ldx','lds','cpx'))
+                    wide=not indexed and (not immediate or op in ('ldx','lds','cpx','ldd','addd','subd'))
                     data=[opcode]+([value>>8&255,value&255] if wide else [value&255])
                 else:raise ValueError(f'unknown instruction {op}')
                 for byte in data:
@@ -120,7 +124,8 @@ def main():
     p.add_argument('source',type=Path);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--origin',type=lambda v:int(v,0));p.add_argument('--size',type=lambda v:int(v,0))
     p.add_argument('--mem',type=Path)
-    a=p.parse_args();binary,labels=assemble(a.source.read_text(),a.origin,a.size)
+    p.add_argument('--hd6303', action='store_true')
+    a=p.parse_args();binary,labels=assemble(a.source.read_text(),a.origin,a.size,hd6303=a.hd6303)
     a.output.write_bytes(binary)
     if a.mem:a.mem.write_text(''.join(f'{b:02x}\n' for b in binary))
     print(f'{a.source}: {len(binary)} bytes, {len(labels)} symbols')

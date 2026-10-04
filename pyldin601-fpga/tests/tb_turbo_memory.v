@@ -8,7 +8,7 @@ module tb_turbo_memory #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=1
  reg rw=1,vma=0;reg[15:0]address=0;reg[7:0]data=0;
  wire cpu_clk,cpu_reset,cpu_hold;wire[7:0]result;
  wire[19:0]sa,pa;wire[15:0]sd,pd;wire ce,oe,we,ub,lb,pc,po,pw,pu,pl;
- classic_system #(.BUTTON_TICK_DIV(1),.BUTTON_DEBOUNCE_MS(2),.BUTTON_LONG_MS(64)) dut(.clk(clk),.clk_fast(fast),.pll_locked(1'b1),.btn_resetn(button),
+ classic_system #(.BUTTON_TICK_DIV(1),.BUTTON_DEBOUNCE_MS(2),.BUTTON_LONG_MS(64),.BUTTON_RELOAD_MS(128)) dut(.clk(clk),.clk_fast(fast),.pll_locked(1'b1),.btn_resetn(button),
   .cpu_rw(rw),.cpu_vma(vma),.cpu_addr(address),.cpu_out(data),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_in(result),
   .ps2clk(1'b1),.ps2dat(1'b1),.rxd(1'b1),.miso(1'b1),
   .SRAM_ADDR(sa),.SRAM_DATA(sd),.SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb));
@@ -86,6 +86,7 @@ module tb_turbo_memory #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=1
   end
   put(16'he6a4,0);put(16'he6a5,8'h10);put(16'he6a6,6);
   put(16'he6ab,0);wait(!dut.boot.pending);get(16'he6ab,8'hb6);
+  put(16'he6a0,4); // BIOS-selected 2 MHz; ordinary reset must restore this value.
   for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
   if(!dut.locked)$fatal(1,"fixture lock failed");armed=1;
   put(16'he600,1);put(16'he601,48);put(16'he600,6);put(16'he601,28);
@@ -105,9 +106,9 @@ module tb_turbo_memory #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=1
   end
   for(s=0;s<8;s=s+1)begin
    // Request via the real boundary/drain logic; no forced clock or phase.
-   if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s%4);end
+   if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==(s+1)%4);end
    repeat(2)@(negedge cpu_clk);before_edge=$realtime;@(negedge cpu_clk);period=$realtime-before_edge;
-   if(period<((1000.0/(1<<(s%4)))-0.1)||period>((1000.0/(1<<(s%4)))+0.1))$fatal(1,"wrong CPU period %f",period);
+   if(period<((1000.0/(1<<((s+1)%4)))-0.1)||period>((1000.0/(1<<((s+1)%4)))+0.1))$fatal(1,"wrong CPU period %f",period);
    for(i=0;i<128;i=i+1)begin a=16'h2000+i;d=i^8'h69;put(a,d);get(a,d);end
    put(16'he680,7);put(16'he681,8'hff);put(16'he682,8'hfe);
    put(16'he683,8'hc3);put(16'he683,8'h96);put(16'he683,8'h2d);
@@ -118,11 +119,18 @@ module tb_turbo_memory #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=1
   armed=0;button=0;repeat(80)@(negedge clk);
   if(!cpu_reset)$fatal(1,"long press did not reset");
   button=1;wait(cpu_reset===0);repeat(3)@(negedge cpu_clk);
-  if(dut.speed!=0||!dut.locked||dut.video.font[15]!=8'hb9)$fatal(1,"warm reset lost default speed/ROM lock");
+  if(dut.speed!=1||!dut.locked||dut.video.font[15]!=8'hb9)$fatal(1,"warm reset lost BIOS speed/ROM lock");
   armed=1;get(16'h2000,8'h69);
   put(16'he680,7);put(16'he681,8'hff);put(16'he682,8'hfe);get(16'he683,8'hc3);
   if(video_reads<40)$fatal(1,"no concurrent video traffic");
-  $display("PASS turbo SRAM-10: 1/2/4/8 MHz, %d reads/%d writes, %d video reads, %d CPU cycles without HOLD; electronic disk wrap, ROM lock, button cycle and warm reset",reads,writes,video_reads,cycles);$finish;
+  armed=0;vma=0;button=0;
+  wait(dut.restart_reset);
+  if(dut.fast_memory_busy)$fatal(1,"BIOS restart aborted a physical SRAM transaction");
+  repeat(200)@(negedge clk);
+  if(dut.locked||!dut.boot_mode||!cpu_reset||!dut.hd6303_en||!dut.restart_seen)$fatal(1,"10s reset did not return to resident HD6303 BIOS");
+  button=1;wait(cpu_reset===0);repeat(4)@(negedge cpu_clk);
+  if(dut.locked||!dut.boot_mode||dut.restart_seen||dut.boot_speed!=0)$fatal(1,"BIOS restart repeated/lost defaults on release");
+  $display("PASS turbo SRAM-10: 1/2/4/8 MHz, %d reads/%d writes, %d video reads, %d CPU cycles without HOLD; disk/ROM, BIOS reset frequency and drained 10s restart",reads,writes,video_reads,cycles);$finish;
  end
  initial begin #30000000;$fatal(1,"turbo memory timeout");end
 endmodule

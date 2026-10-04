@@ -8,6 +8,7 @@ import argparse
 import importlib.util
 import gzip
 import json
+import binascii
 import math
 from pathlib import Path
 import struct
@@ -184,6 +185,14 @@ def fat16(files):
     return bytes(volume)
 
 
+def settings_record(model=0, extension=False, frequency=1):
+    if model not in (0, 1) or frequency not in (1, 2, 4, 8):
+        raise ValueError('settings require model 601/601A and frequency 1/2/4/8 MHz')
+    flags = model | (bool(extension) << 1) | ((frequency.bit_length() - 1) << 2)
+    data = b'P601SET\0' + bytes((1, flags)) + bytes(4)
+    return data + struct.pack('>H', binascii.crc_hqx(data, 0))
+
+
 def build(native, disks, boot=0, allow_large=False, bios_a=None):
     files = rom_files(native)
     start = ALIGN + BOOT_SECTORS
@@ -217,6 +226,7 @@ def build(native, disks, boot=0, allow_large=False, bios_a=None):
     if bios_a is not None:
         config['rom_a_crc32'] = f'{zlib.crc32(files["P601A.ROM"][SECTOR:]):08x}'
     files['P601.CFG'] = (json.dumps(config, indent=2)+'\n').encode('ascii')
+    files['P601.SET'] = settings_record()
     image = bytearray(start * SECTOR)
     image[510:512] = b'\x55\xaa'
     for i, (kind, lba, count) in enumerate(

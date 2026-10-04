@@ -2,11 +2,11 @@
   "date": "2026-10-04",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "bd6c8c0b3fc60924a005e9883b0818603603c100c5d51a509e2dc91bbc4a057f",
+  "sha256": "33f8f0ad9dfde3fb4fa26b14f83dd294f9ab86a5c0bd5dbaa2830c1de78622b9",
   "sector_bytes": 512,
   "boot_disk": "A",
-  "matches_physical_card_readback": true,
-  "fpga_jed_sha256": "eefc5b75bdaf7e7e95b0917c857057e8c57fa97759aa33d99fd65e7e565065e0",
+  "matches_physical_card_readback": false,
+  "fpga_jed_sha256": "f4110aeaef3decc7747cc37e32aa60551ad2add7c8d8c0cb64972e200f9d3b58",
   "models": [
     "601",
     "601A"
@@ -18,7 +18,7 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "f6e72e74badd2f05d874e4a207ef8845e64cb58c03926a2f030934b5245ae24b",
+      "sha256": "d831f587e7e0d48ec65a5254a7c6739df54f6f4ce382fbecdd4f4134fc7f8ecb",
       "files": {
         "P601.ROM": {
           "bytes": 334336,
@@ -35,6 +35,10 @@
         "P601A.ROM": {
           "bytes": 334336,
           "sha256": "9b275b91c5efcf00888eb654c2f08ae0a59111c5e4d075ef656fd3535b4167d1"
+        },
+        "P601.SET": {
+          "bytes": 16,
+          "sha256": "8bb601fd0f2eb0f4b2b1fa5628ef64e810896e43ccff8bce40b9786060f33961"
         }
       }
     },
@@ -184,6 +188,34 @@
         "HDSLEEP"
       ]
     },
-    "unidos_DIR_resumed_after_each_test": true
+    "unidos_DIR_resumed_after_each_test": true,
+    "software_boot_current_setup_default_passed": true
+  },
+  "settings": {
+    "file": "P601.SET",
+    "model": "601",
+    "hd6303_extension": false,
+    "frequency_mhz": 1
+  },
+  "settings_update": {
+    "base_physical_readback_sha256": "bd6c8c0b3fc60924a005e9883b0818603603c100c5d51a509e2dc91bbc4a057f",
+    "only_boot_partition_changed": true,
+    "all_existing_boot_files_preserved": true,
+    "physical_card_updated": true
+  },
+  "physical_card_readback_sha256": "11428fd0023979e8f2798a81a7072173224f2474b320d8ca9360310443b84d60",
+  "physical_card_boot_update": {
+    "report": "build/hardware-bios-setup/sd-write.json",
+    "only_boot_partition_written": true,
+    "MBR_A_B_preserved": true,
+    "readback_sha256_scope": "snapshot after host update, before user SAVE"
+  },
+  "physical_boot_partition_matched_image_after_host_update": true,
+  "physical_saved_configuration_user_report": {
+    "model": "601A",
+    "hd6303_extension": true,
+    "frequency_mhz": 4,
+    "reloaded_after_power_cycle": true,
+    "save_reported_error_before_busy_fix": true
   }
 }

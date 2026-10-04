@@ -27,6 +27,11 @@ initial begin
  header[68]=1;header[73]=8'h88;header[76]=8'h40;header[77]=8'h0b;
  header[84]=1;header[89]=8'h98;header[92]=8'h40;header[93]=8'h0b;
  #22;cold=0;
+ for(i=0;i<16;i=i+1)begin
+  put(0,i);address=0;#1;
+  if(result[3:0]!=i||dut.boot_speed!=(i>>2)||dut.model_a!=i[0]||dut.hd6303_en!=i[1])$fatal(1,"retained boot settings mapping");
+ end
+ put(0,0);
  put(6,1);put(7,8'h5a);repeat(8)@(negedge clk);
  if(writes!=1)$fatal(1,"aperture duplicate write");
  put(11,0);repeat(8)@(negedge clk);

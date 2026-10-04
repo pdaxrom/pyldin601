@@ -1,6 +1,14 @@
 # Diamond
 
-Сборка с переключением 1/2/4/8 МГц и оптимизированной SRAM: 6437 LUT,
+Текущий BIOS Setup с исправлением SAVE и Reset 10 секунд: 6490 LUT, 3312 slices,
+2058 registers, 14 EBR. Свободны 374 LUT, 120 slices, 5151 registers,
+12 EBR. TRACE setup/hold negative slack и unconstrained paths — 0.
+SRAM→CPU worst 21,819 нс при ограничении 27 нс; fast clock 96 МГц.
+Версия записана во FLASH с Verify и JTAGENB high до/после.
+[Архив, SHA и проверки](BIOS-SETUP.md), [запись SD/FPGA](HARDWARE.md).
+
+
+Предыдущая записанная сборка с переключением 1/2/4/8 МГц и оптимизированной SRAM: 6437 LUT,
 3281 slices, 2044 registers, 10 EBR. TRACE setup/hold и unconstrained paths — 0.
 SRAM clock 96 МГц; путь SRAM→CPU worst 22,533 нс при ограничении 27 нс.
 Сборка записана во FLASH с успешным Verify и JTAGENB high до/после.

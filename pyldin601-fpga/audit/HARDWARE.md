@@ -1,6 +1,63 @@
 # Запись SD и FPGA
 
-## Последняя записанная версия: частоты и SRAM, 4 октября 2026
+## Последняя записанная версия: исправление SAVE, 4 октября 2026
+
+После первоначальной записи BIOS Setup пользователь показал ложную ошибку
+`SAVE FAILED - CHECK SD`: сохранённые 601A / HD6303 Y / 4 МГц прочитались
+после выключения и включения. Симптом воспроизведён со старым resident BIOS
+при снятии SD busy внутри байта. Исправление ожидания FFh проверено
+39 программными сценариями и настоящим HDL CPU/SPI.
+[Причина и границы проверки](BIOS-SETUP.md).
+
+Записан `build/diamond/bios-save-busy/impl1/pyldin601_classic_impl1.jed`,
+SHA-256 `f4110aeaef3decc7747cc37e32aa60551ad2add7c8d8c0cb64972e200f9d3b58`.
+Все 36 входов совпали с `source-bios-save-busy.sha256.json`;
+TRACE setup/hold negative slack и unconstrained paths — 0.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification успешны.
+`hgfsd --jtag-only` подтвердил JTAGENB high через FTDI до и после записи.
+Wall time — 67,42 секунды. SD не записывалась; исправление находится в
+EBR первичного BIOS, выбранная пользователем конфигурация сохраняется.
+
+Linux-каталог: `/tmp/pyldin601-bios-save-busy.BWOhrR/hardware-bios-save-busy`.
+Локальные журналы Programmer, XCF и result.json — `build/hardware-bios-save-busy`.
+Успешный SAVE исправленной версии на физической карте пока не подтверждён.
+
+## Предыдущая записанная версия: BIOS Setup и Reset 10 секунд, 4 октября 2026
+
+По запросу пользователя обновлены SD и FLASH FPGA. Записан
+`build/diamond/bios-setup-final/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`51a4175f3e6af96339a38b61b1da346c03a1b84d53cfd021440896928df2c965`.
+Все 36 входных файлов совпали с source-bios-setup-final.sha256.json;
+TRACE setup/hold negative slack и unconstrained paths — 0.
+FLASH Verify ID подтвердил LCMXO2-7000HC. Erase,Program,Verify и JTAG
+Chain Verification успешны. uJ11 hgfsd --jtag-only через FTDI подтвердил
+JTAGENB high до и после записи. Programmer — 56 секунд, wall — 67,88 секунды.
+
+SD сверена по прежнему by-id, размеру 7988051968 байт, removable и отсутствию
+mount. До записи первые 20 МиБ сохранены на Linux и Mac, SHA сверена.
+В первый раздел добавлен P601.SET (601, расширение N, 1 МГц). Записаны
+только 16 МиБ на LBA 2048; прежние boot-файлы, MBR и текущие A/B сохранены.
+После fsync выполнено прямое чтение 20 МиБ; результат совпал с подготовленным
+образом. На Mac повторно сверены SHA и файлы, выполнен программный boot
+прочитанного образа. На момент этой записи первый раздел совпал с готовым images/sd.img;
+текущие A/B физической карты отличаются от A/B готового образа и не заменялись.
+
+| Данные | SHA-256 |
+|---|---|
+| Резервная копия 20 МиБ | `348fd7ef8ee1b3fe4664e72c575f6e71f3974e794d756192ec1b0277ccb81fd9` |
+| Обновлённые / прочитанные 20 МиБ | `11428fd0023979e8f2798a81a7072173224f2474b320d8ca9360310443b84d60` |
+| Первый раздел | `d831f587e7e0d48ec65a5254a7c6739df54f6f4ce382fbecdd4f4134fc7f8ecb` |
+
+Linux-каталог: `/tmp/pyldin601-bios-setup-final.D3czl7/hardware-bios-setup`.
+Локальные копии, XCF, журналы и отчёты — `build/hardware-bios-setup`:
+sd-before.img, sd-after.img, sd-readback.img, sd-write.json, result.json,
+update-result.json, program.log, jtag-before.log и jtag-after.log.
+Позже пользователь подтвердил меню и чтение сохранённых настроек после
+включения, но SAVE показал ошибку (см. исправление выше).
+Физическая проверка Reset 10 секунд ещё не получена.
+[Поведение и проверки](BIOS-SETUP.md).
+
+## Предыдущая записанная версия: частоты и SRAM, 4 октября 2026
 
 По запросу пользователя записан
 `build/diamond/turbo-final/impl1/pyldin601_classic_impl1.jed`, SHA-256

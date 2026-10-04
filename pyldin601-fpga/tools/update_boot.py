@@ -85,6 +85,7 @@ def prepare(backup, bios_a, loader):
     configuration = json.loads(files.get('P601.CFG', b'{}'))
     configuration.update(models=['601', '601A'], rom_a_crc32=f'{sd.u32(files["P601A.ROM"], 20):08x}')
     files['P601.CFG'] = (json.dumps(configuration, indent=2) + '\n').encode('ascii')
+    files.setdefault('P601.SET', sd.settings_record())
     return sd.fat16(files), {'start_lba': start, 'sectors': sectors, 'drives': drives,
         'files_sha256': {name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
         'preserved_classic_rom_sha256': hashlib.sha256(rom).hexdigest(),

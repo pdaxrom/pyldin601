@@ -6,7 +6,7 @@
 #include "core/mc6800.h"
 #include "core/i8272.h"
 #include "core/keyboard.h"
-static unsigned char resident[4096],physical[2*1024*1024],config[96];
+static unsigned char resident[8192],physical[2*1024*1024],config[96];
 static unsigned char *image;static size_t image_size;
 static uint32_t physical_address,crc=0xffffffff,disk_address;
 static unsigned config_index,rom_writes,all_writes,committed,error,debug;
@@ -20,6 +20,23 @@ static unsigned fdc_reads;
 static unsigned caps_off=1;
 static unsigned model_a,cpu_hd,menu_phase,menu_key[2],menu_key_sent[2],boot_tick_number;
 static uint32_t menu_start_cycles[2],menu_end_cycles[2];
+static unsigned boot_speed,setup_script[64],setup_length,setup_position,setup_release,sd_writes;
+static unsigned sd_write_phase,sd_write_count,sd_write_lba,sd_write_crc,sd_received_crc;
+static unsigned sd_deny_write,setup_error_exit;
+static unsigned setup_frequency,setup_frequency_left;
+static unsigned sd_busy_active,sd_busy_reads,sd_busy_remaining,sd_busy_transition,sd_busy_tail;
+static unsigned char sd_write_data[512];
+static void setup_keys(unsigned a,unsigned hd,unsigned save){
+ setup_script[setup_length++]=0xf9;
+ if(a)setup_script[setup_length++]=0xc2;
+ setup_script[setup_length++]=0xc3;
+ if(hd)setup_script[setup_length++]=0xc2;
+ setup_script[setup_length++]=0xc3;
+ for(unsigned n=0;n<setup_frequency;n++)setup_script[setup_length++]=setup_frequency_left?0xc1:0xc2;
+ setup_script[setup_length++]=0xc3;
+ if(!save)setup_script[setup_length++]=0xc3;
+ setup_script[setup_length++]=0xc0;
+}
 static int screen_is(unsigned address,const char*text){
  unsigned char*r=MC6800GetCpuRam();
  for(unsigned n=0;text[n];n++)if(r[address+n*(model_a?2:1)+model_a]!=(unsigned char)text[n])return 0;
@@ -49,12 +66,27 @@ static void sd_command(void){
  case 17:{uint32_t lba=sdsc?arg/512:arg;sd_reads++;
   if((uint64_t)lba*512+512>image_size){queue[0]=0x20;break;}
   queue[0]=0;queue[1]=255;queue[2]=0xfe;memcpy(queue+3,image+lba*512,512);unsigned c=0;for(unsigned i=0;i<512;i++){c^=queue[3+i]<<8;for(unsigned bit=0;bit<8;bit++)c=c&0x8000?(c<<1)^0x1021:c<<1;c&=65535;}queue[515]=c>>8;queue[516]=c;queue_count=517;break;}
+ case 24:sd_write_lba=sdsc?arg/512:arg;sd_write_phase=1;break;
  default:queue[0]=4;
  }
 }
 static unsigned char transfer(unsigned char d){
  spi_transfers++;if(missing_sd||spi_control&2)return 255;
  if(queue_pos<queue_count)return queue[queue_pos++];
+ if(sd_busy_active){
+  if(sd_busy_remaining){sd_busy_remaining--;return 0;}
+  if(sd_busy_tail){unsigned b=sd_busy_tail;sd_busy_tail=0;return b;}
+  sd_busy_active=0;return 255;
+ }
+ if(sd_write_phase){
+  if(sd_write_phase==1){if(d==0xfe){sd_write_phase=2;sd_write_count=sd_write_crc=0;}return 255;}
+  if(sd_write_phase==2){sd_write_data[sd_write_count++]=d;sd_write_crc^=d<<8;for(unsigned bit=0;bit<8;bit++)sd_write_crc=sd_write_crc&0x8000?(sd_write_crc<<1)^0x1021:sd_write_crc<<1;sd_write_crc&=65535;if(sd_write_count==512)sd_write_phase=3;return 255;}
+  if(sd_write_phase==3){sd_received_crc=d<<8;sd_write_phase=4;return 255;}
+  sd_received_crc|=d;if(sd_received_crc!=sd_write_crc||(uint64_t)sd_write_lba*512+512>image_size){fprintf(stderr,"bad CMD24 CRC/address\n");exit(1);}
+  if(!sd_deny_write){memcpy(image+sd_write_lba*512,sd_write_data,512);sd_writes++;}sd_write_phase=0;
+  queue_pos=0;queue_count=1;queue[0]=sd_deny_write?0x0d:5;
+  sd_busy_active=!sd_deny_write;sd_busy_remaining=sd_busy_reads?sd_busy_reads:2;sd_busy_tail=sd_busy_transition?(1u<<sd_busy_transition)-1:0;return 255;
+ }
  if(!cmd_index){if((d&0xc0)!=0x40)return 255;cmd[cmd_index++]=d;return 255;}
  cmd[cmd_index++]=d;if(cmd_index==6){cmd_index=0;sd_command();}return 255;
 }
@@ -73,6 +105,7 @@ int SuperIoReadByte(word a,byte*out){
  if(a==0xe600||a==0xe604){*out=crtc_index;return 1;}
  if(a==0xe601||a==0xe605){*out=crtc[crtc_index&15];return 1;}
  if(a>=0xf000){*out=committed?physical[0x60000+a-0xf000]:resident[a-0xf000];return 1;}
+ if(!committed&&a>=0xd000&&a<0xe000){*out=resident[4096+a-0xd000];return 1;}
  if(committed&&a>=0xc000&&a<0xe000&&(page&8)){*out=physical[0x10000+(page>>4)%5*65536+(page&7)*8192+a-0xc000];return 1;}
  if(a>=0xe660&&a<=0xe664){switch(a&7){case 0:*out=spi_high;break;case 1:*out=spi_low;break;case 2:*out=0x80|spi_control;break;case 3:*out=spi_div;break;default:*out=spi_pout;}return 1;}
  if(a>=0xe6a0&&a<=0xe6af){unsigned p=a&15;*out=255;
@@ -82,11 +115,16 @@ int SuperIoReadByte(word a,byte*out){
  if(!committed&&a==0xe62b){
   unsigned number=MC6800GetCyclesCounter()/80000;
   *out=0x37|(number!=boot_tick_number?128:0);boot_tick_number=number;
-  if(menu_phase<2&&!menu_start_cycles[menu_phase])menu_start_cycles[menu_phase]=MC6800GetCyclesCounter();return 1;
+  if(!menu_start_cycles[0])menu_start_cycles[0]=MC6800GetCyclesCounter();return 1;
  }
  if(a==0xe628||a==0xe62a||a==0xe62e){
   KBDUpdate();
-  if(!committed&&menu_phase<2&&menu_key[menu_phase]&&!menu_key_sent[menu_phase]){KBDKeyDown(menu_key[menu_phase]);menu_key_sent[menu_phase]=1;}
+  if(!committed&&a==0xe628){
+   if(setup_error_exit&&setup_position==setup_length&&screen_is(0x630,"SAVE FAILED - CHECK SD")){setup_script[setup_length++]=0xc3;setup_script[setup_length++]=0xc0;setup_error_exit=0;}
+   if(setup_release){setup_release=0;*out=255;return 1;}
+   if(setup_position<setup_length){*out=setup_script[setup_position++];setup_release=1;return 1;}
+   *out=255;return 1;
+  }
   *out=a==0xe628?KBDReadKey():KBDCheckKey()|0x37|(caps_off?8:0);return 1;
  }
  if(committed){switch(a){
@@ -129,9 +167,9 @@ int SuperIoWriteByte(word a,byte d){
   else if(p==11){if(physical_address>=sizeof(physical)){error=1;return 1;}
    aperture_byte=physical_address<65536?MC6800GetCpuRam()[physical_address]:physical[physical_address];physical_address++;aperture_reads++;}
   else if(p==9)crc=crc_byte(crc,d);else if(p==10)crc=0xffffffff;
-  else if(p==0){if(d<=3&&config_index==0){model_a=d&1;cpu_hd=(d>>1)&1;menu_end_cycles[menu_phase++]=MC6800GetCyclesCounter();MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);KBDKeyUp();return 1;}if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
+  else if(p==0){if(d<=15&&config_index==0){model_a=d&1;cpu_hd=(d>>1)&1;boot_speed=d>>2;menu_end_cycles[menu_phase++]=MC6800GetCyclesCounter();return 1;}if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
    ||config[25]!=model_a||le32(config+8)!=1||le32(config+12)!=0x10000||le32(config+16)!=0x51800
-   ||le32(config+20)!=(crc^0xffffffff)||(spi_control&2)==0)error=1;else committed=1;}
+   ||le32(config+20)!=(crc^0xffffffff)||(spi_control&2)==0)error=1;else{committed=1;MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);}}
   return 1;
  }
  if(committed)switch(a){
@@ -157,22 +195,24 @@ int FloppyFormatTrack(int D,int T,int H){return 0;}
 #include "core/keyboard.c"
 static unsigned char*load(const char*path,size_t*size){FILE*f=fopen(path,"rb");if(!f){perror(path);exit(1);}fseek(f,0,SEEK_END);*size=ftell(f);rewind(f);unsigned char*p=malloc(*size);if(fread(p,1,*size,f)!=*size)exit(1);fclose(f);return p;}
 int main(int argc,char**argv){
- if(argc<3)return 2;size_t n;unsigned char*b=load(argv[1],&n);if(n!=4096)return 2;memcpy(resident,b,n);free(b);
- image=load(argv[2],&image_size);sdsc=argc>3&&!strcmp(argv[3],"sdsc");missing_sd=argc>3&&!strcmp(argv[3],"no-sd");sram_fault=argc>3&&!strcmp(argv[3],"sram-fault");unsigned reject=missing_sd||sram_fault||(argc>3&&!strcmp(argv[3],"reject"));
- if(argc>3){if(!strcmp(argv[3],"601a")||!strcmp(argv[3],"601a-reject")||!strcmp(argv[3],"601a-hd6303"))menu_key[0]=3;
-  else if(!strcmp(argv[3],"enter"))menu_key[0]=0x1c;else if(!strcmp(argv[3],"key1"))menu_key[0]=2;
-  if(!strcmp(argv[3],"hd6303")||!strcmp(argv[3],"601a-hd6303")){menu_key[0]=!strcmp(argv[3],"601a-hd6303")?3:2;menu_key[1]=3;}
-  if(!strcmp(argv[3],"both-enter")){menu_key[0]=menu_key[1]=0x1c;}
-  if(!strcmp(argv[3],"both-key1")){menu_key[0]=menu_key[1]=2;}
-  if(!strcmp(argv[3],"601a-reject"))reject=1;}
- MC6800Init();memset(physical,0xcc,sizeof(physical));memset(MC6800GetCpuRam(),0xcc,65536);MC6800Reset();
+ if(argc<3)return 2;size_t n;unsigned char*b=load(argv[1],&n);if(n!=8192)return 2;memcpy(resident,b,n);free(b);
+ image=load(argv[2],&image_size);sdsc=argc>3&&(!strcmp(argv[3],"sdsc")||!strcmp(argv[3],"save-sdsc")||!strcmp(argv[3],"save-sdsc-busy"));missing_sd=argc>3&&!strcmp(argv[3],"no-sd");sram_fault=argc>3&&!strcmp(argv[3],"sram-fault");unsigned reject=missing_sd||sram_fault||(argc>3&&!strcmp(argv[3],"reject"));
+ if(argc>3){unsigned a=!strcmp(argv[3],"601a")||!strcmp(argv[3],"601a-reject")||!strcmp(argv[3],"601a-hd6303");unsigned hd=!strcmp(argv[3],"hd6303")||!strcmp(argv[3],"601a-hd6303");if(a||hd)setup_keys(a,hd,0);if(!strcmp(argv[3],"save"))setup_keys(1,1,1);if(!strcmp(argv[3],"exit")){setup_script[setup_length++]=0xf9;setup_script[setup_length++]=0xc2;setup_script[setup_length++]=0x1b;}if(!strcmp(argv[3],"setup-default")){setup_script[setup_length++]=0xc4;setup_script[setup_length++]=0xc0;}if(!strcmp(argv[3],"601a-reject"))reject=1;}
+ if(argc>3&&!strcmp(argv[3],"save-sdsc"))setup_keys(1,1,1);
+ if(argc>3&&!strcmp(argv[3],"save8")){setup_frequency=3;setup_keys(1,1,1);}
+ if(argc>3&&!strcmp(argv[3],"save-left")){setup_frequency=1;setup_frequency_left=1;setup_keys(1,1,1);}
+ if(argc>3&&!strcmp(argv[3],"save-denied")){setup_keys(1,1,1);sd_deny_write=1;setup_error_exit=1;}
+ if(argc>3&&!strcmp(argv[3],"save-readonly")){setup_keys(1,1,1);setup_error_exit=1;}
+ if(argc>3&&!strcmp(argv[3],"save-busy-transition")){setup_keys(1,1,1);sd_busy_transition=1;}
+ if(argc>3&&!strcmp(argv[3],"save-busy-long")){setup_keys(1,1,1);sd_busy_transition=7;sd_busy_reads=4096;}
+ if(argc>3&&!strcmp(argv[3],"save-sdsc-busy")){setup_keys(1,1,1);sd_busy_transition=5;}
+ if(argc>3&&!strncmp(argv[3],"save-busy-",10)&&argv[3][10]>='1'&&argv[3][10]<='7'&&argv[3][11]==0){setup_keys(1,1,1);sd_busy_transition=argv[3][10]-'0';}
+ MC6800SetMachine(PYLDIN_MACHINE_HD6303);MC6800Init();memset(physical,0xcc,sizeof(physical));memset(MC6800GetCpuRam(),0xcc,65536);MC6800Reset();
  unsigned steps;for(steps=0;steps<100000000&&!committed&&debug!=0xee;steps++)MC6800Step();
- if(menu_phase!=2){fprintf(stderr,"both menus were not completed\n");return 1;}
- for(unsigned k=0;k<2;k++){
-  unsigned elapsed=menu_end_cycles[k]-menu_start_cycles[k];
-  if(menu_key[k]){if(!menu_key_sent[k]||elapsed>1200){fprintf(stderr,"menu %u key not immediate: %u\n",k,elapsed);return 1;}}
-  else if(elapsed<39920000||elapsed>40001000){fprintf(stderr,"menu %u timeout not 10 seconds: %u cycles\n",k,elapsed);return 1;}
- }
+ if(!missing_sd&&menu_phase!=1){fprintf(stderr,"BIOS configuration was not applied pc=%04x debug=%02x; SD writes=%u; save-error=%d\n",PC,debug,sd_writes,screen_is(0x630,"SAVE FAILED - CHECK SD"));return 1;}
+ if(!setup_length&&!missing_sd){unsigned elapsed=menu_end_cycles[0]-menu_start_cycles[0];if(elapsed<39920000||elapsed>40100000){fprintf(stderr,"BIOS timeout not 10 seconds: %u cycles\n",elapsed);return 1;}}
+ if(argc>3&&!strcmp(argv[3],"save")&&!sd_writes){fprintf(stderr,"SAVE did not write SD\n");return 1;}
+ if(argc>3&&!strcmp(argv[3],"exit")&&(model_a||cpu_hd||boot_speed||sd_writes)){fprintf(stderr,"EXIT did not discard changes\n");return 1;}
  if(reject){
   char message[40];snprintf(message,sizeof(message),"BOOT ERROR AT STEP %02X",MC6800GetCpuRam()[0x18a]);
   if(committed||debug!=0xee||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[12]!=4
@@ -196,6 +236,7 @@ int main(int argc,char**argv){
  unsigned saved_model=model_a,saved_cpu=cpu_hd;MC6800Reset();if(cpu_hd!=saved_cpu||MC6800GetMachine()!=(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601)||model_a!=saved_model||PC!=reset_vector||!committed||physical[0x81234]!=0x5a){fprintf(stderr,"warm reset failed\n");return 1;}
  for(unsigned n=0;n<1000;n++)MC6800Step();
  if(reads!=sd_reads||writes!=all_writes||physical[0x81234]!=0x5a){fprintf(stderr,"warm reload/memory loss\n");return 1;}
- printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads);
+ if(argc>4){FILE*f=fopen(argv[4],"wb");if(!f||fwrite(image,1,image_size,f)!=image_size||fclose(f))return 1;}
+ printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u; settings=%u/%u/%uMHz, SD writes=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads,model_a,cpu_hd,1u<<boot_speed,sd_writes);
  return 0;
 }

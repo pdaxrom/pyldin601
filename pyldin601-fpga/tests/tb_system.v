@@ -6,6 +6,7 @@ integer menu_writes=0;always @(posedge clk)if(dut.bus_write&&cpu_addr==16'he6a0)
 reg resetn=1,psclk=1,psdata=1;wire cs,sck,mosi;reg miso=1;
 wire[19:0]sa;wire[15:0]sd;wire ce,oe,we,ub,lb;
 wire[5:0]tv;wire[1:0]audio;
+reg[15:0]memory[0:1048575];
 classic_system #(
  .BUTTON_TICK_DIV(1),.BUTTON_DEBOUNCE_MS(2),.BUTTON_LONG_MS(4),
  `ifdef HANDOFF_CHECK
@@ -22,36 +23,34 @@ task key_byte;input[7:0]b;reg[10:0]frame;integer n;
   psdata=1;#300;
  end
 endtask
+task press;input[7:0]b;input extended;
+begin
+ if(extended)key_byte(8'he0);key_byte(b);#1500000;
+ if(extended)key_byte(8'he0);key_byte(8'hf0);key_byte(b);#1500000;
+end endtask
 `ifndef HANDOFF_CHECK
 initial begin
- // Wait for the real menu's timer read, then enter using physical PS/2.
- wait(dut.bus_read&&cpu_addr==16'he62b);
+ // Enter the actual resident editor with E0 Delete, then navigate with PS/2.
+ wait(dut.bus_read&&cpu_addr==16'he628);
+ key_byte(8'he0);key_byte(8'h71);
+ wait(memory[20'h204]===16'h4f49&&dut.bus_read&&cpu_addr==16'he628);
+ #1500000;
+ if(menu_writes!=0)$fatal(1,"held DEL applied settings");
+ key_byte(8'he0);key_byte(8'hf0);key_byte(8'h71);#1500000;
  `ifdef BOOT_MODEL_A
- key_byte(8'h1e);
- `else
- key_byte(8'h5a);
+ press(8'h74,1);
  `endif
- // Hold the first selection across the whole redraw and into the second
- // menu: it must not count as a fresh CPU choice.
- wait(menu_writes>=1);
- wait(dut.bus_read&&cpu_addr==16'he62b);
- #500000;
- if(menu_writes!=1)$fatal(1,"held model key also selected CPU");
- key_byte(8'hf0);
- `ifdef BOOT_MODEL_A
- key_byte(8'h1e);
- `else
- key_byte(8'h5a);
- `endif
- #100000;
+ press(8'h72,1);
  `ifdef BOOT_HD6303
- key_byte(8'h1e);key_byte(8'hf0);key_byte(8'h1e);
- `else
- key_byte(8'h5a);key_byte(8'hf0);key_byte(8'h5a);
+ press(8'h74,1);
  `endif
+ press(8'h72,1);press(8'h72,1);
+ `ifndef BOOT_SAVE
+ press(8'h72,1);
+ `endif
+ press(8'h5a,0);
 end
 `endif
-reg[15:0]memory[0:1048575];
 assign sd=!ce&&!oe&&we?memory[sa]:16'bz;
 always @(posedge we)if(!ce)begin
  if(dut.locked&&sa>=20'h08000&&sa<20'h30c00)$fatal(1,"ROM write after lock");
@@ -59,8 +58,9 @@ always @(posedge we)if(!ce)begin
 end
 reg[7:0]expected_rom[0:333823];
 reg[7:0]sd_image[0:4194303];
-integer image_byte,sectors=0;reg[31:0]sector_lba;reg[1023:0]image_path;
+integer image_byte,sectors=0,sectors_before_reset;reg[31:0]sector_lba;reg[1023:0]image_path;
 integer boot_text_pixels=0;
+
 always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
     reg [7:0] fifo[0:2047],command[0:5],incoming=0,current=8'hff;
     integer rd=0,wr=0,bits=0,cmd_count=0,write_phase=0,write_count=0,i;
@@ -77,13 +77,19 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
             if(write_phase==1)begin
                 if(b==8'hfe)begin write_phase=2;write_count=0;write_crc=0;end
             end else if(write_phase==2)begin
+ `ifndef BOOT_SAVE
                 $fatal(1,"unexpected disk write during ROM boot");
+ `else
+                if(sector_lba<2048||sector_lba>=34816)$fatal(1,"setup wrote outside boot partition");
+                sd_image[sector_lba*512+write_count]=b;
+ `endif
                 write_crc=crc16(write_crc,b);write_count=write_count+1;
                 if(write_count==512)write_phase=3;
             end else if(write_phase==3)begin received_crc[15:8]=b;write_phase=4;end
             else if(write_phase==4)begin
                 received_crc[7:0]=b;if(received_crc!=write_crc)$fatal(1,"write CRC");
-                put(8'h05);put(0);put(0);put(8'hff);write_phase=0;
+                // Card DO may release busy between any two sampled bits.
+                put(8'h05);put(0);put(0);put(8'h01);put(8'hff);write_phase=0;
             end else if(cmd_count!=0||b[7:6]==2'b01)begin
                 command[cmd_count]=b;cmd_count=cmd_count+1;
                 if(cmd_count==6)begin
@@ -91,24 +97,9 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
                     cmd_count=0;
                     case(command[0][5:0])
                         0:begin
-                            if(menu_writes!=2)$fatal(1,"SD started before both selections");
- `ifdef BOOT_HD6303
-                            if(!hd6303_en)$fatal(1,"HD6303 menu did not enable CPU input");
- `else
-                            if(hd6303_en)$fatal(1,"MC6800 menu enabled extended ISA");
- `endif
-                            if(dut.video.stride!==
- `ifdef BOOT_MODEL_A
- 8'd80
- `else
- 8'd40
- `endif||dut.video.start_addr!==16'h400
-
- `ifdef BOOT_MODEL_A
- ||!dut.model_a||memory[20'h200]!==16'h5000||memory[20'h201]!==16'h5900)
- `else
- ||dut.model_a||memory[20'h200]!==16'h5950||memory[20'h201]!==16'h444c)
- `endif
+                            if(menu_writes!=0||!hd6303_en)$fatal(1,"resident CPU must be HD6303 before configuration");
+                            if(dut.video.stride!==8'd40||dut.video.start_addr!==16'h400
+                             ||dut.model_a||memory[20'h200]!==16'h5950||memory[20'h201]!==16'h444c)
                                 $fatal(1,"actual CPU did not initialize text before SD");
                             put(1);
                         end
@@ -167,6 +158,14 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         memory[20'h07006]=16'hfffe;memory[20'h07007]=16'h6efe;memory[20'h07008]=16'h0000;
         `else
         wait(dut.cpu_addr==16'h2000&&dut.boot_mode);
+        if(menu_writes!=1||!hd6303_en)$fatal(1,"resident ISA/configuration at loader entry");
+        if(dut.configured_hd!==
+ `ifdef BOOT_HD6303
+ 1'b1
+ `else
+ 1'b0
+ `endif
+ )$fatal(1,"runtime ISA selection mismatch");
         if(boot_text_pixels<20)$fatal(1,"boot text produced no visible PAL pixels");
         `ifdef BOOT_MODEL_A
         if(memory[20'h228]!==16'h5300||memory[20'h230]!==16'h2000)
@@ -185,8 +184,15 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
             if((i%2==0?memory[(65536+i)/2][7:0]:memory[(65536+i)/2][15:8])!==expected_rom[i])$fatal(1,"physical ROM mismatch byte %0d",i);
         end
         $display("MILESTONE ROM initialized and locked (%0d SD sectors)",sectors);
+        `ifdef HANDOFF_SETTING
+        if(hd6303_en!==((`HANDOFF_SETTING&2)!=0))$fatal(1,"ISA did not change at lock");
+        `endif
         wait(dut.cpu_addr===16'hf006);repeat(5000)@(negedge clk);
+        `ifdef HANDOFF_SETTING
+        if(dut.speed!==(`HANDOFF_SETTING>>2)||dut.cpu_divisor!==(24>>(`HANDOFF_SETTING>>2)))$fatal(1,"configured frequency not applied after commit");
+        `endif
         memory[20'h4091a]=16'h5a3c;
+        sectors_before_reset=sectors;
         resetn=0;repeat(80)@(negedge clk);resetn=1;
         wait(dut.cpu_reset===1'b0);repeat(2000)@(negedge clk);
         if(
@@ -194,13 +200,10 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         !dut.model_a||
         `endif
         !dut.locked||memory[20'h4091a]!=16'h5a3c)$fatal(1,"warm reset lost retained state locked=%b marker=%h cold=%b cpu_reset=%b",dut.locked,memory[20'h4091a],dut.cold_reset,dut.cpu_reset);
-        if(sectors!=
-        `ifdef HANDOFF_CHECK
-        0
-        `else
-        1310
+        if(sectors!=sectors_before_reset)$fatal(1,"warm reset reloaded SD sectors=%0d",sectors);
+        `ifdef HANDOFF_SETTING
+        if(dut.speed!==(`HANDOFF_SETTING>>2))$fatal(1,"warm reset did not restore configured frequency");
         `endif
-        )$fatal(1,"warm reset reloaded SD sectors=%0d",sectors);
         `ifdef HANDOFF_CHECK
         $display("PASS actual HDL CPU handoff/ROM lock/warm reset with preloaded SRAM fixture");
         `else

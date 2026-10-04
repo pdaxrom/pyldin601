@@ -28,6 +28,10 @@ test-cpu-interrupts: fixtures
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-interrupts --ieee-warnings=off -a $(BUILD)/cpu6800_lockstep.vhd $(BUILD)/cpu-interrupts-labels.vhd tests/tb_cpu_interrupts.vhd
 	$(PYTHON) tests/run_cpu_interrupts.py --nvc $(NVC)
 .PHONY: test-mixed-clock
+.PHONY: test-setup
+test-setup: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
+	$(PYTHON) tests/run_setup.py
 test-mixed-clock: | $(BUILD)
 	$(NVC) --work=work:$(BUILD)/mixed-clock -a tests/fast_clock.v tests/tb_fast_clock.v -e tb_fast_clock -r tb_fast_clock > $(BUILD)/mixed-clock.log 2>&1
 	@cat $(BUILD)/mixed-clock.log
@@ -73,12 +77,12 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-board-syntax test-handoff
 firmware: | $(BUILD)
 	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
 	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
-	$(PYTHON) tools/asm6800.py firmware/boot.asm --output $(BUILD)/boot.bin --origin 0xf000 --size 4096 --mem $(BUILD)/boot.mem
+	$(PYTHON) tools/make_boot.py
 	$(PYTHON) tools/asm6800.py firmware/loader.asm --output $(BUILD)/loader.bin --origin 0x2000
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -211,3 +215,14 @@ test-stage1-hd: test-mixed-clock fixtures
 	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a-hd --ieee-warnings=off -a -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a-hd.log 2>&1
 	@cat $(BUILD)/stage1-a-hd.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a-hd.log').read_text()"
+
+.PHONY: test-setup-hdl
+test-setup-hdl: test-mixed-clock fixtures
+	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
+	$(NVC) --std=2008 --work=work:$(BUILD)/setup-hdl --ieee-warnings=off -a -D BOOT_SAVE=1 -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/setup-hdl.log 2>&1
+	@cat $(BUILD)/setup-hdl.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/setup-hdl.log').read_text()"
+
+.PHONY: test-handoff-fast
+test-handoff-fast: test-mixed-clock fixtures
+	@set -e; for setting in 12 14 15; do $(PYTHON) tests/prepare_handoff.py $$setting; model=""; if [ $$setting -eq 15 ]; then model="-D BOOT_MODEL_A=1"; fi; $(NVC) --std=2008 --work=work:$(BUILD)/handoff-fast-$$setting --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D HANDOFF_SETTING=$$setting -D FULL_SYSTEM=1 $$model rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff-fast-$$setting.log 2>&1; cat $(BUILD)/handoff-fast-$$setting.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU handoff/ROM lock/warm reset' in Path('build/handoff-fast-$$setting.log').read_text()"; done
