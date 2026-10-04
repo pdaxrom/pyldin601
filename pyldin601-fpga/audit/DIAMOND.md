@@ -1,9 +1,10 @@
 # Diamond
 
-Текущий BIOS Setup с исправлением SAVE и Reset 10 секунд: 6490 LUT, 3312 slices,
-2058 registers, 14 EBR. Свободны 374 LUT, 120 slices, 5151 registers,
+Текущий BIOS Setup с SD power-up/retries, исправлением SAVE и PAL/PIA latch:
+6515 LUT, 3320 slices,
+2057 registers, 14 EBR. Свободны 349 LUT, 112 slices, 5152 registers,
 12 EBR. TRACE setup/hold negative slack и unconstrained paths — 0.
-SRAM→CPU worst 21,819 нс при ограничении 27 нс; fast clock 96 МГц.
+SRAM→CPU worst 24,625 нс при ограничении 27 нс; fast clock 96 МГц.
 Версия записана во FLASH с Verify и JTAGENB high до/после.
 [Архив, SHA и проверки](BIOS-SETUP.md), [запись SD/FPGA](HARDWARE.md).
 

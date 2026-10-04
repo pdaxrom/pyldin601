@@ -60,6 +60,12 @@ reg[7:0]expected_rom[0:333823];
 reg[7:0]sd_image[0:4194303];
 integer image_byte,sectors=0,sectors_before_reset;reg[31:0]sector_lba;reg[1023:0]image_path;
 integer boot_text_pixels=0;
+integer init_ticks=0,idle_clocks=0,cmd0_attempts=0,acmd_attempts=0;
+always @(posedge clk)if(dut.video_tick)init_ticks=init_ticks+1;
+always @(posedge sck)if(cs)begin
+ if(mosi!==1'b1)$fatal(1,"MOSI not idle during SD startup clocks");
+ idle_clocks=idle_clocks+1;
+end
 
 always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
     reg [7:0] fifo[0:2047],command[0:5],incoming=0,current=8'hff;
@@ -97,15 +103,19 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
                     cmd_count=0;
                     case(command[0][5:0])
                         0:begin
+                            if(dut.raw_div!==8'd29||init_ticks<16||idle_clocks<74)
+                                $fatal(1,"CMD0 before power delay/startup clocks or above init SPI speed");
+                            idle_clocks=0;cmd0_attempts=cmd0_attempts+1;
                             if(menu_writes!=0||!hd6303_en)$fatal(1,"resident CPU must be HD6303 before configuration");
                             if(dut.video.stride!==8'd40||dut.video.start_addr!==16'h400
                              ||dut.model_a||memory[20'h200]!==16'h5950||memory[20'h201]!==16'h444c)
                                 $fatal(1,"actual CPU did not initialize text before SD");
-                            put(1);
+                            // The first two CMD0 attempts arrive before the card responds.
+                            if(cmd0_attempts>2)put(1);
                         end
                         8:if(high_capacity)begin put(1);put(0);put(0);put(1);put(8'haa);end else put(5);
                         55:put(1);
-                        41:put(0);
+                        41:begin acmd_attempts=acmd_attempts+1;put(acmd_attempts<4?1:0);end
                         58:begin put(0);put(high_capacity?8'hc0:8'h80);put(8'hff);put(8'h80);put(0);end
                         16:begin if(argument!=512)$fatal(1,"CMD16");put(0);end
                         17:begin
@@ -158,6 +168,8 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         memory[20'h07006]=16'hfffe;memory[20'h07007]=16'h6efe;memory[20'h07008]=16'h0000;
         `else
         wait(dut.cpu_addr==16'h2000&&dut.boot_mode);
+        if(cmd0_attempts!=3||acmd_attempts!=4)$fatal(1,"init retries not exercised");
+        $display("PASS actual HDL SD startup delay and retries (%0d ticks, %0d CMD0, %0d ACMD41)",init_ticks,cmd0_attempts,acmd_attempts);
         if(menu_writes!=1||!hd6303_en)$fatal(1,"resident ISA/configuration at loader entry");
         if(dut.configured_hd!==
  `ifdef BOOT_HD6303
@@ -211,6 +223,6 @@ always @(posedge clk)if(!dut.locked&&tv==49)boot_text_pixels=boot_text_pixels+1;
         `endif
         $finish;
     end
-    always @(posedge clk)if(dut.boot_debug==8'hee)$fatal(1,"CPU boot error address=%x sectors=%0d",dut.cpu_addr,sectors);
+    always @(posedge clk)if(dut.boot_debug==8'hee)$fatal(1,"CPU boot error address=%x sectors=%0d CMD=%x R1=%x SPI=%x ticks=%0d init-left=%x",dut.cpu_addr,sectors,memory[20'ha2][7:0],memory[20'ha3][7:0],dut.raw_spi.control,init_ticks,memory[20'hc9][7:0]);
     initial begin #1000000000000;$fatal(1,"system timeout");end
 endmodule

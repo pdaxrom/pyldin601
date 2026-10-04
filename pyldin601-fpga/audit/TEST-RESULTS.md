@@ -1,4 +1,50 @@
+## PAL/PIA tick и Reset, 4 октября 2026
+
+- `tb_timer_tick` со старым RTL: FAIL «PAL tick lost when PIA read coincides
+  with pulse». С исправленным приоритетом: PASS с пустой/установленной
+  защёлкой, однократным потреблением и после полного BIOS Reset.
+- Программный `init-reload`: PASS. FPGA/CPU-регистры сбрасываются, RAM,
+  SRAM ROM, питание/протокол SD и секторы сохранены; карта повторно
+  инициализирована до чтения FAT. Это C-эталон, не физическое измерение.
+- Полная повторная HDL-загрузка с динамической подменой ROM не является
+  проверкой: NVC оптимизирует ROM как константу. Экспериментальные ветви
+  удалены, их промежуточные логи не учитываются как PASS.
+- Фото платы `00 FF FF 37 A3` подтверждает таймаут первого PAL tick,
+  до CMD0, со свободным SPI. Холодный запуск подтверждён пользователем;
+  полный Reset исправленной версии и загрузка системы подтверждены
+  пользователем на плате 4 октября 2026 года.
+
+Дополнительно PASS: `make test-sd-init test-handoff test-runtime-irq`,
+`make test-setup-hdl` (38 PAL ticks, 3 CMD0, 4 ACMD41, SAVE и 13 секторов),
+`tb_turbo_memory` (1067 reads, 1081 writes, 2000 video reads, все частоты).
+Diamond/Programmer: см. [HARDWARE.md](HARDWARE.md).
+
+Логи: `build/timer-tick-before.log`, `build/timer-tick-fixed.log`,
+`build/bios-powered-sd-reload.log`, `build/timer-reset-regression.log`.
+
 # Проверки переработанного проекта
+
+## SD при включении, 4 октября 2026
+
+`make test-firmware test-setup test-sd-init` — PASS. Прежние 39 сценариев
+BIOS Setup и проверки ROM/FAT/SDHC/SDSC сохраняются. Новые 11 случаев
+проверяют карту без ответа первые 700 мс, повтор CMD0/CMD8/CMD55/ACMD41,
+1,5 секунды idle ACMD41, SDSC с задержкой, R1 после 31 байта FF,
+ограниченные CMD0/ACMD41 timeout, неверный R7 и остановленный PAL tick.
+Ни один случай не записывает boot-раздел или A/B. Ошибки инициализации
+останавливают BIOS на STEP 01 с CS high до чтения ROM/разделов.
+
+Старый BIOS воспроизводит отказ на карте с задержкой 700 мс; новый загружается.
+Журналы: `build/bios-sd-init-before.log`, `build/bios-sd-init-regression.log`.
+`make test-setup-hdl` — PASS: симуляция реального VHDL CPU/SPI подтверждает
+начальные PAL ticks и CS-high clocks, три CMD0 и четыре ACMD41, SAVE
+с readback и последующую загрузку LOADER.BIN. Журнал —
+`build/bios-sd-init-hdl.log`; все тактовые частоты fixture масштабированы
+совместно, делители PAL не ускорялись отдельно.
+Diamond fit/TRACE без ошибок, ресурсы прежние: 6490 LUT / 14 EBR.
+Новый JED записан во FLASH с Verify; JTAGENB high до/после, SD не менялась.
+Холодные включения на физической плате пока не проверены пользователем.
+[Задержки, команды и границы проверки](BIOS-SETUP.md).
 
 ## BIOS Setup и Reset 10 секунд, 4 октября 2026
 

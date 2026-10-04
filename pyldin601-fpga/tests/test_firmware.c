@@ -25,6 +25,9 @@ static unsigned sd_write_phase,sd_write_count,sd_write_lba,sd_write_crc,sd_recei
 static unsigned sd_deny_write,setup_error_exit;
 static unsigned setup_frequency,setup_frequency_left;
 static unsigned sd_busy_active,sd_busy_reads,sd_busy_remaining,sd_busy_transition,sd_busy_tail;
+static unsigned sd_cmd0_count,sd_startup_clocks,sd_cmd0_silent,sd_cmd8_silent,sd_cmd55_silent,sd_acmd_silent;
+static unsigned sd_init_reject,sd_init_never,sd_bad_r7,sd_reply_delay,sd_tick_stopped;
+static uint32_t sd_power_ready_cycles,sd_first_cmd0_cycles,sd_first_acmd_cycles,sd_acmd_delay_cycles;
 static unsigned char sd_write_data[512];
 static void setup_keys(unsigned a,unsigned hd,unsigned save){
  setup_script[setup_length++]=0xf9;
@@ -56,11 +59,23 @@ static void sd_command(void){
   }screen_checked=1;
  }
  sd_commands++;queue_pos=0;queue_count=1;queue[0]=sd_idle?1:0;
+ if(op==0||op==8||op==55||op==41||op==58||op==16){if(spi_div!=29){fprintf(stderr,"SD initialization exceeded 400 kHz\n");exit(1);}}
+ if(op==0){
+  if(!sd_cmd0_count){sd_first_cmd0_cycles=MC6800GetCyclesCounter();if(sd_startup_clocks<74){fprintf(stderr,"missing startup clocks\n");exit(1);}}
+  sd_cmd0_count++;
+  if(cmd[5]!=0x95){fprintf(stderr,"CMD0 CRC\n");exit(1);}
+  if(MC6800GetCyclesCounter()<sd_power_ready_cycles||sd_init_never==1||sd_cmd0_silent){if(sd_cmd0_silent)sd_cmd0_silent--;queue_count=0;return;}
+ }
+ if(op==8&&sd_cmd8_silent){sd_cmd8_silent--;queue_count=0;return;}
+ if(op==55&&sd_cmd55_silent){sd_cmd55_silent--;queue_count=0;return;}
+ if(op==41&&sd_acmd_silent){sd_acmd_silent--;queue_count=0;return;}
  switch(op){
  case 0:sd_idle=1;queue[0]=1;break;
- case 8:if(sdsc)queue[0]=5;else{queue[0]=1;queue[1]=0;queue[2]=0;queue[3]=1;queue[4]=0xaa;queue_count=5;}break;
+ case 8:if(sdsc)queue[0]=5;else{queue[0]=1;queue[1]=0;queue[2]=0;queue[3]=1;queue[4]=sd_bad_r7?0xab:0xaa;queue_count=5;}break;
  case 55:break;
- case 41:sd_idle=0;queue[0]=0;break;
+ case 41:if(!sd_first_acmd_cycles)sd_first_acmd_cycles=MC6800GetCyclesCounter();
+  if(sd_init_never==2||MC6800GetCyclesCounter()-sd_first_acmd_cycles<sd_acmd_delay_cycles)queue[0]=1;
+  else{sd_idle=0;queue[0]=0;}break;
  case 58:queue[0]=0;queue[1]=sdsc?0x80:0xc0;queue[2]=0xff;queue[3]=0x80;queue[4]=0;queue_count=5;break;
  case 16:if(arg!=512)queue[0]=4;break;
  case 17:{uint32_t lba=sdsc?arg/512:arg;sd_reads++;
@@ -69,9 +84,10 @@ static void sd_command(void){
  case 24:sd_write_lba=sdsc?arg/512:arg;sd_write_phase=1;break;
  default:queue[0]=4;
  }
+ if(sd_reply_delay&&op!=17&&op!=24){memmove(queue+sd_reply_delay,queue,queue_count);memset(queue,255,sd_reply_delay);queue_count+=sd_reply_delay;}
 }
 static unsigned char transfer(unsigned char d){
- spi_transfers++;if(missing_sd||spi_control&2)return 255;
+ spi_transfers++;if(spi_control&2){if(!sd_cmd0_count&&spi_div==29&&d==255)sd_startup_clocks+=8;return 255;}if(missing_sd)return 255;
  if(queue_pos<queue_count)return queue[queue_pos++];
  if(sd_busy_active){
   if(sd_busy_remaining){sd_busy_remaining--;return 0;}
@@ -114,8 +130,8 @@ int SuperIoReadByte(word a,byte*out){
   else if(p>=12)*out=(crc^0xffffffff)>>((p-12)*8);return 1;}
  if(!committed&&a==0xe62b){
   unsigned number=MC6800GetCyclesCounter()/80000;
-  *out=0x37|(number!=boot_tick_number?128:0);boot_tick_number=number;
-  if(!menu_start_cycles[0])menu_start_cycles[0]=MC6800GetCyclesCounter();return 1;
+  *out=0x37|(!sd_tick_stopped&&number!=boot_tick_number?128:0);boot_tick_number=number;
+  if(!menu_start_cycles[0]&&screen_is(0x400,"PYLDIN SYSTEM BIOS"))menu_start_cycles[0]=MC6800GetCyclesCounter();return 1;
  }
  if(a==0xe628||a==0xe62a||a==0xe62e){
   KBDUpdate();
@@ -207,10 +223,21 @@ int main(int argc,char**argv){
  if(argc>3&&!strcmp(argv[3],"save-busy-long")){setup_keys(1,1,1);sd_busy_transition=7;sd_busy_reads=4096;}
  if(argc>3&&!strcmp(argv[3],"save-sdsc-busy")){setup_keys(1,1,1);sd_busy_transition=5;}
  if(argc>3&&!strncmp(argv[3],"save-busy-",10)&&argv[3][10]>='1'&&argv[3][10]<='7'&&argv[3][11]==0){setup_keys(1,1,1);sd_busy_transition=argv[3][10]-'0';}
+ if(argc>3&&!strcmp(argv[3],"init-late-power"))sd_power_ready_cycles=2800000;
+ if(argc>3&&!strcmp(argv[3],"init-cmd0-retry"))sd_cmd0_silent=3;
+ if(argc>3&&!strcmp(argv[3],"init-cmd8-retry"))sd_cmd8_silent=2;
+ if(argc>3&&!strcmp(argv[3],"init-app-retry")){sd_cmd55_silent=2;sd_acmd_silent=2;}
+ if(argc>3&&!strcmp(argv[3],"init-long-idle"))sd_acmd_delay_cycles=6000000;
+ if(argc>3&&!strcmp(argv[3],"init-sdsc-idle")){sdsc=1;sd_acmd_delay_cycles=1600000;}
+ if(argc>3&&!strcmp(argv[3],"init-last-r1"))sd_reply_delay=31;
+ if(argc>3&&!strcmp(argv[3],"init-cmd0-timeout")){sd_init_never=1;sd_init_reject=reject=1;}
+ if(argc>3&&!strcmp(argv[3],"init-acmd-timeout")){sd_init_never=2;sd_init_reject=reject=1;}
+ if(argc>3&&!strcmp(argv[3],"init-bad-r7")){sd_bad_r7=1;sd_init_reject=reject=1;}
+ if(argc>3&&!strcmp(argv[3],"init-no-tick")){sd_tick_stopped=1;sd_init_reject=reject=1;}
  MC6800SetMachine(PYLDIN_MACHINE_HD6303);MC6800Init();memset(physical,0xcc,sizeof(physical));memset(MC6800GetCpuRam(),0xcc,65536);MC6800Reset();
  unsigned steps;for(steps=0;steps<100000000&&!committed&&debug!=0xee;steps++)MC6800Step();
- if(!missing_sd&&menu_phase!=1){fprintf(stderr,"BIOS configuration was not applied pc=%04x debug=%02x; SD writes=%u; save-error=%d\n",PC,debug,sd_writes,screen_is(0x630,"SAVE FAILED - CHECK SD"));return 1;}
- if(!setup_length&&!missing_sd){unsigned elapsed=menu_end_cycles[0]-menu_start_cycles[0];if(elapsed<39920000||elapsed>40100000){fprintf(stderr,"BIOS timeout not 10 seconds: %u cycles\n",elapsed);return 1;}}
+ if(!missing_sd&&!sd_init_reject&&menu_phase!=1){fprintf(stderr,"BIOS configuration was not applied pc=%04x debug=%02x; SD writes=%u; save-error=%d\n",PC,debug,sd_writes,screen_is(0x630,"SAVE FAILED - CHECK SD"));return 1;}
+ if(!setup_length&&!missing_sd&&!sd_init_reject){unsigned elapsed=menu_end_cycles[0]-menu_start_cycles[0];if(elapsed<39920000||elapsed>40100000){fprintf(stderr,"BIOS timeout not 10 seconds: %u cycles\n",elapsed);return 1;}}
  if(argc>3&&!strcmp(argv[3],"save")&&!sd_writes){fprintf(stderr,"SAVE did not write SD\n");return 1;}
  if(argc>3&&!strcmp(argv[3],"exit")&&(model_a||cpu_hd||boot_speed||sd_writes)){fprintf(stderr,"EXIT did not discard changes\n");return 1;}
  if(reject){
@@ -221,8 +248,13 @@ int main(int argc,char**argv){
    fprintf(stderr,"bad ROM accepted/stalled or missing text error pc=%04x error=%u\n",PC,error);return 1;
   }screen_dump("build/boot-error-screen.bin");
   if(sram_fault&&(aperture_reads!=0x51800||MC6800GetCpuRam()[0x18a]!=12)){fprintf(stderr,"SRAM fault not rejected by readback\n");return 1;}
-  printf("PASS CPU/SPI boot rejects %s and displays %s\n",missing_sd?"missing SD":sram_fault?"corrupted SRAM after valid SD CRC":"damaged ROM/FAT",message);return 0;
+  if((missing_sd||sd_init_reject)&&(MC6800GetCpuRam()[0x18a]!=1||sd_reads||sd_writes||rom_writes||spi_control!=0x23)){fprintf(stderr,"init failure did not stop before disks/ROM with CS high\n");return 1;}
+  uint32_t elapsed=MC6800GetCyclesCounter()-(sd_init_never==2?sd_first_acmd_cycles:sd_first_cmd0_cycles);
+  if(sd_init_never&&(elapsed<8000000||elapsed>8400000)){fprintf(stderr,"init timeout not two seconds: %u cycles\n",elapsed);return 1;}
+  printf("PASS CPU/SPI boot rejects %s and displays %s; init-time=%u cycles; CMD0 attempts=%u\n",missing_sd?"missing SD":sd_init_reject?"SD initialization fault":sram_fault?"corrupted SRAM after valid SD CRC":"damaged ROM/FAT",message,elapsed,sd_cmd0_count);return 0;
  }
+ if(sd_first_cmd0_cycles<1200000){fprintf(stderr,"CMD0 sent before 300 ms power delay: %u cycles\n",sd_first_cmd0_cycles);return 1;}
+ if(sd_acmd_delay_cycles&&MC6800GetCyclesCounter()-sd_first_acmd_cycles<sd_acmd_delay_cycles){fprintf(stderr,"ACMD41 ignored real-time readiness\n");return 1;}
  if(!committed||error||rom_writes!=0x51800||sd_reads<650){fprintf(stderr,"boot failure pc=%04x err=%u debug=%02x writes=%u steps=%u SD reads=%u commands=%u\n",PC,error,debug,rom_writes,steps,sd_reads,sd_commands);return 1;}
  if(seen_stages!=0x1ffe||!screen_checked||aperture_reads!=0x51800){fprintf(stderr,"missing boot text stages/readback mask=%x reads=%u\n",seen_stages,aperture_reads);return 1;}
  for(unsigned a=0x80000;a<0x100000;a++)if(physical[a]!=0){fprintf(stderr,"electronic disk not initialized at %x\n",a);return 1;}
@@ -236,6 +268,22 @@ int main(int argc,char**argv){
  unsigned saved_model=model_a,saved_cpu=cpu_hd;MC6800Reset();if(cpu_hd!=saved_cpu||MC6800GetMachine()!=(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601)||model_a!=saved_model||PC!=reset_vector||!committed||physical[0x81234]!=0x5a){fprintf(stderr,"warm reset failed\n");return 1;}
  for(unsigned n=0;n<1000;n++)MC6800Step();
  if(reads!=sd_reads||writes!=all_writes||physical[0x81234]!=0x5a){fprintf(stderr,"warm reload/memory loss\n");return 1;}
+ if(argc>3&&!strcmp(argv[3],"init-reload")){
+  unsigned commands_before=sd_cmd0_count;
+  // Reset the FPGA/CPU registers while retaining CPU RAM, ROM SRAM, card
+  // power, card protocol state and all disk sectors.
+  if(sd_idle||sd_write_phase||sd_busy_active)return 1;
+  committed=error=debug=config_index=model_a=cpu_hd=boot_speed=0;
+  crc=0xffffffff;physical_address=0;memset(config,0,sizeof(config));
+  spi_control=0x23;spi_div=29;spi_pending=0;
+  spi_low=spi_high=255;cmd_index=queue_count=queue_pos=0;
+  boot_tick_number=MC6800GetCyclesCounter()/80000;screen_checked=0;
+  MC6800SetMachine(PYLDIN_MACHINE_HD6303);MC6800Reset();
+  for(unsigned n=0;n<2000000&&debug<2;n++)MC6800Step();
+  if(debug!=2||sd_idle||sd_cmd0_count!=commands_before+1||sd_reads!=reads
+   ||physical[0x81234]!=0x5a){fprintf(stderr,"powered SD reload failed PC=%04x debug=%02x phase=%02x CMD=%02x R1=%02x\n",PC,debug,MC6800GetCpuRam()[0x193],MC6800GetCpuRam()[0x144],MC6800GetCpuRam()[0x146]);return 1;}
+  printf("PASS full reset reinitializes powered SD before FAT/ROM reload; retained RAM and disks unchanged\n");
+ }
  if(argc>4){FILE*f=fopen(argv[4],"wb");if(!f||fwrite(image,1,image_size,f)!=image_size||fclose(f))return 1;}
  printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u; settings=%u/%u/%uMHz, SD writes=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads,model_a,cpu_hd,1u<<boot_speed,sd_writes);
  return 0;

@@ -237,8 +237,10 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   if(cpu_reset)begin
    page<=0;mode<=1;caps_off<=1;speaker<=0;ramdisk_address<=0;tick_pending<=0;
   end else begin
-   if(video_tick)tick_pending<=1;
    if(bus_read&&timer_io)tick_pending<=0;
+   // A read captures the OLD pending bit. Preserve a PAL pulse arriving on
+   // that same edge, otherwise a phase-aligned polling loop loses every tick.
+   if(video_tick)tick_pending<=1;
    if(disk_advance)ramdisk_address<=ramdisk_address+1'b1;
    if(bus_write)case(cpu_addr)
     16'he6f0:page<=cpu_out;16'he629:mode<=cpu_out;

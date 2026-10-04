@@ -6,7 +6,7 @@
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "f4110aeaef3decc7747cc37e32aa60551ad2add7c8d8c0cb64972e200f9d3b58",
+  "fpga_jed_sha256": "92c426a53eeacddd2769d49ba640b868056563f784b7c45cc6a74050910f24f8",
   "models": [
     "601",
     "601A"
@@ -217,5 +217,9 @@
     "frequency_mhz": 4,
     "reloaded_after_power_cycle": true,
     "save_reported_error_before_busy_fix": true
-  }
+  },
+  "physical_cold_start_user_report": true,
+  "pal_tick_read_collision_fixed": true,
+  "physical_full_reset_fix_verified": true,
+  "physical_full_reset_user_report_date": "2026-10-04"
 }

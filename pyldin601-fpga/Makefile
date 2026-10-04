@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := frequency_controls memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
+BENCHES := frequency_controls timer_tick memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -32,6 +32,10 @@ test-cpu-interrupts: fixtures
 test-setup: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(PYTHON) tests/run_setup.py
+.PHONY: test-sd-init
+test-sd-init: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
+	$(PYTHON) tests/run_sd_init.py
 test-mixed-clock: | $(BUILD)
 	$(NVC) --work=work:$(BUILD)/mixed-clock -a tests/fast_clock.v tests/tb_fast_clock.v -e tb_fast_clock -r tb_fast_clock > $(BUILD)/mixed-clock.log 2>&1
 	@cat $(BUILD)/mixed-clock.log
@@ -77,7 +81,7 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 firmware: | $(BUILD)
 	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
@@ -150,13 +154,13 @@ test-handoff: test-mixed-clock fixtures
 
 test-stage1: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/test-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1 --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1 --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=500ms > $(BUILD)/stage1.log 2>&1
 	@cat $(BUILD)/stage1.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1.log').read_text()"
 
 test-stage1-a: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a --ieee-warnings=off -a -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a --ieee-warnings=off -a -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=500ms > $(BUILD)/stage1-a.log 2>&1
 	@cat $(BUILD)/stage1-a.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a.log').read_text()"
 
@@ -209,17 +213,17 @@ test-hd6303-edges: fixtures
 .PHONY: test-stage1-hd
 test-stage1-hd: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-hd --ieee-warnings=off -a -D BOOT_HD6303=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-hd.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-hd --ieee-warnings=off -a -D BOOT_HD6303=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=500ms > $(BUILD)/stage1-hd.log 2>&1
 	@cat $(BUILD)/stage1-hd.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-hd.log').read_text()"
-	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a-hd --ieee-warnings=off -a -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/stage1-a-hd.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/stage1-a-hd --ieee-warnings=off -a -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=500ms > $(BUILD)/stage1-a-hd.log 2>&1
 	@cat $(BUILD)/stage1-a-hd.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a-hd.log').read_text()"
 
 .PHONY: test-setup-hdl
 test-setup-hdl: test-mixed-clock fixtures
 	$(PYTHON) -c "from pathlib import Path; p=Path('build/models-sd.img').read_bytes()[:4194304]; Path('build/boot-sd.mem').write_text(''.join('%02x\n'%v for v in p))"
-	$(NVC) --std=2008 --work=work:$(BUILD)/setup-hdl --ieee-warnings=off -a -D BOOT_SAVE=1 -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=100ms > $(BUILD)/setup-hdl.log 2>&1
+	$(NVC) --std=2008 --work=work:$(BUILD)/setup-hdl --ieee-warnings=off -a -D BOOT_SAVE=1 -D BOOT_HD6303=1 -D BOOT_MODEL_A=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=500ms > $(BUILD)/setup-hdl.log 2>&1
 	@cat $(BUILD)/setup-hdl.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/setup-hdl.log').read_text()"
 

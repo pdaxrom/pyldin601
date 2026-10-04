@@ -13,6 +13,8 @@ CPU. Рабочая директория — этот проект.
 от выбранного рабочего CPU. Он читает P601.SET с первого раздела SD и
 показывает модель, HD6303 EXTENSION и частоту с обратным отсчётом 10 секунд.
 DEL открывает BIOS Setup; без ввода запускается сохранённая конфигурация.
+Перед первым CMD0 BIOS ждёт не менее 300 мс и повторяет команды при
+временном отсутствии ответа; инициализация SD ограничена таймаутами.
 Без файла или при неверной конфигурации меню открывается сразу с настройками
 601, HD6303 EXTENSION N, 1 МГц. Стрелки выбирают/меняют значения, Enter
 подтверждает. SAVE AND BOOT сохраняет и проверяет настройки, BOOT WITHOUT
@@ -210,19 +212,22 @@ ROM, если доступен `../native-src/BIOS_A.ROM`. Старые файл
 кварц 12 МГц → system 24 МГц и SRAM 96 МГц; CPU 4 МГц при загрузке,
 выбранные 1/2/4/8 МГц после commit.
 На Linux-машине выполнена сборка Diamond 3.14: synthesis, MAP, PAR, TRACE,
-Jedecgen. Текущая версия с BIOS Setup занимает 6490/6864 LUT,
-3312/3432 slices, 2058/7209 registers, 14/26 EBR и 1/2 PLL.
-Свободны 374 LUT, 120 slices, 5151 registers и 12 EBR.
+Jedecgen. Текущая версия с BIOS Setup занимает 6515/6864 LUT,
+3320/3432 slices, 2057/7209 registers, 14/26 EBR и 1/2 PLL.
+Свободны 349 LUT, 112 slices, 5152 registers и 12 EBR.
 Распределение EBR: bootstrap 8, шрифт 2, SD/FDD 2, PAL waveform 1,
 буферы видеострок 1.
 Setup/hold проходят, unconstrained paths = 0; полный отчёт и проверки
 зафиксированы в [audit/BIOS-SETUP.md](audit/BIOS-SETUP.md). LPF ограничивает
 внешние SRAM/SD пути и отдельно проверяет SRAM→CPU за 27 нс.
 Результаты и допущения STA — в [audit/DIAMOND.md](audit/DIAMOND.md).
-Текущий BIOS JED с исправлением ложной ошибки SAVE:
-`build/diamond/bios-save-busy/impl1/pyldin601_classic_impl1.jed`.
+Текущий BIOS JED с SD power-up/retries, исправлением SAVE и потери PAL tick:
+`build/diamond/pal-tick/impl1/pyldin601_classic_impl1.jed`.
 Он записан во FLASH с успешным Verify и JTAGENB high до/после.
-Журналы — `build/hardware-bios-save-busy`; эта запись не меняет SD.
+Журналы — `build/hardware-pal-tick`; эта запись не меняет SD.
+Новый PAL tick имеет приоритет над очисткой E62B: совпавшее чтение
+не стирает событие. Проверка — `tb_timer_tick`, включая полный Reset.
+Пользователь подтвердил полный Reset и загрузку на плате 4 октября 2026 года.
 Первоначальное обновление SD boot-раздела с сохранением MBR и текущих A/B
 зафиксировано в `build/hardware-bios-setup`.
 Предыдущая записанная сборка 601/601A с цветным PAL, выбором CPU и частотами 1/2/4/8 МГц:

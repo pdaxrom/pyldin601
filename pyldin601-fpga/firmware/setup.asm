@@ -784,6 +784,194 @@ settings_write_busy:
     jmp failed
 settings_write_done:
     jmp release
+; Initial SD power-up uses PAL's 50 Hz latch, independently of CPU loops.
+; Sixteen ticks provide >=300 ms from clearing a pending tick. Keep CS high
+; and MOSI idle before CMD0; repeat >=74 clocks before every CMD0 attempt.
+sd_init:
+    clr SD_INIT_PHASE
+    ldaa #$ff
+    staa COMMAND
+    staa RESPONSE
+    ldaa #$23
+    staa SPI_CTL
+    ldaa #29
+    staa SPI_DIV
+    jsr spi_read
+    ldaa $e62b
+    ldaa #16
+    staa SD_INIT_TICKS
+sd_power:
+    jsr sd_wait_tick
+    dec SD_INIT_TICKS
+    bne sd_power
+    jsr sd_start_deadline
+sd_cmd0:
+    ldaa #1
+    staa SD_INIT_PHASE
+    ldab #10
+sd_clocks:
+    jsr spi_read
+    decb
+    bne sd_clocks
+    jsr clear_arg
+    ldaa #$40
+    staa COMMAND
+    ldaa #$95
+    staa CHECK
+    jsr command_try
+    cmpa #1
+    beq sd_cmd8_start
+    jsr sd_retry_pause
+    bra sd_cmd0
+sd_cmd8_start:
+    ldaa #2
+    staa SD_INIT_PHASE
+    jsr sd_start_deadline
+sd_cmd8:
+    jsr clear_arg
+    ldaa #$48
+    staa COMMAND
+    ldaa #$aa
+    staa ARG
+    ldaa #1
+    staa ARG+1
+    ldaa #$87
+    staa CHECK
+    jsr command_try
+    cmpa #$ff
+    bne sd_cmd8_reply
+    jsr sd_retry_pause
+    bra sd_cmd8
+sd_cmd8_reply:
+    clr SDMODE
+    cmpa #5
+    beq sd_v1
+    cmpa #1
+    lbne failed
+    jsr spi_read
+    jsr spi_read
+    jsr spi_read
+    cmpa #1
+    lbne failed
+    jsr spi_read
+    cmpa #$aa
+    lbne failed
+    ldaa #$40
+    staa SDMODE
+sd_v1:
+    ldaa #3
+    staa SD_INIT_PHASE
+    jsr sd_start_deadline
+sd_acmd:
+    jsr clear_arg
+    ldaa #$77
+    staa COMMAND
+    jsr command_try
+    cmpa #$ff
+    beq sd_acmd_retry
+    cmpa #1
+    lbhi failed
+    jsr clear_arg
+    ldaa SDMODE
+    staa ARG+3
+    ldaa #$69
+    staa COMMAND
+    jsr command_try
+    beq sd_ocr
+    cmpa #$ff
+    beq sd_acmd_retry
+    cmpa #1
+    lbne failed
+sd_acmd_retry:
+    jsr sd_retry_pause
+    bra sd_acmd
+sd_ocr:
+    ldaa #4
+    staa SD_INIT_PHASE
+    jsr clear_arg
+    ldaa #$7a
+    staa COMMAND
+    jsr command
+    lbne failed
+    jsr spi_read
+    bita #$80
+    lbeq failed
+    anda SDMODE
+    anda #$40
+    staa SDMODE
+    jsr spi_read
+    jsr spi_read
+    jsr spi_read
+    ldaa SDMODE
+    bne sd_initialized
+    ldaa #5
+    staa SD_INIT_PHASE
+    jsr clear_arg
+    ldaa #2
+    staa ARG+1
+    ldaa #$50
+    staa COMMAND
+    jsr command
+    lbne failed
+sd_initialized:
+    jsr release
+    ldaa #1
+    staa SPI_DIV
+    rts
+; Each phase permits about two seconds. Wait between attempts with CS high;
+; a received protocol error still fails, except CMD0 which explicitly resets.
+sd_start_deadline:
+    ldaa $e62b
+    ldaa #101
+    staa SD_INIT_TICKS
+    rts
+sd_retry_pause:
+    jsr release
+    jsr sd_wait_tick
+    dec SD_INIT_TICKS
+    lbeq failed
+    rts
+; Preserve X/B and also bound the wait if PAL's tick source ever stops.
+sd_wait_tick:
+    pshx
+    ldx #0
+sd_wait_tick_poll:
+    ldaa $e62b
+    bmi sd_wait_tick_done
+    dex
+    bne sd_wait_tick_poll
+    pulx
+    jmp failed
+sd_wait_tick_done:
+    pulx
+    rts
+; Permanent boot error context: phase, last CMD/R1, failing A and SPI status.
+; This distinguishes a tick/READY timeout from a rejected card response.
+sd_error_details:
+    ldx #$5e0
+    stx UI_DEST
+    ldx #sd_error_text
+    jsr ui_puts
+    ldaa SD_INIT_PHASE
+    jsr ui_hex
+    ldab #' '
+    jsr ui_putc
+    ldaa COMMAND
+    jsr ui_hex
+    ldab #' '
+    jsr ui_putc
+    ldaa RESPONSE
+    jsr ui_hex
+    ldab #' '
+    jsr ui_putc
+    ldaa SD_ERROR_VALUE
+    jsr ui_hex
+    ldab #' '
+    jsr ui_putc
+    ldaa SD_ERROR_IO
+    jmp ui_hex
+sd_error_text:
+    db "SD PH/CMD/R1/A/IO ",0
 setup_notice:
     db "PRESS DEL FOR BIOS SETUP",0
 setup_countdown_text:

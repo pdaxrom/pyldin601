@@ -1,6 +1,55 @@
 # Запись SD и FPGA
 
-## Последняя записанная версия: исправление SAVE, 4 октября 2026
+## Последняя записанная версия: PAL/PIA latch, 4 октября 2026
+
+Пользователь подтвердил холодный запуск предыдущей SD-init версии, но
+полный Reset давал STEP 01 на любой частоте. Диагностическая сборка
+`41590c3bebfee3ede741a489435d48f79d53762370af18cb49c59875582cc3d3`
+показала `00 FF FF 37 A3`: потеря первого PAL tick до CMD0, SPI свободен.
+Воспроизведена гонка чтения E62B с установкой 50-Гц latch. Новый импульс
+теперь имеет приоритет над очисткой, сохраняется для следующего чтения.
+
+Записан `build/diamond/pal-tick/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`92c426a53eeacddd2769d49ba640b868056563f784b7c45cc6a74050910f24f8`.
+Все 36 входов сверены с `source-pal-tick.sha256.json`. Diamond:
+6515 LUT, 3320 slices, 2057 registers, 14 EBR; TRACE setup/hold negative
+slack и unconstrained paths — 0. SRAM→CPU 24,625 нс при пределе 27 нс.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification успешны.
+FTDI `hgfsd --jtag-only` подтвердил JTAGENB high до/после. Wall time
+67,71 секунды. SD не записывалась: P601.SET, ROM и диски A/B сохранены.
+
+Проверки: старый RTL теряет совпавший tick; новый проходит с пустой и
+установленной защёлкой и после полного Reset. Прошли 12 SD-init случаев,
+HDL handoff/warm reset, штатные IRQ/RTI, SRAM 1/2/4/8 МГц, HDL SAVE
+и загрузка LOADER.BIN. Пользователь подтвердил успешный полный Reset
+и загрузку системы с этой прошивкой 4 октября 2026 года.
+Linux-каталог: `/tmp/pyldin601-pal-tick.laSwcV/hardware-pal-tick`;
+локальные журналы/XCF/result — `build/hardware-pal-tick`. Диагностическая
+запись и её журналы — `build/hardware-sd-reload`.
+
+## Предыдущая записанная версия: SD power-up и retries, 4 октября 2026
+
+По сообщению пользователя редкий cold boot останавливался на STEP 01,
+до чтения разделов/конфигурации. Старый BIOS воспроизвёл отказ в модели
+карты, не отвечающей первые 700 мс. Добавлены минимум 300 мс с CS high
+до CMD0, начальные такты перед каждой попыткой, повтор CMD0/CMD8 и
+ожидание CMD55/ACMD41 по PAL до примерно двух секунд. SD остаётся
+на 400 кГц до окончания инициализации. [Проверки и границы](BIOS-SETUP.md).
+
+Записан `build/diamond/sd-init/impl1/pyldin601_classic_impl1.jed`,
+SHA-256 `7e71a30abafcb4833a1b1dbec295da2cfed0dc790676ffe50208f30677ab14ff`.
+Все 36 входов совпали с `source-sd-init.sha256.json`; TRACE setup/hold
+negative slack и unconstrained paths — 0. FLASH Verify ID /
+Erase,Program,Verify и JTAG Chain Verification успешны. Через FTDI
+`hgfsd --jtag-only` подтвердил JTAGENB high до и после записи.
+Wall time — 67,43 секунды. SD не перезаписывалась; P601.SET и A/B сохранены.
+
+Linux-каталог: `/tmp/pyldin601-sd-init.QPJS90/hardware-sd-init`.
+Локальные журналы, XCF и result.json — `build/hardware-sd-init`.
+Пользователь подтвердил холодный запуск; после полного Reset обнаружена
+регрессия ожидания PAL tick, исправление описано выше.
+
+## Предыдущая записанная версия: исправление SAVE, 4 октября 2026
 
 После первоначальной записи BIOS Setup пользователь показал ложную ошибку
 `SAVE FAILED - CHECK SD`: сохранённые 601A / HD6303 Y / 4 МГц прочитались

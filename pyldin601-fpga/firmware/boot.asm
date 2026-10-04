@@ -48,6 +48,10 @@ UI_TOTAL equ $18c
 VERIFY_BLOCKS equ $18d
 MENU_TICKS equ $18e
 MENU_KEY equ $190
+SD_INIT_TICKS equ $192
+SD_INIT_PHASE equ $193
+SD_ERROR_VALUE equ $194
+SD_ERROR_IO equ $195
 MODEL equ $e6a0
     org $f000
     jmp cold_start
@@ -101,10 +105,16 @@ copy_loader:
     bne copy_loader
     jmp $2000
 failed:
+    staa SD_ERROR_VALUE
+    ldaa SPI_CTL
+    staa SD_ERROR_IO
     tst SET_SAVING
     lbne setup_save_failed
     tst SET_LOADING
     lbne settings_load_failed
+    ; A stopped bootstrap must leave the card deselected for the next reset.
+    ldaa #$23
+    staa SPI_CTL
     jsr ui_error
     ldaa #$ee
     staa DEBUG
@@ -134,6 +144,12 @@ release:
     jmp spi_read
 ; COMMAND, ARG little-endian, CHECK. Return first R1 in A, CS remains selected.
 command:
+    jsr command_try
+    tsta
+    lbmi failed
+    rts
+; Initialization may retry a silent card. Other callers require a valid R1.
+command_try:
     jsr release
     ldaa #$21
     staa SPI_CTL
@@ -156,7 +172,7 @@ command_poll:
     bpl command_ready
     decb
     bne command_poll
-    jmp failed
+    ldaa #$ff
 command_ready:
     staa RESPONSE
     rts
@@ -168,107 +184,7 @@ clear_arg:
     ldaa #1
     staa CHECK
     rts
-sd_init:
-    ldaa #$23
-    staa SPI_CTL
-    ldaa #29
-    staa SPI_DIV
-    ; Power-up delay and >=74 clocks with CS high.
-    ldx #2048
-sd_power:
-    dex
-    bne sd_power
-    ldab #10
-sd_clocks:
-    jsr spi_read
-    decb
-    bne sd_clocks
-    jsr clear_arg
-    ldaa #$40
-    staa COMMAND
-    ldaa #$95
-    staa CHECK
-    jsr command
-    cmpa #1
-    lbne failed
-    jsr clear_arg
-    ldaa #$48
-    staa COMMAND
-    ldaa #$aa
-    staa ARG
-    ldaa #1
-    staa ARG+1
-    ldaa #$87
-    staa CHECK
-    jsr command
-    clr SDMODE
-    cmpa #5
-    beq sd_v1
-    cmpa #1
-    lbne failed
-    jsr spi_read
-    jsr spi_read
-    jsr spi_read
-    cmpa #1
-    lbne failed
-    jsr spi_read
-    cmpa #$aa
-    lbne failed
-    ldaa #$40
-    staa SDMODE
-sd_v1:
-    ldx #1024
-    stx RETRY
-sd_acmd:
-    jsr clear_arg
-    ldaa #$77
-    staa COMMAND
-    jsr command
-    cmpa #1
-    lbhi failed
-    jsr clear_arg
-    ldaa SDMODE
-    staa ARG+3
-    ldaa #$69
-    staa COMMAND
-    jsr command
-    beq sd_ocr
-    cmpa #1
-    lbne failed
-    ldx RETRY
-    dex
-    stx RETRY
-    bne sd_acmd
-    jmp failed
-sd_ocr:
-    jsr clear_arg
-    ldaa #$7a
-    staa COMMAND
-    jsr command
-    lbne failed
-    jsr spi_read
-    bita #$80
-    lbeq failed
-    anda SDMODE
-    anda #$40
-    staa SDMODE
-    jsr spi_read
-    jsr spi_read
-    jsr spi_read
-    ldaa SDMODE
-    bne sd_initialized
-    jsr clear_arg
-    ldaa #2
-    staa ARG+1
-    ldaa #$50
-    staa COMMAND
-    jsr command
-    lbne failed
-sd_initialized:
-    jsr release
-    ldaa #1
-    staa SPI_DIV
-    rts
+; sd_init and its timed retries reside in the boot-only D000 ROM extension.
 ; Read one sector at LBA into SECTOR; X/B clobbered. SDHC or SDSC addressing.
 read_sector:
     ldaa LBA+0
@@ -1098,7 +1014,11 @@ ui_error:
     ldx #$590
     stx UI_DEST
     ldx #ui_retry_message
-    jmp ui_puts
+    jsr ui_puts
+    ldaa UI_STAGE
+    cmpa #1
+    bne ui_string_done
+    jmp sd_error_details
 ui_clear_line:
     ldaa #' '
     ldab #40
