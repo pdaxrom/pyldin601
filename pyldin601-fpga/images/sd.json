@@ -1,12 +1,12 @@
 {
-  "date": "2026-10-04",
+  "date": "2026-10-08",
   "image": "sd.img",
   "bytes": 20971520,
   "sha256": "33f8f0ad9dfde3fb4fa26b14f83dd294f9ab86a5c0bd5dbaa2830c1de78622b9",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "92c426a53eeacddd2769d49ba640b868056563f784b7c45cc6a74050910f24f8",
+  "fpga_jed_sha256": "936f6aa0e43c4736cfe08e7698910117ae45ccae42bcee293a963807c64adaee",
   "models": [
     "601",
     "601A"
@@ -221,5 +221,9 @@
   "physical_cold_start_user_report": true,
   "pal_tick_read_collision_fixed": true,
   "physical_full_reset_fix_verified": true,
-  "physical_full_reset_user_report_date": "2026-10-04"
+  "physical_full_reset_user_report_date": "2026-10-04",
+  "keyboard_fifo_bios_debounce_fixed": true,
+  "physical_keyboard_fast_input_verified": true,
+  "physical_keyboard_fast_input_user_report_date": "2026-10-08",
+  "physical_keyboard_fast_input_user_report": "да, работает"
 }

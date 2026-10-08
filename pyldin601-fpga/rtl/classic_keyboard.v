@@ -9,7 +9,8 @@ module classic_keyboard #(
     input wire read_data,read_status,
     output wire [7:0] data,
     output wire [7:0] status,
-    output reg irq
+    output reg irq,
+    input wire runtime_mode,timer_ack
 );
     reg [2:0] clock_sync,data_sync;
     reg [7:0] filter;
@@ -33,6 +34,13 @@ module classic_keyboard #(
     end
     reg[2:0]queue_head,queue_tail;reg[3:0]queue_count;
     reg[3:0]pause_remaining;
+    // Native int09 discards reads while key_timer0 is nonzero (3 PAL ticks).
+    // Identical taps also need key_timer2 to expire (5 ticks -> old_key=FF).
+    // Timer calls int17 with nested IRQs enabled before decrementing counters;
+    // the next acknowledge proves the preceding decrement has completed.
+    // Count acknowledged timer IRQs, not CPU clocks or PS/2 typematic frames.
+    // Keep receiving into the FIFO while the BIOS is in its debounce window.
+    reg[2:0]quiet_ticks;
     reg [7:0] translate[0:1023],set2[0:255];
     wire shift=shift_l||shift_r,ctrl=ctrl_l||ctrl_r;
     // Both Windows keys act as the classic LAT/CYR key (FB in every table).
@@ -40,6 +48,10 @@ module classic_keyboard #(
     wire [7:0] pc_scan=extended&&(scan==8'h1f||scan==8'h27)?8'h46:set2[scan];
     wire [2:0] mode={cyrillic,ctrl,shift};
     wire [9:0] translate_address={mode,pc_scan[6:0]};
+    wire queued_ready=!runtime_mode||quiet_ticks==6
+        ||(quiet_ticks>=4&&queue_code[queue_head]!=key_code);
+    wire incoming_ready=!runtime_mode||quiet_ticks==6
+        ||(quiet_ticks>=4&&translate[translate_address]!=key_code);
     assign data=key_ready?key_code:8'hff;
     assign status=key_ready&&trigger?8'h80:0;
     initial begin $readmemh(TRANSLATE_FILE,translate);$readmemh(SET2_FILE,set2);end
@@ -54,7 +66,11 @@ module classic_keyboard #(
             extended<=0;released<=0;shift_l<=0;shift_r<=0;ctrl_l<=0;ctrl_r<=0;
             irq<=0;active_down<=0;queue_valid<=0;queue_down<=0;queue_head<=0;queue_tail<=0;queue_count<=0;pause_remaining<=0;
             key_ready<=0;trigger<=0;consumed<=0;key_code<=8'hff;active_scan<=0;active_extended<=0;
+            quiet_ticks<=6;
         end else begin
+            if(!runtime_mode)quiet_ticks<=6;
+            else if(read_data&&key_ready)quiet_ticks<=0;
+            else if(timer_ack&&quiet_ticks!=6)quiet_ticks<=quiet_ticks+1'b1;
             if(count!=0)begin
                 if(timeout==16'd24000)begin count<=0;timeout<=0;end
                 else timeout<=timeout+1'b1;
@@ -73,7 +89,7 @@ module classic_keyboard #(
             if(key_ready&&consumed&&!active_down)begin
                 key_ready<=0;trigger<=0;consumed<=0;
             end
-            if(!key_ready&&queue_count!=0&&!received)begin
+            if(!key_ready&&queue_count!=0&&!received&&queued_ready)begin
                 key_code<=queue_code[queue_head];active_scan<=queue_scan[queue_head];
                 active_extended<=queue_extended[queue_head];active_down<=queue_down[queue_head];
                 queue_valid[queue_head]<=0;queue_head<=queue_head+1'b1;
@@ -103,7 +119,7 @@ module classic_keyboard #(
                     end else if(pc_scan!=8'hff&&translate[translate_address]!=8'hff)begin
                         // Typematic make repeats retain the active key, as the classic PIA does.
                         if(!held_match)begin
-                            if(!key_ready&&queue_count==0)begin
+                            if(!key_ready&&queue_count==0&&incoming_ready)begin
                                 key_code<=translate[translate_address];key_ready<=1;consumed<=0;
                                 active_scan<=scan;active_extended<=extended;active_down<=1;trigger<=1;irq<=1;
                             end else if(queue_count<8)begin

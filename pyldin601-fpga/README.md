@@ -84,6 +84,10 @@ Caps Lock передаёт штатный код FC. RGB показывает с
 генерирует `rtl/ps2_set2.mem` при `make firmware`; неперечисленные байты
 получают FF. E0/F0/E1, модификаторы и обе Windows-клавиши обрабатывает RTL;
 Scroll Lock не выдаёт код Кир/Лат.
+Быстрые нажатия сохраняются в очереди и выдаются с учётом штатной
+защиты BIOS от дребезга и повторного нажатия одной клавиши. Интервал
+считается по подтверждённым 50-Гц тикам, независимо от частоты CPU;
+в первичном BIOS задержка отключена. [Протокол и проверка](audit/KEYBOARD.md).
 Чтение E629 возвращает сохранённый регистр режима, поэтому изменение
 видеорежима сохраняет раскладку. Курсор приведён к оригинальному эмулятору:
 в 601 текстовая позиция R14:R15−2, графическая R14:R15−1. В 601A
@@ -212,19 +216,23 @@ ROM, если доступен `../native-src/BIOS_A.ROM`. Старые файл
 кварц 12 МГц → system 24 МГц и SRAM 96 МГц; CPU 4 МГц при загрузке,
 выбранные 1/2/4/8 МГц после commit.
 На Linux-машине выполнена сборка Diamond 3.14: synthesis, MAP, PAR, TRACE,
-Jedecgen. Текущая версия с BIOS Setup занимает 6515/6864 LUT,
-3320/3432 slices, 2057/7209 registers, 14/26 EBR и 1/2 PLL.
-Свободны 349 LUT, 112 slices, 5152 registers и 12 EBR.
+Jedecgen. Текущая версия с BIOS Setup и исправлением очереди PS/2 занимает 6525/6864 LUT,
+3326/3432 slices, 2061/7209 registers, 14/26 EBR и 1/2 PLL.
+Свободны 339 LUT, 106 slices, 5148 registers и 12 EBR.
 Распределение EBR: bootstrap 8, шрифт 2, SD/FDD 2, PAL waveform 1,
 буферы видеострок 1.
 Setup/hold проходят, unconstrained paths = 0; полный отчёт и проверки
 зафиксированы в [audit/BIOS-SETUP.md](audit/BIOS-SETUP.md). LPF ограничивает
 внешние SRAM/SD пути и отдельно проверяет SRAM→CPU за 27 нс.
 Результаты и допущения STA — в [audit/DIAMOND.md](audit/DIAMOND.md).
-Текущий BIOS JED с SD power-up/retries, исправлением SAVE и потери PAL tick:
-`build/diamond/pal-tick/impl1/pyldin601_classic_impl1.jed`.
+Текущий JED с исправлением быстрого ввода, SD power-up/retries, SAVE и PAL tick:
+`build/diamond/keyboard-pacing/impl1/pyldin601_classic_impl1.jed`.
 Он записан во FLASH с успешным Verify и JTAGENB high до/после.
-Журналы — `build/hardware-pal-tick`; эта запись не меняет SD.
+Журналы повторной записи — `build/hardware-keyboard-reflash-20261008-153819`;
+эта запись не меняет SD.
+Проверка быстрого ввода на 601/601A при 1/2/4/8 МГц — PASS;
+8 октября 2026 года пользователь подтвердил быстрый набор на плате
+без пропусков. [Протокол](audit/KEYBOARD.md).
 Новый PAL tick имеет приоритет над очисткой E62B: совпавшее чтение
 не стирает событие. Проверка — `tb_timer_tick`, включая полный Reset.
 Пользователь подтвердил полный Reset и загрузку на плате 4 октября 2026 года.

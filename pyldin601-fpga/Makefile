@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := frequency_controls timer_tick memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
+BENCHES := frequency_controls timer_tick memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -72,6 +72,11 @@ test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-irq --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd -e -j tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-irq.log 2>&1
 	@cat $(BUILD)/runtime-irq.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-irq.log').read_text()"
+
+.PHONY: test-keyboard-bios
+test-keyboard-bios: test-mixed-clock fixtures $(STABILITY_IMAGE)
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_keyboard_bios.c -o $(BUILD)/prepare_keyboard_bios
+	@set -e; for model in 601 601a; do $(BUILD)/prepare_keyboard_bios $(STABILITY_IMAGE) $$model; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_keyboard_bios.v tests/tb_keyboard_bios.vhd; for speed in 0 1 2 3; do $(PYTHON) tests/prepare_runtime.py --prefix keyboard --speed $$speed; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -e -j -gSPEED=$$speed tb_keyboard_bios -r tb_keyboard_bios > $(BUILD)/keyboard-bios-$$model-$$speed.log 2>&1; cat $(BUILD)/keyboard-bios-$$model-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS' in Path('build/keyboard-bios-$$model-$$speed.log').read_text()"; done; done
 
 .PHONY: test-runtime-turbo
 test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)

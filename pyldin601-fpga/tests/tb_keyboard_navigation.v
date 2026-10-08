@@ -3,7 +3,7 @@ module tb_keyboard_navigation;
     reg clk=0;always #5 clk=~clk;
     reg reset=1,psclk=1,psdata=1,cyr=0,rd=0;
     wire[7:0]data,status;wire irq;
-    classic_keyboard dut(clk,reset,psclk,psdata,cyr,rd,1'b0,data,status,irq);
+    classic_keyboard dut(clk,reset,psclk,psdata,cyr,rd,1'b0,data,status,irq,1'b0,1'b0);
     reg[7:0]reference[0:1023],scan2[0:10],scan1[0:10];
     integer mode,key,checked=0;
     reg[7:0]shift_scan;

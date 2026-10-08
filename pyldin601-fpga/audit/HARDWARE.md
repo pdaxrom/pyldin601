@@ -1,6 +1,33 @@
 # Запись SD и FPGA
 
-## Последняя записанная версия: PAL/PIA latch, 4 октября 2026
+## Последняя записанная версия: быстрый ввод PS/2, 8 октября 2026
+
+После восстановления прошивки Пълдина пользователь сообщил о пропусках
+быстрых нажатий в UniDOS на любой частоте. Ошибка воспроизведена на
+настоящем HDL CPU и штатном BIOS: FIFO выдавал следующую клавишу во
+время программной защиты от дребезга. [Исправление и проверки](KEYBOARD.md).
+
+Записан `build/diamond/keyboard-pacing/impl1/pyldin601_classic_impl1.jed`,
+SHA-256 `936f6aa0e43c4736cfe08e7698910117ae45ccae42bcee293a963807c64adaee`.
+Все 36 входов совпали с `source-keyboard-pacing.sha256.json`.
+Diamond: 6525 LUT, 3326 slices, 2061 registers, 14 EBR;
+setup/hold negative slack и unconstrained paths — 0.
+SRAM→CPU 21,090 нс при бюджете 27 нс. Перед записью прошли обе модели
+на 1/2/4/8 МГц (64 байта без потерь), первичное меню/SAVE/LOADER.BIN,
+unit benches и board syntax.
+
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS.
+FTDI `hgfsd --jtag-only` подтвердил JTAGENB high до и после записи.
+Wall time повторной записи — 67,49 секунды. SD, настройки P601.SET и A/B
+не менялись. 8 октября 2026 года после повторной прошивки пользователь
+подтвердил работу быстрого набора: «да, работает». Модель и частота этой
+физической проверки отдельно не указаны.
+Linux-каталог: `/tmp/pyldin601-keyboard-final.l0HbFv`;
+локальные журналы/XCF/result повторной записи и подтверждение пользователя —
+`build/hardware-keyboard-reflash-20261008-153819`.
+Первоначальная запись и сводка регрессии — `build/hardware-keyboard-pacing`.
+
+## Предыдущая записанная версия: PAL/PIA latch, 4 октября 2026
 
 Пользователь подтвердил холодный запуск предыдущей SD-init версии, но
 полный Reset давал STEP 01 на любой частоте. Диагностическая сборка

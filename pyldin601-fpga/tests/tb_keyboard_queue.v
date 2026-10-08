@@ -3,7 +3,7 @@ module tb_keyboard_queue;
     reg clk=0;always #5 clk=~clk;
     reg reset=1,psclk=1,psdata=1,cyr=0,rd=0,rs=0;
     wire[7:0]data,status;wire irq;
-    classic_keyboard dut(clk,reset,psclk,psdata,cyr,rd,rs,data,status,irq);
+    classic_keyboard dut(clk,reset,psclk,psdata,cyr,rd,rs,data,status,irq,1'b0,1'b0);
     task send;
         input[7:0]b;input badparity;
         reg[10:0]frame;integer i;

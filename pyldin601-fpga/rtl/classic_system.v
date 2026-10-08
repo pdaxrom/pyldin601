@@ -115,7 +115,8 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  classic_memory_map map(cpu_addr,!cpu_rw,page,mapped_address,ignored_io);
  wire[7:0]kbd_data,kbd_status;
  classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
-  bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq);
+  bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq,
+  !boot_mode,bus_read&&timer_io&&tick_pending);
  wire boot_request,boot_write,boot_accept,boot_done;wire[20:0]boot_address;wire[7:0]boot_data,boot_result,boot_debug;
  wire[7:0]memory_read_data;wire[7:0]runtime_video_data,runtime_cpu_data;
  wire[31:0]a_start,a_length,b_start,b_length;wire[7:0]aspt,ah,bspt,bh;wire[8:0]ac,bc;

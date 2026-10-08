@@ -1,6 +1,15 @@
 # Diamond
 
-Текущий BIOS Setup с SD power-up/retries, исправлением SAVE и PAL/PIA latch:
+Текущая версия с исправлением очереди PS/2, 8 октября 2026:
+6525 LUT, 3326 slices, 2061 registers, 14 EBR, 1 PLL.
+Свободны 339 LUT, 106 slices, 5148 registers, 12 EBR и 1 PLL.
+TRACE setup/hold negative slack и unconstrained paths — 0.
+SRAM→CPU worst 21,090 нс при бюджете 27 нс, запас 5,910 нс.
+Прирост относительно PAL-tick версии — 10 LUT и 4 регистра, EBR прежние.
+Все 36 входов сверены; FLASH Verify и FTDI JTAGENB high до/после — PASS.
+[Проверки клавиатуры](KEYBOARD.md), [запись платы](HARDWARE.md).
+
+Предыдущий BIOS Setup с SD power-up/retries, исправлением SAVE и PAL/PIA latch:
 6515 LUT, 3320 slices,
 2057 registers, 14 EBR. Свободны 349 LUT, 112 slices, 5152 registers,
 12 EBR. TRACE setup/hold negative slack и unconstrained paths — 0.

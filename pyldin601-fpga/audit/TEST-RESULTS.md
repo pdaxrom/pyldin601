@@ -1,3 +1,21 @@
+## Быстрый ввод PS/2, 8 октября 2026
+
+`make test-keyboard-bios` — PASS: настоящий HDL CPU, production system
+и штатные BIOS 601/601A принимают последовательность `12334567`
+на 1/2/4/8 МГц. Проверены 64 байта в нативном буфере BFF0–BFFF,
+включая два отдельных нажатия `3`. Старый RTL воспроизводит потерю `2`.
+Выдача FIFO теперь учитывает 3/5 тиков штатных счётчиков и возможность
+вложенного IRQ до их уменьшения. [Причина и протокол](KEYBOARD.md).
+
+PASS: keyboard, keyboard_queue, keyboard_pacing, keyboard_layout,
+keyboard_navigation (184 случая), timer_tick; board syntax;
+`make test-setup-hdl` с реальными PS/2, SAVE и загрузкой LOADER.BIN.
+Diamond fit/TRACE — PASS, 6525 LUT / 14 EBR, SRAM→CPU 21,090 нс.
+Подробные логи и SHA: `build/hardware-keyboard-pacing/keyboard-tests.json`.
+После повторной прошивки пользователь подтвердил быстрый набор на плате
+8 октября 2026 года: «да, работает». Модель и частота отдельно не указаны.
+Протокол: `build/hardware-keyboard-reflash-20261008-153819`.
+
 ## PAL/PIA tick и Reset, 4 октября 2026
 
 - `tb_timer_tick` со старым RTL: FAIL «PAL tick lost when PIA read coincides
