@@ -6,7 +6,7 @@ module tb_video_text;
     wire request,tick;wire[20:0]ma;wire[5:0]tv;
     reg done=0;reg[7:0]memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,8'b0,
-        font_write,font_address,font_data,request,ma,1'b1,done,memory_data,tv,tick,1'b0);
+        font_write,font_address,font_data,request,ma,1'b1,done,memory_data,tv,tick,1'b0,1'b0,8'b0,,,,,);
     reg[7:0]font_reference[0:2047];integer checked=0,pass=0,row,pixel;reg valid;
     always @(posedge clk)begin
         done<=request;

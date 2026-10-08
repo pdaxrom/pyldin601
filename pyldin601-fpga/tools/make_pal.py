@@ -32,8 +32,23 @@ def samples():
                 yield sample
 
 
+def rgb332_samples():
+    """256 fixed colours; preserve the existing matrix, DAC and DDS phases."""
+    for colour in range(256):
+        r, g, b = (colour >> 5) / 7, ((colour >> 2) & 7) / 7, (colour & 3) / 3
+        y = 0.299 * r + 0.587 * g + 0.114 * b
+        u, v = 0.493 * (b - y), 0.877 * (r - y)
+        for phase in range(32):
+            angle = (phase + 0.5) * math.tau / 32
+            sample = round(15 + 34 * (y + u * math.sin(angle) + v * math.cos(angle)))
+            assert 0 < sample < 64
+            yield sample
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("rtl/pal_waveform.mem"))
+    parser.add_argument("--rgb332", type=Path, default=Path("rtl/pal_rgb332.mem"))
     args = parser.parse_args()
     args.output.write_text("".join(f"{v:02x}\n" for v in samples()))
+    args.rgb332.write_text("".join(f"{v:02x}\n" for v in rgb332_samples()))

@@ -1,6 +1,12 @@
 # Diamond
 
-Текущая версия с HG, 8 октября 2026: 6698 LUT, 3409 slices,
+Текущая версия с RGB332 и HG, 9 октября 2026: 6529 LUT, 3274 slices,
+2367 registers, 25 EBR, 1 PLL. Свободны 335 LUT, 158 slices,
+4842 registers, 1 EBR и 1 PLL. TRACE setup/hold negative slack
+и unconstrained paths — 0. Ограничения SRAM сохранены.
+[Графика, точный JED, EBR и проверки](GRAPHICS.md).
+
+Предыдущая версия с HG, 8 октября 2026: 6698 LUT, 3409 slices,
 2160 registers, 16 EBR, 1 PLL. Свободны 166 LUT, 23 slices,
 5049 registers, 10 EBR и 1 PLL. TRACE setup/hold negative slack
 и unconstrained paths — 0. Все 39 входов сверены; FLASH Verify ID,

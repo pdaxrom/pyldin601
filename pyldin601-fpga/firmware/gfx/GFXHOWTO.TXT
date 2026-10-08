@@ -1,0 +1,7 @@
+GFX.PGM: 320x200 RGB332 / 256 fixed colours, for either 601 or 601A.
+Run B:\GFX. SPACE switches between the palette and the hardware-copy frame.
+ESC restores the native video mode and returns to UniDOS.
+Choose any CPU frequency in BIOS; 8 MHz makes command submission faster.
+The blitter and display also work at 1 MHz without HOLD.
+The demo uses SRAM pages 0 and 1 of the graphics extension (100000..11FFFF).
+It overwrites those graphics pages, preserving base RAM, ROM and RAM disk.

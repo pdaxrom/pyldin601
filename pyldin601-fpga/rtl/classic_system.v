@@ -103,6 +103,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire boot_io=(boot_mode||(cpu_rw&&cpu_addr==16'he6a0))&&cpu_addr[15:4]==12'he6a;
  wire spi_io=cpu_addr>=16'he660&&cpu_addr<=16'he664;
  wire hg_io=cpu_addr[15:2]==14'h399c;
+ wire gfx_io=cpu_addr[15:4]==12'he65;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire fdc_io=!boot_mode&&(cpu_addr==16'he6c0||cpu_addr==16'he6d0||cpu_addr==16'he6d1);
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
@@ -111,7 +112,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire disk_data_io=cpu_addr==16'he683;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
- wire peripheral=boot_io||spi_io||hg_io||crtc_io||fdc_io||keyboard_io||timer_io||simple_io||rom_read;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||crtc_io||fdc_io||keyboard_io||timer_io||simple_io||rom_read;
  reg[7:0]page,mode;reg caps_off,speaker;reg[18:0]ramdisk_address;
  wire[20:0]mapped_address;wire ignored_io;
  classic_memory_map map(cpu_addr,!cpu_rw,page,mapped_address,ignored_io);
@@ -169,9 +170,16 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  assign mss=raw_owned?raw_cs:block_cs;
  wire video_request,video_accept,video_done,video_tick;wire[20:0]video_address;wire[7:0]video_result;
  wire font_write=boot_accept&&boot_write&&boot_address>=21'h61000&&boot_address<21'h61800;
- classic_video video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
+ wire gfx_enabled,gfx_line_request,gfx_vblank,gfx_pixel_bank;wire[7:0]gfx_line_y,gfx_pixel,gfx_result;
+ wire[8:0]gfx_pixel_x;wire gfx_request,gfx_write,gfx_word,gfx_ready,gfx_done;
+ wire[20:0]gfx_address;wire[15:0]gfx_data,gfx_memory_result;
+ classic_gfx gfx(clk,clk_fast,cpu_reset,bus_write&&gfx_io,cpu_addr[3:0],cpu_out,gfx_result,gfx_enabled,
+  gfx_line_request,gfx_line_y,gfx_vblank,gfx_pixel_x,gfx_pixel_bank,gfx_pixel,
+  gfx_request,gfx_write,gfx_word,gfx_address,gfx_data,gfx_ready,gfx_done,gfx_memory_result);
+ classic_video #(.GFX(1)) video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
   video_result,mode,font_write,boot_address[10:0],boot_data,
-  video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,model_a);
+  video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,model_a,
+  gfx_enabled,gfx_pixel,gfx_line_request,gfx_vblank,gfx_line_y,gfx_pixel_x,gfx_pixel_bank);
  // One optimized physical SRAM sequencer for bootstrap, CPU and video.
  // Registered requests cross to 96 MHz; completions remain until consumed.
  wire disk_advance;
@@ -212,12 +220,13 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  assign video_done=video_pending&&(video_done_sync[1]!=video_done_seen);
  assign boot_accept=boot_pending&&(boot_accept_sync[1]!=boot_accept_seen);
  assign boot_done=boot_pending&&(boot_done_sync[1]!=boot_done_seen);
- classic_runtime_memory runtime_memory(clk_fast,cold_reset,locked,cpu_reset,runtime_prepare,
+ classic_runtime_memory #(.GFX(1)) runtime_memory(clk_fast,cold_reset,locked,cpu_reset,runtime_prepare,
   cpu_vma,cpu_rw,peripheral,disk_data_io?21'h80000+ramdisk_address:mapped_address,cpu_out,
   video_token,video_address,speed_pending,
   boot_token,boot_write,boot_address,boot_data,fast_boot_accept,fast_boot_done,memory_read_data,
   fast_video_accept,fast_video_done,runtime_video_data,runtime_cpu_data,fast_memory_busy,
-  SRAM_ADDR,SRAM_DATA,SRAM_CE,SRAM_OE,SRAM_WE,SRAM_LB,SRAM_UB);
+  SRAM_ADDR,SRAM_DATA,SRAM_CE,SRAM_OE,SRAM_WE,SRAM_LB,SRAM_UB,
+  gfx_request,gfx_write,gfx_word,gfx_address,gfx_data,gfx_ready,gfx_done,gfx_memory_result);
  reg[7:0]peripheral_data;
  always @*begin
   peripheral_data=8'hff;
@@ -225,6 +234,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   else if(boot_io)peripheral_data=boot_result;
   else if(spi_io)peripheral_data=raw_result;
   else if(hg_io)peripheral_data=hg_result;
+  else if(gfx_io)peripheral_data=gfx_result;
   else if(crtc_io)peripheral_data=video_result;
   else if(fdc_io)peripheral_data=fdc_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);

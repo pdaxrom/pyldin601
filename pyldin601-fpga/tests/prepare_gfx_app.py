@@ -1,0 +1,81 @@
+"""Relocate the real UniAS PGM and provide minimal SWI console/exit services."""
+from pathlib import Path
+import struct
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'tools'))
+import asm6800
+
+root = Path(__file__).resolve().parents[1]
+pgm = (root/'build/gfx/GFX.PGM').read_bytes()
+_, count, offset, length, entry, *_ = struct.unpack('>8H', pgm[:16])
+ram = bytearray(65536)
+code = bytearray(pgm[offset:])
+for pos in struct.unpack(f'>{count}H', pgm[16:offset]):
+    code[pos] = (code[pos]+0x20) & 255
+ram[0x2000:0x2000+length] = code
+header = bytearray(96)
+header[:8] = b'P601BOOT'
+for at, value in [(8,1),(12,0x10000),(16,0x51800),(32,34816),(36,1440),
+                  (48,36864),(52,2880),(72,34816),(76,1440),(88,36864),(92,2880)]:
+    struct.pack_into('<I', header, at, value)
+for at, value in [(40,9),(42,2),(44,80),(56,18),(58,2),(60,80),(68,1),(84,1)]:
+    struct.pack_into('<H' if at<64 else '<B', header, at, value)
+service = '''org $0100
+tsx
+ldx 5,x
+ldaa 0,x
+inx
+stx $03a0
+tsx
+ldab $03a0
+stab 5,x
+ldab $03a1
+stab 6,x
+cmpa #$38
+beq exit
+cmpa #$20
+bne service_return
+inc $0381
+ldaa $0381
+cmpa #3
+beq escape
+ldaa #32
+bra key
+escape: ldaa #27
+key: staa 2,x
+service_return: rti
+exit: ldaa #$a5
+staa $0380
+halt: bra halt
+'''
+binary, _ = asm6800.assemble(service, 0x100)
+ram[0x100:0x100+len(binary)] = binary
+ram[0x300:0x360] = header
+for model in (0,1):
+    for speed in range(4):
+        h = bytearray(header);h[25] = model;ram[0x300:0x360] = h
+        source = f'''org $0800
+sei
+lds #$bfff
+ldaa #{model+speed*4}
+staa $e6a0
+ldx #$0300
+loop: ldaa 0,x
+staa $e6a3
+inx
+cpx #$0360
+bne loop
+ldaa #$a5
+staa $e6a0
+jmp ${0x2000+entry:04x}
+'''
+        binary, _ = asm6800.assemble(source, 0x800)
+        ram[0x800:0x800+len(binary)] = binary
+        words = [ram[i] | ram[i+1]<<8 for i in range(0,65536,2)]
+        (root/f'build/gfx-app-{model}-{speed}.mem').write_text(
+            ''.join(f'{v:04x}\n' for v in words))
+boot = bytearray([255]*8192)
+boot[:3] = bytes.fromhex('7e0800')
+boot[4094:4096] = bytes.fromhex('f000')
+(root/'build/gfx-app-boot.mem').write_text(''.join(f'{v:02x}\n' for v in boot))
+print('Prepared real relocatable GFX.PGM, bootstrap configuration and SWI ABI fixtures')

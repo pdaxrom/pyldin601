@@ -22,6 +22,24 @@ BLOCK PATH TO CELL "system/video_done_sync[0]";
 BLOCK PATH TO CELL "system/boot_accept_sync[0]";
 BLOCK PATH TO CELL "system/boot_done_sync[0]";
 BLOCK PATH TO CELL "system/runtime_memory/boot_sync[0]";
+# Graphics control crosses through explicit synchronizers. Job registers are
+# frozen from the command write until DONE has crossed back to the CPU.
+BLOCK PATH TO CELL "system/gfx/reset_sync[0]";
+BLOCK PATH TO CELL "system/gfx/command_sync[0]";
+BLOCK PATH TO CELL "system/gfx/line_sync[0]";
+BLOCK PATH TO CELL "system/gfx/vblank_sync[0]";
+BLOCK PATH TO CELL "system/gfx/enable_sync[0]";
+BLOCK PATH TO CELL "system/gfx/done_sync[0]";
+BLOCK PATH TO CELL "system/gfx/error_sync[0]";
+BLOCK PATH TO CELL "system/gfx/under_sync[0]";
+BLOCK PATH TO CELL "system/gfx/front_sync1*";
+BLOCK PATH TO CELL "system/gfx/valid_sync1*";
+# Four fast synchronizer edges precede job/scanline bundle consumption.
+# Scope excludes fast-domain command_sync and the 96 MHz blitter feedback.
+MULTICYCLE FROM CELL "system/gfx/job_*" TO CLKNET "clk_fast" 4 X;
+MULTICYCLE FROM CELL "system/video/gfx_line_y*" TO CLKNET "clk_fast" 4 X;
+# A byte read is consumed only after the two-clock DONE synchronization.
+MULTICYCLE FROM CELL "system/gfx/fast_read*" TO CLKNET "clk" 2 X;
 # CPU page/disk-pointer writes finish >=41.667 ns before next payload capture.
 MAXDELAY FROM CELL "system/page*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
 MAXDELAY FROM CELL "system/ramdisk_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;

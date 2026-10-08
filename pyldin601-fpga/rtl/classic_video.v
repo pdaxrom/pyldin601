@@ -1,7 +1,7 @@
 // Composite PAL 625/50, MC6845 facade and selectable 601/601A video.
 // 24 MHz single domain: 601 uses 8 MHz pixels, 601A two pixels per 3 clocks. The existing font EBR is seeded at
 // FPGA configuration, then receives the SD font through physical SRAM writes.
-module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
+module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) (
     input wire clk,reset,
     input wire bus_read,bus_write,bus_address,
     input wire [7:0] bus_data,
@@ -16,9 +16,13 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     input wire [7:0] mem_data,
     output wire [5:0] tvout,
     output reg tick50,
-    input wire model_a
+    input wire model_a,
+    input wire gfx_enable,input wire[7:0]gfx_pixel,
+    output reg gfx_line_request,gfx_vblank,output reg[7:0]gfx_line_y,
+    output wire[8:0]gfx_pixel_x,output wire gfx_pixel_bank
 );
     reg [7:0] registers[0:15];reg[7:0] register_index;
+    wire extended=GFX&&gfx_enable;
     wire graphics=mode[5];
     wire text40=model_a&&!graphics&&mode[1];
     wire colour_enabled=mode[2]&&(graphics||text40);
@@ -87,14 +91,25 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
             graphics_address=model_a?sum[15:0]:sum>=17'h0fff8 ? sum-17'h0fff8 : sum[15:0];
         end
     endfunction
-    // A scanline is stable well before x=0 or the next-line fetch. Register
-    // its stride product so wrap/cursor logic fits one 24 MHz period.
+    // There are 300 system clocks before the first visible pixel. Share one
+    // serial adder for the two row offsets; finish six clocks into the line.
     reg [11:0] line_offset,next_line_offset;
+    reg [11:0] offset_sum,offset_term;
+    reg [5:0] offset_bits;reg [2:0] offset_count;
+    wire[11:0]offset_next=offset_sum+(offset_bits[0]?offset_term:12'd0);
     always @(posedge clk)begin
-        if(reset)begin line_offset<=0;next_line_offset<=0;end
+        if(reset)begin line_offset<=0;next_line_offset<=0;offset_sum<=0;offset_term<=0;offset_bits<=0;offset_count<=0;end
         else begin
-            line_offset<=(y>>3)*stride;
-            next_line_offset<=(next_y>>3)*stride;
+            if(divide==2&&horizontal==0)begin
+                offset_sum<=0;offset_term<=stride;offset_bits<=y[8:3];offset_count<=6;
+            end else if(offset_count!=0)begin
+                offset_sum<=offset_next;offset_term<=offset_term<<1;offset_bits<=offset_bits>>1;
+                offset_count<=offset_count-1'b1;
+                if(offset_count==1)begin
+                    line_offset<=offset_next;
+                    next_line_offset<=next_y[8:3]==0?12'd0:offset_next+(next_y[8:3]!=y[8:3]?stride:8'd0);
+                end
+            end
         end
     end
     wire [15:0] text_position=text_address(start_addr,line_offset+character_column);
@@ -106,7 +121,9 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     reg sync_low;
     wire active=horizontal>=100&&horizontal<420&&field_line>=50&&field_line<282
         &&y<registers[6]*8&&column<registers[1];
-    wire burst=colour_enabled&&!burst_blank&&horizontal>=45&&horizontal<63;
+    wire burst=(colour_enabled||extended)&&!burst_blank&&horizontal>=45&&horizontal<63;
+    assign gfx_pixel_x=x;assign gfx_pixel_bank=y[0];
+    wire[7:0]rgb_pixel=horizontal>=100&&horizontal<420&&field_line>=50&&field_line<250?gfx_pixel:8'd0;
     reg [1:0] four_colour;
     reg [3:0] pixel_colour;
     always @*begin
@@ -130,13 +147,15 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
     end
     reg [3:0] held_colour;
     reg held_sync,held_burst,held_alternate;
-    wire pixel_enable=divide==1||(model_a&&divide==2);
+    wire pixel_enable=divide==1||(!extended&&model_a&&divide==2);
+    reg[7:0]held_rgb;
     // Feed the EBR one clock before the 8 MHz pixel boundary. Its following
     // output register then changes the DAC on the original divide==2 edge.
     // Hold colour/raster between pixels while DDS runs at 24 MHz.
-    classic_pal_encoder encoder(clk,reset,
+    classic_pal_encoder #(.GFX(GFX)) encoder(clk,reset,
         pixel_enable?sync_low:held_sync,pixel_enable?burst:held_burst,
-        pixel_enable?alternate:held_alternate,pixel_enable?pixel_colour:held_colour,tvout);
+        pixel_enable?alternate:held_alternate,pixel_enable?pixel_colour:held_colour,tvout,
+        extended,pixel_enable?rgb_pixel:held_rgb);
     reg[1:0] dma_state;
     reg[6:0] dma_column;reg dma_bank;
     assign mem_request=dma_state==1;
@@ -174,6 +193,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
             register_index<=0;divide<=0;half_pixel<=0;half_line<=0;
             tick50<=0;blink<=0;dma_state<=0;dma_column<=0;dma_bank<=0;mem_address<=0;
             colour_frame<=0;held_colour<=0;held_sync<=1;held_burst<=0;held_alternate<=0;
+            held_rgb<=0;gfx_line_request<=0;gfx_vblank<=0;gfx_line_y<=0;
             for(i=0;i<16;i=i+1)registers[i]<=0;
         end else begin
             if(bus_write)begin
@@ -181,7 +201,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
                 else registers[register_index[3:0]]<=bus_data;
             end
             if(pixel_enable)begin
-                held_colour<=pixel_colour;held_sync<=sync_low;
+                held_colour<=pixel_colour;held_rgb<=rgb_pixel;held_sync<=sync_low;
                 held_burst<=burst;held_alternate<=alternate;
             end
             if(divide==2)begin
@@ -190,11 +210,14 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem") (
                     half_pixel<=0;
                     if(half_line==1249)begin half_line<=0;colour_frame<=!colour_frame;end
                     else half_line<=half_line+1'b1;
-                    if(half_line==624||half_line==1249)begin tick50<=1;blink<=blink+1'b1;end
+                    if(half_line==624||half_line==1249)begin tick50<=1;blink<=blink+1'b1;gfx_vblank<=!gfx_vblank;end
                 end else half_pixel<=half_pixel+1'b1;
                 // 601A fills the other scanline bank during the preceding line.
                 // 80 SRAM reads fit the existing two video slots per CPU cycle.
-                if(horizontal==(model_a?80:430)&&field_line>=49&&next_y<registers[6]*8&&dma_state==0)begin
+                if(extended&&horizontal==80&&field_line>=49&&field_line<249)begin
+                    gfx_line_request<=!gfx_line_request;gfx_line_y<=next_y[7:0];
+                end
+                if(!extended&&horizontal==(model_a?80:430)&&field_line>=49&&next_y<registers[6]*8&&dma_state==0)begin
                     dma_column<=0;dma_bank<=next_y[0];
                     mem_address<=graphics?{5'b0,next_graphics}:{5'b0,next_text};
                     dma_state<=1;

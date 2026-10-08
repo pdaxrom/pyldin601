@@ -6,7 +6,7 @@ module tb_pal_encoder;
     reg reset=1,sync=0,burst=0,alternate=0;
     reg [3:0] colour=0;
     wire [5:0] dac;
-    classic_pal_encoder dut(clk,reset,sync,burst,alternate,colour,dac);
+    classic_pal_encoder dut(clk,reset,sync,burst,alternate,colour,dac,1'b0,8'b0);
     real r,g,b,y,u,v,angle,want,delayed=0,output_reference,error,max_error=0;
     integer cycles=0,checks=0;
     reg [31:0] seen[0:1];

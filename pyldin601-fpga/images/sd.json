@@ -1,12 +1,12 @@
 {
-  "date": "2026-10-08",
+  "date": "2026-10-09",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "58227be54cb9273016308fb9779994ce94cda4c66575fa13e4cc3d59eed40360",
+  "sha256": "54bf420ae23a0748818455f961b8cb1691c502dd9ede23e22ced3688088e2638",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "5131b049d7209af1d660ae3be1bc877be52383028e802388bb15492405a5c989",
+  "fpga_jed_sha256": "f6b0f75d1ace9b7f798c8ba1dba7517e32bb3c4d324fb4a0f7f25ce1aceb7e00",
   "models": [
     "601",
     "601A"
@@ -120,7 +120,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "a9b09b514277fd50137cf1287212bba59be2e7055d23c528299ce39a383e6457",
+      "sha256": "df16a9fabd222ef2b5f8da7d102cfe27090ecdf33df3c4bd60d1bcb871e0c337",
       "geometry": {
         "sectors": 2880,
         "image_sectors": 2880,
@@ -175,6 +175,18 @@
         "HGHOWTO.TXT": {
           "bytes": 1097,
           "sha256": "d08c8f2141c4d66dd7f90563b62c849fb17536dafccd35584bca0183c151e925"
+        },
+        "GFX.PGM": {
+          "bytes": 553,
+          "sha256": "880bf6b2d351de3b92b45345934cf38845f56b34fc4eb821def67eeef098e77a"
+        },
+        "GFX.ASM": {
+          "bytes": 3431,
+          "sha256": "51faf099bee6031d9611744e4c7bf5ba5d72bd0b36301b146211a32ef8eec885"
+        },
+        "GFXHOWTO.TXT": {
+          "bytes": 492,
+          "sha256": "cded57ad4daa9cf474f7dd1e90de86d6af7099dbc26a6625a4901acbebea228b"
         }
       }
     }
@@ -242,7 +254,7 @@
   "keyboard_fifo_bios_debounce_fixed": true,
   "physical_keyboard_fast_input_verified": true,
   "physical_keyboard_fast_input_user_report_date": "2026-10-08",
-  "physical_keyboard_fast_input_user_report": "да, работает",
+  "physical_keyboard_fast_input_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
   "hg": {
     "driver": "B:HG.PGM",
     "time_program": "B:HGTIME.PGM",
@@ -280,10 +292,51 @@
     "physical_host_directory": "/home/sash/Work/FPGA/pyldin601-hg/files",
     "physical_native_exchange_verified": true,
     "physical_native_exchange_report": "build/hardware-hg-20261008/hg-verified.json",
-    "physical_user_report": "готово работает",
+    "physical_user_report": "\u0433\u043e\u0442\u043e\u0432\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
     "physical_DIR_TYPE_COPY_user_verified": true,
     "physical_host_TEST_TXT_byte_match_verified": true,
     "physical_host_TEST_TXT_bytes": 1097,
     "physical_guest_clock_independently_verified": false
+  },
+  "graphics": {
+    "program": "B:GFX.PGM",
+    "source": "firmware/gfx/GFX.ASM",
+    "mode": "320x200 RGB332",
+    "commands": [
+      "FILL",
+      "COPY",
+      "VBL FLIP",
+      "WRITE BYTE",
+      "READ BYTE"
+    ],
+    "graphics_sram": "100000-1FFFFF",
+    "demo_pages": [
+      0,
+      1
+    ],
+    "space_changes_page": true,
+    "esc_restores_native_video": true,
+    "mbr_boot_A_and_existing_B_files_preserved": true,
+    "physical_card_updated": false,
+    "physical_FPGA_programmed": true,
+    "physical_user_verified": true,
+    "hdl_test": "tests/run_gfx_app.py",
+    "hdl_uses_actual_MC6800_and_minimal_SWI_fixture": true,
+    "hdl_models_and_frequencies_passed": [
+      "601/1",
+      "601/2",
+      "601/4",
+      "601/8",
+      "601A/1",
+      "601A/2",
+      "601A/4",
+      "601A/8"
+    ],
+    "physical_FPGA_verify_passed": true,
+    "physical_FPGA_program_report": "build/hardware-gfx-20261009/result.json",
+    "physical_HG_demo_files_verified": true,
+    "physical_host_daemon_pid": 536605,
+    "physical_user_report": "\u043e\u0442\u043b\u0438\u0447\u043d\u043e, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+    "physical_user_report_date": "2026-10-09"
   }
 }

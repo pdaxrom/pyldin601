@@ -5,7 +5,7 @@ module tb_video_601a;
  wire request;wire[20:0]ma;wire[5:0]tv;
  reg done=0;reg[7:0]memory_data;
  classic_video dut(clk,reset,1'b0,wr,address,data,,mode,
-  1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b1);
+  1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b1,1'b0,8'b0,,,,,);
  reg[7:0]ram[0:65535],reference[0:138239],configuration[0:16];
  reg[3:0]expected;integer checked=0,test_case=0,row,x,height,total=0;
  integer completed=0,fetch_start=0,last_row=-1;reg blink_pass=0;
