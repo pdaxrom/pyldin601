@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse,importlib.util,json
 root=Path(__file__).parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--prefix',default='runtime',choices=['runtime','session','keyboard'])
+parser.add_argument('--prefix',default='runtime',choices=['runtime','session','keyboard','hgdisk'])
 parser.add_argument('--speed',type=int,choices=range(4))
 args=parser.parse_args()
 prefix=args.prefix

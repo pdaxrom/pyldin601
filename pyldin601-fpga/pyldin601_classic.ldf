@@ -18,6 +18,7 @@
     <Source name="rtl/classic_fdc.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
+    <Source name="rtl/classic_hg.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_keyboard.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>

@@ -12,7 +12,7 @@ args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 paths = [root / "Makefile", root / "build-diamond.tcl", root / "build/boot.mem"]
 paths += list(root.glob("pyldin601_classic.*"))
-paths += [p for sub in ("rtl", "firmware") for p in (root / sub).iterdir() if p.is_file()]
+paths += [p for sub in ("rtl", "firmware") for p in (root / sub).rglob("*") if p.is_file()]
 out = root / "build/diamond"
 out.mkdir(parents=True, exist_ok=True)
 manifest = {}

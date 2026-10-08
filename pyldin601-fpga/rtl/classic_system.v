@@ -8,7 +8,8 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  output wire mss,msck,mosi,input wire miso,
  output wire[19:0]SRAM_ADDR,inout wire[15:0]SRAM_DATA,
  output wire SRAM_CE,SRAM_OE,SRAM_WE,SRAM_UB,SRAM_LB,
- output wire[5:0]tvout,output wire[1:0]audio,output wire hd6303_en
+ output wire[5:0]tvout,output wire[1:0]audio,output wire hd6303_en,
+ input wire hg_tms,hg_tck,hg_tdi,output wire hg_tdo,hg_tdo_enable
 );
  reg[7:0]power_delay=255;
  always @(posedge clk)if(!pll_locked)power_delay<=255;else if(power_delay!=0)power_delay<=power_delay-1'b1;
@@ -101,6 +102,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire bus_read=cycle&&cpu_rw,bus_write=cycle&&!cpu_rw;
  wire boot_io=(boot_mode||(cpu_rw&&cpu_addr==16'he6a0))&&cpu_addr[15:4]==12'he6a;
  wire spi_io=cpu_addr>=16'he660&&cpu_addr<=16'he664;
+ wire hg_io=cpu_addr[15:2]==14'h399c;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire fdc_io=!boot_mode&&(cpu_addr==16'he6c0||cpu_addr==16'he6d0||cpu_addr==16'he6d1);
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
@@ -109,7 +111,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire disk_data_io=cpu_addr==16'he683;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
- wire peripheral=boot_io||spi_io||crtc_io||fdc_io||keyboard_io||timer_io||simple_io||rom_read;
+ wire peripheral=boot_io||spi_io||hg_io||crtc_io||fdc_io||keyboard_io||timer_io||simple_io||rom_read;
  reg[7:0]page,mode;reg caps_off,speaker;reg[18:0]ramdisk_address;
  wire[20:0]mapped_address;wire ignored_io;
  classic_memory_map map(cpu_addr,!cpu_rw,page,mapped_address,ignored_io);
@@ -117,6 +119,9 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq,
   !boot_mode,bus_read&&timer_io&&tick_pending);
+ wire[7:0]hg_result;
+ classic_hg host_link(clk,cpu_reset,bus_read&&hg_io,bus_write&&hg_io,
+  cpu_addr[1:0],cpu_out,hg_result,hg_tms,hg_tck,hg_tdi,hg_tdo,hg_tdo_enable);
  wire boot_request,boot_write,boot_accept,boot_done;wire[20:0]boot_address;wire[7:0]boot_data,boot_result,boot_debug;
  wire[7:0]memory_read_data;wire[7:0]runtime_video_data,runtime_cpu_data;
  wire[31:0]a_start,a_length,b_start,b_length;wire[7:0]aspt,ah,bspt,bh;wire[8:0]ac,bc;
@@ -219,6 +224,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   if(rom_read)peripheral_data=boot_byte;
   else if(boot_io)peripheral_data=boot_result;
   else if(spi_io)peripheral_data=raw_result;
+  else if(hg_io)peripheral_data=hg_result;
   else if(crtc_io)peripheral_data=video_result;
   else if(fdc_io)peripheral_data=fdc_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);

@@ -11,6 +11,8 @@ entity pyldin601_classic is
   txd:out std_logic;
   ps2clk:in std_logic;
   ps2dat:in std_logic;
+  hg_tms,hg_tck,hg_tdi:in std_logic;
+  hg_tdo:inout std_logic;
   mss:out std_logic;
   msck:out std_logic;
   mosi:out std_logic;
@@ -28,6 +30,7 @@ entity pyldin601_classic is
 architecture board_hardware_lcd of pyldin601_classic is
  signal clk,clk_fast,pll_locked,cpu_clk,cpu_reset,cpu_hold,cpu_irq,cpu_rw,cpu_vma:std_logic;
  signal hd6303_en:std_logic;
+ signal host_tdo,host_tdo_enable:std_logic;
  signal cpu_addr:std_logic_vector(15 downto 0);signal cpu_out,cpu_in:std_logic_vector(7 downto 0);
  component classic_system is
  port(
@@ -64,9 +67,12 @@ architecture board_hardware_lcd of pyldin601_classic is
   SRAM_LB:out std_logic;
   tvout:out std_logic_vector(5 downto 0);
   audio:out std_logic_vector(1 downto 0);
-  hd6303_en:out std_logic
+  hd6303_en:out std_logic;
+  hg_tms,hg_tck,hg_tdi:in std_logic;
+  hg_tdo,hg_tdo_enable:out std_logic
  );end component;
 begin
+ hg_tdo<=host_tdo when host_tdo_enable='1' else 'Z';
  flash_cs<='1';flash_wp<='1';flash_hold<='1';flash_si<='0';flash_sck<='0';
  pll:entity work.classic_pll port map(clk_ext,clk,clk_fast,open,pll_locked);
  cpu:entity work.cpu6800 port map(cpu_clk,cpu_reset,cpu_rw,cpu_vma,cpu_addr,cpu_in,cpu_out,cpu_hold,'0',cpu_irq,'0',open,open,hd6303_en);
@@ -102,5 +108,6 @@ begin
   SRAM_UB=>SRAM_UB,
   SRAM_LB=>SRAM_LB,
   tvout=>tvout,
-  audio=>audio,hd6303_en=>hd6303_en);
+  audio=>audio,hd6303_en=>hd6303_en,
+  hg_tms=>hg_tms,hg_tck=>hg_tck,hg_tdi=>hg_tdi,hg_tdo=>host_tdo,hg_tdo_enable=>host_tdo_enable);
 end;

@@ -1,0 +1,21 @@
+HG 1.0 host disk for Pyldin 601/601A
+
+Requires HG FPGA firmware, FT2232A and ADBUS7 JTAGENB wiring as in uJ11.
+Host: python3 host/hg/hgfsd.py --directory /path/to/files
+Requires system libftdi1. Root files use DOS 8.3 names. Default FAT12:
+32736 x 512-byte sectors, 8 sectors/cluster, 4084 data clusters.
+Use --blocks 32400 for the tested UniDOS geometry.
+
+UniDOS: B:HG
+HG installs the first free drive (usually E: with ROM and RAM disks)
+and synchronizes local host date/time. Use DIR E: and COPY normally.
+B:HGTIME synchronizes time again without installing another drive.
+Both PGM programs run on MC6800; HD6303 extension is optional.
+
+--image serves an existing raw FAT12 volume, including subdirectories.
+--create-image creates a new empty FAT12 image and exits.
+--read-only rejects guest writes.
+Ctrl-C stops the host daemon and releases JTAGENB for programming.
+--jtag-only restores JTAGENB after an interrupted/killed daemon.
+Do not run the Programmer and HG daemon together on FT2232 channel A.
+Pending directory writes survive a crash in .p601-hg.img/.p601-hg.json.

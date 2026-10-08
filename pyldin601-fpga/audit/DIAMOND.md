@@ -1,6 +1,13 @@
 # Diamond
 
-Текущая версия с исправлением очереди PS/2, 8 октября 2026:
+Текущая версия с HG, 8 октября 2026: 6698 LUT, 3409 slices,
+2160 registers, 16 EBR, 1 PLL. Свободны 166 LUT, 23 slices,
+5049 registers, 10 EBR и 1 PLL. TRACE setup/hold negative slack
+и unconstrained paths — 0. Все 39 входов сверены; FLASH Verify ID,
+Erase,Program,Verify и FTDI JTAGENB high до/после — PASS.
+[Протокол, проверки и запись HG](HG.md).
+
+Предыдущая версия с исправлением очереди PS/2, 8 октября 2026:
 6525 LUT, 3326 slices, 2061 registers, 14 EBR, 1 PLL.
 Свободны 339 LUT, 106 slices, 5148 registers, 12 EBR и 1 PLL.
 TRACE setup/hold negative slack и unconstrained paths — 0.
@@ -159,3 +166,16 @@ TX удерживается в idle. Это не относится к SD/FDD/PS
 Физические наблюдения учитываются отдельно от fit/STA и Programmer Verify.
 Для текущей 601/601A пользователь подтвердил запуск 601A, текст 80 колонок
 и DIR; цветные режимы 601A пока проверены только в симуляции.
+
+
+## HG, 8 октября 2026
+
+Текущая сборка с HG прошла чистые synthesis/MAP/PAR/TRACE/Jedecgen:
+6698/6864 LUT, 3409/3432 slices, 2160/7209 registers, 16/26 EBR,
+1/2 PLL. Свободны 166 LUT, 23 slices и 10 EBR. HG использует два
+64-байтовых FIFO в EBR, без доступа к SRAM. TDO регистрируется на 24 МГц;
+все CLOCK_TO_OUT и прежние ограничения SRAM проходят. Setup/hold negative
+slack и unconstrained paths — 0. JTAG-пины переключаются через JTAGENB,
+как в uJ11. Прошивка HG записана во FLASH 8 октября 2026;
+Verify ID / Erase,Program,Verify прошли без ошибок, JTAGENB high проверен до/после.
+[Исходники, отчёты, протокол и проверки](HG.md).

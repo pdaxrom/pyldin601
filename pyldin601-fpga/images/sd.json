@@ -2,11 +2,11 @@
   "date": "2026-10-08",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "33f8f0ad9dfde3fb4fa26b14f83dd294f9ab86a5c0bd5dbaa2830c1de78622b9",
+  "sha256": "58227be54cb9273016308fb9779994ce94cda4c66575fa13e4cc3d59eed40360",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "936f6aa0e43c4736cfe08e7698910117ae45ccae42bcee293a963807c64adaee",
+  "fpga_jed_sha256": "5131b049d7209af1d660ae3be1bc877be52383028e802388bb15492405a5c989",
   "models": [
     "601",
     "601A"
@@ -120,7 +120,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "d7f81f7b1fa653a8ef6276f042b8e1097e9ee3980905635f338bcb9d8e6b970c",
+      "sha256": "a9b09b514277fd50137cf1287212bba59be2e7055d23c528299ce39a383e6457",
       "geometry": {
         "sectors": 2880,
         "image_sectors": 2880,
@@ -159,6 +159,22 @@
         "README.TXT": {
           "bytes": 1315,
           "sha256": "8ad0695c0905012fa559d5a2a0f2035e10603b83363eba657b0d62acc9865d3c"
+        },
+        "HG.PGM": {
+          "bytes": 2402,
+          "sha256": "3f60789f27f719f95ad34d039e9370172ca9931b1fb7218fc77876cd4a104b4b"
+        },
+        "HGTIME.PGM": {
+          "bytes": 1302,
+          "sha256": "dbf5e09764f14895570a1467c8834c27f1d01fb71d9eac6f02b4d45ddc353ab2"
+        },
+        "HG.ASM": {
+          "bytes": 12692,
+          "sha256": "1c1bd763ead25771dfe14353712e9224732702f251fee56a7c5a2daeef7bd837"
+        },
+        "HGHOWTO.TXT": {
+          "bytes": 1097,
+          "sha256": "d08c8f2141c4d66dd7f90563b62c849fb17536dafccd35584bca0183c151e925"
         }
       }
     }
@@ -201,7 +217,8 @@
     "base_physical_readback_sha256": "bd6c8c0b3fc60924a005e9883b0818603603c100c5d51a509e2dc91bbc4a057f",
     "only_boot_partition_changed": true,
     "all_existing_boot_files_preserved": true,
-    "physical_card_updated": true
+    "physical_card_updated": true,
+    "scope": "historical P601.SET update before HG addition to B"
   },
   "physical_card_readback_sha256": "11428fd0023979e8f2798a81a7072173224f2474b320d8ca9360310443b84d60",
   "physical_card_boot_update": {
@@ -225,5 +242,48 @@
   "keyboard_fifo_bios_debounce_fixed": true,
   "physical_keyboard_fast_input_verified": true,
   "physical_keyboard_fast_input_user_report_date": "2026-10-08",
-  "physical_keyboard_fast_input_user_report": "да, работает"
+  "physical_keyboard_fast_input_user_report": "да, работает",
+  "hg": {
+    "driver": "B:HG.PGM",
+    "time_program": "B:HGTIME.PGM",
+    "default_drive_with_ROM_and_RAM_disks": "E",
+    "source": "firmware/hg/HG.ASM",
+    "host": "host/hg/hgfsd.py",
+    "default_host_sectors": 32736,
+    "host_clusters": 4084,
+    "physical_card_updated": true,
+    "physical_FPGA_programmed": true,
+    "native_601_and_601A_copy_delete_time_verified": true,
+    "mbr_boot_partition_A_and_existing_B_files_preserved": true,
+    "hdl_models_and_frequencies_passed": [
+      "601/1",
+      "601/2",
+      "601/4",
+      "601/8",
+      "601A/1",
+      "601A/2",
+      "601A/4",
+      "601A/8"
+    ],
+    "physical_ftdi_jtag_enable_low_high_verified": true,
+    "physical_FPGA_program_report": "build/hardware-hg-20261008/result.json",
+    "physical_FPGA_program_verify_passed": true,
+    "physical_card_update_report": "build/hardware-hg-20261008/sd-write.json",
+    "physical_card_B_files_verified": true,
+    "physical_card_MBR_boot_A_and_original_B_preserved": true,
+    "physical_card_extended_partition_preserved": true,
+    "physical_card_prefix_readback_sha256": "329c7bb3c5193142fbe5239240130956c444c8c0f9a03e52924b8695ef80442a",
+    "physical_card_extended_sha256": "4a5c24eba5efda3484febb7752a41744c58ccbd4c5cff35f8497138cd3d506f2",
+    "physical_card_direct_readback_and_independent_Mac_verification": true,
+    "physical_host_daemon_started": true,
+    "physical_host_daemon_start_report": "build/hardware-hg-20261008/hg-start.json",
+    "physical_host_directory": "/home/sash/Work/FPGA/pyldin601-hg/files",
+    "physical_native_exchange_verified": true,
+    "physical_native_exchange_report": "build/hardware-hg-20261008/hg-verified.json",
+    "physical_user_report": "готово работает",
+    "physical_DIR_TYPE_COPY_user_verified": true,
+    "physical_host_TEST_TXT_byte_match_verified": true,
+    "physical_host_TEST_TXT_bytes": 1097,
+    "physical_guest_clock_independently_verified": false
+  }
 }

@@ -116,6 +116,9 @@ void resetRequested(void){}
 int SWIemulator(int n,byte*a,byte*b,word*x,byte*t,word*pc){return 0;}
 byte i8272ReadByte(byte a);void i8272WriteByte(byte a,byte d);
 int SuperIoReadByte(word a,byte*out){
+#ifdef HG_FIXTURE
+ if(hg_read_byte(a,out))return 1;
+#endif
  if(a>=0xe680&&a<=0xe682){*out=0;return 1;}
  if(a==0xe683){*out=physical[0x80000+disk_address];disk_address=(disk_address+1)&0x7ffff;return 1;}
  if(a==0xe600||a==0xe604){*out=crtc_index;return 1;}
@@ -153,6 +156,9 @@ int SuperIoReadByte(word a,byte*out){
  }}return 0;
 }
 int SuperIoWriteByte(word a,byte d){
+#ifdef HG_FIXTURE
+ if(hg_write_byte(a,d))return 1;
+#endif
  if(a==0xe680){disk_address=(disk_address&0xffff)|((d&7)<<16);return 1;}
  if(a==0xe681){disk_address=(disk_address&0x700ff)|(d<<8);return 1;}
  if(a==0xe682){disk_address=(disk_address&0x7ff00)|d;return 1;}

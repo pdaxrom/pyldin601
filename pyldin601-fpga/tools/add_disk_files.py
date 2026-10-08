@@ -142,7 +142,7 @@ def main():
     if not stat.S_ISREG(args.image.stat().st_mode):raise ValueError('input must be a regular SD image')
     paths=[]
     for path in args.files:
-        paths.extend(sorted(p for p in path.iterdir() if p.suffix in ('.CMD','.ASM','.TXT'))) if path.is_dir() else paths.append(path)
+        paths.extend(sorted(p for p in path.iterdir() if p.suffix in ('.CMD','.PGM','.ASM','.TXT'))) if path.is_dir() else paths.append(path)
     files={}
     for path in paths:
         if not stat.S_ISREG(path.stat().st_mode):raise ValueError('source must be a regular file')

@@ -1,5 +1,6 @@
 # hardware-lcd, schematic device LCMXO2-7000HC-4TG144I; verify fitted marking.
 # Q1 expected 12 MHz. No global ASYNCPATHS/RESETPATHS suppression.
+SYSCONFIG JTAG_PORT=DISABLE MUX_CONFIGURATION_PORTS=ENABLE;
 FREQUENCY PORT "clk_ext" 12.000 MHz;
 FREQUENCY NET "clk" 24.000 MHz;
 FREQUENCY NET "cpu_clk" 8.000 MHz;
@@ -70,6 +71,18 @@ BLOCK PATH FROM PORT "ps2dat";
 BLOCK PATH FROM PORT "btn_resetn";
 # Diagnostic UART RX only feeds the first stage of its synchronizer.
 BLOCK PATH FROM PORT "rxd";
+# HG asynchronous pins feed only the first synchronizer stages.
+BLOCK PATH FROM PORT "hg_tms";
+BLOCK PATH FROM PORT "hg_tck";
+BLOCK PATH FROM PORT "hg_tdi";
+LOCATE COMP "hg_tms" SITE "130";
+IOBUF PORT "hg_tms" IO_TYPE=LVCMOS33 PULLMODE=DOWN;
+LOCATE COMP "hg_tck" SITE "131";
+IOBUF PORT "hg_tck" IO_TYPE=LVCMOS33 PULLMODE=DOWN;
+LOCATE COMP "hg_tdi" SITE "136";
+IOBUF PORT "hg_tdi" IO_TYPE=LVCMOS33 PULLMODE=DOWN;
+LOCATE COMP "hg_tdo" SITE "137";
+IOBUF PORT "hg_tdo" IO_TYPE=LVCMOS33 PULLMODE=DOWN;
 LOCATE COMP "tvout[2]" SITE "1";
 IOBUF PORT "tvout[2]" IO_TYPE=LVCMOS33 PULLMODE=NONE;
 LOCATE COMP "ps2clk" SITE "2";

@@ -6,7 +6,7 @@ CPU. Рабочая директория — этот проект.
 Старый прототип сохранён в `audit/previous-prototype` только для аудита.
 
 Для записи карты без сборки используй [`images/sd.img`](images/sd.img):
-текущие ROM 601/601A, загрузчик, UniDOS на A и тесты HD6303 на B.
+текущие ROM 601/601A, загрузчик, UniDOS на A и тесты HD6303 и HG.PGM/HGTIME.PGM на B.
 [Контрольная сумма и инструкция записи](images/README.md).
 
 При включении первичный BIOS работает на HD6303 ISA на 4 МГц, независимо
@@ -155,6 +155,13 @@ LBA-контроллер и работа ОС с 12 МиБ отложены. `--
 Разметка, подготовка нового образа, обновление загрузчика и пояснение,
 почему Linux `blkid` может не показывать диск A, — в [SD-card.md](SD-card.md).
 
+HG.PGM подключает FAT12-диск хоста через канал A FT2232 по протоколу
+uJ11 HG, без DMA и запросов к общей SRAM. По умолчанию — 32736 секторов,
+8 секторов в кластере, 4084 кластера FAT12; первая свободная буква обычно E:.
+Драйвер синхронизирует дату/время с хостом, HGTIME.PGM обновляет их отдельно.
+Программы находятся на B готового образа и работают с MC6800/HD6303 ISA.
+[Запуск демона, FTDI/JTAG и формат FAT12](host/hg/README.md).
+
 ## Сборка и проверки
 
 Нужны Python 3, C-компилятор, Icarus Verilog и NVC 1.23 или новее с mixed HDL.
@@ -216,16 +223,17 @@ ROM, если доступен `../native-src/BIOS_A.ROM`. Старые файл
 кварц 12 МГц → system 24 МГц и SRAM 96 МГц; CPU 4 МГц при загрузке,
 выбранные 1/2/4/8 МГц после commit.
 На Linux-машине выполнена сборка Diamond 3.14: synthesis, MAP, PAR, TRACE,
-Jedecgen. Текущая версия с BIOS Setup и исправлением очереди PS/2 занимает 6525/6864 LUT,
-3326/3432 slices, 2061/7209 registers, 14/26 EBR и 1/2 PLL.
-Свободны 339 LUT, 106 slices, 5148 registers и 12 EBR.
+Jedecgen. Текущая сборка с HG занимает 6698/6864 LUT,
+3409/3432 slices, 2160/7209 registers, 16/26 EBR и 1/2 PLL.
+Свободны 166 LUT, 23 slices, 5049 registers и 10 EBR.
 Распределение EBR: bootstrap 8, шрифт 2, SD/FDD 2, PAL waveform 1,
-буферы видеострок 1.
+буферы видеострок 1, HG RX/TX FIFO 2.
 Setup/hold проходят, unconstrained paths = 0; полный отчёт и проверки
-зафиксированы в [audit/BIOS-SETUP.md](audit/BIOS-SETUP.md). LPF ограничивает
+зафиксированы в [audit/HG.md](audit/HG.md). LPF ограничивает
 внешние SRAM/SD пути и отдельно проверяет SRAM→CPU за 27 нс.
 Результаты и допущения STA — в [audit/DIAMOND.md](audit/DIAMOND.md).
-Текущий JED с исправлением быстрого ввода, SD power-up/retries, SAVE и PAL tick:
+Последняя прошивка, проверенная на плате, содержит исправления быстрого ввода,
+SD power-up/retries, SAVE и PAL tick:
 `build/diamond/keyboard-pacing/impl1/pyldin601_classic_impl1.jed`.
 Он записан во FLASH с успешным Verify и JTAGENB high до/после.
 Журналы повторной записи — `build/hardware-keyboard-reflash-20261008-153819`;
@@ -272,3 +280,7 @@ SD SPI backend вместе: A/B, чтение после записи/форм�
 позиция курсора в текстовом/графическом тестовых кадрах совпадает с эмулятором.
 Полный набор режимов MC6845 ещё не покрыт.
 Аудит исходного прототипа и состояние исправлений — в `audit`.
+
+Сборка HG: `build/diamond/hg/impl1/pyldin601_classic_impl1.jed`;
+TRACE пройден, на физическую плату эта версия пока не записана.
+[Результаты и ресурсы HG](audit/HG.md).

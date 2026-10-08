@@ -24,6 +24,21 @@ DMA между SD и основной SRAM нет. Секторный backend з
 и записывает их в RAM инструкциями MC6800. При записи на диск направление
 обратное. Арбитр SRAM обслуживает CPU, видео и boot-порт.
 
+HG использует отдельные GPIO FTDI/JTAG и два 64-байтовых EBR FIFO.
+Передачу данных между HG и RAM выполняет CPU; SRAM-запросов от HG нет.
+
+| Адрес | Семантика HG |
+|---|---|
+| E670 | DATA: чтение извлекает байт RX, запись добавляет байт TX |
+| E671 | STATUS: bit 0 RX ready, bit 1 TX room, bit 2 SELECT, bit 3 TX empty, bit 6 RX overflow, bit 7 TX underflow |
+| E672 | CONTROL: bit 0 request/TDO enable, bit 1 RX enable, bit 2 TX enable; bit 7 очищает FIFO/ошибки, только при request=0 и SELECT=0 |
+| E673 | ID = 48h (`H`) |
+
+Request при SELECT=0 поднимает TDO, хост поднимает SELECT и читает заголовок.
+Перед сменой направления CPU ждёт TX empty; RX отключён при отправке и
+TX отключён при получении. Reset очищает интерфейс и освобождает TDO.
+[Драйвер, формат пакетов и подключения](audit/HG.md).
+
 Электронный диск 512 КиБ восстановлен в физической SRAM 80000–FFFFF:
 
 | Адрес | Семантика |

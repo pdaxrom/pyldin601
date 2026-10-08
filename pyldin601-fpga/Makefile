@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := frequency_controls timer_tick memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
+BENCHES := hg frequency_controls timer_tick memory arbiter arbiter_contract boot_ports spi_registers sram sd keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -235,3 +235,14 @@ test-setup-hdl: test-mixed-clock fixtures
 .PHONY: test-handoff-fast
 test-handoff-fast: test-mixed-clock fixtures
 	@set -e; for setting in 12 14 15; do $(PYTHON) tests/prepare_handoff.py $$setting; model=""; if [ $$setting -eq 15 ]; then model="-D BOOT_MODEL_A=1"; fi; $(NVC) --std=2008 --work=work:$(BUILD)/handoff-fast-$$setting --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D HANDOFF_SETTING=$$setting -D FULL_SYSTEM=1 $$model rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff-fast-$$setting.log 2>&1; cat $(BUILD)/handoff-fast-$$setting.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU handoff/ROM lock/warm reset' in Path('build/handoff-fast-$$setting.log').read_text()"; done
+
+.PHONY: hg-apps test-hg test-hg-hdl
+hg-apps: | $(BUILD)
+	$(PYTHON) tools/build_hg.py --unias "$(UNIAS)"
+test-hg: fixtures hg-apps
+	$(PYTHON) tests/test_hg_host.py
+	$(IVERILOG) -g2012 -s tb_hg -o $(BUILD)/tb_hg $(RTL) tests/tb_hg.v
+	$(VVP) $(BUILD)/tb_hg
+	$(PYTHON) tests/run_hg.py --cc "$(CC)"
+test-hg-hdl: fixtures hg-apps
+	$(PYTHON) tests/run_hg.py --hdl --nvc "$(NVC)" --cc "$(CC)"
