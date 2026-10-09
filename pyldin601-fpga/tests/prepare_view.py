@@ -1,4 +1,4 @@
-"""Standard PCX test vectors and independent RGB332 expectations; no converter."""
+"""Standard PCX vectors, unchanged indices and floating PAL reference colours."""
 from pathlib import Path
 import math
 import struct
@@ -38,13 +38,24 @@ def pcx(width, height, pixels, palette, stride=None, origin=(0, 0)):
 
 
 def frame(width, height, pixels, palette):
-    result = bytearray(64000)
+    background = min(range(256), key=lambda n: sum(palette[n*3:n*3+3]))
+    result = bytearray([background])*64000
     x0, y0 = (320-width)//2, (200-height)//2
     for y in range(height):
         for x in range(width):
-            i = pixels[y*width+x]*3
-            r, g, b = palette[i:i+3]
-            result[(y+y0)*320+x+x0] = ((r*7+127)//255)<<5 | ((g*7+127)//255)<<2 | (b*3+127)//255
+            result[(y+y0)*320+x+x0] = pixels[y*width+x]
+    return bytes(result)
+
+
+def waveform(palette):
+    result = bytearray()
+    for n in range(256):
+        r, g, b = (v/255 for v in palette[n*3:n*3+3])
+        y = .299*r+.587*g+.114*b
+        u, v = .493*(b-y), .877*(r-y)
+        for phase in range(32):
+            theta = (phase+.5)*math.tau/32
+            result.append(round(15+34*(y+u*math.sin(theta)+v*math.cos(theta))))
     return bytes(result)
 
 
@@ -63,7 +74,8 @@ def prepare():
         data = pcx(w, h, pixels, palette, stride, origin)
         cases[name] = data
         (work/f'{name}.PCX').write_bytes(data)
-        (work/f'{name}.rgb332').write_bytes(frame(w, h, pixels, palette))
+        (work/f'{name}.indices').write_bytes(frame(w, h, pixels, palette))
+        (work/f'{name}.palette').write_bytes(waveform(palette))
     # A generated picture for hardware viewing, stored as standard PCX directly.
     # There is no image import or PNG/JPEG conversion path.
     fractal_palette = bytes(v for n in range(256) for v in (
@@ -80,7 +92,8 @@ def prepare():
                 fractal.append(0)
     cases['FRACTAL'] = pcx(320, 200, fractal, fractal_palette)
     (work/'FRACTAL.PCX').write_bytes(cases['FRACTAL'])
-    (work/'FRACTAL.rgb332').write_bytes(frame(320, 200, fractal, fractal_palette))
+    (work/'FRACTAL.indices').write_bytes(frame(320, 200, fractal, fractal_palette))
+    (work/'FRACTAL.palette').write_bytes(waveform(fractal_palette))
     assert len(cases['FULL']) > 65535
     good = cases['ODD']
     for name, at, value in [('PLANES', 65, 3), ('BITS', 3, 4), ('HEIGHT', 10, 250),

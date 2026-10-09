@@ -44,18 +44,30 @@ def pal_roms(edif):
             if not str(name(cell[1])).startswith('classic_pal_encoder'):
                 continue
             contents = children(children(cell, 'view')[0], 'contents')[0]
+            connections = {}
+            for net in children(contents, 'net'):
+                for port in children(children(net, 'joined')[0], 'portRef'):
+                    instance = children(port, 'instanceRef')
+                    if instance and isinstance(port[1], str):
+                        connections[(name(instance[0][1]), port[1])] = name(net[1])
             for inst in children(contents, 'instance'):
                 ref = children(children(inst, 'viewRef')[0], 'cellRef')[0][1]
-                if ref != 'SP8KC':
+                if ref not in ('SP8KC', 'DP8KC'):
                     continue
                 props = {p[1]: p[2][1].strip('"') for p in children(inst, 'property')}
+                props['_primitive'] = ref
+                props['_pins'] = {pin: net for (label, pin), net in connections.items() if label == name(inst[1])}
                 yield name(inst[1]), props
 
 
 def rom_values(props, count):
-    width = int(props.get('DATA_WIDTH', 9))
+    width = int(props.get('DATA_WIDTH', props.get('DATA_WIDTH_A', 9)))
     assert width in (1, 9), width
     assert props.get('REGMODE', 'NOREG') == 'NOREG', 'unexpected EBR output register'
+    if props['_primitive'] == 'DP8KC':
+        assert props.get('DATA_WIDTH_B') == '1' and width == 1
+        assert props.get('REGMODE_A', 'NOREG') == props.get('REGMODE_B', 'NOREG') == 'NOREG'
+        assert props.get('WRITEMODE_B') == 'READBEFOREWRITE'
     init = sum(int(props[f'INITVAL_{n:02X}'], 16) << (320 * n) for n in range(32))
     # Lattice DP8KC: each 20 INIT bits store 18 physical bits; x1 skips parity.
     memory = [(init >> (20 * (i // 18) + i % 18)) & 1 for i in range(9216)]
@@ -68,9 +80,17 @@ def inspect(path):
     planes = {}
     legacy = None
     for label, props in roms:
-        if label.startswith('rgb.value_2_0_'):
+        if label.startswith(('rgb.value_2_0_', 'table_rgb_1_table_rgb_1_0_')):
             bit = int(label.rsplit('_', 1)[1])
             assert bit not in planes
+            if props['_primitive'] == 'DP8KC':
+                pins = props['_pins']
+                assert pins['DIB1'] in (f'cpu_out[{bit}]', f'palette_data[{bit}]'), 'incorrect x1 CPU data pin'
+                assert pins['DOA0'] == f'value[{bit}]' and pins['DOB0'] == f'palette_result[{bit}]'
+                for n in range(13):
+                    assert pins[f'ADB{n}'] == f'palette_address[{n}]'
+                    expected_pin = 'phase[31]' if n == 4 else f'carrier_phase[{n}]' if n < 4 else f'rgb_pixel[{n-5}]'
+                    assert pins[f'ADA{n}'] == expected_pin
             planes[bit] = props
         elif label == 'sample_2_0_0':
             legacy = props
@@ -100,8 +120,21 @@ def vendor_test(planes, legacy, library, output):
              'wire[5:0] rgb; wire[8:0] classic;',
              'GSR GSR_INST(1\'b1); PUR PUR_INST(1\'b1);']
     for bit, props in list(planes.items()) + [(6, legacy)]:
-        params = ','.join(f'.{key}({value if key == "DATA_WIDTH" else chr(34)+value+chr(34)})'
-                          for key, value in sorted(props.items()) if key != 'syn_ramstyle')
+        params = ','.join(f'.{key}({value if key.startswith("DATA_WIDTH") else chr(34)+value+chr(34)})'
+                          for key, value in sorted(props.items()) if key != 'syn_ramstyle' and not key.startswith('_'))
+        if props['_primitive'] == 'DP8KC':
+            pins = [f'.AD{port}{b}({"addr["+str(b)+"]" if port=="A" else "write_addr["+str(b)+"]"})'
+                    for port in ('A', 'B') for b in range(13)]
+            # Lattice x1 writes use DI1 (x1 reads use DO0).
+            pins += [f'.DI{port}{b}({"write_data["+str(bit)+"]" if port=="B" and b==1 else "1\'b0"})'
+                     for port in ('A', 'B') for b in range(9)]
+            for port in ('A', 'B'):
+                pins += [f'.CE{port}(1\'b1)', f'.OCE{port}(1\'b1)', f'.WE{port}({"write_enable" if port=="B" else "1\'b0"})',
+                         f'.RST{port}(1\'b0)', f'.CLK{port}(clk)']
+                pins += [f'.CS{port}{b}(1\'b0)' for b in range(3)]
+            pins += [f'.DOA0(rgb[{bit}])', f'.DOB0(readback[{bit}])']
+            lines.append(f'DP8KC #({params}) rom{bit}({",".join(pins)});')
+            continue
         pins = [f'.AD{b}({"addr["+str(b)+"]" if bit < 6 else "addr["+str(b-3)+"]" if b >= 3 else "1\'b0"})'
                 for b in range(13)]
         pins += [f'.DI{b}(1\'b0)' for b in range(9)]
@@ -109,6 +142,7 @@ def vendor_test(planes, legacy, library, output):
                  '.CS0(1\'b0)', '.CS1(1\'b0)', '.CS2(1\'b0)']
         pins += [f'.DO0(rgb[{bit}])'] if bit < 6 else [f'.DO{b}(classic[{b}])' for b in range(9)]
         lines.append(f'SP8KC #({params}) rom{bit}({",".join(pins)});')
+    lines[5:5] = ['reg[12:0]write_addr=0;reg[5:0]write_data=0;reg write_enable=0;wire[5:0]readback;']
     lines += ['reg[5:0] expected[0:8191]; reg[5:0] expected_classic[0:1023];',
               'initial begin', '$readmemh("rtl/pal_rgb332.mem",expected);',
               '$readmemh("rtl/pal_waveform.mem",expected_classic);',
@@ -117,7 +151,14 @@ def vendor_test(planes, legacy, library, output):
               '@(negedge clk);addr=a;@(posedge clk);#2;',
               'if(rgb!==expected[a])$fatal(1,"vendor RGB address %d got %h expected %h",a,rgb,expected[a]);',
               'if(a<1024&&classic!=={3\'b0,expected_classic[a]})$fatal(1,"vendor IRGB address %d",a);',
-              'end', '$display("PASS Lattice SP8KC/DP8KC: all PAL addresses and synchronous read latency");',
+              'end']
+    if all(p['_primitive'] == 'DP8KC' for p in planes.values()):
+        lines += ['for(integer a=0;a<8192;a=a+1)begin',
+                  '@(negedge clk);write_addr=a;write_data=(a*37+(a>>5)+19)&63;write_enable=1;',
+                  '@(posedge clk);#2;if(readback!==expected[a])$fatal(1,"vendor read-before-write address %d",a);',
+                  '@(negedge clk);write_enable=0;addr=a;@(posedge clk);#2;',
+                  'if(rgb!==write_data||readback!==write_data)$fatal(1,"vendor dual-port write/read address %d",a);end']
+    lines += ['$display("PASS Lattice SP8KC/DP8KC: all PAL addresses, dual-port write/readback and synchronous latency");',
               '$finish;end endmodule']
     source = output / 'tb_pal_ebr.v'
     source.write_text('\n'.join(lines) + '\n')

@@ -1,10 +1,13 @@
-VIEW.PGM - native HD6303 PCX viewer for the FPGA RGB332 display.
+VIEW.PGM - native HD6303 PCX viewer for FPGA graphics v2 or later.
 Enable HD6303 EXTENSION in BIOS, then run VIEW drive:picture.PCX.
 Reads ordinary PCX v5, 8 bits/pixel, one plane, RLE and a 256-colour RGB palette.
-Maximum picture size 320x200. Smaller pictures are centred on black.
-Palette colours are rounded to the nearest RGB332 hardware levels.
+Maximum picture size 320x200. Smaller pictures use the darkest palette colour as background.
+Loads all 256 RGB888 palette colours directly into the programmable PAL table.
+Pixel indices are preserved, without rounding colours to RGB332.
 The decoder handles scanline padding and compressed files larger than 64 KiB.
-After loading, ESC restores the native video and returns to UniDOS.
+ESC restores native video and the previous palette, then returns to UniDOS.
+Palette backup uses 8192 bytes of ordinary PGM scratch RAM.
+The hardware retains palette contents on CPU reset; native video is independent.
 BytesPerLine must be even, at least the picture width, and no greater than 512.
 On new systems HD6303 is the BIOS default; saved MC6800 settings remain valid.
 File reads use UniDOS; SD, electronic disk, ROM disk and HG are all supported.

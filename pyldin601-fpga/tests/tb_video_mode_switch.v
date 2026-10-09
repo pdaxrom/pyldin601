@@ -8,11 +8,12 @@ module tb_video_mode_switch;
  reg[7:0]data=0,mode=1,rows=24;
  wire request,base_request,tick;reg done=0,base_done=0;
  wire[5:0]tv,base_tv;wire[20:0]ma,base_ma;
+ reg palette_write=0;reg[3:0]palette_register=0;reg[7:0]palette_data=0;
  classic_video #(.GFX(1)) dut(clk,reset,1'b0,wr,address,data,,mode,
-  1'b0,11'd0,8'd0,request,ma,1'b1,done,8'hff,tv,tick,model_a,extended,8'hff,,,,,);
+  1'b0,11'd0,8'd0,request,ma,1'b1,done,8'hff,tv,tick,model_a,extended,8'hff,,,,,,palette_write,palette_register,palette_data,,);
  // Native console stays running while the DUT enters/leaves graphics.
  classic_video #(.GFX(1)) base(clk,reset,1'b0,wr,address,data,,8'h01,
-  1'b0,11'd0,8'd0,base_request,base_ma,1'b1,base_done,8'hff,base_tv,,model_a,1'b0,8'hff,,,,,);
+  1'b0,11'd0,8'd0,base_request,base_ma,1'b1,base_done,8'hff,base_tv,,model_a,1'b0,8'hff,,,,,,1'b0,4'd0,8'd0,,);
  wire[9:0]rx;wire[8:0]ry;wire rv,rf,rs,rb;
  pal_viewport_reference reference(.clk(clk),.reset(reset),.model_a(model_a),
   .extended(extended),.colour(1'b1),.rows(rows),.x(rx),.y(ry),
@@ -51,6 +52,11 @@ module tb_video_mode_switch;
   for(integer m=0;m<2;m++)begin
    @(negedge clk);reset=1;model_a=m;extended=0;mode=1;rows=24;check_return=0;
    repeat(3)@(negedge clk);reset=0;
+   // A custom non-black index 0 must never colour the PAL border/porches.
+   for(integer a=0;a<8192;a++)begin
+    @(negedge clk);palette_write=1;palette_register=14;palette_data=49;
+    @(negedge clk);palette_write=0;
+   end
    put(0,1);put(1,m?80:40);put(0,6);put(1,24);
    put(0,10);put(1,8'h20);put(0,12);put(1,4);put(0,13);put(1,0);
    // Bootstrap's 24 rows and UniDOS's 25 rows keep the same PAL envelope.

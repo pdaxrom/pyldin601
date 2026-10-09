@@ -3,7 +3,7 @@ module tb_video;
 reg clk=0,reset=1,wr=0;always #5 clk=~clk;
 reg address=0,graphics=0;reg[7:0]data=0;wire[7:0]result;wire request,tick;
 wire[20:0]ma;wire[5:0]tv;reg ready=1,done=0;
-classic_video dut(clk,reset,1'b0,wr,address,data,result,{2'b0,graphics,5'b0},1'b0,11'b0,8'b0,request,ma,ready,done,8'hff,tv,tick,1'b0,1'b0,8'b0,,,,,);
+classic_video dut(clk,reset,1'b0,wr,address,data,result,{2'b0,graphics,5'b0},1'b0,11'b0,8'b0,request,ma,ready,done,8'hff,tv,tick,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,);
 integer ticks=0,count=0,last_tick=0;
 always @(posedge clk)if(!reset)begin
  count<=count+1;

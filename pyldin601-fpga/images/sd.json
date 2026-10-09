@@ -2,11 +2,11 @@
   "date": "2026-10-09",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "3c7563a83f3ffd63f99b031d4b9ba1ecc397b5a3db1721a4912b2d8c61aafbc6",
+  "sha256": "ff059c5946198207977fa0519fddf21b9d282f0de324e1065106fd1d0c3a3c6c",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "b4ca9768bdcfabbac23acacce8abbe05d4c04e865ff1c7c7f21c19709e81e9e9",
+  "fpga_jed_sha256": "e0c6aa644f9135f3648c00807536a9ccaf88e37e02fb0861e2ba581658430595",
   "models": [
     "601",
     "601A"
@@ -120,7 +120,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "2012e7d34374bd9b791cdca935510cdc2a37271ebb550ca8fa1ee0926370b77e",
+      "sha256": "3e1e4ade2ed503247aeec21fe50f1829d21e71ad0ddaea3730e5f29db2028288",
       "geometry": {
         "sectors": 2880,
         "image_sectors": 2880,
@@ -189,16 +189,16 @@
           "sha256": "cded57ad4daa9cf474f7dd1e90de86d6af7099dbc26a6625a4901acbebea228b"
         },
         "VIEW.PGM": {
-          "bytes": 3669,
-          "sha256": "f398be7dcf4caa55694edc4b73cde6cdd6e2bb7979ceca7f865df918e4f7fb4b"
+          "bytes": 3750,
+          "sha256": "ac63e0f95eab545ca0d46d2bc2fc72db9e796bc3ee756974548614e2d08e6dc7"
         },
         "VIEW.ASM": {
-          "bytes": 11930,
-          "sha256": "9cbb825ee30d8e27e1df8445974ca0a5e057e138f93515839a8f6bc7ea2a21bf"
+          "bytes": 13646,
+          "sha256": "761c1f6362c11d0a251ae0d62c0d53d89ce2232f3f30e54e0aa06510c873717d"
         },
         "VIEWHOW.TXT": {
-          "bytes": 819,
-          "sha256": "d96503fc7257b8047c279c723f911706ce2452d16b85c238a1d0722063dab607"
+          "bytes": 1074,
+          "sha256": "333c639ea479bdb632d342d707c0eb32bfaea79aab208c5e576374b8704f6eab"
         },
         "FULL.PCX": {
           "bytes": 80895,
@@ -215,6 +215,22 @@
         "FRACTAL.PCX": {
           "bytes": 13571,
           "sha256": "c827a7ebb58621526cf6630b95e593329d692d72e9cf46f00a4040bdbb30f2cc"
+        },
+        "PALCOEF.ASM": {
+          "bytes": 806,
+          "sha256": "2e52377f7c000c7e9a29e340639a0f0f2c23c170052be3b2441695ba39dd33a1"
+        },
+        "SPRITES.PGM": {
+          "bytes": 1354,
+          "sha256": "40b61a34ad40b4abcedc6f206c9e84bd1860ff47cb92c4c60160000ffc193583"
+        },
+        "SPRITES.ASM": {
+          "bytes": 8127,
+          "sha256": "67ed15c8509c64bd48729a4de2431d74d9ad0de650ec7dd7fdf7665f097076d2"
+        },
+        "SPRHOWTO.TXT": {
+          "bytes": 1335,
+          "sha256": "e2c665357198acba4a2b1e3b9ce5ec27ab1451e2ae95f5cbed2fedd5d2e32611"
         }
       }
     }
@@ -284,7 +300,7 @@
   "keyboard_fifo_bios_debounce_fixed": true,
   "physical_keyboard_fast_input_verified": true,
   "physical_keyboard_fast_input_user_report_date": "2026-10-08",
-  "physical_keyboard_fast_input_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+  "physical_keyboard_fast_input_user_report": "да, работает",
   "hg": {
     "driver": "B:HG.PGM",
     "time_program": "B:HGTIME.PGM",
@@ -322,7 +338,7 @@
     "physical_host_directory": "/home/sash/Work/FPGA/pyldin601-hg/files",
     "physical_native_exchange_verified": true,
     "physical_native_exchange_report": "build/hardware-hg-20261008/hg-verified.json",
-    "physical_user_report": "\u0433\u043e\u0442\u043e\u0432\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+    "physical_user_report": "готово работает",
     "physical_DIR_TYPE_COPY_user_verified": true,
     "physical_host_TEST_TXT_byte_match_verified": true,
     "physical_host_TEST_TXT_bytes": 1097,
@@ -346,7 +362,7 @@
         "601A/8"
       ],
       "real_PCX_load_time_verified": false,
-      "physical_user_report": "\u0434\u0430, \u043e\u0442\u043b\u0438\u0447\u043d\u043e",
+      "physical_user_report": "да, отлично",
       "physical_user_report_date": "2026-10-09",
       "physical_READ_requests_verified": 45,
       "physical_READ_KiB_per_second": 9.13,
@@ -365,13 +381,14 @@
   "graphics": {
     "program": "B:GFX.PGM",
     "source": "firmware/gfx/GFX.ASM",
-    "mode": "320x200 RGB332",
+    "mode": "320x200 indexed, 256 programmable PAL colours, RGB332 power-up palette",
     "commands": [
       "FILL",
       "COPY",
       "VBL FLIP",
       "WRITE BYTE",
-      "READ BYTE"
+      "READ BYTE",
+      "TRANSPARENT COPY"
     ],
     "graphics_sram": "100000-1FFFFF",
     "demo_pages": [
@@ -400,7 +417,7 @@
     "physical_FPGA_program_report": "build/hardware-gfx-20261009/result.json",
     "physical_HG_demo_files_verified": true,
     "physical_host_daemon_pid": 536605,
-    "physical_user_report": "\u043e\u0442\u043b\u0438\u0447\u043d\u043e, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+    "physical_user_report": "отлично, работает",
     "physical_user_report_date": "2026-10-09",
     "PAL_RGB332_ROM_address_order_fixed": true,
     "synthesized_PAL_EBR_and_vendor_models_verified": true,
@@ -432,14 +449,82 @@
       "PAR_start_point": 2,
       "previous_shift_left_320_mode_pixels": 8,
       "logical_pixel_coverage_verified": true,
-      "physical_geometry_user_report": "\u0443\u0436\u0435 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e",
+      "physical_geometry_user_report": "уже нормально",
       "physical_geometry_user_report_date": "2026-10-09",
       "physical_geometry_validation_scope": [
         "bootstrap banner",
         "UniDOS edges and clock",
         "VIEW ESC return"
       ]
-    }
+    },
+    "programmable_palette": {
+      "version": 2,
+      "colours": 256,
+      "PAL_samples_per_colour": 32,
+      "DAC_bits": 6,
+      "same_six_EBR_as_RGB332": true,
+      "CPU_reset_retains_table": true,
+      "FPGA_program_verify_passed": true,
+      "program_report": "build/hardware-palette-20261009/result.json",
+      "PAR_start_point": 3,
+      "physical_colour_user_verified": true,
+      "HDL_models_and_frequencies_verified": [
+        "601/1",
+        "601/2",
+        "601/4",
+        "601/8",
+        "601A/1",
+        "601A/2",
+        "601A/4",
+        "601A/8"
+      ],
+      "physical_user_report": "да, работает!",
+      "physical_user_report_date": "2026-10-09",
+      "physical_user_model_frequency": "not specified"
+    },
+    "interface_version": 3,
+    "sprites": {
+      "program": "B:SPRITES.PGM",
+      "source": "firmware/gfx/SPRITES.ASM",
+      "CPU": "HD6303",
+      "pages": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "sprite_size": [
+        32,
+        32
+      ],
+      "count": 3,
+      "key_index": 0,
+      "dirty_rectangle_restore": true,
+      "physical_user_verified": true,
+      "physical_FPGA_programmed": true,
+      "physical_HG_files_verified": true,
+      "file_bytes": 1354,
+      "native_601_601A_verified": true,
+      "HDL_models_frequencies_verified": [
+        "601/1",
+        "601/2",
+        "601/4",
+        "601/8",
+        "601A/1",
+        "601A/2",
+        "601A/4",
+        "601A/8"
+      ],
+      "verification_report": "build/sprites/validation.json",
+      "physical_FPGA_verify_passed": true,
+      "program_report": "build/hardware-sprites-20261009/result.json",
+      "files_install_report": "build/hardware-sprites-20261009/files-install.json",
+      "host_daemon_pid": 608596,
+      "physical_user_report": "Спрайты и ESC работают",
+      "physical_user_verification_report": "build/hardware-sprites-20261009/user-verified.json",
+      "physical_user_model_frequency": "not specified"
+    },
+    "current_firmware_user_verification_pending": false
   },
   "pcx_viewer": {
     "program": "B:VIEW.PGM",
@@ -452,9 +537,8 @@
     "source": "firmware/gfx/VIEW.ASM",
     "native_601_601A_verified": true,
     "physical_card_updated": false,
-    "physical_program_execution_verified": true,
-    "code_data_bytes": 3273,
-    "file_bytes": 3669,
+    "code_data_bytes": 3288,
+    "file_bytes": 3750,
     "no_host_conversion": true,
     "hdl_models_and_frequencies_passed": [
       "601/1",
@@ -469,19 +553,35 @@
     "native_zero_resets_verified": true,
     "physical_FPGA_programmed": true,
     "physical_FPGA_verify_passed": true,
-    "physical_FPGA_program_report": "build/hardware-view-20261009/result.json",
+    "physical_FPGA_program_report": "build/hardware-palette-20261009/result.json",
     "physical_HG_files_verified": true,
-    "physical_host_daemon_pid": 542436,
+    "physical_host_daemon_pid": 604281,
     "physical_user_verification_pending": false,
-    "physical_image_visible_user_report": "\u0432\u0438\u0436\u0443 \u0444\u0440\u0430\u043a\u0442\u0430\u043b",
+    "physical_image_visible_user_report": "вижу фрактал",
     "physical_user_report_date": "2026-10-09",
     "physical_ESC_return_verified": true,
     "physical_fast_HG_v2_image_verified": true,
-    "physical_HG_v2_user_report": "\u0434\u0430, \u043e\u0442\u043b\u0438\u0447\u043d\u043e",
+    "physical_HG_v2_user_report": "да, отлично",
     "lena_file_sha256": "bcba5e27b97f26d678d58bc53bc8020a9ffa0954730dffefa5c45f79b4edfd56",
     "lena_native_64000_pixels_verified": true,
-    "lena_physical_colour_verified": false,
+    "lena_physical_colour_verified": true,
     "lena_original_physical_colour_failure_report": true,
-    "physical_ESC_return_verification_date": "2026-10-09"
+    "physical_ESC_return_verification_date": "2026-10-09",
+    "BSS_bytes": 8192,
+    "programmable_RGB888_palette": true,
+    "palette_restored_on_exit_and_error": true,
+    "physical_new_palette_verified": true,
+    "physical_HG_install_report": "build/hardware-palette-20261009/view-install.json",
+    "previous_RGB332_physical_program_execution_verified": true,
+    "physical_program_execution_verified": true,
+    "physical_new_palette_user_report": "да, работает!",
+    "physical_new_palette_user_report_date": "2026-10-09",
+    "physical_new_palette_user_report_scope": [
+      "E:VIEW E:LENA.PCX colour",
+      "ESC return to UniDOS; text and clock positions"
+    ],
+    "physical_new_palette_user_verification_report": "build/hardware-palette-20261009/user-verified.json",
+    "minimum_graphics_version": 2,
+    "version_2_and_3_native_verified": true
   }
 }

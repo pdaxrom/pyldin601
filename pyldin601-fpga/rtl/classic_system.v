@@ -173,13 +173,15 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire gfx_enabled,gfx_line_request,gfx_vblank,gfx_pixel_bank;wire[7:0]gfx_line_y,gfx_pixel,gfx_result;
  wire[8:0]gfx_pixel_x;wire gfx_request,gfx_write,gfx_word,gfx_ready,gfx_done;
  wire[20:0]gfx_address;wire[15:0]gfx_data,gfx_memory_result;
+ wire palette_read_mode;wire[5:0]palette_result;
  classic_gfx gfx(clk,clk_fast,cpu_reset,bus_write&&gfx_io,cpu_addr[3:0],cpu_out,gfx_result,gfx_enabled,
   gfx_line_request,gfx_line_y,gfx_vblank,gfx_pixel_x,gfx_pixel_bank,gfx_pixel,
   gfx_request,gfx_write,gfx_word,gfx_address,gfx_data,gfx_ready,gfx_done,gfx_memory_result);
  classic_video #(.GFX(1)) video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
   video_result,mode,font_write,boot_address[10:0],boot_data,
   video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,model_a,
-  gfx_enabled,gfx_pixel,gfx_line_request,gfx_vblank,gfx_line_y,gfx_pixel_x,gfx_pixel_bank);
+  gfx_enabled,gfx_pixel,gfx_line_request,gfx_vblank,gfx_line_y,gfx_pixel_x,gfx_pixel_bank,
+  bus_write&&gfx_io,cpu_addr[3:0],cpu_out,palette_read_mode,palette_result);
  // One optimized physical SRAM sequencer for bootstrap, CPU and video.
  // Registered requests cross to 96 MHz; completions remain until consumed.
  wire disk_advance;
@@ -234,7 +236,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   else if(boot_io)peripheral_data=boot_result;
   else if(spi_io)peripheral_data=raw_result;
   else if(hg_io)peripheral_data=hg_result;
-  else if(gfx_io)peripheral_data=gfx_result;
+  else if(gfx_io)peripheral_data=cpu_addr[3:0]==14&&palette_read_mode?{2'b0,palette_result}:gfx_result;
   else if(crtc_io)peripheral_data=video_result;
   else if(fdc_io)peripheral_data=fdc_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);

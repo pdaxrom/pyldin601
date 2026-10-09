@@ -6,7 +6,7 @@ module tb_pal_rgb332;
     reg reset=1,sync=0,burst=0,alternate=0;
     reg [7:0] colour=0;
     wire [5:0] dac;
-    classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'b0,dac,1'b1,colour);
+    classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'b0,dac,1'b1,colour,1'b0,4'd0,8'd0,,);
     real r,g,b,y,u,v,angle,want,delayed=0,output_reference,error,max_error=0;
     real allowed,delayed_allowed=0,output_allowed;
     integer cycles=0,checks=0;

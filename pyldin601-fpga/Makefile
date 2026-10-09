@@ -254,12 +254,22 @@ test-hg-hdl: fixtures hg-apps
 
 .PHONY: gfx-apps test-gfx test-gfx-app
 .PHONY: test-view
+.PHONY: test-sprites
+test-sprites: gfx-apps fixtures
+	$(PYTHON) tests/prepare_sprites.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_sprites_unidos.c -o $(BUILD)/test_sprites_unidos
+	$(BUILD)/test_sprites_unidos $(BUILD)/sprites/sd.img 601
+	$(BUILD)/test_sprites_unidos $(BUILD)/sprites/sd.img 601a
+	$(PYTHON) tests/run_sprites_app.py --nvc $(NVC)
 test-view: gfx-apps fixtures
+	$(PYTHON) tests/test_palette_coefficients.py
 	$(PYTHON) tests/prepare_view.py
 	$(CC) -O2 -I$(EMUSRC) tests/test_view_unidos.c -o $(BUILD)/test_view_unidos
 	$(BUILD)/test_view_unidos $(BUILD)/view/sd.img 601
 	$(BUILD)/test_view_unidos $(BUILD)/view/sd.img 601a
 	$(PYTHON) tests/run_view_app.py --nvc $(NVC)
+	$(IVERILOG) -g2012 -s tb_pal_palette -o $(BUILD)/tb_pal_palette rtl/classic_pal_encoder.v tests/tb_pal_palette.v
+	$(VVP) $(BUILD)/tb_pal_palette
 gfx-apps: | $(BUILD)
 	$(PYTHON) tools/build_gfx.py --unias "$(UNIAS)"
 test-gfx: firmware

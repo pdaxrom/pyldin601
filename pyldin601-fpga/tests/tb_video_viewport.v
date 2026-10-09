@@ -6,7 +6,7 @@ module tb_video_viewport;
  reg reset=1,wr=0,address=0,model_a=0;reg[7:0]data=0,rows=25;
  wire request,tick;wire[20:0]ma;wire[5:0]tv;reg done=0;
  classic_video dut(clk,reset,1'b0,wr,address,data,,8'h20,
-  1'b0,11'd0,8'd0,request,ma,1'b1,done,8'hff,tv,tick,model_a,1'b0,8'd0,,,,,);
+  1'b0,11'd0,8'd0,request,ma,1'b1,done,8'hff,tv,tick,model_a,1'b0,8'd0,,,,,,1'b0,4'd0,8'd0,,);
  wire[9:0]rx;wire[8:0]ry;wire rv,rf,rs,rb;
  pal_viewport_reference reference(.clk(clk),.reset(reset),.model_a(model_a),.extended(1'b0),.colour(1'b0),
   .rows(rows),.x(rx),.y(ry),.valid(rv),.first(rf),.sync(rs),.burst(rb));

@@ -1,4 +1,4 @@
-// Explicit 320x200 RGB332 extension. All DMA addresses are in 100000..1fffff.
+// Indexed 320x200 extension. All DMA addresses are in 100000..1fffff.
 // CPU commands cross as a held bundle plus a toggle, with one outstanding job.
 // The 96 MHz engine gives scanline fetches priority over the byte blitter.
 module classic_gfx(
@@ -25,7 +25,7 @@ module classic_gfx(
    6:bus_result=job_source_offset[7:0];7:bus_result=job_source_offset[15:8];
    8:bus_result=job_destination_offset[7:0];9:bus_result=job_destination_offset[15:8];
    10:bus_result=job_width[7:0];11:bus_result={7'b0,job_width[8]};12:bus_result=job_height;
-   13:bus_result=read_byte;14:bus_result=8'h47;15:bus_result=1;
+   13:bus_result=read_byte;14:bus_result=8'h47;15:bus_result=3;
   endcase
  end
  always @(posedge clk)begin
@@ -67,25 +67,31 @@ module classic_gfx(
  reg[3:0]fetch_page;
  reg[15:0]src,dst;
  reg[8:0]remaining;reg[7:0]rows;
- reg reverse;reg[7:0]copy_byte;reg copy_read;
+ reg reverse;reg[7:0]copy_byte;reg copy_read,skip_write;
  reg[3:0]state;
- localparam IDLE=0,CHECK=1,BLIT=2,READ_ONE=3,FLIP=4;
+ localparam IDLE=0,CHECK=1,BLIT=2,READ_ONE=3,FLIP=4,KEY=5;
  wire byte_command=job_command==4||job_command==5;
+ wire copy_command=job_command==2||job_command==6;
  wire[7:0]last_row=job_height-1'b1;
  wire[16:0]span=byte_command?17'd0:({1'b0,last_row,8'b0}+{3'b0,last_row,6'b0}+job_width-17'd1);
  wire[16:0]source_end={1'b0,job_source_offset}+span;
  wire[16:0]destination_end={1'b0,job_destination_offset}+span;
  wire bounds=(byte_command||(job_width!=0&&job_width<=320&&job_height!=0&&job_height<=200))
-  &&(job_command!=2&&job_command!=5||source_end<64000)&&(job_command==5||destination_end<64000);
+  &&(!copy_command&&job_command!=5||source_end<64000)&&(job_command==5||destination_end<64000);
  wire[15:0]row_step=16'd321-job_width;
  // Pointer calculation settles while the SRAM transaction is in flight.
  // Separate the row-end decoder, adder and completion mux at 96 MHz.
  reg[15:0]advance_step,next_src,next_dst;
+ reg last_column,last_pixel;reg[8:0]next_remaining;reg[7:0]next_rows;
  always @(posedge fast)begin
-  advance_step<=reverse?(remaining==1?-row_step:16'hffff):(remaining==1?row_step:16'd1);
+  last_column<=remaining==1;last_pixel<=remaining==1&&rows==1;
+  next_remaining<=remaining-1'b1;next_rows<=rows-1'b1;
+  advance_step<=reverse?(last_column?-row_step:16'hffff):(last_column?row_step:16'd1);
   next_src<=src+advance_step;next_dst<=dst+advance_step;
  end
  wire job_request=state==BLIT||state==READ_ONE;
+ wire pixel_complete=(state==KEY&&skip_write)||
+   (waiting&&mem_done&&!owner_video&&state==BLIT&&!copy_read);
  assign mem_request=issued&&!waiting;
  always @(posedge fast)begin
   if(reset_sync[2])begin
@@ -93,7 +99,7 @@ module classic_gfx(
    line_seen<=0;vblank_seen<=0;fetching<=0;fetch_bank<=0;fetch_column<=0;
    fetch_offset<=0;fetch_page<=0;valid_banks<=0;waiting<=0;owner_video<=0;issued<=0;request_video<=0;
    mem_write<=0;mem_word<=0;mem_address<=21'h100000;mem_data<=0;
-   src<=0;dst<=0;remaining<=0;rows<=0;reverse<=0;copy_byte<=0;copy_read<=0;state<=IDLE;
+   src<=0;dst<=0;remaining<=0;rows<=0;reverse<=0;copy_byte<=0;copy_read<=0;skip_write<=0;state<=IDLE;
   end else begin
    if(!enable_sync[1])begin valid_banks<=0;underrun<=0;end
    // A flip becomes visible only at the field boundary, before line 0 fetch.
@@ -115,9 +121,9 @@ module classic_gfx(
    if(state==IDLE&&command_sync[3]!=finished)begin
     failed<=0;src<=job_source_offset;dst<=job_destination_offset;
     remaining<=byte_command?9'd1:job_width;rows<=byte_command?8'd1:job_height;
-    copy_read<=job_command==2;reverse<=job_command==2&&job_source_page==job_destination_page&&job_destination_offset>job_source_offset;
+    copy_read<=copy_command;reverse<=copy_command&&job_source_page==job_destination_page&&job_destination_offset>job_source_offset;
     if(job_command==3)state<=FLIP;
-    else if(job_command==1||job_command==2||byte_command)state<=CHECK;
+    else if(job_command==1||copy_command||byte_command)state<=CHECK;
     else begin failed<=1;finished<=command_sync[3];end
    end
    if(state==CHECK)begin
@@ -127,12 +133,15 @@ module classic_gfx(
      state<=job_command==5?READ_ONE:BLIT;
     end
    end
+   // Register the comparison on read completion. It must not share the
+   // 96 MHz path with the rectangle counters and pointer completion muxes.
+   if(state==KEY&&!skip_write)begin copy_read<=0;state<=BLIT;end
    if(!issued&&!waiting&&(fetching||job_request))begin
     issued<=1;request_video<=fetching;mem_word<=fetching;
     mem_write<=!fetching&&state==BLIT&&!copy_read;
     mem_address<=fetching?{1'b1,fetch_page,fetch_offset}:
       copy_read||state==READ_ONE?{1'b1,job_source_page,src}:{1'b1,job_destination_page,dst};
-    mem_data<={job_colour,(job_command==2?copy_byte:job_colour)};
+    mem_data<={job_colour,(copy_command?copy_byte:job_colour)};
    end
    if(mem_request&&mem_ready)begin waiting<=1;issued<=0;owner_video<=request_video;end
    if(waiting&&mem_done)begin
@@ -144,17 +153,24 @@ module classic_gfx(
      else fetch_column<=fetch_column+1'b1;
     end else if(state==READ_ONE)begin
      fast_read<=mem_result[7:0];finished<=command_sync[3];state<=IDLE;
-    end else if(copy_read)begin copy_byte<=mem_result[7:0];copy_read<=0;end
-    else begin
-     copy_read<=job_command==2;
-     if(remaining==1&&rows==1)begin state<=IDLE;finished<=command_sync[3];end
-     else if(remaining==1)begin
-      remaining<=job_width;rows<=rows-1'b1;
+    end else if(copy_read)begin
+     copy_byte<=mem_result[7:0];
+     if(job_command==6)begin skip_write<=mem_result[7:0]==job_colour;state<=KEY;end
+     else copy_read<=0;
+    end
+   end
+   if(pixel_complete)begin
+     // Keyed pixels skip the destination transaction entirely. Both kinds
+     // of COPY advance through the same overlap-safe traversal.
+     state<=BLIT;
+     copy_read<=copy_command;
+     if(last_pixel)begin state<=IDLE;finished<=command_sync[3];end
+     else if(last_column)begin
+      remaining<=job_width;rows<=next_rows;
       src<=next_src;dst<=next_dst;
      end else begin
-      remaining<=remaining-1'b1;src<=next_src;dst<=next_dst;
+      remaining<=next_remaining;src<=next_src;dst<=next_dst;
      end
-    end
    end
   end
  end

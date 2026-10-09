@@ -67,6 +67,23 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
  begin byte_at=a[0]?memory[a>>1][15:8]:memory[a>>1][7:0];end endfunction
  task expect_byte;input[20:0]a;input[7:0]b;
  begin if(byte_at(a)!==b)$fatal(1,"GFX SRAM %h got=%h expected=%h",a,byte_at(a),b);end endtask
+ // Snapshot reference: both overlap directions must behave as if the source
+ // rectangle was captured before any writes, while keyed pixels preserve D.
+ reg[7:0]snapshot[0:63999];integer keyed_pixels=0,transparent_jobs=0;
+ task keyed_copy;input[3:0]sp,dp;input[15:0]so,doff;input[8:0]w;input[7:0]h,key;
+ integer before_writes,opaque,k,j,n;reg[7:0]b;
+ begin
+  opaque=0;
+  for(k=0;k<64000;k=k+1)snapshot[k]=byte_at({1'b1,dp,16'b0}+k);
+  for(k=0;k<h;k=k+1)for(j=0;j<w;j=j+1)begin
+   b=byte_at({1'b1,sp,16'b0}+so+320*k+j);
+   if(b!=key)begin snapshot[doff+320*k+j]=b;opaque++;end
+  end
+  configure(sp,dp,so,doff,w,h,key);before_writes=writes;command(6,0);
+  if(writes-before_writes!=opaque)$fatal(1,"colour-key write count got %d expected %d",writes-before_writes,opaque);
+  for(n=0;n<64000;n=n+1)expect_byte({1'b1,dp,16'b0}+n,snapshot[n]);
+  keyed_pixels=keyed_pixels+w*h;transparent_jobs++;
+ end endtask
  always @(posedge fast)if(armed&&dut.runtime_memory.grant_gfx)begin
   if(!dut.gfx_address[20])$fatal(1,"GFX escaped upper SRAM");
   if(dut.runtime_memory.active)$fatal(1,"GFX overlapped active slot");
@@ -94,7 +111,7 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
 
   for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
   if(!dut.locked)$fatal(1,"fixture lock failed");armed=1;
-  get(16'he65e,8'h47);get(16'he65f,1);
+  get(16'he65e,8'h47);get(16'he65f,3);
   for(s=0;s<4;s=s+1)begin
    if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s);end
    // Unaligned byte fill, multi-row pitch and both ends of the page.
@@ -112,6 +129,25 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
    for(i=0;i<3;i=i+1)for(integer j=0;j<17;j=j+1)expect_byte(21'h120003+320*i+j,(320*i+j)&255);
    configure(2,2,3,0,17,3,0);command(2,0);
    for(i=0;i<3;i=i+1)for(integer j=0;j<17;j=j+1)expect_byte(21'h120000+320*i+j,(320*i+j)&255);
+   // Every source index, both byte lanes, colour keys 0/FF, intersecting
+   // rectangles within a page, and a full-page all-transparent operation.
+   for(i=0;i<32768;i=i+1)begin
+    memory[(21'h140000>>1)+i]=16'(((i*2+1)&255)<<8)|((i*2)&255);
+    memory[(21'h150000>>1)+i]=16'h736b;
+   end
+   keyed_copy(4,5,0,1,256,3,0);
+   keyed_copy(4,5,1,322,255,3,255);
+   keyed_copy(4,4,0,3,257,4,0);
+   keyed_copy(4,4,3,0,257,4,255);
+   keyed_copy(4,4,1,321,319,3,8'h7f);
+   keyed_copy(4,4,321,1,319,3,8'h80);
+   keyed_copy(4,4,1,1,319,3,8'h40);
+   for(i=0;i<32000;i=i+1)memory[(21'h160000>>1)+i]=16'hffff;
+   keyed_copy(6,5,0,0,320,200,255);
+   configure(4,5,64000,0,1,1,0);command(6,1);
+   configure(4,5,0,63999,2,1,0);command(6,1);
+   configure(4,5,0,0,0,1,0);command(6,1);
+   command(7,1);
    configure(2,15,0,63999,2,1,0);command(1,1);
    configure(2,15,64000,0,1,1,0);command(5,1);
    configure(2,15,0,0,0,1,0);command(1,1);
@@ -119,14 +155,24 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
    configure(2,15,0,0,1,201,0);command(1,1);
    // Independent ramp reference, every pixel in both PAL fields at each speed.
    for(i=0;i<64000;i=i+2)memory[(21'h100000+i)>>1]=(((i/320+i%320+1)&255)<<8)|((i/320+i%320)&255);
-   checks=0;put(16'he650,1);
+   // Start from a field boundary; enabling mid-line intentionally blanks
+   // pixels until the first complete scanline has been fetched.
+   checks=0;@(dut.gfx_vblank);put(16'he650,1);
    // CPU RAM read/write, a full-frame fill and word-wide video run together.
    configure(0,3,0,0,320,200,8'h6d);put(16'he651,1);
    while(checks<128000)begin
     for(i=0;i<64;i=i+1)begin put(16'h2400+i,i);get(16'h2400+i,i);end
    end
-   wait(!dut.gfx.busy);put(16'he650,0);
+   wait(!dut.gfx.busy);
    for(i=0;i<64000;i=i+1)expect_byte(21'h130000+i,8'h6d);
+   // Colour-key DMA runs alongside CPU RAM transactions and scanline reads.
+   configure(4,3,1,1,319,20,0);put(16'he651,6);
+   while(dut.gfx.busy)begin put(16'h2401,8'hf3);get(16'h2401,8'hf3);end
+   put(16'he650,0);
+   for(i=0;i<20;i=i+1)for(integer j=0;j<319;j=j+1)begin
+    got=byte_at(21'h140001+320*i+j);
+    expect_byte(21'h130001+320*i+j,got==0?8'h6d:got);
+   end
    if(dut.gfx.underrun)$fatal(1,"scanline deadline missed speed %d",s);
    // Flip waits for VBL, never alters the displayed page in an active field.
    put(16'he655,1);put(16'he651,3);wait(dut.gfx.state==4);
@@ -141,7 +187,7 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
   armed=0;button=0;repeat(80)@(negedge clk);button=1;wait(cpu_reset===0);
   repeat(8)@(negedge cpu_clk);
   if(dut.gfx.busy||dut.gfx_enabled||!dut.locked)$fatal(1,"warm GFX reset did not drain/cancel");
-  $display("PASS GFX 1/2/4/8 MHz: 512000 RGB332 pixels, fills, overlap copies, byte ports, bounds, VBL flip, SRAM-10 slots without HOLD, warm drain");$finish;
+  $display("PASS GFX 1/2/4/8 MHz: 512000 pixels, %d keyed COPY jobs/%d pixels, skipped writes, overlap, concurrent video/CPU, bounds, VBL, SRAM-10 without HOLD, warm drain",transparent_jobs,keyed_pixels);$finish;
  end
 `ifdef GFX_TRACE
  initial begin

@@ -1,0 +1,22 @@
+SPRITES.PGM - native HD6303 colour-key sprite animation
+
+Select HD6303 extension Y in the primary BIOS. Firmware GFX v3 is required.
+Run SPRITES from UniDOS; press ESC to return. Runs on both 601 and 601A,
+at 1, 2, 4 and 8 MHz. It leaves the native text screen and PAL palette intact.
+
+Three 32x32 balls move over a 320x200 checkerboard. The CPU only updates
+coordinates and sends blitter commands. Index 0 in the atlas is transparent.
+Frames alternate at VBL. Old sprite rectangles are restored from a static
+background before drawing, including intersecting sprites. No full-frame
+copy is issued during animation. Pages 0/1 are frames, 2 is the atlas,
+3 is the background; these four graphics pages are overwritten by the demo.
+
+Transparent COPY: write E653 with the colour key, source page E654,
+destination page E655, source offset E656/E657, destination E658/E659,
+width E65A/E65B and height E65C, then command 6 to E651. Offsets and width
+are little-endian; pitch is always 320. Wait for E650 bit 7 to clear and
+check ERROR bit 4 and UNDERRUN bit 5. A source pixel equal to the key causes
+no destination write. Same-page overlap uses the direction of normal COPY.
+Command 2 remains opaque COPY. E65F reports interface version 3.
+
+Build the relocatable PGM from SPRITES.ASM with the project gfx-apps target.

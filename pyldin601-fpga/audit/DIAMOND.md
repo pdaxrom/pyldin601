@@ -1,5 +1,68 @@
 # Diamond
 
+Прозрачный COPY v3, 9 октября:
+6681/6864 LUT, 3354/3432 slices, 2627/7209 registers, 25/26 EBR, 1/2 PLL.
+Свободны 183 LUT, 78 slices, 4582 registers, 1 EBR и 1 PLL.
+Относительно палитры v2: +38 LUT, +19 slices, +11 registers; память прежняя.
+TRACE setup/hold negative slack=0, unconstrained paths=0. SRAM budgets,
+27-нс SRAM→CPU и PAR seed 3 сохранены. Worst 96-МГц setup: 9,301 нс,
+запас 0,950 нс; worst hold для этой частоты: запас 0,198 нс.
+Первая версия соединяла сравнение ключа со счётчиками и не прошла 96 МГц.
+Финальная версия регистрирует сравнение и готовит декременты/последний
+столбец во время SRAM-обращения, без задержек CPU или ослабления LPF.
+EDIF и модели Lattice подтвердили все PAL-адреса и оба порта палитры.
+JED `build/diamond/sprites-v3-counters/impl1/pyldin601_classic_impl1.jed`,
+SHA-256 `e0c6aa644f9135f3648c00807536a9ccaf88e37e02fb0861e2ba581658430595`.
+Входы `build/diamond/source-sprites-v3-counters.tar.gz` и `.sha256.json`;
+Linux `/tmp/pyldin601-sprites-v3-counters`. После сборки изменена только
+инструкция VIEWHOW.TXT: v2 or later. Все HDL/ROM/constraints/программы
+равны входам сборки: `build/sprites/post-build-source-check.json`.
+SPRITES — перемещаемый HD6303 PGM, 1134 байта кода/данных,
+102 relocation, 1354 байта файла. [Интерфейс и проверки](GRAPHICS.md).
+FLASH Verify ID / Erase,Program,Verify, JTAG Chain и JTAGENB high до/после
+прошли; запись 69,34 с. HG восстановлен, PID 608596, JTAGENB low проверен.
+Файлы SPRITES и совместимого VIEW установлены, пользовательские файлы
+сохранены. Отчёты — `build/hardware-sprites-20261009`;
+анимацию и возврат по ESC пользователь подтвердил: «Спрайты и ESC работают».
+
+## Предыдущая сборка: палитра v2
+
+Программируемая палитра 256 цветов, 9 октября:
+6643/6864 LUT, 3335/3432 slices, 2616/7209 registers,
+25/26 EBR, 1/2 PLL. Свободны 221 LUT, 97 slices, 4593 registers,
+1 EBR, 1 PLL. Относительно общего PAL-окна: +40 LUT, +22 slices,
++37 registers; EBR/PLL прежние. Шесть RGB332 waveform EBR стали
+двухпортовыми 8192×1 DP8KC: порт A читает PAL, порт B записывает/читает
+палитру CPU. Дополнительной памяти и FPGA-умножителей нет.
+TRACE setup/hold negative slack=0, unconstrained paths=0; прежние SRAM
+ограничения сохранены. PAR seed 2 дал до 0,202 нс нарушения 96-МГц
+пути waiting→rows блиттера; seed 3 проходит с прежними ограничениями.
+EDIF-аудит проверяет все 8192 начальных и 1024 IRGB/burst слова,
+адреса обоих портов и вывод данных DIB1 для x1. Модели Lattice подтвердили
+запись/чтение всех 8192 адресов и синхронную задержку.
+JED `build/diamond/palette-v2-final/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`17512367bf251d669debba4c4f2b2a0b0ce025bc42468e12ed9d6c2e675e23d1`.
+Комплект входов — `build/diamond/source-palette-v2-reviewed.tar.gz`
+и `.sha256.json`. После сборки изменены только Makefile, VIEWHOW.TXT
+и EDIF-аудит; равенство всех HDL/ROM/constraints/программных входов
+подтверждено в `build/palette/post-build-source-check.json`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+все 47 входов и JED проверены перед записью. FTDI JTAGENB high до/после
+и low после восстановления HG — PASS. Запись заняла 67,37 с.
+HG восстановлен, PID 604281; все файлы хоста сохранены во время записи.
+Затем обновлены только VIEW.PGM/VIEW.ASM/VIEWHOW.TXT/PALCOEF.ASM;
+C-демон автоматически пересобрал сетевой том. Лена и остальные файлы
+не изменены, физическая SD не записывалась. Отчёты —
+`build/hardware-palette-20261009/{result,install-result,view-install}.json`.
+Все восемь VIEW/HD6303 запусков 601/601A × 1/2/4/8 МГц — PASS;
+native UniDOS, все индексы/отсчёты и восстановление палитры, PAL-порт,
+legacy video/переключения, блиттер и SRAM с задержками — PASS.
+Сводка — `build/palette/validation.json`.
+9 октября пользователь подтвердил новую палитру на плате: «да, работает!»
+в ответ на проверку Лены и возврата по ESC. Модель и частота этого запуска
+не указаны; все восемь сочетаний отдельно проверены в HDL.
+[Порт палитры](GRAPHICS.md), [расчёт HD6303 и проверки VIEW](PCX-VIEWER.md).
+
 Общее PAL-окно 48 мкс × 264 строки, 9 октября:
 6603/6864 LUT, 3313/3432 slices, 2579/7209 registers,
 25/26 EBR, 1/2 PLL. Свободны 261 LUT, 119 slices, 4630 registers,

@@ -11,6 +11,8 @@ widthlo = $e65a
 widthhi = $e65b
 heightreg = $e65c
 ident = $e65e
+palette_high = $e65d
+palette_control = $e65f
 cpuconfig = $e6a0
 
 start
@@ -28,6 +30,12 @@ hd_ok
         ldx #msg_gfx
         jmp print_exit
 hardware_ok
+        ldaa palette_control
+        cmpa #2
+        bcc palette_hardware_ok
+        ldx #msg_palette
+        jmp print_exit
+palette_hardware_ok
         int $3b
         cmpa #2
         beq arguments_ok
@@ -110,6 +118,8 @@ palette_read
         beq palette_ok
         jmp bad_file
 palette_ok
+        clr ctrl
+        jsr save_palette
         jsr make_palette
         ldd #0
         std seek_pos
@@ -131,7 +141,8 @@ image_seek_ok
         staa destpage
         clr destlo
         clr desthi
-        clr colour
+        ldaa background
+        staa colour
         ldaa #64
         staa widthlo
         ldaa #1
@@ -218,10 +229,7 @@ fully_visible
 draw_packet
         tst draw_count
         beq packet_done     ; skip BytesPerLine padding, never draw it
-        ldx #rgb_palette
-        ldab index_byte
-        abx
-        ldaa 0,x
+        ldaa index_byte
         staa colour
         ldaa pixel_address
         staa desthi
@@ -297,6 +305,11 @@ no_open_file
         beq no_video_change
         clr ctrl
 no_video_change
+        tst palette_saved
+        beq no_palette_change
+        clr ctrl
+        jsr restore_palette
+no_palette_change
         pulx
 print_exit
         int $23
@@ -457,84 +470,125 @@ invalid_header
         sec
         rts
 
-; Map the real PCX RGB palette to nearest RGB332 channel levels.
+; Preserve the complete previous waveform table, including other custom
+; palettes. Port B readback is synchronous; CPU cycles allow it to settle.
+save_palette
+        clr front
+        clr palette_high
+        ldaa #1
+        staa palette_control
+        ldx #palette_backup
+save_sample
+        ldaa ident
+        staa 0,x
+        inx
+        ldaa #3
+        staa palette_control
+        cpx #palette_backup+8192
+        bne save_sample
+        clr palette_control
+        inc palette_saved
+        rts
+restore_palette
+        clr front
+        clr palette_high
+        ldx #palette_backup
+restore_sample
+        ldaa 0,x
+        staa ident
+        inx
+        cpx #palette_backup+8192
+        bne restore_sample
+        clr palette_control
+        clr palette_saved
+        rts
+
+; Three signed Q9 RGB gains per phase. MUL uses unsigned magnitudes;
+; add/subtract products to the 16-bit DAC accumulator, round once at end.
+; The PCX indices themselves go into the framebuffer unchanged.
 make_palette
+        clr front
+        clr palette_high
         ldd #raw_palette+1
         std palette_pointer
-        ldd #rgb_palette
-        std rgb_pointer
+        ldd #$ffff
+        std darkest
         clr palette_count
 palette_entry
         ldx palette_pointer
         ldaa 0,x
-        jsr quant3
-        asla
-        asla
-        asla
-        asla
-        asla
-        staa rgb_byte
+        staa red
         ldaa 1,x
-        jsr quant3
-        asla
-        asla
-        oraa rgb_byte
-        staa rgb_byte
+        staa green
         ldaa 2,x
-        jsr quant2
-        oraa rgb_byte
+        staa blue
         inx
         inx
         inx
         stx palette_pointer
-        ldx rgb_pointer
-        staa 0,x
+        clra
+        ldab red
+        std accumulator
+        ldab green
+        addd accumulator
+        std accumulator
+        clra
+        ldab blue
+        addd accumulator
+        subd darkest
+        bcc background_known
+        addd darkest
+        std darkest
+        ldaa palette_count
+        staa background
+background_known
+        ldx #phase_gains
+        ldaa #32
+        staa phase_count
+palette_phase
+        ldd #15*512+256
+        std accumulator
+        ldaa red
+        ldab 0,x
+        jsr add_channel
+        ldaa green
+        ldab 1,x
+        jsr add_channel
+        ldaa blue
+        ldab 2,x
+        jsr add_channel
+        ldaa accumulator
+        lsra
+        staa ident
         inx
-        stx rgb_pointer
+        inx
+        inx
+        dec phase_count
+        bne palette_phase
         inc palette_count
         bne palette_entry
         rts
-quant3
-        cmpa #19
-        bcs q0
-        cmpa #55
-        bcs q1
-        cmpa #92
-        bcs q2
-        cmpa #128
-        bcs q3
-        cmpa #164
-        bcs q4
-        cmpa #201
-        bcs q5
-        cmpa #237
-        bcs q6
-        ldaa #7
+add_channel
+        tstb
+        bmi subtract_channel
+        mul
+        addd accumulator
+        std accumulator
         rts
-q6      ldaa #6
+subtract_channel
+        negb
+        mul
+        std product
+        ldd accumulator
+        subd product
+        std accumulator
         rts
-q5      ldaa #5
-        rts
-q4      ldaa #4
-        rts
-quant2
-        cmpa #43
-        bcs q0
-        cmpa #128
-        bcs q1
-        cmpa #213
-        bcs q2
-q3      ldaa #3
-        rts
-q2      ldaa #2
-        rts
-q1      ldaa #1
-        rts
-q0      clra
-        rts
+phase_gains
+        include PALCOEF.ASM
 
 msg_hd db 'VIEW: enable HD6303 EXTENSION in BIOS.',13,10,0
 msg_gfx db 'VIEW: FPGA graphics extension is absent.',13,10,0
+msg_palette db 'VIEW: update FPGA for palette support.',13,10,0
 msg_usage db 'Usage: VIEW drive:picture.PCX',13,10,'8-bit PCX, max 320x200. ESC returns to UniDOS.',13,10,0
 msg_open db 'VIEW: cannot open picture.',13,10,0
 msg_format db 'VIEW: unsupported or truncated PCX.',13,10,0
@@ -566,11 +620,18 @@ run_count db 0
 draw_count db 0
 index_byte db 0
 palette_pointer dw 0
-rgb_pointer dw 0
 palette_count db 0
-rgb_byte db 0
+palette_saved db 0
+phase_count db 0
+red db 0
+green db 0
+blue db 0
+background db 0
+darkest dw 0
+accumulator dw 0
+product dw 0
 filename ds 81
 pcx_header ds 128
 raw_palette ds 769
-rgb_palette ds 256
 input_buffer ds 512
+palette_backup ds 8192

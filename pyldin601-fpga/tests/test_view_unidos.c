@@ -11,13 +11,20 @@ static int hg_write_byte(uint16_t a,unsigned char d);
 static unsigned char gfx[16];
 static uint64_t ready_at;
 static unsigned jobs,shown,absent;
+static unsigned char palette[8192],previous_palette[8192],palette_mode;
+static unsigned palette_address,palette_writes,palette_reads,version=3;
 static int hg_read_byte(uint16_t a,unsigned char*out){
  if(a<0xe650||a>0xe65f)return 0;
- *out=a==0xe65e?(absent?255:'G'):a==0xe650?(gfx[0]|(virtual_cycles<ready_at?128:0)):gfx[a&15];return 1;
+ if(a==0xe65e&&palette_mode){*out=palette[palette_address];palette_reads++;}
+ else *out=a==0xe65e?(absent?255:'G'):a==0xe65f?version:a==0xe650?(gfx[0]|(virtual_cycles<ready_at?128:0)):gfx[a&15];return 1;
 }
 static int hg_write_byte(uint16_t a,unsigned char d){
  if(a<0xe650||a>0xe65f)return 0;
  unsigned p=a&15;
+ if(p==2){palette_address=(palette_address&0x1f00)|d;return 1;}
+ if(p==13){palette_address=(palette_address&255)|((d&31)<<8);return 1;}
+ if(p==14){palette[palette_address]=d&63;palette_address=(palette_address+1)&8191;palette_writes++;return 1;}
+ if(p==15){palette_mode=d&1;if(d&2)palette_address=(palette_address+1)&8191;return 1;}
  if(p==0){gfx[0]=d&1;if(gfx[0])shown++;return 1;}
  if(virtual_cycles<ready_at){fprintf(stderr,"VIEW wrote graphics while busy\n");exit(1);}
  gfx[p]=d;
@@ -52,23 +59,27 @@ static void type_command(const char*text){
 static void finish_prompt(void){
  uint64_t deadline=virtual_cycles+20000000;
  while(!prompt()&&virtual_cycles<deadline)until(virtual_cycles+10000);
- if(!prompt()||gfx[0]||resets){dump();fprintf(stderr,"VIEW failed to return to native console\n");exit(1);}
+ if(!prompt()||gfx[0]||resets||palette_mode||memcmp(palette,previous_palette,8192)){dump();fprintf(stderr,"VIEW failed to restore console/palette\n");exit(1);}
 }
 static void show(const char*name){
  char cmd[80],path[100];snprintf(cmd,sizeof(cmd),"b:view b:%s.pcx",name);unsigned count=shown;
  type_command(cmd);uint64_t deadline=virtual_cycles+200000000;
  while(shown==count&&virtual_cycles<deadline)until(virtual_cycles+10000);
  if(shown==count){dump();fprintf(stderr,"VIEW did not display %s; jobs=%u\n",name,jobs);exit(1);}
- snprintf(path,sizeof(path),"build/view/%s.rgb332",name);for(char*p=path+11;*p&&*p!='.';p++)if(*p>='a'&&*p<='z')*p-=32;
+ snprintf(path,sizeof(path),"build/view/%s.indices",name);for(char*p=path+11;*p&&*p!='.';p++)if(*p>='a'&&*p<='z')*p-=32;
  size_t n;unsigned char*expected=load(path,&n);
  unsigned char*actual=physical+0x100000+gfx[2]*65536;
  for(unsigned p=0;p<64000;p++)if(actual[p]!=expected[p]){fprintf(stderr,"VIEW %s pixel %u expected %02x got %02x\n",name,p,expected[p],actual[p]);exit(1);}free(expected);
+ snprintf(path,sizeof(path),"build/view/%s.palette",name);for(char*p=path+11;*p&&*p!='.';p++)if(*p>='a'&&*p<='z')*p-=32;
+ expected=load(path,&n);if(n!=8192)return exit(1);
+ for(unsigned p=0;p<8192;p++)if(abs((int)palette[p]-expected[p])>1||palette[p]==0){fprintf(stderr,"VIEW %s PAL sample %u expected %u got %u\n",name,p,expected[p],palette[p]);exit(1);}free(expected);
  key(0x01);finish_prompt();
  if(!contains("returned to UniDOS")){dump();exit(1);}
- printf("PASS %s/HD6303 native UniDOS VIEW %s: 64000 pixels, PGM relocator, file API, ESC, zero resets\n",model_a?"601A":"601",name);fflush(stdout);
+ printf("PASS %s/HD6303 native UniDOS VIEW %s: 64000 indices, 8192 RGB888 PAL samples within 1 DAC code, palette restored, PGM/BSS/file API/ESC, zero resets\n",model_a?"601A":"601",name);fflush(stdout);
 }
 int main(int argc,char**argv){
  if(argc!=3&&argc!=4)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=1;MC6800SetMachine(PYLDIN_MACHINE_HD6303);
+ for(unsigned p=0;p<8192;p++)previous_palette[p]=palette[p]=(p*31+p/32+11)&63;
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
  if(n!=0x51a00)return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
@@ -89,6 +100,8 @@ int main(int argc,char**argv){
  type_command("b:view b:absent.pcx");finish_prompt();if(!contains("cannot open picture"))return 1;
  type_command("b:view");finish_prompt();if(!contains("Usage: VIEW"))return 1;
  absent=1;type_command("b:view b:odd.pcx");finish_prompt();if(!contains("graphics extension is absent"))return 1;absent=0;
+ version=1;type_command("b:view b:odd.pcx");finish_prompt();if(!contains("update FPGA"))return 1;
+ version=2;show("odd");version=3;
  cpu_hd=0;MC6800SetMachine(PYLDIN_MACHINE_601);type_command("b:view b:odd.pcx");finish_prompt();if(!contains("enable HD6303"))return 1;
  cpu_hd=1;MC6800SetMachine(PYLDIN_MACHINE_HD6303);show("odd");
  type_command("dir b:");finish_prompt();
