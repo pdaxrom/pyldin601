@@ -13,7 +13,7 @@ proc require_scored {report preference} {
 }
 if {[catch {
     # Synplify may continue with an undefined ROM when an init file is absent.
-    foreach path {build/boot.mem rtl/font_boot.mem rtl/ps2_set2.mem rtl/keyboard_translate.mem rtl/pal_waveform.mem rtl/pal_rgb332.mem} {
+    foreach path {build/boot.mem rtl/font_boot.mem rtl/ps2_set2.mem rtl/keyboard_translate.mem rtl/pal_waveform.mem rtl/pal_rgb332.mem rtl/ay8910.mem rtl/ay8910_init.vh} {
         if {![file exists $path] || [file size $path] == 0} {
             error "Missing generated ROM input: $path (run make firmware)"
         }
@@ -22,6 +22,7 @@ if {[catch {
     prj_run Synthesis -impl impl1
     # Behavioural readmemh tests cannot verify Synplify's deep-ROM address order.
     puts [exec python3 tests/check_pal_ebr.py impl1/pyldin601_classic_impl1.edi]
+    puts [exec python3 tests/check_ay_ebr.py impl1/pyldin601_classic_impl1.edi]
     prj_run Translate -impl impl1
     prj_run Map -impl impl1
     prj_run PAR -impl impl1

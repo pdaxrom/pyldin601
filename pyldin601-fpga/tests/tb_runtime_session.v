@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// Actual CPU + runtime SRAM slots + PS/2 + i8272 + SD SPI, restored DOS RAM.
+// Actual CPU + runtime SRAM slots + PS/2 + banked INT17 + direct SD SPI, restored DOS RAM.
 // The card model serves the existing image, validates addresses, rejects writes.
 module runtime_session_fixture(
  input cpu_rw,cpu_vma,input[15:0]cpu_addr,input[7:0]cpu_out,
@@ -18,9 +18,12 @@ module runtime_session_fixture(
   .SRAM_ADDR(sa),.SRAM_DATA(sd),.SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb));
  reg[15:0]memory[0:199679];reg[7:0]expected_screen[0:999];
  wire[19:0]pin_address;wire pin_ce,pin_oe,pin_we,pin_lb,pin_ub;wire[15:0]pin_data;
- assign #15 pin_address=sa;assign #15 pin_ce=ce;assign #15 pin_oe=oe;
- assign #3 pin_we=we;assign #15 pin_lb=lb;assign #15 pin_ub=ub;assign #15 pin_data=sd;
- assign #20 sd=!pin_ce&&!pin_oe&&pin_we?memory[pin_address]:16'bz;
+ // SRAM-10 and the same board/input budgets as tb_turbo_memory:
+ // 10 ns output/PCB + 10 ns SRAM access + 8 ns FPGA input = 28 ns.
+ // A 35 ns model exceeds the production CPU slot's 31.25 ns aperture.
+ assign #10 pin_address=sa;assign #10 pin_ce=ce;assign #10 pin_oe=oe;
+ assign #6 pin_we=we;assign #10 pin_lb=lb;assign #10 pin_ub=ub;assign #15 pin_data=sd;
+ assign #18 sd=!pin_ce&&!pin_oe&&pin_we?memory[pin_address]:16'bz;
  always @(posedge pin_we)if(!pin_ce)begin
   if(!pin_lb)memory[pin_address][7:0]=pin_data[7:0];
   if(!pin_ub)memory[pin_address][15:8]=pin_data[15:8];
@@ -85,8 +88,6 @@ module runtime_session_fixture(
  integer cmd,j,fileout,mismatches;reg[7:0]got;reg armed=0;integer previous_reads;
  always @(negedge cpu_clk)if(armed&&cpu_hold)$fatal(1,"CPU capture stalled PC=%h",cpu_addr);
  always @(posedge clk)if(armed&&cpu_reset)$fatal(1,"runtime reset PC=%h",cpu_addr);
- always @(posedge clk)if(dut.locked&&dut.bus_read&&cpu_addr==16'he628)
-  $display("KEY data=%h ready=%b down=%b irq=%b page=%h at %t",dut.kbd_data,dut.keyboard.key_ready,dut.keyboard.active_down,cpu_irq,dut.page,$time);
  initial begin
   $readmemh("build/session-sram.mem",memory);$readmemh("build/session-screen.mem",expected_screen);
   $readmemh("build/session-disk-a.mem",card);
@@ -111,7 +112,7 @@ module runtime_session_fixture(
   for(j=0;j<65536;j=j+1)begin got=ram(j);$fwrite(fileout,"%c",got);end
   $fclose(fileout);
   if(mismatches)$fatal(1,"%d DOS screen mismatches; start=%h cursor=%h",mismatches,screen_start,cursor);
-  $display("PASS actual VHDL CPU/PS2/i8272/SD: four DIR return to prompt, listing matches native; %d reads",reads);$finish;
+  $display("PASS actual VHDL CPU/PS2/banked INT17/direct SD: four DIR return to prompt, listing matches native; %d reads",reads);$finish;
  end
  // Preserve a short run's actual screen/RAM rather than interpreting the
  // current bus address alone as a hang. This also distinguishes OS reload
@@ -124,7 +125,11 @@ module runtime_session_fixture(
   fileout=$fopen("build/monitor-debug/hdl-short-ram.bin","wb");
   for(j=0;j<65536;j=j+1)begin got=ram(j);$fwrite(fileout,"%c",got);end
   $fclose(fileout);
-  $display("SESSION snapshot CPU=%h start=%h cursor=%h page=%h fdc=%d sd=%d reads=%d",cpu_addr,screen_start,cursor,dut.page,dut.fdc.state,dut.sd.state,reads);
+  $display("SESSION snapshot CPU=%h start=%h cursor=%h page=%h raw_busy=%b reads=%d",cpu_addr,screen_start,cursor,dut.page,dut.raw_busy,reads);
  end
- initial begin #12000000000;$fatal(1,"session timeout CPU=%h fdc=%d sd=%d raw_owned=%b reads=%d",cpu_addr,dut.fdc.state,dut.sd.state,dut.raw_owned,reads);end
+ initial begin #12000000000;$fatal(1,"session timeout CPU=%h raw_busy=%b raw_owned=%b reads=%d",cpu_addr,dut.raw_busy,dut.raw_owned,reads);end
+ initial begin
+  #5000000;
+  if(!dut.locked||!armed)$fatal(1,"context restore failed before any DIR: boot error=%b PC=%h",dut.boot_error,cpu_addr);
+ end
 endmodule

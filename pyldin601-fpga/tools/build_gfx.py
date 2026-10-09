@@ -12,11 +12,15 @@ args = parser.parse_args()
 output = root/'build/gfx'
 output.mkdir(parents=True, exist_ok=True)
 for name in ('GFX.ASM', 'GFXHOWTO.TXT', 'VIEW.ASM', 'VIEWHOW.TXT', 'PALCOEF.ASM',
-             'SPRITES.ASM', 'SPRHOWTO.TXT'):
+             'SPRITES.ASM', 'SPRHOWTO.TXT', 'HAM.ASM', 'HAMHOWTO.TXT',
+             'GFXCLIP.ASM', 'CLIPSPR.ASM', 'CLIPHOW.TXT'):
     data = (root/'firmware/gfx'/name).read_bytes()
     (output/name).write_bytes(data if name.endswith('.ASM') else data.replace(b'\n', b'\r\n'))
 assembler = shutil.which(args.unias) or str(Path(args.unias).resolve())
-for app in ('GFX', 'VIEW', 'SPRITES'):
+for name in ('AY.ASM', 'AYHOWTO.TXT'):
+    data = (root/'firmware/audio'/name).read_bytes()
+    (output/name).write_bytes(data if name.endswith('.ASM') else data.replace(b'\n', b'\r\n'))
+for app in ('GFX', 'VIEW', 'SPRITES', 'HAM', 'CLIPSPR', 'AY'):
     p = subprocess.run([assembler, '-l', f'{app}.LST', '-o', f'{app}_NEW.PGM', f'{app}.ASM'],
                        cwd=output, capture_output=True, text=True)
     (output/f'{app}.log').write_text(p.stdout+p.stderr)
@@ -24,7 +28,7 @@ for app in ('GFX', 'VIEW', 'SPRITES'):
         raise RuntimeError(p.stdout+p.stderr)
     data = (output/f'{app}_NEW.PGM').read_bytes()
     magic, count, offset, length, entry, bss, _, _ = struct.unpack('>8H', data[:16])
-    if app == 'VIEW':
+    if app in ('VIEW', 'HAM'):
         # UniAS emits DS as initialized zeros. The final palette backup is
         # scratch RAM: expose it as PGM BSS so DOS reserves it without disk I/O.
         assert bss == 0 and data[-8192:] == bytes(8192)

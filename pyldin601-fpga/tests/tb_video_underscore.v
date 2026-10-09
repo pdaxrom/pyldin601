@@ -7,7 +7,7 @@ module tb_video_underscore;
     wire request;wire[20:0]ma;wire[5:0]tv;
     reg done=0;reg[7:0]memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,8'b0,
-        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,);
+        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,,1'b0);
     wire[9:0]rx;wire[8:0]ry;wire rv,rf;
     pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(1'b0),.rows(8'd25),.x(rx),.y(ry),.valid(rv),.first(rf));
     reg[7:0]font[0:2047];

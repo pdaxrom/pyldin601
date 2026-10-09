@@ -10,6 +10,7 @@ module classic_gfx(
  output reg[15:0]mem_data,input wire mem_ready,mem_done,input wire[15:0]mem_result
 );
  reg[7:0]job_command,job_colour,job_height;reg[8:0]job_width;
+ reg format;
  reg[3:0]job_source_page,job_destination_page;
  reg[15:0]job_source_offset,job_destination_offset;
  reg token;reg[1:0]done_sync,error_sync,under_sync;reg[7:0]read_byte;
@@ -19,25 +20,25 @@ module classic_gfx(
  always @*begin
   bus_result=8'hff;
   case(address)
-   0:bus_result={busy,1'b0,under_sync[1],error_sync[1],3'b0,enabled};
+   0:bus_result={busy,1'b0,under_sync[1],error_sync[1],1'b0,{2{format}},enabled};
    1:bus_result=job_command;2:bus_result={4'b0,front_sync2};3:bus_result=job_colour;
    4:bus_result={4'b0,job_source_page};5:bus_result={4'b0,job_destination_page};
    6:bus_result=job_source_offset[7:0];7:bus_result=job_source_offset[15:8];
    8:bus_result=job_destination_offset[7:0];9:bus_result=job_destination_offset[15:8];
    10:bus_result=job_width[7:0];11:bus_result={7'b0,job_width[8]};12:bus_result=job_height;
-   13:bus_result=read_byte;14:bus_result=8'h47;15:bus_result=3;
+   13:bus_result=read_byte;14:bus_result=8'h47;15:bus_result=5;
   endcase
  end
  always @(posedge clk)begin
   done_sync<={done_sync[0],finished};error_sync<={error_sync[0],failed};under_sync<={under_sync[0],underrun};
   front_sync1<=front_page;front_sync2<=front_sync1;
   if(reset)begin
-   enabled<=0;token<=0;job_command<=0;job_colour<=0;job_height<=0;job_width<=0;
+   enabled<=0;format<=0;token<=0;job_command<=0;job_colour<=0;job_height<=0;job_width<=0;
    job_source_page<=0;job_destination_page<=0;job_source_offset<=0;job_destination_offset<=0;read_byte<=0;
   end else begin
    if(!busy)read_byte<=fast_read;
    if(bus_write)begin
-    if(address==0)enabled<=bus_data[0];
+    if(address==0)begin enabled<=bus_data[0];format<=bus_data[2:1]==3;end
     else if(!busy)case(address)
      1:begin job_command<=bus_data;token<=!token;end
      3:job_colour<=bus_data;4:job_source_page<=bus_data[3:0];5:job_destination_page<=bus_data[3:0];

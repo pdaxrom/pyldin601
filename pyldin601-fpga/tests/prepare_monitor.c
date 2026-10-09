@@ -36,12 +36,12 @@ int main(int argc,char**argv){
  FILE*f=fopen("build/session-context.json","w");if(!f)return 1;
  fprintf(f,"{\"pc\":%u,\"sp\":%u,\"a\":%u,\"b\":%u,\"x\":%u,\"cc\":%u,\"page\":%u,\"mode\":%u,\"crtc\":[",PC,SP,A,B,X,0xc0|h*32|i*16|n*8|z*4|v*2|c,page,MC6800GetCpuRam()[0xe629]);
  for(unsigned r=0;r<16;r++)fprintf(f,"%s%u",r?",":"",crtc[r]);fprintf(f,"]}\n");fclose(f);
- unsigned before=fdc_reads;
+ unsigned before=sd_reads;
  if(dos){
   for(unsigned cmd=0;cmd<4;cmd++){
-   unsigned reads=fdc_reads;
+   unsigned reads=sd_reads;
    key(0x20);key(0x17);key(0x13);key(0x1c);wait_prompt();
-   if(fdc_reads==reads)return 1;
+   if(sd_reads==reads)return 1;
   }
  }else{
   KBDModKeyDown(2);
@@ -49,7 +49,7 @@ int main(int argc,char**argv){
   KBDModKeyUp(2);
  }
  input_context();dump();
- if(resets||(!dos&&fdc_reads!=before)){fprintf(stderr,"Unexpected reset/disk reads in native monitor\n");return 1;}
+ if(resets||(!dos&&sd_reads!=before)){fprintf(stderr,"Unexpected reset/disk reads in native monitor\n");return 1;}
  save("build/session-expected-ram.bin",MC6800GetCpuRam(),65536);
  save("build/session-expected-crtc.bin",crtc,16);
  unsigned start=crtc[12]*256+crtc[13];unsigned char screen[1000];

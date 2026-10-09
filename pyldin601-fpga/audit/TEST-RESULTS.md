@@ -1,3 +1,63 @@
+## Прямой SD, FPGA BIOS, HAM8 и AY, 9 октября 2026
+
+PASS `make test-direct-sd test-extension-services`: по 94 вызова INT17
+для каждого из восьми сочетаний 601/601A × MC6800/HD6303 × SDHC/SDSC, включая boot B;
+чтение/запись с CRC16, последняя граница, SEEK/FORMAT, IRQ, таймаут,
+отключённая карта, восстановление и 21 повреждённая разметка.
+INT E0 проверен в четырёх сочетаниях модели/ISA, включая signed clipping,
+пределы int16, невидимые спрайты, ошибки/таймаут и AY retrigger.
+Лог `build/direct-sd/bounds-services.log`.
+
+PASS нативных HAM/CLIPSPR на точном готовом образе для 601/601A:
+двойной запуск, guards, ESC, восстановление палитры и DIR.
+AY.PGM прошёл загрузку в настоящем UniDOS обеих моделей, две мелодии,
+темп от INT1C/50 Гц, три канала, ESC/silence и дальнейший DIR.
+Логи `build/direct-sd/{ham-native-final,clip-native-final,ay-app-native}.log`.
+
+PASS модель Lattice DP8KC на конечном EDIF: 33164 такта,
+33163 независимые проверки AY. Проверены INITVAL и адресные пины,
+включая ADA0 byte-enable. `build/ay/vendor-final.log`.
+Strict Diamond TRACE setup/hold/unconstrained — 0.
+PASS основной `make test`: CPU differential/500000 native-инструкций,
+прерывания, ROM lock/handoff/reset, SD/Setup, Python, SRAM/видео обеих
+моделей, GFX на четырёх частотах, HAM8 и 163988 AY-тактов.
+Лог `build/direct-sd/full-regression.log`, exit code 0.
+Дополнительный полный mixed-HDL сеанс DIR повторяется и ещё не объявляется
+PASS. Его первый прогон не восстанавливал DOS: новая модель SRAM задавала
+35 нс при 31,25-нс окне CPU. После возврата к документированному SRAM-10
+бюджету 28 нс короткий actual-CPU прогон восстанавливает ROM lock,
+нативную страницу/CRTC и DOS RAM. Production RTL не менялся для исправления
+этого теста.
+
+Физическое обновление 9 октября: обе ROM на SD записаны и проверены
+прямым чтением; MBR, A/B, P601.SET и 11 таблиц EBR совпадают с резервной
+копией. FPGA FLASH Verify ID / Erase,Program,Verify, JTAG Chain и JTAGENB
+high/low — PASS. HG восстановлен, демо HAM/CLIPSPR/AY установлены;
+пользовательские файлы и LENA.PCX сохранены. Пользователь ответил «да»
+на проверку загрузки, нескольких DIR с A/B, мелодии E:AY после B:HG,
+возврата UniDOS по ESC и полного Reset удержанием 10 секунд.
+Модель и частота этого запуска отдельно не указаны; физическая запись
+файла новым SD-драйвером отдельно не проверялась.
+Отчёты: `build/hardware-direct-sd-20261009`.
+
+## История: HAM6/HAM8 v4
+
+## HAM6/HAM8, 9 октября 2026
+
+PASS: все 4096/262144 RGB-состояния при обоих знаках V, непрерывный DDS,
+sync/burst/blanking, пять дополнительных сдвигов тактов 96/24 МГц.
+Независимый предел ошибки таблицы — 1,809914 DAC-кода без clipping.
+Нативный HAM.PGM проходит обе модели в оригинальных BIOS/UniDOS,
+включая два запуска, SPACE/ESC, PGM BSS, guards, ошибку FILL и DIR.
+Проверен и точный готовый `images/sd.img`.
+
+PASS: прежние native/indexed PAL, 601A (7618560 пикселей), классический
+цвет, общий viewport, GFX 1/2/4/8 МГц без HOLD; реальный HDL HD6303
+с VIEW и SPRITES на 601/8 МГц; HAM на 601/8 МГц и 601A/1 МГц.
+Scope текущего HAM CPU-прогона и строгая
+Diamond/vendor EBR проверка: [HAM.md](HAM.md). Аппаратное изображение
+HAM не считается подтверждённым результатами симуляции.
+
 ## Быстрый ввод PS/2, 8 октября 2026
 
 `make test-keyboard-bios` — PASS: настоящий HDL CPU, production system

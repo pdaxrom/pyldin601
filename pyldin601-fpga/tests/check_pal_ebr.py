@@ -80,7 +80,7 @@ def inspect(path):
     planes = {}
     legacy = None
     for label, props in roms:
-        if label.startswith(('rgb.value_2_0_', 'table_rgb_1_table_rgb_1_0_')):
+        if label.startswith(('rgb.value_2_0_', 'table_rgb_1_table_rgb_')):
             bit = int(label.rsplit('_', 1)[1])
             assert bit not in planes
             if props['_primitive'] == 'DP8KC':
@@ -89,8 +89,11 @@ def inspect(path):
                 assert pins['DOA0'] == f'value[{bit}]' and pins['DOB0'] == f'palette_result[{bit}]'
                 for n in range(13):
                     assert pins[f'ADB{n}'] == f'palette_address[{n}]'
-                    expected_pin = 'phase[31]' if n == 4 else f'carrier_phase[{n}]' if n < 4 else f'rgb_pixel[{n-5}]'
+                    fast_port = pins['CLKA'] == 'clk_fast'
+                    expected_pin = (f'picture_phase[{n}]' if n < 5 else f'read_address[{n}]') if fast_port else \
+                        'phase[31]' if n == 4 else f'carrier_phase[{n}]' if n < 4 else f'rgb_pixel[{n-5}]'
                     assert pins[f'ADA{n}'] == expected_pin
+                assert pins['CLKB'] == 'clk' and pins['CLKA'] in ('clk', 'clk_fast')
             planes[bit] = props
         elif label == 'sample_2_0_0':
             legacy = props
@@ -116,7 +119,7 @@ def inspect(path):
 def vendor_test(planes, legacy, library, output):
     output.mkdir(parents=True, exist_ok=True)
     lines = ['`timescale 1ns/1ps', 'module tb_pal_ebr;',
-             'reg clk=0; always #25 clk=~clk;', 'reg[12:0] addr=0;',
+             'reg clk=0; always #25 clk=~clk; reg fast=0;always #6.25 fast=~fast;', 'reg[12:0] addr=0;',
              'wire[5:0] rgb; wire[8:0] classic;',
              'GSR GSR_INST(1\'b1); PUR PUR_INST(1\'b1);']
     for bit, props in list(planes.items()) + [(6, legacy)]:
@@ -130,7 +133,7 @@ def vendor_test(planes, legacy, library, output):
                      for port in ('A', 'B') for b in range(9)]
             for port in ('A', 'B'):
                 pins += [f'.CE{port}(1\'b1)', f'.OCE{port}(1\'b1)', f'.WE{port}({"write_enable" if port=="B" else "1\'b0"})',
-                         f'.RST{port}(1\'b0)', f'.CLK{port}(clk)']
+                         f'.RST{port}(1\'b0)', f'.CLK{port}({"fast" if port=="A" and props["_pins"]["CLKA"]=="clk_fast" else "clk"})']
                 pins += [f'.CS{port}{b}(1\'b0)' for b in range(3)]
             pins += [f'.DOA0(rgb[{bit}])', f'.DOB0(readback[{bit}])']
             lines.append(f'DP8KC #({params}) rom{bit}({",".join(pins)});')
@@ -161,7 +164,7 @@ def vendor_test(planes, legacy, library, output):
     lines += ['$display("PASS Lattice SP8KC/DP8KC: all PAL addresses, dual-port write/readback and synchronous latency");',
               '$finish;end endmodule']
     source = output / 'tb_pal_ebr.v'
-    source.write_text('\n'.join(lines) + '\n')
+    source.write_text('\n'.join(lines).replace('#2;', '#8;') + '\n')
     binary = output / 'tb_pal_ebr'
     subprocess.run(['iverilog', '-g2012', '-s', 'tb_pal_ebr', '-o', str(binary), str(source),
                     *[str(library / (n + '.v')) for n in ('SP8KC', 'DP8KC', 'GSR', 'PUR')]],

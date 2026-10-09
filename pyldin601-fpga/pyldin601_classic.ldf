@@ -6,20 +6,15 @@
     <Source name="rtl/boot_spi_registers.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
-    <Source name="rtl/chs_to_lba.v" type="Verilog" type_short="Verilog">
-      <Options />
-    </Source>
     <Source name="rtl/classic_boot_ports.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
     <Source name="rtl/classic_cpu_bus.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
-    <Source name="rtl/classic_fdc.v" type="Verilog" type_short="Verilog">
-      <Options />
-    </Source>
     <Source name="rtl/classic_hg.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_gfx.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_ay8910.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_keyboard.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
@@ -51,9 +46,6 @@
       <Options top_module="pyldin601_classic" />
     </Source>
     <Source name="rtl/rom_write_guard.v" type="Verilog" type_short="Verilog">
-      <Options />
-    </Source>
-    <Source name="rtl/sd_spi_block.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
     <Source name="rtl/spi_byte_master.v" type="Verilog" type_short="Verilog">

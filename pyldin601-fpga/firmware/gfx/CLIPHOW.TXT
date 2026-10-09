@@ -1,0 +1,35 @@
+CLIPSPR: native HD6303 sprites with four-edge clipping
+
+Run B:CLIPSPR, or E:CLIPSPR after B:HG (use the actual HG drive letter).
+HD6303 extension must be enabled. FPGA graphics interface v3 or later.
+ESC returns to UniDOS. No FPGA update is needed beyond transparent COPY.
+
+Three 32x32 sprites travel outside every screen edge, disappear completely,
+and return. Only visible pixels are drawn. Colour index zero is transparent.
+Pages 0/1 hold alternating frames, page 2 the atlas, page 3 the background.
+Old visible rectangles are restored separately for both pages, before ANY
+new sprite is drawn; offscreen sprites create no SRAM transaction.
+
+GFXCLIP.ASM is a reusable native HD6303 library for a 320x200 byte framebuffer.
+Inputs (big-endian words unless noted):
+ clip_x, clip_y: signed 16-bit destination coordinates
+ clip_src: unsigned source offset, stride 320
+ clip_width: 1..320; clip_height: 1..200 (byte)
+The complete source rectangle must fit within the first 64000 bytes.
+
+Outputs:
+ clip_source, clip_destination: clipped byte offsets
+ clip_draw_width (word), clip_draw_height (byte): visible dimensions
+Carry clear = visible rectangle; carry set = empty or invalid rectangle.
+For empty/invalid input the output width and height are zero.
+X is preserved; D and flags are clobbered. The library does not access MMIO.
+Use the outputs as COPY source/destination/width/height, preserving stride 320.
+
+Include GFXCLIP.ASM once, after the application's data. CLIPSPR.ASM is an
+example. Signed coordinates include -32768; overflow is rejected safely.
+Source frames stay in bounds even when destination clipping adjusts source.
+
+Verified: 249072 assembled-library cases, all signed X/Y values, random
+rectangles and source overflow; original BIOS/UniDOS 601 and 601A, 400 frames
+per run, repeated calls and ESC; actual HDL CPU, SRAM-10 and both models at
+8 MHz, no HOLD. Software tests cover fully offscreen sprites and re-entry.

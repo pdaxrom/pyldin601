@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // Independent raster oracle: integer division from elapsed 24 MHz clocks,
 // rather than the RTL's phase accumulators, row banks or pixel counters.
-module pal_viewport_reference #(parameter LATENCY=4)(
+module pal_viewport_reference #(parameter LATENCY=5)(
  input wire clk,reset,model_a,extended,colour,
  input wire [7:0] rows,
  output wire [9:0] x,output wire [8:0] y,

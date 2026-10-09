@@ -69,7 +69,9 @@ class SDTests(unittest.TestCase):
         native.joinpath('Bios/bios.roz').write_bytes(bios)
         native.joinpath('Bios/video.roz').write_bytes(bytes([0xbb])*2048)
         for i in range(5):
-            native.joinpath(f'RAMROMDiskPipnet/rom{i}.roz').write_bytes(bytes([i])*32768)
+            data = bytes([i])*32768
+            if i == 0: data = data[:3*8192] + b'\xff'*8192
+            native.joinpath(f'RAMROMDiskPipnet/rom{i}.roz').write_bytes(data)
         files = sd.rom_files(native)
         self.assertEqual(len(files['ROM4.BIN']),65536)
         self.assertEqual(files['ROM4.BIN'][:32768],files['ROM4.BIN'][32768:])

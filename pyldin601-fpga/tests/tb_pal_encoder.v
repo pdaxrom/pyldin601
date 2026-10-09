@@ -6,12 +6,12 @@ module tb_pal_encoder;
     reg reset=1,sync=0,burst=0,alternate=0;
     reg [3:0] colour=0;
     wire [5:0] dac;
-    classic_pal_encoder dut(clk,reset,sync,burst,alternate,colour,dac,1'b0,8'b0,1'b0,4'd0,8'd0,,);
-    real r,g,b,y,u,v,angle,want,delayed=0,output_reference,error,max_error=0;
+    classic_pal_encoder dut(clk,reset,sync,burst,alternate,colour,dac,1'b0,8'b0,1'b0,4'd0,8'd0,,,1'b0);
+    real r,g,b,y,u,v,angle,want,delayed=0,delayed2=0,output_reference,error,max_error=0;
     integer cycles=0,checks=0;
     reg [31:0] seen[0:1];
     always @(posedge clk)begin
-        if(reset)begin cycles=0;delayed=0;end
+        if(reset)begin cycles=0;delayed=0;delayed2=0;end
         else begin
             r=(2.0*colour[2]+colour[3])/3.0;
             g=(2.0*colour[1]+colour[3])/3.0;
@@ -21,7 +21,7 @@ module tb_pal_encoder;
             if(alternate)v=-v;
             angle=cycles*(4433618.75/24000000.0)*6.283185307179586;
             want=sync?0.0:15.0+34.0*(y+u*$sin(angle)+v*$cos(angle));
-            output_reference=delayed;delayed=want;
+            output_reference=delayed2;delayed2=delayed;delayed=want;
             cycles++;
             #1;
             error=real'(dac)-output_reference;if(error<0)error=-error;
@@ -39,7 +39,7 @@ module tb_pal_encoder;
         for(integer a=0;a<2;a++)for(integer c=0;c<16;c++)begin
             colour=c;alternate=a;repeat(256)@(negedge clk);
         end
-        // Mode/burst/sync changes must all have the same two-stage delay.
+        // Mode/burst/sync changes must all have the same three-stage delay.
         colour=15;repeat(31)@(negedge clk);sync=1;
         repeat(113)@(negedge clk);sync=0;colour=0;
         repeat(23)@(negedge clk);burst=1;

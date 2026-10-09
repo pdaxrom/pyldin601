@@ -44,11 +44,11 @@ int main(int argc,char**argv){
  const char*commands[]={"b:hdtest","b:hdmul","b:hdsleep"};
  const char*results[]={"PASS HDTEST: 740 cases","PASS HDMUL: 65536 products","PASS HDSLEEP: 64 wakes"};
  for(unsigned n=0;n<3;n++){
-  unsigned reads=fdc_reads;send_text(commands[n]);until(virtual_cycles+20000000);
-  if(!contains(results[n])||contains("FAIL HD")||fdc_reads==reads||resets){dump();fprintf(stderr,"UniDOS %s failed\n",commands[n]);return 1;}
+  unsigned reads=sd_reads;send_text(commands[n]);until(virtual_cycles+20000000);
+  if(!contains(results[n])||contains("FAIL HD")||sd_reads==reads||resets){dump();fprintf(stderr,"UniDOS %s failed\n",commands[n]);return 1;}
   // A further directory command proves the program returned to DOS.
-  reads=fdc_reads;send_text("dir");until(virtual_cycles+20000000);
-  if(!contains("File(s)")||!contains("A:\\>")||fdc_reads==reads){dump();fprintf(stderr,"DOS did not resume\n");return 1;}
+  reads=sd_reads;send_text("dir");until(virtual_cycles+20000000);
+  if(!contains("File(s)")||!contains("A:\\>")||sd_reads==reads){dump();fprintf(stderr,"DOS did not resume\n");return 1;}
   printf("PASS %s/HD6303 UniDOS loaded %s from B, program passed and DIR resumed\n",model_a?"601A":"601",commands[n]);fflush(stdout);
  }
  return 0;

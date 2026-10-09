@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <string.h>
 #include "core/mc6800.h"
-#include "core/i8272.h"
 #include "core/keyboard.h"
 static unsigned char resident[8192],physical[2*1024*1024],config[96];
 static unsigned char *image;static size_t image_size;
@@ -16,7 +15,8 @@ static unsigned missing_sd,seen_stages,video_mode,screen_checked;
 static unsigned sdsc,sd_idle=1,sd_commands,sd_reads,spi_transfers,sd_mode;
 static unsigned char cmd[6],queue[520];static unsigned cmd_index,queue_count,queue_pos;
 static unsigned char page,crtc_index,crtc[16],tick;
-static unsigned fdc_reads;
+static unsigned fdc_port_accesses;
+static word PC;
 static unsigned caps_off=1;
 static unsigned model_a,cpu_hd,menu_phase,menu_key[2],menu_key_sent[2],boot_tick_number;
 static uint32_t menu_start_cycles[2],menu_end_cycles[2];
@@ -29,6 +29,9 @@ static unsigned sd_cmd0_count,sd_startup_clocks,sd_cmd0_silent,sd_cmd8_silent,sd
 static unsigned sd_init_reject,sd_init_never,sd_bad_r7,sd_reply_delay,sd_tick_stopped;
 static uint32_t sd_power_ready_cycles,sd_first_cmd0_cycles,sd_first_acmd_cycles,sd_acmd_delay_cycles;
 static unsigned char sd_write_data[512];
+#ifdef DIRECT_SD_FIXTURE
+static unsigned runtime_bad_crc,runtime_no_token,runtime_r1,runtime_read_delay;
+#endif
 static void setup_keys(unsigned a,unsigned hd,unsigned save){
  setup_script[setup_length++]=0xf9;
  if(a)setup_script[setup_length++]=0xc2;
@@ -51,7 +54,7 @@ static uint32_t crc_byte(uint32_t c,unsigned char b){c^=b;for(int n=0;n<8;n++)c=
 static void screen_dump(const char*path){FILE*f=fopen(path,"wb");if(!f||fwrite(MC6800GetCpuRam()+0x400,1,960,f)!=960)exit(1);fclose(f);}
 static void sd_command(void){
  unsigned op=cmd[0]&63;uint32_t arg=(uint32_t)cmd[1]<<24|(uint32_t)cmd[2]<<16|cmd[3]<<8|cmd[4];
- if(!screen_checked){
+ if(!committed&&!screen_checked){
   if(video_mode||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[10]!=0x20||crtc[12]!=4||crtc[13]
    ||!screen_is(0x400,model_a?"PYLDIN-601A SYSTEM INITIALIZATION":"PYLDIN-601 SYSTEM INITIALIZATION")
    ||!screen_is(0x450,"STEP 01: INITIALIZING SD")){
@@ -80,14 +83,27 @@ static void sd_command(void){
  case 16:if(arg!=512)queue[0]=4;break;
  case 17:{uint32_t lba=sdsc?arg/512:arg;sd_reads++;
   if((uint64_t)lba*512+512>image_size){queue[0]=0x20;break;}
-  queue[0]=0;queue[1]=255;queue[2]=0xfe;memcpy(queue+3,image+lba*512,512);unsigned c=0;for(unsigned i=0;i<512;i++){c^=queue[3+i]<<8;for(unsigned bit=0;bit<8;bit++)c=c&0x8000?(c<<1)^0x1021:c<<1;c&=65535;}queue[515]=c>>8;queue[516]=c;queue_count=517;break;}
- case 24:sd_write_lba=sdsc?arg/512:arg;sd_write_phase=1;break;
+  queue[0]=0;queue[1]=255;queue[2]=0xfe;memcpy(queue+3,image+lba*512,512);unsigned c=0;for(unsigned i=0;i<512;i++){c^=queue[3+i]<<8;for(unsigned bit=0;bit<8;bit++)c=c&0x8000?(c<<1)^0x1021:c<<1;c&=65535;}queue[515]=c>>8;queue[516]=c;queue_count=517;
+#ifdef DIRECT_SD_FIXTURE
+  if(runtime_bad_crc)queue[516]^=1;
+  if(runtime_no_token){queue_count=1;}
+  if(runtime_r1){queue[0]=runtime_r1;queue_count=1;}
+#endif
+  break;}
+ case 24:sd_write_lba=sdsc?arg/512:arg;sd_write_phase=1;
+#ifdef DIRECT_SD_FIXTURE
+  if(runtime_r1){queue[0]=runtime_r1;sd_write_phase=0;}
+#endif
+  break;
  default:queue[0]=4;
  }
  if(sd_reply_delay&&op!=17&&op!=24){memmove(queue+sd_reply_delay,queue,queue_count);memset(queue,255,sd_reply_delay);queue_count+=sd_reply_delay;}
 }
 static unsigned char transfer(unsigned char d){
  spi_transfers++;if(spi_control&2){if(!sd_cmd0_count&&spi_div==29&&d==255)sd_startup_clocks+=8;return 255;}if(missing_sd)return 255;
+ #ifdef DIRECT_SD_FIXTURE
+ if(runtime_read_delay&&queue_pos==2&&queue_count==517){runtime_read_delay--;return 255;}
+#endif
  if(queue_pos<queue_count)return queue[queue_pos++];
  if(sd_busy_active){
   if(sd_busy_remaining){sd_busy_remaining--;return 0;}
@@ -108,13 +124,12 @@ static unsigned char transfer(unsigned char d){
 }
 byte*allocateCpuRam(dword size){return calloc(1,size);}
 int SuperIoInit(void){return 0;}int SuperIoFinish(void){return 0;}
-void SuperIoReset(void){page=0;disk_address=0;crtc_index=0;memset(crtc,0,sizeof(crtc));tick=0;KBDReset();}
+void SuperIoReset(void){if(committed){sd_idle=0;sd_mode=sdsc?0:0x40;spi_control=0x23;spi_div=29;}page=0;disk_address=0;crtc_index=0;memset(crtc,0,sizeof(crtc));tick=0;KBDReset();}
 void SuperIoUpdate(void){KBDUpdate();}
 void SuperIoPs2KeyDown(unsigned n){}void SuperIoPs2KeyUp(unsigned n){}
 void SuperIoPs2ModKeyDown(byte n){}void SuperIoPs2ModKeyUp(byte n){}
 void resetRequested(void){}
 int SWIemulator(int n,byte*a,byte*b,word*x,byte*t,word*pc){return 0;}
-byte i8272ReadByte(byte a);void i8272WriteByte(byte a,byte d);
 int SuperIoReadByte(word a,byte*out){
 #ifdef HG_FIXTURE
  if(hg_read_byte(a,out))return 1;
@@ -128,7 +143,7 @@ int SuperIoReadByte(word a,byte*out){
  if(committed&&a>=0xc000&&a<0xe000&&(page&8)){*out=physical[0x10000+(page>>4)%5*65536+(page&7)*8192+a-0xc000];return 1;}
  if(a>=0xe660&&a<=0xe664){switch(a&7){case 0:*out=spi_high;break;case 1:*out=spi_low;break;case 2:*out=0x80|spi_control;break;case 3:*out=spi_div;break;default:*out=spi_pout;}return 1;}
  if(a>=0xe6a0&&a<=0xe6af){unsigned p=a&15;*out=255;
-  if(p==0)*out=(committed?0x80:0)|(cpu_hd<<1)|model_a;else if(p==1)*out=debug;else if(p==8)*out=error?128:0;
+  if(p==0)*out=(committed?0x80:0)|(cpu_hd<<1)|model_a;else if(p==1)*out=debug;else if(p==2)*out=(sd_mode>>6)|((config[24]&1)<<1);else if(p==8)*out=error?128:0;
   else if(p==11)*out=aperture_byte;
   else if(p>=12)*out=(crc^0xffffffff)>>((p-12)*8);return 1;}
  if(!committed&&a==0xe62b){
@@ -152,7 +167,7 @@ int SuperIoReadByte(word a,byte*out){
   case 0xe628:*out=KBDReadKey();return 1;case 0xe62a:case 0xe62e:*out=KBDCheckKey()|0x37|(caps_off?8:0);return 1;
   case 0xe62b:*out=tick|0x37;tick=0;return 1;
   case 0xe632:*out=0x80;return 1;
-  case 0xe6c0:case 0xe6d0:case 0xe6d1:*out=i8272ReadByte(a&31);return 1;
+  case 0xe6c0:return 0;case 0xe6d0:*out=0x80;return 1;case 0xe6d1:*out=(fdc_port_accesses++,fprintf(stderr,"removed FDC read %04x PC=%04x page=%02x vector=%02x%02x\n",a,PC,page,MC6800GetCpuRam()[0xee2e],MC6800GetCpuRam()[0xee2f]),exit(1),0);return 1;
  }}return 0;
 }
 int SuperIoWriteByte(word a,byte d){
@@ -199,21 +214,10 @@ int SuperIoWriteByte(word a,byte d){
  case 0xe6f0:page=d;break;
  case 0xe600:case 0xe604:crtc_index=d;return 1;
  case 0xe601:case 0xe605:crtc[crtc_index&15]=d;return 1;
- case 0xe6c0:case 0xe6d0:case 0xe6d1:i8272WriteByte(a&31,d);return 1;
+ case 0xe6c0:return 0;case 0xe6d0:case 0xe6d1:fdc_port_accesses++;fprintf(stderr,"removed FDC write %04x\n",a);exit(1);return 1;
  }return 0;
 }
-int FloppyInit(void){return 0;}int FloppyStatus(int Disk){return 0;}
-static int floppy_sector(int disk,int track,int sector,int head,unsigned char*data,int write){
- unsigned off=32+disk*16,start=le32(config+off),len=le32(config+off+4),spt=le16(config+off+8),heads=le16(config+off+10);
- if(track<0||track>=80||sector<1||sector>spt||head<0||head>=heads)return 0x40;
- unsigned rel=(track*heads+head)*spt+sector-1;if(rel>=len||(uint64_t)(start+rel)*512+512>image_size)return 0x40;
- if(write)memcpy(image+(start+rel)*512,data,512);else{memcpy(data,image+(start+rel)*512,512);fdc_reads++;}return 0;
-}
-int FloppyReadSector(int D,int T,int S,int H,unsigned char*d){return floppy_sector(D,T,S,H,d,0);}
-int FloppyWriteSector(int D,int T,int S,int H,unsigned char*d){return floppy_sector(D,T,S,H,d,1);}
-int FloppyFormatTrack(int D,int T,int H){return 0;}
 #include "core/mc6800.c"
-#include "core/i8272.c"
 #include "core/keyboard.c"
 static unsigned char*load(const char*path,size_t*size){FILE*f=fopen(path,"rb");if(!f){perror(path);exit(1);}fseek(f,0,SEEK_END);*size=ftell(f);rewind(f);unsigned char*p=malloc(*size);if(fread(p,1,*size,f)!=*size)exit(1);fclose(f);return p;}
 int main(int argc,char**argv){
@@ -293,6 +297,6 @@ int main(int argc,char**argv){
   printf("PASS full reset reinitializes powered SD before FAT/ROM reload; retained RAM and disks unchanged\n");
  }
  if(argc>4){FILE*f=fopen(argv[4],"wb");if(!f||fwrite(image,1,image_size,f)!=image_size||fclose(f))return 1;}
- printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; FDC reads=%u; settings=%u/%u/%uMHz, SD writes=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_reads,model_a,cpu_hd,1u<<boot_speed,sd_writes);
+ printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; removed FDC accesses=%u; settings=%u/%u/%uMHz, SD writes=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_port_accesses,model_a,cpu_hd,1u<<boot_speed,sd_writes);
  return 0;
 }

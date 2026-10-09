@@ -14,7 +14,7 @@ static void until(uint64_t target){
 }
 static void dump(void){
  unsigned start=crtc[12]*256+crtc[13],stride=crtc[1];
- fprintf(stderr,"cycles=%llu PC=%04x SP=%04x start=%04x stride=%u page=%02x IRQs=%u reads=%u\n",(unsigned long long)virtual_cycles,PC,SP,start,stride,page,irq_count,fdc_reads);
+ fprintf(stderr,"cycles=%llu PC=%04x SP=%04x start=%04x stride=%u page=%02x IRQs=%u reads=%u\n",(unsigned long long)virtual_cycles,PC,SP,start,stride,page,irq_count,sd_reads);
  for(unsigned y=0;y<25;y++){for(unsigned x=0;x<40;x++){unsigned c=MC6800GetCpuRam()[(start+y*stride+x)&65535];fputc(c>=32&&c<127?c:'.',stderr);}fputc('\n',stderr);}
 }
 static void key(unsigned scan){KBDKeyDown(scan);until(virtual_cycles+100000);KBDKeyUpCode(scan);until(virtual_cycles+100000);}
@@ -59,11 +59,11 @@ int NATIVE_STABILITY_MAIN(int argc,char**argv){
  printf("PASS native firmware idle header unchanged for %u virtual seconds (%u IRQs)\n",idle_seconds,irq_count);fflush(stdout);
  key(0x1c);wait_prompt();
  for(unsigned cmd=0;cmd<32;cmd++){
-  unsigned reads=fdc_reads;
+  unsigned reads=sd_reads;
   key(0x20);key(0x17);key(0x13);key(0x1c);wait_prompt();
-  if(fdc_reads==reads){dump();fprintf(stderr,"DIR %u did not read its directory\n",cmd+1);return 1;}
+  if(sd_reads==reads){dump();fprintf(stderr,"DIR %u did not read its directory\n",cmd+1);return 1;}
  }
  if(resets){fprintf(stderr,"native firmware reset %u times\n",resets);return 1;}
- printf("PASS native firmware completed 32 DIR commands and returned to prompt each time; %u FDC reads, zero resets\n",fdc_reads);
+ printf("PASS native firmware completed 32 DIR commands and returned to prompt each time; %u direct SPI reads, zero resets\n",sd_reads);
  return 0;
 }

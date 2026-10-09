@@ -41,7 +41,24 @@ class BootUpdateTests(unittest.TestCase):
         self.assertEqual(alternate[512+0x50000:512+0x51000], self.bios)
         self.assertEqual(alternate[512:512+0x50000], files['P601.ROM'][512:512+0x50000])
         self.assertEqual(alternate[512+0x51000:], files['P601.ROM'][512+0x51000:])
-        self.assertEqual(metadata['preserved_classic_rom_sha256'], hashlib.sha256(files['P601.ROM']).hexdigest())
+        self.assertEqual(metadata['classic_rom_sha256'], hashlib.sha256(files['P601.ROM']).hexdigest())
+
+    def test_add_extension_preserves_all_native_rom_bytes(self):
+        offset=sd.ALIGN*512
+        files=update.root_files(self.backup[offset:offset+sd.BOOT_SECTORS*512])
+        old=bytearray(files['P601.ROM'])
+        old[512+0x6000:512+0x8000]=b'\xff'*8192
+        struct.pack_into('<I',old,20,__import__('zlib').crc32(old[512:]))
+        struct.pack_into('<I',old,508,__import__('zlib').crc32(old[:508]))
+        files['P601.ROM']=bytes(old)
+        backup=self.backup[:offset]+sd.fat16(files)+self.backup[offset+sd.BOOT_SECTORS*512:]
+        volume,_=update.prepare(backup,self.bios,self.loader)
+        after=update.root_files(volume)['P601.ROM']
+        self.assertEqual(after[512:512+0x6000],old[512:512+0x6000])
+        self.assertEqual(after[512+0x8000:],old[512+0x8000:])
+        extension=after[512+0x6000:512+0x8000]
+        self.assertEqual(extension[:10],b'\xa5\x5aFPGABIOS')
+        self.assertEqual(sum(extension)%256,0)
 
     def test_rejects_truncated_backup_and_wrong_geometry(self):
         with self.assertRaises(ValueError):

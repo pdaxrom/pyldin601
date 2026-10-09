@@ -2,17 +2,18 @@
 // Compare the DAC directly with continuous (unquantized) PAL sine/cosine.
 // This reference does not read the waveform ROM or the RTL phase register.
 module tb_pal_rgb332;
-    reg clk=0;always #20.833333 clk=~clk;
+    reg fast=0;always #5.20833325 fast=~fast;
+ reg clk=0;always #20.833333 clk=~clk;
     reg reset=1,sync=0,burst=0,alternate=0;
     reg [7:0] colour=0;
     wire [5:0] dac;
-    classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'b0,dac,1'b1,colour,1'b0,4'd0,8'd0,,);
-    real r,g,b,y,u,v,angle,want,delayed=0,output_reference,error,max_error=0;
-    real allowed,delayed_allowed=0,output_allowed;
+    classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'b0,dac,1'b1,colour,1'b0,4'd0,8'd0,,,fast);
+    real r,g,b,y,u,v,angle,want,delayed=0,delayed2=0,output_reference,error,max_error=0;
+    real allowed,delayed_allowed=0,delayed_allowed2=0,output_allowed;
     integer cycles=0,checks=0;
     reg [255:0] seen[0:1];
     always @(posedge clk)begin
-        if(reset)begin cycles=0;delayed=0;delayed_allowed=0;end
+        if(reset)begin cycles=0;delayed=0;delayed2=0;delayed_allowed=0;delayed_allowed2=0;end
         else begin
             r=real'(colour[7:5])/7.0;
             g=real'(colour[4:2])/7.0;
@@ -22,11 +23,11 @@ module tb_pal_rgb332;
             if(alternate)v=-v;
             angle=cycles*(4433618.75/24000000.0)*6.283185307179586;
             want=sync?0.0:15.0+34.0*(y+u*$sin(angle)+v*$cos(angle));
-            output_reference=delayed;delayed=want;
+            output_reference=delayed2;delayed2=delayed;delayed=want;
             // A full-intensity primary has more chroma than the legacy IRGB
             // palette. Derive the phase-bin plus DAC rounding error per colour.
             allowed=sync?0.0:0.5001+68.0*$sqrt(u*u+v*v)*$sin(3.141592653589793/64.0);
-            output_allowed=delayed_allowed;delayed_allowed=allowed;
+            output_allowed=delayed_allowed2;delayed_allowed2=delayed_allowed;delayed_allowed=allowed;
             cycles++;
             #1;
             error=real'(dac)-output_reference;if(error<0)error=-error;
@@ -44,7 +45,7 @@ module tb_pal_rgb332;
         for(integer a=0;a<2;a++)for(integer c=0;c<256;c++)begin
             colour=c;alternate=a;repeat(256)@(negedge clk);
         end
-        // Mode/burst/sync changes must all have the same two-stage delay.
+        // Mode/burst/sync changes must all have the same three-stage delay.
         colour=15;repeat(31)@(negedge clk);sync=1;
         repeat(113)@(negedge clk);sync=0;colour=0;
         repeat(23)@(negedge clk);burst=1;

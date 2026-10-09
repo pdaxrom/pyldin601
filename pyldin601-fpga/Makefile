@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := hg frequency_controls timer_tick memory arbiter arbiter_contract boot_ports boot_header spi_registers sram sd keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation fdc fdc_sd video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
+BENCHES := hg frequency_controls timer_tick memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -86,16 +86,18 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-gfx test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-gfx test-ham-pal test-ay test-direct-sd test-extension-services test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 firmware: | $(BUILD)
+	$(PYTHON) tools/build_extension.py --unias $(UNIAS)
 	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
 	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
+	$(PYTHON) tools/make_psg.py --output rtl/ay8910.mem
 	$(PYTHON) tools/make_boot.py
 	$(PYTHON) tools/asm6800.py firmware/loader.asm --output $(BUILD)/loader.bin --origin 0x2000
 $(BUILD):
 	mkdir -p $(BUILD)
-test-python:
+test-python: firmware
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
 test-rtl: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_video_reference.c -o $(BUILD)/prepare_video_reference
@@ -106,11 +108,9 @@ test-rtl: fixtures
 	$(BUILD)/prepare_colour_reference
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_601a_reference.c -o $(BUILD)/prepare_601a_reference
 	$(BUILD)/prepare_601a_reference
-	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/pal_viewport_reference.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
+	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/pal_viewport_reference.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
 	$(IVERILOG) -g2012 -s tb_transparent_video -Ptb_transparent_video.MODEL_A=1 -o $(BUILD)/tb_transparent_video-a $(RTL) tests/fast_clock.v tests/tb_transparent_video.v
 	$(VVP) $(BUILD)/tb_transparent_video-a
-	$(VVP) $(BUILD)/tb_sd +sdsc
-	$(VVP) $(BUILD)/tb_sd +badcrc
 test-cpu: | $(BUILD)
 	$(PYTHON) tests/prepare_cpu.py
 	$(CC) -O2 -I$(EMUSRC) tests/test_cpu_reference.c -o $(BUILD)/cpu_reference
@@ -118,6 +118,22 @@ test-cpu: | $(BUILD)
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_cpu.vhd -e tb_cpu -r tb_cpu
 fixtures: firmware
 	$(PYTHON) tests/prepare_images.py $(NATIVE) $(BUILD)
+.PHONY: test-direct-sd test-extension-services test-runtime-session
+test-direct-sd: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_direct_sd.c -o $(BUILD)/test_direct_sd
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do for card in sdhc sdsc; do $(BUILD)/test_direct_sd images/sd.img $$model $$cpu $$card; done; done; done
+test-extension-services: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_extension_services.c -o $(BUILD)/test_extension_services
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_extension_services $$model $$cpu; done; done
+test-runtime-session: test-mixed-clock fixtures
+	mkdir -p $(BUILD)/monitor-debug
+	$(CC) -O2 -I$(EMUSRC) tests/prepare_monitor.c -o $(BUILD)/prepare_monitor
+	$(BUILD)/prepare_monitor images/sd.img dir > $(BUILD)/monitor-debug/native-session.log 2>&1
+	$(PYTHON) tests/prepare_runtime.py --prefix session
+	$(PYTHON) -c "from pathlib import Path; p=Path('images/sd.img').read_bytes()[34816*512:(34816+2880)*512]; Path('build/session-disk-a.mem').write_text(''.join('%02x\\n'%v for v in p))"
+	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-session --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_session.v tests/tb_runtime_session.vhd -e -j tb_runtime_session -r tb_runtime_session > $(BUILD)/monitor-debug/runtime-session.log 2>&1
+	@tail -8 $(BUILD)/monitor-debug/runtime-session.log
+	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual VHDL CPU/PS2/banked INT17/direct SD' in Path('build/monitor-debug/runtime-session.log').read_text()"
 test-firmware: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img
@@ -277,3 +293,40 @@ test-gfx: firmware
 	$(VVP) $(BUILD)/tb_gfx
 test-gfx-app: gfx-apps
 	$(PYTHON) tests/run_gfx_app.py --nvc "$(NVC)"
+
+# HAM formats share the existing waveform RAM; verify all colour states and
+# clock phases before exercising the real PGM on the production CPU/SRAM.
+.PHONY: test-ham test-ham-pal
+test-ham-pal: firmware
+	$(PYTHON) tests/test_ham_tables.py
+	$(IVERILOG) -g2012 -s tb_pal_ham -o $(BUILD)/ham/tb_pal_ham rtl/classic_pal_encoder.v tests/tb_pal_ham.v
+	$(VVP) $(BUILD)/ham/tb_pal_ham
+	@set -e; for phase in 1 2.604 5.208 7.812 10.415; do $(IVERILOG) -g2012 -s tb_pal_ham -Ptb_pal_ham.FULL=0 -Ptb_pal_ham.FAST_OFFSET=$$phase -o $(BUILD)/ham/tb_pal_ham-phase rtl/classic_pal_encoder.v tests/tb_pal_ham.v; $(VVP) $(BUILD)/ham/tb_pal_ham-phase; done
+test-ham: gfx-apps fixtures test-ham-pal
+	$(PYTHON) tests/prepare_ham.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_ham_unidos.c -o $(BUILD)/test_ham_unidos
+	$(BUILD)/test_ham_unidos $(BUILD)/ham/sd.img 601
+	$(BUILD)/test_ham_unidos $(BUILD)/ham/sd.img 601a
+	$(PYTHON) tests/run_ham_app.py --nvc $(NVC)
+
+.PHONY: test-clip-sprites
+# CHIP HDL defaults test all four CPU speeds; --models/--speeds permit scoped runs.
+test-clip-sprites: gfx-apps fixtures
+	$(PYTHON) tests/prepare_clip_symbols.py
+	$(CC) -O2 -I$(EMUSRC) -I$(BUILD)/clip-sprites tests/test_gfx_clip.c -o $(BUILD)/test_gfx_clip
+	$(BUILD)/test_gfx_clip $(BUILD)/gfx/CLIPSPR.PGM
+	$(PYTHON) tests/prepare_clip_sprites.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_clip_sprites_unidos.c -o $(BUILD)/test_clip_sprites_unidos
+	$(BUILD)/test_clip_sprites_unidos $(BUILD)/clip-sprites/sd.img 601
+	$(BUILD)/test_clip_sprites_unidos $(BUILD)/clip-sprites/sd.img 601a
+	$(PYTHON) tests/run_clip_sprites_app.py --nvc $(NVC)
+
+.PHONY: test-ay test-ay-app
+test-ay: firmware
+	$(IVERILOG) -g2012 -s tb_ay8910 -o $(BUILD)/tb_ay8910 rtl/classic_ay8910.v tests/tb_ay8910.v
+	$(VVP) $(BUILD)/tb_ay8910
+test-ay-app: gfx-apps fixtures
+	$(PYTHON) tests/prepare_ay.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_ay_unidos.c -o $(BUILD)/test_ay_unidos
+	$(BUILD)/test_ay_unidos 601
+	$(BUILD)/test_ay_unidos 601a

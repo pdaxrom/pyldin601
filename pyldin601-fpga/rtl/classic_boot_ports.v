@@ -54,7 +54,7 @@ module classic_boot_ports(
  always @*begin
   bus_result=8'hff;
   case(address)
-   0:bus_result={locked,error,2'b0,boot_speed,hd6303_en,model_a};1:bus_result=debug;2:bus_result={7'b0,sd_block_addressing};
+   0:bus_result={locked,error,2'b0,boot_speed,hd6303_en,model_a};1:bus_result=debug;2:bus_result={6'b0,boot_b,sd_block_addressing};
    8:bus_result={error,6'b0,pending};
    11:bus_result=read_data;
    12:bus_result=crc[7:0]^8'hff;13:bus_result=crc[15:8]^8'hff;

@@ -62,6 +62,24 @@ def palette_coefficients():
             yield gain
 
 
+def ham_samples():
+    """HAM8 component contributions, fitting the existing RAM.
+
+    3 channels x 64 levels x 32 phases. Six-bit samples are biased by
+    R=12, G=1, B=12; the encoder sums them and subtracts ten, including
+    the DAC black pedestal of fifteen. Native HD6303 computes these with
+    the same signed Q9 coefficients, one MUL per sample.
+    """
+    gains = list(palette_coefficients())
+    for channel, bias in enumerate((12, 1, 12)):
+        for level in range(64):
+            value = (level << 2) | (level >> 4)
+            for phase in range(32):
+                sample = bias + (gains[phase*3+channel]*value+256)//512
+                assert 0 <= sample < 64
+                yield sample
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("rtl/pal_waveform.mem"))

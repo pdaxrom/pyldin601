@@ -1,0 +1,15 @@
+AY - three-channel sound demonstration
+=======================================
+Requires HD6303 EXTENSION Y and the new FPGA BIOS extension in page B.
+Run B:AY, or E:AY through HG (replace E with its assigned drive letter).
+ESC stops all AY voices and returns to UniDOS. Both audio outputs carry
+the same mixed AY and native beeper signal. Use a powered speaker.
+The 2 MHz AY master is independent of the selected CPU frequency.
+The three voices play melody, octave and bass; notes change every 0.5 s.
+
+MMIO E610..E61F selects AY registers directly. Tone periods are little
+endian, R0..5; noise R6; mixer R7; channel levels R8..10; envelope R11..13.
+Writes to R13 restart its envelope, including repeated writes of a shape.
+The banked ROM INT E0 function 5 sends fourteen bytes from RAM at X;
+R13=FF skips that register to preserve an already running envelope.
+Function 6 mutes all three AY channels. The native beeper stays available.

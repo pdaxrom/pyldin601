@@ -3,13 +3,14 @@
 // ITU-R BT.470/1700: H=64 us, equalizing=2.35 us, H sync=4.7 us,
 // broad sync=27.3 us, broad gap=4.7 us; five pulses per vertical sequence.
 module tb_pal_timing;
+ reg fast=0;always #1.25 fast=~fast;
  reg clk=0;always #5 clk=~clk;
  reg reset=1;wire[5:0]tv;wire tick;
  classic_video #(.GFX(1)) dut(.clk(clk),.reset(reset),
   .bus_read(1'b0),.bus_write(1'b0),.bus_address(1'b0),.bus_data(8'd0),.mode(8'd1),
   .font_write(1'b0),.font_address(11'd0),.font_data(8'd0),
   .mem_ready(1'b0),.mem_done(1'b0),.mem_data(8'd0),.tvout(tv),.tick50(tick),
-  .model_a(1'b0),.gfx_enable(1'b0),.gfx_pixel(8'd0));
+  .model_a(1'b0),.gfx_enable(1'b0),.gfx_pixel(8'd0),.fast(fast));
  integer cycles=0,start=0,width=0,previous_end=0,previous_width=0;
  integer short_count=0,normal_count=0,broad_count=0,fields=0,last_tick=-1;
  reg previous_sync=1,first_pulse=1;

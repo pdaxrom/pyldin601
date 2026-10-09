@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Prepare a FAT16 boot-partition update from a regular SD backup.
 
-Retain existing classic ROM banks/font/BIOS and all other boot files. Install
-the current loader and a separate 601A bundle. Never open a block device.
+Retain existing ROM banks/font/BIOS and all other boot files. Install the
+UniAS FPGA extension in free page B of both models, plus the current loader.
+Never open a block device.
 """
 import argparse
 import hashlib
@@ -79,16 +80,20 @@ def prepare(backup, bios_a, loader):
         drives.append(info)
     rom_files = {f'ROM{i}.BIN': rom[512 + i * 65536:512 + (i + 1) * 65536] for i in range(5)}
     rom_files['FONT.BIN'] = rom[512 + 0x51000:]
+    rom_files['BIOS.BIN'] = rom[512 + 0x50000:512 + 0x51000]
+    files['P601.ROM'] = sd.bundle(rom_files, drives, rom[24], 0)
     rom_files['BIOS.BIN'] = bios_a
     files['P601A.ROM'] = sd.bundle(rom_files, drives, rom[24], 1)
     files['LOADER.BIN'] = loader
     configuration = json.loads(files.get('P601.CFG', b'{}'))
-    configuration.update(models=['601', '601A'], rom_a_crc32=f'{sd.u32(files["P601A.ROM"], 20):08x}')
+    configuration.update(models=['601', '601A'], rom_crc32=f'{sd.u32(files["P601.ROM"], 20):08x}',
+                         rom_a_crc32=f'{sd.u32(files["P601A.ROM"], 20):08x}')
     files['P601.CFG'] = (json.dumps(configuration, indent=2) + '\n').encode('ascii')
     files.setdefault('P601.SET', sd.settings_record())
     return sd.fat16(files), {'start_lba': start, 'sectors': sectors, 'drives': drives,
         'files_sha256': {name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
-        'preserved_classic_rom_sha256': hashlib.sha256(rom).hexdigest(),
+        'original_classic_rom_sha256': hashlib.sha256(rom).hexdigest(),
+        'classic_rom_sha256': hashlib.sha256(files['P601.ROM']).hexdigest(),
         'mbr_sha256': hashlib.sha256(backup[:512]).hexdigest(),
         'data_sha256': [hashlib.sha256(backup[e[4]*512:(e[4]+e[5])*512]).hexdigest() for e in entries[1:]]}
 

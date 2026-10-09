@@ -24,7 +24,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  // Sample the related fast-domain busy on the falling 24 MHz edge. It is
  // then stable for half a system period before reset/speed decisions.
  always @(negedge clk)if(cold_reset)memory_busy<=1;else memory_busy<=fast_memory_busy;
- wire sd_ready,sd_initialized,sd_done,sd_error,raw_busy,raw_cs;
+ wire raw_busy,raw_cs;
  wire locked,boot_mode,boot_error;
  // Stop new requests immediately, drain accepted SRAM/SD writes, then reset CPU.
  reg warm_hold;reg[5:0]reset_tail;
@@ -32,7 +32,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   if(cold_reset)begin warm_hold<=1;reset_tail<=32;end
   else if(warm_request)begin warm_hold<=1;reset_tail<=32;end
   else if(warm_hold)begin
-   if(!memory_busy&&(boot_mode||sd_ready||sd_error))begin
+   if(!memory_busy&&!raw_busy)begin
     if(reset_tail!=0)reset_tail<=reset_tail-1'b1;else warm_hold<=0;
    end
   end
@@ -46,7 +46,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   if(power_reset)restart_seen<=0;
   else begin
    if(!reload_request)restart_seen<=0;
-   else if(!restart_seen&&warm_hold&&!memory_busy&&!raw_busy&&(boot_mode||sd_ready||sd_error))begin
+   else if(!restart_seen&&warm_hold&&!memory_busy&&!raw_busy)begin
     restart_reset<=1;restart_seen<=1;
    end
   end
@@ -100,20 +100,25 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  always @(posedge clk)boot_byte<=boot_rom[{~cpu_addr[13],cpu_addr[11:0]}];
  wire cycle=phase==1&&!cpu_reset&&cpu_vma;
  wire bus_read=cycle&&cpu_rw,bus_write=cycle&&!cpu_rw;
- wire boot_io=(boot_mode||(cpu_rw&&cpu_addr==16'he6a0))&&cpu_addr[15:4]==12'he6a;
+ wire boot_io=(boot_mode||(cpu_rw&&(cpu_addr==16'he6a0||cpu_addr==16'he6a2)))&&cpu_addr[15:4]==12'he6a;
  wire spi_io=cpu_addr>=16'he660&&cpu_addr<=16'he664;
  wire hg_io=cpu_addr[15:2]==14'h399c;
  wire gfx_io=cpu_addr[15:4]==12'he65;
+ wire ay_io=cpu_addr[15:4]==12'he61;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
- wire fdc_io=!boot_mode&&(cpu_addr==16'he6c0||cpu_addr==16'he6d0||cpu_addr==16'he6d1);
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
  wire timer_io=cpu_addr==16'he62b;
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he682
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire disk_data_io=cpu_addr==16'he683;
+ // Native ROM tests bit7 at E6D0 before calling INT17. This constant is
+ // a presence strap only; command/data registers and the i8272 FSM are absent.
+ wire disk_present=cpu_rw&&!boot_mode&&cpu_addr==16'he6d0;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
- wire peripheral=boot_io||spi_io||hg_io||gfx_io||crtc_io||fdc_io||keyboard_io||timer_io||simple_io||rom_read;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||crtc_io||keyboard_io||timer_io||simple_io||rom_read||disk_present;
+ wire[7:0]ay_result;wire ay_audio;
  reg[7:0]page,mode;reg caps_off,speaker;reg[18:0]ramdisk_address;
+ classic_ay8910 ay(clk,clk_fast,cpu_reset,bus_write&&ay_io,cpu_addr[3:0],cpu_out,ay_result,ay_audio,speaker);
  wire[20:0]mapped_address;wire ignored_io;
  classic_memory_map map(cpu_addr,!cpu_rw,page,mapped_address,ignored_io);
  wire[7:0]kbd_data,kbd_status;
@@ -133,41 +138,17 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   cpu_addr[3:0],cpu_out,boot_result,boot_request,boot_write,boot_address,boot_data,boot_accept,boot_done,memory_read_data,
   !raw_busy&&raw_cs,locked,boot_mode,boot_error,boot_debug,sd_mode,
   a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a,configured_hd,boot_speed);
- wire fdc_request,fdc_write,fdc_buffer_write,fdc_active;wire[31:0]fdc_lba;
- wire[8:0]fdc_buffer_address;wire[7:0]fdc_buffer_data,fdc_result,sd_buffer_result;
- classic_fdc fdc(clk,cpu_reset,bus_read&&fdc_io,bus_write&&fdc_io,cpu_addr[4:0],cpu_out,
-  fdc_result,boot_b,a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,
-  fdc_request,fdc_write,fdc_lba,sd_ready&&!raw_owned&&!warm_hold,sd_done,sd_error,
-  fdc_buffer_address,fdc_buffer_write,fdc_buffer_data,sd_buffer_result,fdc_active);
- wire raw_start,host_start,byte_busy,byte_done;wire[7:0]raw_tx,raw_div,host_tx,host_div,byte_rx,raw_result;
- reg raw_used_runtime,raw_selected_last,byte_owner_raw;
+ // Runtime INT17 and the bootstrap use the same CPU-driven SPI registers.
+ // No FDC protocol emulator, sector RAM, autonomous SD host or ownership mux.
+ wire raw_start,byte_busy,byte_done;
+ wire[7:0]raw_tx,raw_div,byte_rx,raw_result;
  assign raw_owned=!raw_cs||raw_busy;
- // A raw runtime session invalidates backend SD state. Re-init on its release.
- always @(posedge clk)begin
-  if(cold_reset)begin raw_used_runtime<=0;raw_selected_last<=0;end
-  else begin
-   raw_selected_last<=raw_owned;
-   if(locked&&raw_owned)raw_used_runtime<=1;
-  end
- end
- wire raw_enabled=boot_mode||(!fdc_active&&sd_ready)||raw_owned;
- boot_spi_registers raw_spi(clk,cold_reset||(cpu_reset&&(!locked||!byte_busy)),raw_enabled,
+ boot_spi_registers raw_spi(clk,cold_reset||(cpu_reset&&!byte_busy),1'b1,
   bus_write&&spi_io,cpu_addr[2:0],cpu_out,raw_result,raw_busy,raw_cs,
-  byte_busy&&byte_owner_raw,byte_done&&byte_owner_raw,byte_rx,raw_start,raw_tx,raw_div);
- always @(posedge clk)begin
-  if(cold_reset)byte_owner_raw<=0;
-  else if(!byte_busy&&(raw_start||host_start))byte_owner_raw<=raw_owned;
- end
- wire block_cs;
- wire host_reset=cold_reset||(locked&&raw_owned);
- sd_spi_block #(.EXTERNAL_INIT(1)) sd(clk,host_reset,fdc_request&&!raw_owned&&!warm_hold,
-  fdc_write,fdc_lba,sd_ready,sd_initialized,sd_done,sd_error,
-  fdc_buffer_address,fdc_buffer_write,fdc_buffer_data,sd_buffer_result,block_cs,
-  locked,sd_mode,!raw_used_runtime,host_start,host_tx,host_div,
-  byte_busy&&!byte_owner_raw,byte_done&&!byte_owner_raw,byte_rx);
- spi_byte_master shifter(clk,cold_reset||(cpu_reset&&boot_mode),raw_owned?raw_start:host_start,
-  raw_owned?raw_tx:host_tx,raw_owned?raw_div:host_div,miso,msck,mosi,byte_busy,byte_done,byte_rx);
- assign mss=raw_owned?raw_cs:block_cs;
+  byte_busy,byte_done,byte_rx,raw_start,raw_tx,raw_div);
+ spi_byte_master shifter(clk,cold_reset,raw_start,raw_tx,raw_div,
+  miso,msck,mosi,byte_busy,byte_done,byte_rx);
+ assign mss=raw_cs;
  wire video_request,video_accept,video_done,video_tick;wire[20:0]video_address;wire[7:0]video_result;
  wire font_write=boot_accept&&boot_write&&boot_address>=21'h61000&&boot_address<21'h61800;
  wire gfx_enabled,gfx_line_request,gfx_vblank,gfx_pixel_bank;wire[7:0]gfx_line_y,gfx_pixel,gfx_result;
@@ -181,7 +162,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   video_result,mode,font_write,boot_address[10:0],boot_data,
   video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,model_a,
   gfx_enabled,gfx_pixel,gfx_line_request,gfx_vblank,gfx_line_y,gfx_pixel_x,gfx_pixel_bank,
-  bus_write&&gfx_io,cpu_addr[3:0],cpu_out,palette_read_mode,palette_result);
+  bus_write&&gfx_io,cpu_addr[3:0],cpu_out,palette_read_mode,palette_result,clk_fast);
  // One optimized physical SRAM sequencer for bootstrap, CPU and video.
  // Registered requests cross to 96 MHz; completions remain until consumed.
  wire disk_advance;
@@ -233,12 +214,13 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  always @*begin
   peripheral_data=8'hff;
   if(rom_read)peripheral_data=boot_byte;
+  else if(disk_present)peripheral_data=8'h80;
   else if(boot_io)peripheral_data=boot_result;
   else if(spi_io)peripheral_data=raw_result;
   else if(hg_io)peripheral_data=hg_result;
+  else if(ay_io)peripheral_data=ay_result;
   else if(gfx_io)peripheral_data=cpu_addr[3:0]==14&&palette_read_mode?{2'b0,palette_result}:gfx_result;
   else if(crtc_io)peripheral_data=video_result;
-  else if(fdc_io)peripheral_data=fdc_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);
   else if(timer_io)peripheral_data=8'h37|(tick_pending?8'h80:0)|(speaker?8'h08:0);
   // UniBIOS reads DRB before modifying video or LAT/CYR bits.
@@ -271,7 +253,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  end
  // UART is unused in the normal machine; keep the board TX pin idle.
  assign txd=1'b1;
- assign audio={2{speaker}};
+ assign audio={2{ay_audio}};
  classic_frequency_display display(clk,cold_reset,speed,boot_mode,seg_led_h,seg_led_l);
  // Active-low cathodes: pin39 red, pin41 green, pin42 blue.
  // Schematic LED_B/LED_G names are swapped; use the actual LED cathodes.

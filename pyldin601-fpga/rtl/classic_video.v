@@ -23,7 +23,8 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     output reg gfx_line_request,gfx_vblank,output reg[7:0]gfx_line_y,
     output wire[8:0]gfx_pixel_x,output wire gfx_pixel_bank,
     input wire palette_write,input wire[3:0]palette_register,input wire[7:0]palette_data,
-    output wire palette_read_mode,output wire[5:0]palette_result
+    output wire palette_read_mode,output wire[5:0]palette_result,
+    input wire fast
 );
     reg [7:0] registers[0:15];reg[7:0] register_index;
     wire extended=GFX&&gfx_enable;
@@ -198,7 +199,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     classic_pal_encoder #(.GFX(GFX)) encoder(clk,reset,
         sync_pipe[1],burst_pipe[1],alternate_pipe[1],pixel_colour,tvout,
         extended&&h_pipe[1]&&v_pipe[1],rgb_pixel,
-        palette_write,palette_register,palette_data,palette_read_mode,palette_result);
+        palette_write,palette_register,palette_data,palette_read_mode,palette_result,fast);
     reg[1:0] dma_state;
     reg[6:0] dma_column;reg dma_bank;
     assign mem_request=dma_state==1;

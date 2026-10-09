@@ -1,0 +1,31 @@
+HAM - native HD6303 HAM8 demonstration
+====================================
+Requires FPGA graphics v5 or later and HD6303 EXTENSION Y.
+Run B:HAM, or E:HAM through HG (use its assigned drive letter).
+The display is HAM8. ESC returns
+normally to UniDOS and restores the complete previous indexed palette.
+Page 0 is overwritten. The other graphics pages, text RAM and disks
+are preserved. Preparation is slower at 1 MHz; 8 MHz is recommended.
+
+HAM8 has 6-bit RGB components (262144 states), using one byte per pixel
+and a 64000-byte frame. The display shows 4096 distinct colour states.
+Each five-pixel
+cell explicitly sets R, G, B; the last three pixels show its exact colour.
+HAM8 shows fine R/G and diagonal B ramps.
+
+E650 = 1: indexed; 7: HAM8; 0: native text/graphics.
+HAM8: bits 7:6 select the operation, bits 5:0 are the value.
+00: fixed base colour RGB22264; 01: blue; 10: red; 11: green.
+Component modifications hold the other two components. Every physical
+scanline starts from black. The same command can repeat over scaled pixels.
+The six-bit PAL DAC and composite signal bandwidth still determine the
+visible colour precision; these are RGB state counts, not DAC bit depth.
+This extension uses a packed byte stream, not Amiga planar memory.
+
+Before enabling HAM, load its three 64x32 PAL contribution tables through
+E652/E65D/E65E. Address = channel*2048 + component*32 + phase, R/G/B = 0/1/2.
+The demo computes the tables on HD6303 with MUL and signed Q9 coefficients.
+It saves/restores all 8192 old table bytes; no host conversion is involved.
+All existing FILL, COPY, transparent COPY, byte access and VBL FLIP commands
+operate on the same byte streams. A transparent copy must respect HAM's
+horizontal colour dependency; indexed SPRITES remains the sprite demo.

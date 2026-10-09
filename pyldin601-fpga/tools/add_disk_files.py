@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Add root 8.3 files to a FAT12 A/B partition in a new regular SD image.
 
-Existing files, geometry, MBR and all other partitions remain byte-for-byte
-unchanged. Refuse duplicate names, conflicting FAT copies and full volumes.
+Other files, geometry, MBR and all other partitions remain byte-for-byte
+unchanged. Duplicate names require --replace; conflicting FAT copies and
+insufficient free clusters are rejected.
 Never open a block device or overwrite the input/output image.
 """
 import argparse
@@ -74,18 +75,32 @@ def root_files(volume):
     return files
 
 
-def add_files(volume, files):
+def add_files(volume, files, replace=False):
     info, table, fat_start, fat_size, copies, root, entries, data_start = layout(volume)
     result=bytearray(volume)
     unit=info['sectors_per_cluster']*512
-    occupied={bytes(volume[p:p+11]) for p in range(root,root+entries*32,32) if volume[p] not in (0,0xe5)}
+    occupied={bytes(volume[p:p+11]):p for p in range(root,root+entries*32,32) if volume[p] not in (0,0xe5)}
     slots=[p for p in range(root,root+entries*32,32) if volume[p] in (0,0xe5)]
+    original_files=root_files(volume)
+    for name in files:
+        label=short_name(name)
+        if label not in occupied:continue
+        if not replace:raise ValueError(f'file already exists: {name}')
+        pos=occupied[label]
+        if volume[pos+11]&0x18 or volume[pos+11]==0x0f:
+            raise ValueError(f'cannot replace directory/volume entry: {name}')
+        cluster=sd.u16(volume,pos+26)
+        seen=set()
+        while cluster>=2 and cluster<0xff8:
+            if cluster in seen or cluster>=info['clusters']+2:
+                raise ValueError(f'{name}: invalid replacement chain')
+            seen.add(cluster)
+            following=fat_get(table,cluster);fat_set(table,cluster,0);cluster=following
+        result[pos]=0xe5;slots.append(pos)
+    slots.sort()
     free=[n for n in range(2,info['clusters']+2) if fat_get(table,n)==0]
     needed=sum((len(data)+unit-1)//unit for data in files.values())
     if len(files)>len(slots) or needed>len(free):raise ValueError('disk/root directory full')
-    for name in files:
-        if short_name(name) in occupied:raise ValueError(f'file already exists: {name}')
-    original_files=root_files(volume)
     for pos,(name,data) in zip(slots,files.items()):
         count=(len(data)+unit-1)//unit
         chain, free=free[:count],free[count:]
@@ -104,12 +119,12 @@ def add_files(volume, files):
         start=fat_start+copy*fat_size;result[start:start+fat_size]=table
     extracted=root_files(result)
     assert all(extracted[name]==data for name,data in files.items())
-    assert all(extracted[name]==data for name,data in original_files.items())
+    assert all(extracted[name]==data for name,data in original_files.items() if name not in files)
     assert result[:512]==volume[:512] and sd.disk_info(result)==info
     return bytes(result)
 
 
-def install(image, files, drive='B'):
+def install(image, files, drive='B', replace=False):
     if image[510:512]!=b'\x55\xaa':raise ValueError('missing MBR')
     parts=[]
     for index in range(3):
@@ -123,7 +138,7 @@ def install(image, files, drive='B'):
     if image[446+index*16+4]!=1:raise ValueError('expected FAT12 data partition')
     start,end=parts[index]
     result=bytearray(image)
-    result[start:end]=add_files(image[start:end],files)
+    result[start:end]=add_files(image[start:end],files,replace=replace)
     assert result[:start]==image[:start] and result[end:]==image[end:]
     metadata=dict(drive=drive,start_lba=start//512,sectors=(end-start)//512,
         input_sha256=hashlib.sha256(image).hexdigest(),output_sha256=hashlib.sha256(result).hexdigest(),
@@ -136,6 +151,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--image',type=Path,required=True)
     parser.add_argument('--drive',choices=('A','B'),default='B')
+    parser.add_argument('--replace',action='store_true',help='replace named regular files; retain every other file')
     parser.add_argument('--files',type=Path,nargs='+',required=True)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
@@ -149,7 +165,7 @@ def main():
         if path.name in files:raise ValueError('duplicate source name')
         files[path.name]=path.read_bytes()
     if not files:raise ValueError('no files supplied')
-    result,metadata=install(args.image.read_bytes(),files,args.drive)
+    result,metadata=install(args.image.read_bytes(),files,args.drive,replace=args.replace)
     with args.output.open('xb') as out:out.write(result)
     args.output.with_suffix('.json').write_text(json.dumps(metadata,indent=2)+'\n')
     print(f'Added {len(files)} files to {args.drive}: {args.output}; MBR/other partitions preserved')

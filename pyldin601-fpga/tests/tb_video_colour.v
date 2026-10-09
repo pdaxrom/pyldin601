@@ -7,7 +7,7 @@ module tb_video_colour;
     wire request;wire [20:0] ma;wire [5:0] tv;
     reg done=0;reg [7:0] memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,mode,
-        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,);
+        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,,1'b0);
     wire[9:0]rx,hx;wire[8:0]ry,hy;wire rv,rf,hv,hs,hb,ha,rs,rb,ra;
     pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(mode[2]),.rows(crtc_values[7]),
         .x(rx),.y(ry),.valid(rv),.first(rf),.sync(rs),.burst(rb),.alternate(ra),
@@ -33,7 +33,7 @@ module tb_video_colour;
                 ||dut.held_burst!==hb||dut.held_alternate!==ha)
                 $fatal(1,"601 colour/flags case=%d row=%d x=%d colour=%h expected=%h",test_case,hy,hx,dut.held_colour,hv?reference[hy*320+hx]:4'd0);
             if(dut.divide==0)begin
-                angle=(phase_cycles-1)*(4433618.75/24000000.0)*6.283185307179586;
+                angle=(phase_cycles-2)*(4433618.75/24000000.0)*6.283185307179586;
                 r=(2.0*expected_colour[2]+expected_colour[3])/3.0;
                 g=(2.0*expected_colour[1]+expected_colour[3])/3.0;
                 b=(2.0*expected_colour[0]+expected_colour[3])/3.0;

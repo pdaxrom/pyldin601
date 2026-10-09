@@ -111,7 +111,7 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
 
   for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
   if(!dut.locked)$fatal(1,"fixture lock failed");armed=1;
-  get(16'he65e,8'h47);get(16'he65f,3);
+  get(16'he65e,8'h47);get(16'he65f,5);
   for(s=0;s<4;s=s+1)begin
    if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s);end
    // Unaligned byte fill, multi-row pitch and both ends of the page.

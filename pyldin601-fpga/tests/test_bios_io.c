@@ -1,21 +1,14 @@
 // Run the original BIOS and original keyboard emulator against the DRB model.
-#define main firmware_boot_main
-#include "test_firmware.c"
-#undef main
+#define NATIVE_STABILITY_MAIN unused_stability_main
+#include "test_native_stability.c"
+#undef NATIVE_STABILITY_MAIN
 
-static void run_bios(unsigned steps){
- for(unsigned n=0;n<steps;n++){
-  // Let the reset path establish its stack before the first external IRQ.
-  if(n%5000==4999){tick=128;KBDUpdate();MC6800SetInterrupt(1);}
-  MC6800Step();
- }
-}
+static void run_bios(unsigned cycles){until(virtual_cycles+cycles);}
 static void switch_key(unsigned scan,unsigned old,unsigned caps){
  KBDKeyDown(scan);
- // The original BIOS can be inside a floppy retry while the key is pending.
- for(unsigned n=0;n<2000000;n++){
-  if(n%5000==0){tick=128;KBDUpdate();MC6800SetInterrupt(1);}
-  MC6800Step();
+ uint64_t deadline=virtual_cycles+2000000;
+ while(virtual_cycles<deadline){
+  until(virtual_cycles+100);
   if((caps?caps_off:(MC6800GetCpuRam()[0xe629]&1))!=old)break;
  }
  if((caps?caps_off:(MC6800GetCpuRam()[0xe629]&1))==old){
@@ -31,8 +24,9 @@ int main(void){
  size_t size;unsigned char*rom=load("build/rom.reference",&size);
  if(size!=0x51a00)return 1;
  memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
- image=load("build/test-sd.img",&image_size);memcpy(config+64,image+462,32);
- committed=1;MC6800Init();MC6800Reset();run_bios(2000000);
+ image=load("images/sd.img",&image_size);memcpy(config+64,image+462,32);
+ committed=1;MC6800Init();MC6800Reset();run_bios(60000000);
+ key(0x1c);key(0x1c);wait_prompt();
  if(!(MC6800GetCpuRam()[0xe629]&1)||cyrMode){
   fprintf(stderr,"BIOS lost initial Latin layout mode=%02x pc=%04x\n",MC6800GetCpuRam()[0xe629],PC);return 1;
  }

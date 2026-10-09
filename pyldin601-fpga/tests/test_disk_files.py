@@ -10,6 +10,21 @@ import make_sd as sd
 
 
 class DiskFileTests(unittest.TestCase):
+    def test_replacement_reuses_chain_without_changing_other_file(self):
+        old=bytes(range(256))*8
+        disk=files.add_files(sd.blank_disk(),{'OLD.CMD':old,'KEEP.TXT':b'keep me','EMPTY.TXT':b''})
+        info,table,start,size,copies,root,entries,data=files.layout(disk)
+        almost_full=bytearray(disk)
+        for cluster in range(2,info['clusters']+2):
+            if files.fat_get(table,cluster)==0:files.fat_set(table,cluster,0xff7)
+        for copy in range(copies):almost_full[start+copy*size:start+(copy+1)*size]=table
+        newer=b'replacement'*100
+        result=files.add_files(almost_full,{'OLD.CMD':newer,'EMPTY.TXT':b'now nonempty'},replace=True)
+        self.assertEqual(files.root_files(result),{'OLD.CMD':newer,'KEEP.TXT':b'keep me','EMPTY.TXT':b'now nonempty'})
+        self.assertEqual(result[:512],disk[:512])
+        self.assertEqual(result[root+32:root+64],disk[root+32:root+64])
+        self.assertEqual(files.root_files(almost_full)['OLD.CMD'],old)
+
     def test_fragmented_allocation_keeps_existing_files_and_fat_nibbles(self):
         original=files.add_files(sd.blank_disk(),{'KEEP.TXT':bytes(range(256))*8})
         info,table,start,size,copies,root,entries,data=files.layout(original)

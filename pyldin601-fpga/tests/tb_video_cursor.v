@@ -4,7 +4,7 @@ module tb_video_cursor;
     reg reset=1,wr=0,address=0,graphics=0;reg[7:0]data=0;
     wire request,tick;wire[20:0]ma;wire[5:0]tv;reg done=0;reg[7:0]memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,{2'b0,graphics,5'b0},
-        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,tick,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,);
+        1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,tick,1'b0,1'b0,8'b0,,,,,,1'b0,4'd0,8'd0,,,1'b0);
     wire[9:0]rx;wire[8:0]ry;wire rv,rf;
     pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(1'b0),.rows(8'd25),.x(rx),.y(ry),.valid(rv),.first(rf));
     reg[7:0]ram[0:65535],reference[0:63999];integer checked=0,row,pixel,test_case=0,field,raster_line;reg valid;

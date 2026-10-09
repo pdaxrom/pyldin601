@@ -121,7 +121,17 @@ def rom_files(native):
 
 
 def bundle(files, drives, boot, model=0):
-    payload = b''.join(files[f'ROM{i}.BIN'] for i in range(5))
+    banks = [files[f'ROM{i}.BIN'] for i in range(5)]
+    extension = Path(__file__).resolve().parents[1]/'build/extension/FPGA.ROM'
+    data = extension.read_bytes()
+    if len(data) != 8192 or data[:2] != b'\xa5\x5a' or sum(data)%256:
+        raise ValueError('build the valid extension ROM with UniAS first')
+    # Native BIOS scans 8..F: page B is the unused 8 KiB slot in ROM bank 0.
+    slot = banks[0][3*8192:4*8192]
+    if slot != b'\xff'*8192 and slot[2:10] != b'FPGABIOS':
+        raise ValueError('ROM page B is occupied; refusing to replace a native ROM')
+    banks[0] = banks[0][:3*8192]+data+banks[0][4*8192:]
+    payload = b''.join(banks)
     payload += files['BIOS.BIN'] + files['FONT.BIN']
     assert len(payload) == ROM_SIZE
     header = bytearray(SECTOR)

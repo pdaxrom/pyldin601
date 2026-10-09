@@ -1,4 +1,60 @@
+# HAM8, прямой SD и AY, 9 октября 2026
+
+Итоговый кандидат Diamond 3.14: 5542/6864 LUT, 2782/3432 slices,
+2249/7209 registers, 24/26 EBR, 1/2 PLL. Свободны 1322 LUT,
+650 slices, 4960 registers, две EBR и одна PLL. i8272/автономный SD
+удалены; AY использует одну EBR. HAM6 удалён, графический интерфейс v5.
+Strict TRACE: setup/hold cumulative negative slack=0, unconstrained paths=0.
+SRAM budgets, включая 27-нс SRAM→CPU, сохранены. Минимальный запас
+96 МГц: 0,137 нс для периода EBR и 0,302 нс для обычного пути данных.
+
+JED: `build/diamond/direct-sd-ay/pyldin601_classic_impl1.jed`, SHA-256
+`1b1e8b851944f846ca351005594e1b51302fc9f1598872e2b6337158a252f473`. Замороженные 59 входов:
+`build/diamond/source-direct-sd-ay-ham8-final.tar.gz` и `.sha256.json`.
+Linux: `/tmp/p601-direct-sd-ay-ham8`; все 59 входов сверены после сборки.
+EDIF проверен для PAL и AY: INITVAL, режимы памяти и фактические адресные
+пины. AY ADA0=1 нужен для разрешения записи 9-битного слова;
+проверка только поведенческой RAM не обнаруживала эту ошибку.
+Модель Lattice DP8KC прошла 33164 AY-такта / 33163 независимые проверки.
+
+9 октября обе ROM на физической SD обновлены и проверены прямым чтением.
+MBR, A/B, P601.SET и 11 таблиц EBR дополнительных дисков сохранены.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain — PASS; запись 66,45 с.
+59 входов сверены, JTAGENB high до/после и low после запуска HG — PASS.
+HG восстановлен, PID 630683; HAM/CLIPSPR/AY установлены в сетевую папку,
+Лена и прочие пользовательские файлы сохранены. Пользователь подтвердил
+загрузку, DIR с A/B, полный Reset удержанием 10 секунд, мелодию AY и
+возврат UniDOS по ESC: «да». Модель и частота отдельно не указаны.
+Отчёты: `build/hardware-direct-sd-20261009/{sd-write,result,install-result,files-install}.json`.
+[API ПЗУ](FPGA-BIOS.md), [AY](AY.md), [HAM8](HAM.md).
+
+## История: HAM6/HAM8 v4
+
 # Diamond
+
+HAM6/HAM8 v4, 9 октября:
+6676/6864 LUT, 3348/3432 slices, 2549/7209 registers, 25/26 EBR, 1/2 PLL.
+Свободны 188 LUT, 84 slices, 4660 registers, 1 EBR, 1 PLL. Оба HAM-формата
+используют одну прежнюю PAL-таблицу. Strict TRACE setup/hold negative slack=0,
+unconstrained paths=0; SRAM budgets и 27-нс SRAM→CPU сохранены.
+Worst 96-МГц setup имеет запас 0,620 нс. EDIF и модели Lattice подтвердили
+порядок всех PAL-слов, оба порта и работу на 96/24 МГц.
+JED `build/diamond/ham-v4/pyldin601_classic_impl1.jed`, SHA-256
+`bf7a3ab519e32300fcdde3ed95ce7e54a39d8ede2bc4eb808fcfc2aa47c1321a`.
+Входы `build/diamond/source-ham-v4.tar.gz` и `.sha256.json`,
+Linux `/tmp/pyldin601-ham-pipeline-strategy`. Совпадение всех фактических
+входов после сборки: `build/ham/post-build-source-check.json`.
+При прототипировании выявлены нарушение EBR→DAC и зависимость от фазы;
+общий трёхступенчатый PAL-конвейер и полутактовый буфер исправляют их,
+без изменения относительного положения картинки/sync/burst.
+Подробности и нативное демо — [HAM.md](HAM.md).
+FLASH Verify ID / Erase,Program,Verify, JTAG Chain и JTAGENB high до/после
+прошли; 51 вход сверён, запись 69,48 с. HG восстановлен, JTAGENB low
+проверен; HAM установлен, пользовательские файлы сохранены. Отчёты:
+`build/hardware-ham-20261009`. Изображение HAM на плате пока ожидает
+подтверждения пользователя.
+
+## Предыдущая сборка: прозрачный COPY v3
 
 Прозрачный COPY v3, 9 октября:
 6681/6864 LUT, 3354/3432 slices, 2627/7209 registers, 25/26 EBR, 1/2 PLL.
