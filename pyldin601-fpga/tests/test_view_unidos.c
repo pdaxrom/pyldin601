@@ -68,7 +68,7 @@ static void show(const char*name){
  printf("PASS %s/HD6303 native UniDOS VIEW %s: 64000 pixels, PGM relocator, file API, ESC, zero resets\n",model_a?"601A":"601",name);fflush(stdout);
 }
 int main(int argc,char**argv){
- if(argc!=3)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=1;MC6800SetMachine(PYLDIN_MACHINE_HD6303);
+ if(argc!=3&&argc!=4)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=1;MC6800SetMachine(PYLDIN_MACHINE_HD6303);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
  if(n!=0x51a00)return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
@@ -79,6 +79,7 @@ int main(int argc,char**argv){
  }
  committed=1;MC6800Init();MC6800Reset();i=1;until(60000000);key(0x1c);key(0x1c);until(virtual_cycles+1000000);
  finish_prompt();watch_resets=1;
+ if(argc==4){show(argv[3]);type_command("dir b:");finish_prompt();return 0;}
  show("odd");show("full");show("runs");show("fractal");show("odd");
  const char*bad[]={"planes","bits","width","height","stride","small","pal","zero","cross","cut","short","trunc","wrap","order","bigpad"};
  for(unsigned k=0;k<sizeof(bad)/sizeof(bad[0]);k++){

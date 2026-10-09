@@ -1,5 +1,136 @@
 # Diamond
 
+Общее PAL-окно 48 мкс × 264 строки, 9 октября:
+6603/6864 LUT, 3313/3432 slices, 2579/7209 registers,
+25/26 EBR, 1/2 PLL. Свободны 261 LUT, 119 slices, 4630 registers,
+1 EBR, 1 PLL. Относительно исправления sync: +20 LUT, +10 slices;
+регистры/EBR/PLL прежние. H=12..60 мкс, V=38..301;
+логические размеры 320/640 × 8×R6 и RGB332 320×200 сохранены.
+TRACE setup/hold negative slack=0, unconstrained paths=0;
+все прежние ограничения SRAM проходят. PAR seed 1 не прошёл 96 МГц
+на gfx_done→rows (до 0,229 нс); явный seed 2 проходит без ослабления
+ограничений и без изменения SRAM/блиттера.
+Повторно прошли 32 поля геометрии, 28 переходов режимов, 7618560
+пикселей 601A, курсор/подчёркивание/bootstrap, 512000 RGB332-пикселей,
+восемь профилей SRAM 601/601A на 1/2/4/8 МГц и SRAM с задержками.
+Все PAL-ROM в моделях Lattice и настоящем EDIF также проходят.
+JED `build/diamond/pal-aperture/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`b4ca9768bdcfabbac23acacce8abbe05d4c04e865ff1c7c7f21c19709e81e9e9`.
+Комплект 34 входов: `build/diamond/source-pal-aperture-final.tar.gz`
+и `.sha256.json`; Linux `/tmp/pyldin601-pal-aperture-final`.
+Отчёты — `build/hardware-pal-aperture-20261009/{result,install-result}.json`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+FTDI JTAGENB high до/после и low после восстановления HG — PASS.
+Запись заняла 69,06 с; файлы HG сохранены, SD не записывалась.
+Физическая проверка на панели подтверждена пользователем 9 октября:
+«уже нормально» — после проверки загрузчика, краёв UniDOS/часов и возврата
+из VIEW по ESC.
+[Геометрия и проверки](VIDEO-VIEWPORT.md).
+
+Исправление кадровых PAL-синхроимпульсов, 9 октября:
+6583/6864 LUT, 3303/3432 slices, 2579/7209 registers,
+25/26 EBR, 1/2 PLL. Свободны 281 LUT, 129 slices, 4630 registers,
+1 EBR, 1 PLL. Широкий импульс изменён с 29,625 до 27,25 мкс,
+интервал между широкими импульсами — с 2,375 до 4,75 мкс;
+строчный импульс — с 4,625 до 4,75 мкс. Окно изображения и SRAM прежние.
+TRACE setup/hold negative slack=0, unconstrained paths=0.
+Новый независимый тест измеряет настоящие отсчёты ЦАП за четыре поля:
+64 мкс/строка, 50 Гц, импульсы 2,375/4,75/27,25 мкс и интервалы 4,75 мкс.
+На старом RTL он воспроизводит неверный широкий импульс 29,625 мкс.
+Повторно прошли 28 переходов режимов, 1,28 млн цветовых пикселей
+и все PAL-ROM в моделях Lattice и настоящем EDIF.
+JED `build/diamond/pal-sync/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`2b1bc509486fa3a5467d5259ef1665398277eb3a0b4afecf63732d4861e0b84b`.
+Комплект 34 входов: `build/diamond/source-pal-sync.tar.gz`
+и `.sha256.json`; Linux `/tmp/pyldin601-pal-sync`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+FTDI JTAGENB high до/после и low после восстановления HG — PASS.
+Запись заняла 67,54 с; файлы HG сохранены, SD не записывалась.
+Отчёты — `build/hardware-pal-sync-20261009/{result,install-result}.json`.
+Пользователь прислал фотографии: обрезание bootstrap, первых букв UniDOS
+и часов осталось. Исправление длительностей sync не устранило этот дефект.
+[Причина, параметры PAL и проверки](VIDEO-VIEWPORT.md).
+
+Постоянный PAL burst при boot/тексте/RGB332, 9 октября:
+6596/6864 LUT, 3309/3432 slices, 2587/7209 registers,
+25/26 EBR, 1/2 PLL. Свободны 268 LUT, 123 slices, 4622 registers,
+1 EBR, 1 PLL. Относительно сдвига окна: +6 LUT, +2 slices, −2 registers.
+Единственное изменение входного RTL — удалена зависимость burst от
+colour_enabled/extended; координаты окна и SRAM не изменены.
+TRACE setup/hold negative slack=0, unconstrained paths=0.
+Прошли bootstrap text, 32 поля геометрии, 1,28 млн цветовых пикселей,
+все PAL-ROM в моделях Lattice и новый тест переходов режимов:
+28 переключений, 1151999 отсчётов вне картинки, 131112 burst-отсчётов,
+192000 текстовых пикселей после возврата. На старом RTL этот тест
+воспроизводит отсутствие burst (такт 13962, DAC 15 вместо 8).
+JED `build/diamond/pal-envelope/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`5c16b5a5db762789cae9b193a4b718d3bb5fa5fda4919642c03d185e5102a6fc`.
+Комплект 34 входов: `build/diamond/source-pal-envelope.tar.gz`
+и `.sha256.json`; Linux `/tmp/pyldin601-pal-envelope`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+FTDI JTAGENB high до/после и low после восстановления HG — PASS.
+Запись заняла 67,28 с; файлы HG сохранены, SD не записывалась.
+Отчёты — `build/hardware-pal-envelope-20261009/{result,install-result}.json`.
+После записи пользователь подтвердил, что сдвиг после VIEW и обрезание
+bootstrap остались, включая перемещение часов. Постоянный burst
+сам по себе не устранил физический сбой геометрии.
+[Подробности PAL и проверок](VIDEO-VIEWPORT.md).
+
+Сдвиг PAL-окна влево на 8 пикселей сетки 320×200, 9 октября:
+6590/6864 LUT, 3307/3432 slices, 2589/7209 registers,
+25/26 EBR, 1/2 PLL. Свободны 274 LUT, 125 slices, 4620 registers,
+1 EBR, 1 PLL. Относительно предыдущего положения окна:
+−15 LUT, −6 slices, +12 registers; EBR/PLL прежние.
+Единственное изменение входного RTL — начало/конец горизонтального окна
+96/496 → 86/486; ширина 50 мкс и высота 280 строк сохранены.
+TRACE setup/hold negative slack=0, unconstrained paths=0;
+повторно прошли 32 поля каждого отсчёта ЦАП, курсор, RGB332,
+восемь профилей прозрачного SRAM-доступа и все PAL-ROM в моделях Lattice.
+JED `build/diamond/pal-shift8/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`0afbf621f757f75ae09dfabb9a3e946af7f0a66c4bb45d8acd728f7b0380c049`.
+Комплект 34 входов: `build/diamond/source-pal-shift8.tar.gz`
+и `.sha256.json`; Linux `/tmp/pyldin601-pal-shift8-final`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+FTDI JTAGENB high до/после и low после восстановления HG — PASS.
+Запись заняла 68,89 с; файлы HG сохранены, SD не записывалась.
+Отчёты — `build/hardware-pal-shift8-20261009/{result,install-result}.json`.
+Физическое положение окна после сдвига ожидает проверки пользователя.
+
+Полное PAL-окно, 9 октября: 6605/6864 LUT, 3313/3432 slices,
+2577/7209 registers, 25/26 EBR, 1/2 PLL. Свободны 259 LUT, 119 slices,
+4632 registers, 1 EBR, 1 PLL. Относительно предыдущей RGB332-ROM сборки:
+−24 LUT, −14 slices, +62 registers; EBR/PLL прежние.
+TRACE setup/hold negative slack=0, unconstrained paths=0;
+все прежние ограничения SRAM проверены. Настоящие EBR INITVAL и модели
+Lattice SP8KC/DP8KC проходят полный перебор PAL-ROM.
+JED `build/diamond/pal-viewport/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`198caae9d844fd1dd74b8ca561ffaeb5a2789739c3b0c106fe9acb099fe96067`.
+Полный комплект 34 входов, включая boot.mem:
+`build/diamond/source-pal-viewport.tar.gz` и `.sha256.json`;
+Linux `/tmp/pyldin601-pal-viewport-final`.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+FTDI JTAGENB high до/после и low после восстановления HG — PASS.
+Запись заняла 68,43 с; все файлы HG сохранены, SD не записывалась.
+Отчёты — `build/hardware-pal-viewport-20261009/{result,install-result}.json`.
+[Геометрия, двойные банки и проверки](VIDEO-VIEWPORT.md).
+
+Исправление порядка RGB332-ROM, 9 октября: 6629/6864 LUT,
+3327/3432 slices, 2515/7209 registers, 25/26 EBR, 1/2 PLL.
+Свободны 235 LUT, 105 slices, 4694 registers, 1 EBR и 1 PLL.
+TRACE setup/hold negative slack=0, unconstrained paths=0;
+все прежние ограничения SRAM проверены. Ресурсы относительно HG v2 не выросли.
+JED `build/diamond/pal-rom-order/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`ccbf88d0b750ac044456a501a472ab911d73d38c3278dc3c771fbc5511cdea66`.
+Полный комплект входов, включая `build/boot.mem`, сохранён в
+`build/diamond/source-pal-rom-order.tar.gz` и `.sha256.json`;
+Linux `/tmp/pyldin601-pal-rom-order`. Проверка настоящего EDIF теперь
+входит в build-diamond.tcl: все 8192 RGB332 и 1024 IRGB/burst слова совпадают
+с исходником. Отдельно прошли модели Lattice SP8KC/DP8KC.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+FTDI JTAGENB high до/после записи и low после запуска C-сервиса — PASS.
+Отчёты записи — `build/hardware-pal-rom-20261009/{result,install-result}.json`.
+[Причина неверного цвета на Лене и исправление](PCX-VIEWER.md).
+
 Пакетный HG v2, 9 октября: 6629/6864 LUT, 3327/3432 slices,
 2515/7209 registers, 25/26 EBR, 1/2 PLL. Осталось 235 LUT, 105 slices,
 4694 registers, 1 EBR, 1 PLL. TRACE setup/hold negative slack и

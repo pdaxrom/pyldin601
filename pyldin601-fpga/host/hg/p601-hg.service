@@ -1,0 +1,17 @@
+[Unit]
+Description=Pyldin HG virtual FAT12 disk
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Work/FPGA/pyldin601-hg
+ExecStart=%h/Work/FPGA/pyldin601-hg/build/hg-host/hgfsd --directory %h/Work/FPGA/pyldin601-hg/files --clock 1000000 --stats
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+KillSignal=SIGTERM
+StandardOutput=append:%h/Work/FPGA/pyldin601-hg/run/hgfsd.log
+StandardError=inherit
+
+[Install]
+WantedBy=default.target

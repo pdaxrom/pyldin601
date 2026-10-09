@@ -8,6 +8,10 @@ module tb_video_colour;
     reg done=0;reg [7:0] memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,mode,
         1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0,1'b0,8'b0,,,,,);
+    wire[9:0]rx,hx;wire[8:0]ry,hy;wire rv,rf,hv,hs,hb,ha,rs,rb,ra;
+    pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(mode[2]),.rows(crtc_values[7]),
+        .x(rx),.y(ry),.valid(rv),.first(rf),.sync(rs),.burst(rb),.alternate(ra),
+        .held_x(hx),.held_y(hy),.held_valid(hv),.held_sync(hs),.held_burst(hb),.held_alternate(ha));
     reg [7:0] ram[0:65535],reference[0:63999],crtc_values[0:16];
     reg [3:0] expected_colour;
     reg expected_sync,expected_burst,expected_alternate,valid;
@@ -22,44 +26,27 @@ module tb_video_colour;
         end
         if(reset)begin phase_cycles=0;frames=0;end
         else begin
-            if(dut.divide==2)begin
-                h={dut.half_line[0],dut.half_pixel};
-                raster=(dut.half_line>>1)-(dut.half_line>=625?312:0);
-                row=raster-50;x=h-100;
-                valid=row>=0&&row<200&&x>=0&&x<320;
-                expected_colour=valid?reference[row*320+x]:0;
-                half=dut.half_line%625;
-                if(half<5||(half>=10&&half<15))expected_sync=dut.half_pixel<19;
-                else if(half<10)expected_sync=dut.half_pixel<237;
-                else expected_sync=h<37;
-                canonical=(dut.half_line+1245)%1250;line=canonical/2;
-                frame=(dut.half_line<5?frames-1:frames)&1;
-                expected_burst=h>=45&&h<63 && (frame?
-                    !(line<5||line>=621||(line>=310&&line<=318)):
-                    !(line<6||line>=622||(line>=309&&line<=317)));
-                expected_alternate=((dut.half_line/2)+625*frames)&1;
-                // Sparse continuous-phase samples cover both pixel boundaries
-                // and every burst. The separate encoder test checks all phases.
+            #1;
+            row=ry;x=rx;valid=rv;
+            expected_colour=rv?reference[row*320+x]:0;
+            if(dut.held_colour!==(hv?reference[hy*320+hx]:4'd0)||dut.held_sync!==hs
+                ||dut.held_burst!==hb||dut.held_alternate!==ha)
+                $fatal(1,"601 colour/flags case=%d row=%d x=%d colour=%h expected=%h",test_case,hy,hx,dut.held_colour,hv?reference[hy*320+hx]:4'd0);
+            if(dut.divide==0)begin
                 angle=(phase_cycles-1)*(4433618.75/24000000.0)*6.283185307179586;
                 r=(2.0*expected_colour[2]+expected_colour[3])/3.0;
                 g=(2.0*expected_colour[1]+expected_colour[3])/3.0;
                 b=(2.0*expected_colour[0]+expected_colour[3])/3.0;
                 y=0.299*r+0.587*g+0.114*b;u=0.493*(b-y);v=0.877*(r-y);
-                if(expected_burst)begin y=0;u=-(0.3/0.7)/(2.0*$sqrt(2.0));v=-u;end
-                if(expected_alternate)v=-v;
-                want=expected_sync?0:15.0+34.0*(y+u*$sin(angle)+v*$cos(angle));
-                if(dut.half_line==1249&&dut.half_pixel==255)frames++;
-                #1;
-                if(dut.held_colour!==expected_colour||dut.held_sync!==expected_sync
-                    ||dut.held_burst!==expected_burst||dut.held_alternate!==expected_alternate)
-                    $fatal(1,"601 colour/flags case=%d raster=%d x=%d colour=%h expected=%h sync/burst/alternate=%b%b%b expected=%b%b%b",test_case,row,x,dut.held_colour,expected_colour,dut.held_sync,dut.held_burst,dut.held_alternate,expected_sync,expected_burst,expected_alternate);
+                if(rb)begin y=0;u=-(0.3/0.7)/(2.0*$sqrt(2.0));v=-u;end
+                if(ra)v=-v;
+                want=rs?0:15.0+34.0*(y+u*$sin(angle)+v*$cos(angle));
                 error=real'(tv)-want;if(error<0)error=-error;
                 if(error>max_error)max_error=error;
-                if(error>2.1||(^tv===1'bx))$fatal(1,"colour DAC case=%d raster=%d x=%d DAC=%d expected=%.3f",test_case,row,x,tv,want);
-                wave_checks++;
-                if(valid)begin seen[expected_colour]=1;checked++;end
-                if(expected_burst)burst_checks++;
+                if(error>2.1||(^tv===1'bx))$fatal(1,"colour DAC case=%d row=%d x=%d DAC=%d expected=%.3f",test_case,row,x,tv,want);
+                wave_checks++;if(rb)burst_checks++;
             end
+            if(rv)begin seen[expected_colour]=1;if(rf)checked++;end
             phase_cycles++;
         end
     end

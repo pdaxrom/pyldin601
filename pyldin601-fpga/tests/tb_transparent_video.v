@@ -27,18 +27,15 @@ module tb_transparent_video #(parameter MODEL_A=0,parameter SPEED=0);
         if(cpu_reset||cpu_hold)$fatal(1,"video stretched classic CPU cycle phase=%d",dut.phase);
         cycles=cycles+1;
     end
+    initial begin bank_line[0]=-1;bank_line[1]=-1;end
     always @(posedge clk)if(stress)begin
-
-        if(dut.runtime_memory.grant_video&&!dut.runtime_memory.active)begin
-
-        end
-        if(MODEL_A&&dut.video.dma_state==2&&dut.video_done&&dut.video.dma_column==79)
+        if(dut.video.dma_state==2&&dut.video_done&&dut.video.dma_column==(MODEL_A?79:39))
             bank_line[dut.video.dma_bank]=fetch_line;
-        if(MODEL_A&&dut.video.divide==2&&dut.video.horizontal==80&&dut.video.field_line>=49)
-            fetch_line=dut.video.field_line+1;
-        if(dut.video.divide==2&&dut.video.horizontal==100&&dut.video.field_line>=50
-            &&dut.video.y<224)begin
-            if(MODEL_A?bank_line[dut.video.y[0]]!=dut.video.field_line:dut.video.dma_state!=0)$fatal(1,"video fetch missed visible-line deadline");
+        if(dut.video.divide==2&&dut.video.horizontal==80&&dut.video.next_line)
+            fetch_line=dut.video.field_line==37?0:((dut.video.field_line-37)*224)/264;
+        if(dut.video.divide==0&&dut.video.horizontal==96&&dut.video.field_line>=38&&dut.video.field_line<302)begin
+            if(bank_line[dut.video.y[0]]!=((dut.video.field_line-38)*224)/264)
+                $fatal(1,"video fetch missed visible-line deadline row=%0d bank=%0d",dut.video.y,bank_line[dut.video.y[0]]);
             lines=lines+1;
         end
     end

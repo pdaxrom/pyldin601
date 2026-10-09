@@ -5,18 +5,16 @@ module tb_video_cursor;
     wire request,tick;wire[20:0]ma;wire[5:0]tv;reg done=0;reg[7:0]memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,{2'b0,graphics,5'b0},
         1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,tick,1'b0,1'b0,8'b0,,,,,);
+    wire[9:0]rx;wire[8:0]ry;wire rv,rf;
+    pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(1'b0),.rows(8'd25),.x(rx),.y(ry),.valid(rv),.first(rf));
     reg[7:0]ram[0:65535],reference[0:63999];integer checked=0,row,pixel,test_case=0,field,raster_line;reg valid;
     always @(posedge clk)begin
         done<=request;if(request)memory_data<=ram[ma];
-        // Derive the expected raster independently from complete horizontal
-        // lines; the second PAL field begins on an odd half-line.
-        field=dut.half_line>=625;
-        raster_line=(dut.half_line>>1)-(field?312:0);
-        row=raster_line-50;pixel=dut.horizontal-100;
-        valid=!reset&&dut.divide==2&&row>=0&&row<200&&pixel>=0&&pixel<320;
-        if(valid)begin #1;
+        #1;
+        row=ry;pixel=rx;field=dut.half_line>=625;
+        if(!reset&&rv)begin
             if(tv!==reference[row*320+pixel])$fatal(1,"cursor case=%d mode=%d field=%d row=%d x=%d got=%d expected=%d",test_case,graphics,field,row,pixel,tv,reference[row*320+pixel]);
-            checked=checked+1;
+            if(rf)checked=checked+1;
         end
     end
     task put;input a;input[7:0]d;

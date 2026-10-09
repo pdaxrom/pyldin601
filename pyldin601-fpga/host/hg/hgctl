@@ -1,0 +1,7 @@
+#!/bin/sh
+# Manage the native daemon; the systemd unit owns the process and FTDI channel A.
+set -eu
+case "${1:-status}" in
+    start|stop|restart|status) exec systemctl --user "${1:-status}" p601-hg.service ;;
+    *) echo "Usage: $0 start|stop|restart|status" >&2; exit 2 ;;
+esac

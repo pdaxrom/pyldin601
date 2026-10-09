@@ -45,7 +45,7 @@ def main():
     at=payload_start+(last_cluster-2)*4096;data[at:at+len(tail)]=tail
     for copy in range(copies):data[start_fat+copy*fat_size:start_fat+(copy+1)*fat_size]=table
     host_image.write_bytes(data)
-    run(args.cc,'-O2','-I../pyldin601/src','tests/test_hg_unidos.c','-o','build/test_hg_unidos')
+    run(args.cc,'-O2','-I../pyldin601/src','tests/test_hg_unidos.c','host/hg/fat12.c','-o','build/test_hg_unidos')
     for model in args.models:
         for wire in (1,2):
             run('build/test_hg_unidos',str(test_image),str(host_image),model, *(() if wire == 1 else ('v2',)))
@@ -54,6 +54,8 @@ def main():
             a_files=add_disk_files.root_files(local[a_start*512:(a_start+a_count)*512])
             assert remote['HELLO.TXT']==remote['BACK.TXT']==a_files['HGTEST.TXT']==text
             assert 'TEMP.TXT' not in remote
+            assert a_files['LIVE.TXT']==b'First host update\r\n'
+            assert a_files['LIVEB.TXT']==remote['LIVE.TXT']==b'Second host update\r\n'*500
             assert a_files['LAST.TXT']==remote['LAST.TXT']==tail
             print(f'PASS {model}/HG v{wire} byte-identical E->A->E copy and TEMP deletion; SHA256 {hashlib.sha256(text).hexdigest()}')
         if not args.hdl:continue

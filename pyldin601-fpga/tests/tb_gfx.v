@@ -71,11 +71,14 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
   if(!dut.gfx_address[20])$fatal(1,"GFX escaped upper SRAM");
   if(dut.runtime_memory.active)$fatal(1,"GFX overlapped active slot");
  end
- always @(posedge clk)if(armed&&dut.gfx_enabled&&dut.video.divide==1)begin
-  if(dut.video.horizontal>=100&&dut.video.horizontal<420&&dut.video.field_line>=50&&dut.video.field_line<250)begin
-   if(dut.video.rgb_pixel!==((dut.video.y+dut.video.x)&255))
-    $fatal(1,"RGB332 raster y=%d x=%d got=%h",dut.video.y,dut.video.x,dut.video.rgb_pixel);
-   checks++;
+ wire[9:0]rx;wire[8:0]ry;wire rv,rf;
+ pal_viewport_reference #(.LATENCY(2)) refview(.clk(clk),.reset(cpu_reset),.model_a(1'b0),.extended(dut.gfx_enabled),.colour(1'b0),.rows(8'd25),.x(rx),.y(ry),.valid(rv),.first(rf));
+ always @(posedge clk)begin
+  #1;
+  if(armed&&dut.gfx_enabled&&rv)begin
+   if(dut.video.rgb_pixel!==((ry+rx)&255))
+    $fatal(1,"RGB332 raster y=%d x=%d got=%h",ry,rx,dut.video.rgb_pixel);
+   if(rf)checks++;
   end
  end
  initial begin

@@ -1,5 +1,6 @@
 // Original BIOS and UniDOS load HG.PGM through their actual PGM relocator.
 #include <stdint.h>
+#include "../host/hg/hg.h"
 static int hg_read_byte(uint16_t a,unsigned char*out);
 static int hg_write_byte(uint16_t a,unsigned char d);
 #define HG_FIXTURE 1
@@ -149,6 +150,14 @@ static void capture_hg(void){
  fprintf(f,"{\"model_a\":%u,\"pc\":256,\"sp\":%u,\"a\":0,\"b\":0,\"x\":0,\"cc\":192,\"page\":%u,\"mode\":%u,\"crtc\":[",model_a,SP,page,r[0xe629]);
  for(unsigned n=0;n<16;n++)fprintf(f,"%s%u",n?",":"",crtc[n]);fprintf(f,"]}\n");fclose(f);
 }
+static void live_host_update(const char*text,unsigned repeats){
+ HgFiles files={0};if(hg_fat_files(host_image,host_size,&files)<0)exit(1);
+ HgFile*file=hg_find(&files,"LIVE.TXT");
+ if(!file){HgFile f={0};strcpy(f.name,"LIVE.TXT");strcpy(f.host,"LIVE.TXT");f.attr=0x20;f.date=0x5d49;if(hg_file_copy(&files,&f)<0)exit(1);file=hg_find(&files,"LIVE.TXT");}
+ free(file->data);unsigned n=strlen(text);file->size=n*repeats;file->data=malloc(file->size);if(!file->data)exit(1);
+ for(unsigned i=0;i<repeats;i++)memcpy(file->data+i*n,text,n);
+ if(hg_fat_update(host_image,host_size,&files)<0)exit(1);hg_files_free(&files);
+}
 static void direct_io(unsigned op,unsigned block_number,unsigned expected){
  unsigned char*r=MC6800GetCpuRam();unsigned table=0x300,buf=0x4000;
  r[table]=buf>>8;r[table+1]=buf;r[table+2]=4;r[table+3]=block_number>>8;r[table+4]=block_number;
@@ -184,6 +193,13 @@ int main(int argc,char**argv){
  for(unsigned n=0;n<sizeof(commands)/sizeof(commands[0]);n++){
   command(commands[n]);if(!contains("A:\\>")||contains("Unknown error")||contains("Bad command")||contains("Path not found")||contains("File not found")||resets){dump();fprintf(stderr,"HG command failed: %s\n",commands[n]);return 1;}
  }
+ // Production C FAT updater changes a mounted disk between native DOS commands.
+ // INT 5C must invalidate cached FAT/root sectors without reinstalling HG.PGM.
+ live_host_update("First host update\r\n",1);command("dir e:");
+ if(!contains("LIVE")){dump();fprintf(stderr,"native DIR missed live host addition\n");return 1;}
+ command("copy e:live.txt a:live.txt");
+ live_host_update("Second host update\r\n",500);command("copy e:live.txt a:liveb.txt");
+ if(contains("Unknown error")||resets){dump();return 1;}
  unsigned last=(host_size/512)-1;
  for(unsigned n=0;n<512;n++)host_image[last*512+n]=n^0xa5;
  direct_io(1,last,0);if(memcmp(r+0x4000,host_image+last*512,512))return 1;
@@ -195,6 +211,6 @@ int main(int argc,char**argv){
  direct_io(1,last,0);if(memcmp(r+0x4000,host_image+last*512,512))return 1;
  FILE*f=fopen("build/hg-host-after.img","wb");if(!f||fwrite(host_image,1,host_size,f)!=host_size||fclose(f))return 1;
  f=fopen("build/hg-sd-after.img","wb");if(!f||fwrite(image,1,image_size,f)!=image_size||fclose(f))return 1;
- printf("PASS %s/MC6800 HG v%u native UniDOS loaded relocatable HG.PGM, registered E, copied/deleted files, TIME; last sector %u read/write; read-only, bad checksum, absent-host timeout and recovery; %u reads/%u writes/%u TIME, zero resets\n",model_a?"601A":"601",hg_v2?2:1,last,hg_reads,hg_writes,hg_times);
+ printf("PASS %s/MC6800 HG v%u native UniDOS loaded relocatable HG.PGM, registered E, copied/deleted files, TIME, live host addition/replacement without remount; last sector %u read/write; read-only, bad checksum, absent-host timeout and recovery; %u reads/%u writes/%u TIME, zero resets\n",model_a?"601A":"601",hg_v2?2:1,last,hg_reads,hg_writes,hg_times);
  return 0;
 }

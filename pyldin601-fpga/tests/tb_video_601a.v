@@ -6,6 +6,8 @@ module tb_video_601a;
  reg done=0;reg[7:0]memory_data;
  classic_video dut(clk,reset,1'b0,wr,address,data,,mode,
   1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b1,1'b0,8'b0,,,,,);
+ wire[9:0]rx;wire[8:0]ry;wire rv,rf;
+ pal_viewport_reference #(.LATENCY(3)) refview(.clk(clk),.reset(reset),.model_a(1'b1),.extended(1'b0),.colour(mode[2]),.rows(configuration[7]),.x(rx),.y(ry),.valid(rv),.first(rf));
  reg[7:0]ram[0:65535],reference[0:138239],configuration[0:16];
  reg[3:0]expected;integer checked=0,test_case=0,row,x,height,total=0;
  integer completed=0,fetch_start=0,last_row=-1;reg blink_pass=0;
@@ -14,16 +16,13 @@ module tb_video_601a;
    if(ma>=65536)$fatal(1,"601A video escaped base RAM");
    memory_data<=ram[ma];
   end
-  if(!reset&&(dut.divide==1||dut.divide==2))begin
-   row=(dut.half_line/2)-(dut.half_line>=625?312:0)-50;
-   x=2*(integer'(dut.horizontal)-100)+(dut.divide==2);
-   if(row>=0&&row<height&&x>=0&&x<640)begin
-    expected=reference[row*640+x];
-    if(blink_pass)expected=ram[16'hf000+(row/8)*80+(x/16)*2]&15;
-    #1;
-    if(dut.held_colour!==expected)$fatal(1,"601A mode case=%d row=%d x=%d colour=%h expected=%h character=%h font=%h",test_case,row,x,dut.held_colour,expected,dut.font_character,dut.font_pixels);
-    checked++;total++;
-   end
+  #1;
+  if(!reset&&rv)begin
+   row=ry;x=rx;
+   expected=reference[row*640+x];
+   if(blink_pass)expected=ram[16'hf000+(row/8)*80+(x/16)*2]&15;
+   if(dut.held_colour!==expected)$fatal(1,"601A mode case=%d row=%d x=%d colour=%h expected=%h character=%h font=%h",test_case,row,x,dut.held_colour,expected,dut.font_character,dut.font_pixels);
+   if(rf)begin checked++;total++;end
   end
  end
  task put;input a;input[7:0]d;

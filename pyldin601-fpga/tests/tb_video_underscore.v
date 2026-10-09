@@ -8,6 +8,8 @@ module tb_video_underscore;
     reg done=0;reg[7:0]memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,8'b0,
         1'b0,11'b0,8'b0,request,ma,1'b1,done,memory_data,tv,,1'b0,1'b0,8'b0,,,,,);
+    wire[9:0]rx;wire[8:0]ry;wire rv,rf;
+    pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(1'b0),.rows(8'd25),.x(rx),.y(ry),.valid(rv),.first(rf));
     reg[7:0]font[0:2047];
     integer raster_line,row,x,char_column,checked[0:1],field;
     reg valid;reg[7:0]character,expected_bits;
@@ -25,18 +27,15 @@ module tb_video_underscore;
     endfunction
     always @(posedge clk)begin
         done<=request;if(request)memory_data<=screen(ma-21'h400);
-        field=dut.half_line>=625;
-        raster_line=(dut.half_line>>1)-(field?312:0);
-        row=raster_line-50;x=dut.horizontal-100;char_column=x>>3;
-        valid=!reset&&dut.divide==2&&row>=0&&row<200&&x>=0&&x<320;
-        if(valid)begin
+        #1;
+        field=dut.half_line>=625;row=ry;x=rx;char_column=x>>3;
+        if(!reset&&rv)begin
             character=screen((row>>3)*42+char_column);
             seen_characters[character]=1;
             expected_bits=font[{character[6:0],character[7],row[2:0]}];
-            #1;
             if(tv!==(expected_bits[7-(x&7)]?6'd49:6'd15))
                 $fatal(1,"PAL text field=%d row=%d x=%d char=%h got=%d expected=%h",field,row,x,character,tv,expected_bits);
-            checked[field]=checked[field]+1;
+            if(rf)checked[field]=checked[field]+1;
         end
     end
     task put;input a;input[7:0]d;

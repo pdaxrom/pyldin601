@@ -45,15 +45,20 @@ module tb_sram_stress #(parameter SPEED=0);
             @(negedge cpu_clk);vma=0;rw=1;
         end
     endtask
-    integer i,cycles=0,fetches=0,lines=0;reg stress=0;reg[31:0]rng=32'h68001234;
+    integer i,cycles=0,fetches=0,lines=0;integer bank_line[0:1],fetch_line;reg stress=0;reg[31:0]rng=32'h68001234;
     always @(negedge cpu_clk)if(stress)begin
         if(cpu_reset||cpu_hold)$fatal(1,"video stretched classic CPU cycle phase=%d",dut.phase);
         cycles=cycles+1;
     end
+    initial begin bank_line[0]=-1;bank_line[1]=-1;end
     always @(posedge clk)if(stress)begin
-        if(dut.video.divide==2&&dut.video.horizontal==100&&dut.video.field_line>=50
-            &&dut.video.y<224)begin
-            if(dut.video.dma_state!=0)$fatal(1,"video fetch missed visible-line deadline");
+        if(dut.video.dma_state==2&&dut.video_done&&dut.video.dma_column==39)
+            bank_line[dut.video.dma_bank]=fetch_line;
+        if(dut.video.divide==2&&dut.video.horizontal==80&&dut.video.next_line)
+            fetch_line=dut.video.field_line==37?0:((dut.video.field_line-37)*224)/264;
+        if(dut.video.divide==0&&dut.video.horizontal==96&&dut.video.field_line>=38&&dut.video.field_line<302)begin
+            if(bank_line[dut.video.y[0]]!=((dut.video.field_line-38)*224)/264)
+                $fatal(1,"video fetch missed visible-line deadline row=%0d bank=%0d",dut.video.y,bank_line[dut.video.y[0]]);
             lines=lines+1;
         end
     end

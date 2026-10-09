@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := hg frequency_controls timer_tick memory arbiter arbiter_contract boot_ports boot_header spi_registers sram sd keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation fdc fdc_sd video video_text video_cursor video_underscore pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
+BENCHES := hg frequency_controls timer_tick memory arbiter arbiter_contract boot_ports boot_header spi_registers sram sd keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation fdc fdc_sd video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -106,7 +106,7 @@ test-rtl: fixtures
 	$(BUILD)/prepare_colour_reference
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_601a_reference.c -o $(BUILD)/prepare_601a_reference
 	$(BUILD)/prepare_601a_reference
-	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
+	@set -e; for bench in $(BENCHES); do $(IVERILOG) -g2012 -s tb_$$bench -o $(BUILD)/tb_$$bench $(RTL) tests/sd_test_host.v tests/pal_viewport_reference.v tests/tb_$$bench.v; $(VVP) $(BUILD)/tb_$$bench; done
 	$(IVERILOG) -g2012 -s tb_transparent_video -Ptb_transparent_video.MODEL_A=1 -o $(BUILD)/tb_transparent_video-a $(RTL) tests/fast_clock.v tests/tb_transparent_video.v
 	$(VVP) $(BUILD)/tb_transparent_video-a
 	$(VVP) $(BUILD)/tb_sd +sdsc
@@ -237,10 +237,14 @@ test-handoff-fast: test-mixed-clock fixtures
 	@set -e; for setting in 12 14 15; do $(PYTHON) tests/prepare_handoff.py $$setting; model=""; if [ $$setting -eq 15 ]; then model="-D BOOT_MODEL_A=1"; fi; $(NVC) --std=2008 --work=work:$(BUILD)/handoff-fast-$$setting --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D HANDOFF_SETTING=$$setting -D FULL_SYSTEM=1 $$model rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff-fast-$$setting.log 2>&1; cat $(BUILD)/handoff-fast-$$setting.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU handoff/ROM lock/warm reset' in Path('build/handoff-fast-$$setting.log').read_text()"; done
 
 HG_ISA ?= 0
-.PHONY: hg-apps test-hg test-hg-hdl
+.PHONY: hg-apps hg-host test-hg-host test-hg test-hg-hdl
+hg-host:
+	$(MAKE) -C host/hg
+test-hg-host:
+	$(MAKE) -C host/hg test
 hg-apps: | $(BUILD)
 	$(PYTHON) tools/build_hg.py --unias "$(UNIAS)"
-test-hg: fixtures hg-apps
+test-hg: fixtures hg-apps test-hg-host
 	$(PYTHON) tests/test_hg_host.py
 	$(IVERILOG) -g2012 -s tb_hg -o $(BUILD)/tb_hg $(RTL) tests/tb_hg.v
 	$(VVP) $(BUILD)/tb_hg
@@ -259,7 +263,7 @@ test-view: gfx-apps fixtures
 gfx-apps: | $(BUILD)
 	$(PYTHON) tools/build_gfx.py --unias "$(UNIAS)"
 test-gfx: firmware
-	$(IVERILOG) -g2012 -s tb_gfx -o $(BUILD)/tb_gfx $(RTL) tests/fast_clock.v tests/tb_gfx.v
+	$(IVERILOG) -g2012 -s tb_gfx -o $(BUILD)/tb_gfx $(RTL) tests/fast_clock.v tests/pal_viewport_reference.v tests/tb_gfx.v
 	$(VVP) $(BUILD)/tb_gfx
 test-gfx-app: gfx-apps
 	$(PYTHON) tests/run_gfx_app.py --nvc "$(NVC)"

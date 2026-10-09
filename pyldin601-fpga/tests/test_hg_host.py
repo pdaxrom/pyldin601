@@ -1,4 +1,7 @@
-"""Exercise production HG dispatcher, FAT12 mirror and MPSSE commands."""
+"""Frozen Python reference for HG wire framing and the former mirror format.
+
+The production daemon is C; test_hg_host.c/test_hg_watch.py exercise that code.
+"""
 import datetime
 import importlib.util
 from pathlib import Path
@@ -8,7 +11,8 @@ import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
-spec=importlib.util.spec_from_file_location('hgfsd',ROOT/'host/hg/hgfsd.py')
+sys.path.insert(0, str(ROOT/'host/hg'))
+spec=importlib.util.spec_from_file_location('hg_reference',ROOT/'tests/hg_reference.py')
 hg=importlib.util.module_from_spec(spec);spec.loader.exec_module(hg)
 
 

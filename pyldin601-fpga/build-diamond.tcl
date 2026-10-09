@@ -12,8 +12,16 @@ proc require_scored {report preference} {
     }
 }
 if {[catch {
+    # Synplify may continue with an undefined ROM when an init file is absent.
+    foreach path {build/boot.mem rtl/font_boot.mem rtl/ps2_set2.mem rtl/keyboard_translate.mem rtl/pal_waveform.mem rtl/pal_rgb332.mem} {
+        if {![file exists $path] || [file size $path] == 0} {
+            error "Missing generated ROM input: $path (run make firmware)"
+        }
+    }
     prj_project open pyldin601_classic.ldf
     prj_run Synthesis -impl impl1
+    # Behavioural readmemh tests cannot verify Synplify's deep-ROM address order.
+    puts [exec python3 tests/check_pal_ebr.py impl1/pyldin601_classic_impl1.edi]
     prj_run Translate -impl impl1
     prj_run Map -impl impl1
     prj_run PAR -impl impl1

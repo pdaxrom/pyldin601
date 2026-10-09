@@ -19,9 +19,12 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
     reg [5:0] sample;
     wire[5:0]rgb_sample;
     generate if(GFX)begin:rgb
-        (* syn_ramstyle="block_ram" *) reg[5:0]table_rgb[0:8191];
+        (* syn_ramstyle="block_ram" *) reg[5:0]table_rgb[8191:0];
         reg[5:0]value;
-        initial $readmemh("rtl/pal_rgb332.mem",table_rgb);
+        // Descending declaration plus explicit ascending load agrees in RTL
+        // and Synplify's six 8192x1 EBR bit planes. An ascending declaration
+        // reverses every synthesized word; check_pal_ebr audits the netlist.
+        initial $readmemh("rtl/pal_rgb332.mem",table_rgb,0,8191);
         always @(posedge clk)value<=table_rgb[{rgb332,carrier_phase}];
         assign rgb_sample=value;
     end else begin:monochrome

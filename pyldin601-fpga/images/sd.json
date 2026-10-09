@@ -2,11 +2,11 @@
   "date": "2026-10-09",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "903c1103f8577948bce490fdcfcbffa4d24dabd7fe9923e560901dfc949c0806",
+  "sha256": "3c7563a83f3ffd63f99b031d4b9ba1ecc397b5a3db1721a4912b2d8c61aafbc6",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "ae479c01f8163e848a15fe97dacdb404cfbe48ac0f8a61a2530d5a44cfdf133e",
+  "fpga_jed_sha256": "b4ca9768bdcfabbac23acacce8abbe05d4c04e865ff1c7c7f21c19709e81e9e9",
   "models": [
     "601",
     "601A"
@@ -120,7 +120,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "59e6c47f77139893a999aaaf711db19348fc98a19e25d9b60c62d16dc9d74542",
+      "sha256": "2012e7d34374bd9b791cdca935510cdc2a37271ebb550ca8fa1ee0926370b77e",
       "geometry": {
         "sectors": 2880,
         "image_sectors": 2880,
@@ -173,8 +173,8 @@
           "sha256": "a4df849f8d90b44b0dd1306857aabf13f2abd8026d13b129281274ef40a627bf"
         },
         "HGHOWTO.TXT": {
-          "bytes": 1311,
-          "sha256": "96d3c537a093a62e1e23776082f1af0aeb8e4a08aa438de64226d8ac23fe3774"
+          "bytes": 1968,
+          "sha256": "cfd99e6fd8f7af776ad3c5ec789675cf78cb5674e846d3a6bf3c687ef56e33f6"
         },
         "GFX.PGM": {
           "bytes": 553,
@@ -290,7 +290,7 @@
     "time_program": "B:HGTIME.PGM",
     "default_drive_with_ROM_and_RAM_disks": "E",
     "source": "firmware/hg/HG.ASM",
-    "host": "host/hg/hgfsd.py",
+    "host": "host/hg/hgfsd.c",
     "default_host_sectors": 32736,
     "host_clusters": 4084,
     "physical_card_updated": true,
@@ -328,7 +328,6 @@
     "physical_host_TEST_TXT_bytes": 1097,
     "physical_guest_clock_independently_verified": false,
     "current_host_clock_hz": 1000000,
-    "current_host_daemon_pid": 542436,
     "packet_v2": {
       "packet_bytes": 32,
       "FIFOs_bytes_each": 64,
@@ -353,7 +352,15 @@
       "physical_READ_KiB_per_second": 9.13,
       "physical_verification_report": "build/hardware-hg-packets-20261009/hg-user-verified.json"
     },
-    "current_host_script_sha256": "32959830c5d7002b654e9b25cf3f62bb6f001e50e0b0e98b38296d74a68571a2"
+    "host_binary": "build/hg-host/hgfsd",
+    "automatic_directory_updates": true,
+    "host_service": "p601-hg.service",
+    "host_runtime": "C11/libftdi1",
+    "host_native_live_add_replace_delete_verified": true,
+    "host_native_C_physical_READ_verified": true,
+    "native_host_user_service_installed": true,
+    "native_host_install_report": "build/hardware-pal-rom-20261009/install-result.json",
+    "native_host_live_mirror_report": "build/hg-native-live-verified.json"
   },
   "graphics": {
     "program": "B:GFX.PGM",
@@ -394,7 +401,45 @@
     "physical_HG_demo_files_verified": true,
     "physical_host_daemon_pid": 536605,
     "physical_user_report": "\u043e\u0442\u043b\u0438\u0447\u043d\u043e, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
-    "physical_user_report_date": "2026-10-09"
+    "physical_user_report_date": "2026-10-09",
+    "PAL_RGB332_ROM_address_order_fixed": true,
+    "synthesized_PAL_EBR_and_vendor_models_verified": true,
+    "PAL_RGB332_ROM_fix_FPGA_program_verify_passed": true,
+    "PAL_RGB332_ROM_fix_program_report": "build/hardware-pal-rom-20261009/result.json",
+    "PAL_viewport": {
+      "horizontal_start_us": 12,
+      "horizontal_width_us": 48,
+      "physical_rows_per_field": 264,
+      "logical_framebuffer_unchanged": true,
+      "FPGA_program_verify_passed": true,
+      "program_report": "build/hardware-pal-aperture-20261009/result.json",
+      "physical_geometry_user_verified": true,
+      "SD_update_required": false,
+      "continuous_PAL_burst_all_modes": true,
+      "PAL_sync": {
+        "equalizing_us": 2.375,
+        "horizontal_us": 4.75,
+        "broad_us": 27.25,
+        "broad_gap_us": 4.75,
+        "line_us": 64,
+        "field_hz": 50,
+        "DAC_four_field_regression_passed": true,
+        "old_broad_pulse_us": 29.625,
+        "user_report": "Bootstrap top/left, UniDOS left and clock bottom remain cropped before and after VIEW",
+        "physical_cropping_resolved_by_sync_change": false
+      },
+      "vertical_first_line": 38,
+      "PAR_start_point": 2,
+      "previous_shift_left_320_mode_pixels": 8,
+      "logical_pixel_coverage_verified": true,
+      "physical_geometry_user_report": "\u0443\u0436\u0435 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e",
+      "physical_geometry_user_report_date": "2026-10-09",
+      "physical_geometry_validation_scope": [
+        "bootstrap banner",
+        "UniDOS edges and clock",
+        "VIEW ESC return"
+      ]
+    }
   },
   "pcx_viewer": {
     "program": "B:VIEW.PGM",
@@ -430,8 +475,13 @@
     "physical_user_verification_pending": false,
     "physical_image_visible_user_report": "\u0432\u0438\u0436\u0443 \u0444\u0440\u0430\u043a\u0442\u0430\u043b",
     "physical_user_report_date": "2026-10-09",
-    "physical_ESC_return_verified": false,
+    "physical_ESC_return_verified": true,
     "physical_fast_HG_v2_image_verified": true,
-    "physical_HG_v2_user_report": "\u0434\u0430, \u043e\u0442\u043b\u0438\u0447\u043d\u043e"
+    "physical_HG_v2_user_report": "\u0434\u0430, \u043e\u0442\u043b\u0438\u0447\u043d\u043e",
+    "lena_file_sha256": "bcba5e27b97f26d678d58bc53bc8020a9ffa0954730dffefa5c45f79b4edfd56",
+    "lena_native_64000_pixels_verified": true,
+    "lena_physical_colour_verified": false,
+    "lena_original_physical_colour_failure_report": true,
+    "physical_ESC_return_verification_date": "2026-10-09"
   }
 }

@@ -1,8 +1,9 @@
 HG 2.0 host disk for Pyldin 601/601A
 
 Requires HG FPGA firmware, FT2232A and ADBUS7 JTAGENB wiring as in uJ11.
-Host: python3 host/hg/hgfsd.py --directory /path/to/files
-Requires system libftdi1. Root files use DOS 8.3 names. Default FAT12:
+Build: make hg-host (C11 compiler, pkg-config, libftdi1-dev).
+Host: build/hg-host/hgfsd --directory /path/to/files --stats
+No Python runtime. Root files use DOS 8.3 names. Default FAT12:
 32736 x 512-byte sectors, 8 sectors/cluster, 4084 data clusters.
 Use --blocks 32400 for the tested UniDOS geometry.
 
@@ -21,4 +22,12 @@ Older FPGA/PGM keep byte-paced v1; update both FPGA and B:HG for v2.
 Ctrl-C stops the host daemon and releases JTAGENB for programming.
 --jtag-only restores JTAGENB after an interrupted/killed daemon.
 Do not run the Programmer and HG daemon together on FT2232 channel A.
-Pending directory writes survive a crash in .p601-hg.img/.p601-hg.json.
+Host folder changes automatically update the mounted disk. No restart needed.
+Linux waits for file close; import occurs between requests after an idle pause.
+The next DIR/COPY sees new files. Close guest files before editing them on host.
+Guest writes export to the folder. Independent host/guest edits are merged.
+Same-file conflicts keep the host version and back up guest data in
+.p601-hg-conflicts/. Pending writes survive in .p601-hg.img/.base/.state.
+Legacy .p601-hg.json migrates automatically; use only the C server afterwards.
+Linux service: systemctl --user start/stop/restart/status p601-hg
+Log on sashz-ubuntu: ~/Work/FPGA/pyldin601-hg/run/hgfsd.log

@@ -7,6 +7,8 @@ module tb_video_text;
     reg done=0;reg[7:0]memory_data;
     classic_video dut(clk,reset,1'b0,wr,address,data,,8'b0,
         font_write,font_address,font_data,request,ma,1'b1,done,memory_data,tv,tick,1'b0,1'b0,8'b0,,,,,);
+    wire[9:0]rx;wire[8:0]ry;wire rv,rf;
+    pal_viewport_reference refview(.clk(clk),.reset(reset),.model_a(1'b0),.extended(1'b0),.colour(1'b0),.rows(8'd24),.x(rx),.y(ry),.valid(rv),.first(rf));
     reg[7:0]font_reference[0:2047];integer checked=0,pass=0,row,pixel;reg valid;
     always @(posedge clk)begin
         done<=request;
@@ -14,14 +16,12 @@ module tb_video_text;
             if(ma<21'h400||ma>=21'h7c0)$fatal(1,"boot text DMA escaped screen");
             memory_data<=ma==21'h400 ? 8'h41 : 8'h20;
         end
-        valid=!reset&&dut.divide==2&&dut.field_line>=50&&dut.field_line<58
-            &&dut.horizontal>=100&&dut.horizontal<116;
-        row=dut.y;pixel=dut.x;
-        if(valid)begin
-            #1;
+        #1;
+        row=ry;pixel=rx;
+        if(!reset&&rv&&row<8&&pixel<16)begin
             if(tv!==((pixel<8&&(pass==1||font_reference[11'h410+row]&(8'h80>>pixel)))?6'd49:6'd15))
                 $fatal(1,"text pixel row=%d x=%d value=%d",row,pixel,tv);
-            checked=checked+1;
+            if(rf)checked=checked+1;
         end
     end
     task put;input a;input[7:0]d;
