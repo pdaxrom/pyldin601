@@ -1,0 +1,11 @@
+VIEW.PGM - native HD6303 PCX viewer for the FPGA RGB332 display.
+Enable HD6303 EXTENSION in BIOS, then run VIEW drive:picture.PCX.
+Reads ordinary PCX v5, 8 bits/pixel, one plane, RLE and a 256-colour RGB palette.
+Maximum picture size 320x200. Smaller pictures are centred on black.
+Palette colours are rounded to the nearest RGB332 hardware levels.
+The decoder handles scanline padding and compressed files larger than 64 KiB.
+After loading, ESC restores the native video and returns to UniDOS.
+BytesPerLine must be even, at least the picture width, and no greater than 512.
+On new systems HD6303 is the BIOS default; saved MC6800 settings remain valid.
+File reads use UniDOS; SD, electronic disk, ROM disk and HG are all supported.
+No host-side image conversion or private graphics file format is required.

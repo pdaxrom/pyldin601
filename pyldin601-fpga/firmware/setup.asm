@@ -315,7 +315,8 @@ settings_load:
     sts SET_LOAD_SP
     inc SET_LOADING
     clr SET_VALID
-    clr SET_CURRENT
+    ldaa #2                 ; New systems: 601, HD6303 ISA, 1 MHz.
+    staa SET_CURRENT
     ldx #settings_name
     jsr file_find
     lbcs settings_invalid
@@ -384,7 +385,8 @@ settings_load_failed:
     lds SET_LOAD_SP
     clr SET_LOADING
     clr SET_VALID
-    clr SET_CURRENT
+    ldaa #2                 ; Existing valid P601.SET always takes priority.
+    staa SET_CURRENT
     ldaa #$23
     staa SPI_CTL
     rts

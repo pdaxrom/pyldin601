@@ -221,6 +221,8 @@ int main(int argc,char**argv){
  image=load(argv[2],&image_size);sdsc=argc>3&&(!strcmp(argv[3],"sdsc")||!strcmp(argv[3],"save-sdsc")||!strcmp(argv[3],"save-sdsc-busy"));missing_sd=argc>3&&!strcmp(argv[3],"no-sd");sram_fault=argc>3&&!strcmp(argv[3],"sram-fault");unsigned reject=missing_sd||sram_fault||(argc>3&&!strcmp(argv[3],"reject"));
  if(argc>3){unsigned a=!strcmp(argv[3],"601a")||!strcmp(argv[3],"601a-reject")||!strcmp(argv[3],"601a-hd6303");unsigned hd=!strcmp(argv[3],"hd6303")||!strcmp(argv[3],"601a-hd6303");if(a||hd)setup_keys(a,hd,0);if(!strcmp(argv[3],"save"))setup_keys(1,1,1);if(!strcmp(argv[3],"exit")){setup_script[setup_length++]=0xf9;setup_script[setup_length++]=0xc2;setup_script[setup_length++]=0x1b;}if(!strcmp(argv[3],"setup-default")){setup_script[setup_length++]=0xc4;setup_script[setup_length++]=0xc0;}if(!strcmp(argv[3],"601a-reject"))reject=1;}
  if(argc>3&&!strcmp(argv[3],"save-sdsc"))setup_keys(1,1,1);
+ if(argc>3&&!strcmp(argv[3],"save-default"))setup_keys(1,0,1);
+ if(argc>3&&!strcmp(argv[3],"save-default-busy")){setup_keys(1,0,1);sd_busy_transition=1;}
  if(argc>3&&!strcmp(argv[3],"save8")){setup_frequency=3;setup_keys(1,1,1);}
  if(argc>3&&!strcmp(argv[3],"save-left")){setup_frequency=1;setup_frequency_left=1;setup_keys(1,1,1);}
  if(argc>3&&!strcmp(argv[3],"save-denied")){setup_keys(1,1,1);sd_deny_write=1;setup_error_exit=1;}

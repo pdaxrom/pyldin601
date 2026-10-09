@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Serve a UniDOS FAT12 image/directory over the uJ11 HG v1 FT2232A link.
+"""Serve a UniDOS FAT12 image/directory over the HG FT2232A link.
 
-Wire format, per-byte MPSSE pacing and open-drain ADBUS7 sequence follow
-pdaxrom/lsi11-fpga host/hg/{hg_protocol,hg_mpsse,hg_time,hgfsd}.c.
+HG v1 byte pacing and open-drain ADBUS7 follow pdaxrom/lsi11-fpga.
+HG v2 uses FPGA FIFO credits for bursts of up to 32 bytes at the same TCK.
 The filesystem here is FAT12, not the uJ11 daemon's RT-11 directory backend.
 Python standard library + the system libftdi1 runtime; no pyserial/pyftdi.
 """
@@ -27,7 +27,7 @@ OK, PROTOCOL, RANGE, IO, CHECKSUM, READ_ONLY = range(6)
 
 
 def decode_header(header):
-    if len(header) != 10 or header[:3] != b'HG\x01':
+    if len(header) != 10 or header[:2] != b'HG' or header[2] not in (1, 2):
         raise ValueError('invalid HG header')
     checksum = 0
     for byte in header[:9]:
@@ -225,7 +225,7 @@ class DirectoryVolume(Volume):
 
 
 class Mpsse:
-    def __init__(self, clock=100_000, serial=None, index=0, vid=0x403, pid=0x6010):
+    def __init__(self, clock=1_000_000, serial=None, index=0, vid=0x403, pid=0x6010):
         if not 100 <= clock <= 1_000_000:
             raise ValueError('MPSSE clock requires 100..1000000 Hz')
         library = ctypes.util.find_library('ftdi1')
@@ -333,6 +333,40 @@ class Mpsse:
             result.extend(self.read(1))
         return bytes(result)
 
+    def wait_phase(self, value, mask):
+        deadline = time.monotonic() + 5
+        while True:
+            phase = self.exchange_packet(count=1)[0]
+            # Before the CPU enables queries, its legacy request pin reads FF.
+            if phase != 0xff and phase & 0x40:
+                raise OSError('HG FIFO overflow/underflow')
+            if phase & mask == value:
+                return
+            if time.monotonic() > deadline:
+                raise TimeoutError('HG FIFO credit/status phase')
+
+    def exchange_packet(self, data=None, count=None):
+        count = len(data) if count is None else count
+        if not 1 <= count <= 32 or data is not None and len(data) != count:
+            raise ValueError('HG packet requires 1..32 bytes')
+        # One USB completion per packet; the FPGA credit guarantees enough
+        # RX space/TX data even if a CPU interrupt spans the complete burst.
+        payload = bytes(count) if data is None else data
+        self.write(bytes((0x39, count - 1, 0)) + payload + b'\x87')
+        return self.read(count)
+
+    def exchange_flow(self, data=None, count=None):
+        count = len(data) if count is None else count
+        result = bytearray()
+        self.select(False)
+        for offset in range(0, count, 32):
+            self.wait_phase(0x89 | (2 if data is not None else 4), 0x9f)
+            size = min(32, count - offset)
+            self.select(True)
+            result.extend(self.exchange_packet(None if data is None else data[offset:offset + size], size))
+            self.select(False)
+        return bytes(result)
+
     def close(self):
         if not self.context:
             return
@@ -350,15 +384,29 @@ class Mpsse:
             self.context = None
 
 
-def serve_one(link, volume, now=None):
+def serve_one(link, volume, now=None, stats=None):
+    started = time.monotonic()
+    version, op, block, count = 1, 0, 0, 0
+    outcome = OK
+    transport_failed = False
     def status(value):
-        time.sleep(.0005)
+        nonlocal outcome
+        outcome = value
+        if version == 2:
+            link.select(False)
+            link.wait_phase(0x9a, 0x9e)  # request/packet/inhibit/RX
+            link.select(True)
+        else:
+            time.sleep(.0005)
         link.exchange(bytes((value,)))
     link.select(True)
     try:
         time.sleep(.002)
         try:
-            op, block, count = decode_header(link.exchange(count=10))
+            # Both P601 driver versions queue all ten bytes before REQUEST.
+            header = link.exchange_packet(count=10)
+            op, block, count = decode_header(header)
+            version = header[2]
         except ValueError:
             status(PROTOCOL)
             return False
@@ -372,8 +420,11 @@ def serve_one(link, volume, now=None):
                 status(IO)
                 return False
             status(OK)
-            time.sleep(.0005)
-            link.exchange(checked_payload(payload))
+            if version == 2:
+                link.exchange_flow(checked_payload(payload))
+            else:
+                time.sleep(.0005)
+                link.exchange(checked_payload(payload))
             return False
         if volume.read_only:
             status(READ_ONLY)
@@ -382,8 +433,11 @@ def serve_one(link, volume, now=None):
             status(RANGE)
             return False
         status(OK)
-        time.sleep(.0005)
-        payload = link.exchange(count=count + 2)
+        if version == 2:
+            payload = link.exchange_flow(count=count + 2)
+        else:
+            time.sleep(.0005)
+            payload = link.exchange(count=count + 2)
         if checked_payload(payload[:-2]) != payload:
             status(CHECKSUM)
             return False
@@ -394,9 +448,37 @@ def serve_one(link, volume, now=None):
             return False
         status(OK)
         return True
+    except BaseException:
+        transport_failed, outcome = True, IO
+        raise
     finally:
-        time.sleep(.0005)
-        link.select(False)
+        try:
+            if version == 2 and not transport_failed:
+                link.select(False)
+                link.wait_phase(0x98, 0x9e)  # terminal: RX/TX disabled
+                link.select(True)
+                link.wait_phase(0, 0x80)  # CPU acknowledges and releases request
+            time.sleep(.0005)
+        finally:
+            link.select(False)
+            if stats is not None:
+                stats(version, op, block, count, outcome, time.monotonic() - started)
+
+
+class TransferStats:
+    """Log real wire/CPU/FIFO wait time, separately from file decoding/rendering."""
+    def __init__(self):
+        self.samples = {}
+
+    def __call__(self, version, op, block, count, status, elapsed):
+        key = version, op
+        samples, size, seconds = self.samples.get(key, (0, 0, 0))
+        samples, size, seconds = samples + 1, size + count, seconds + elapsed
+        self.samples[key] = samples, size, seconds
+        name = {1: 'READ', 2: 'WRITE', 3: 'TIME'}.get(op, 'INVALID')
+        print(f'HG v{version} {name}'
+              f' LBA={block} bytes={count} status={status} {elapsed * 1000:.1f}ms;'
+              f' average={size / seconds / 1024:.2f}KiB/s ({samples} requests)', flush=True)
 
 
 def main():
@@ -408,7 +490,8 @@ def main():
     group.add_argument('--create-image', type=Path, help='format a new FAT12 image and exit')
     parser.add_argument('--read-only', action='store_true')
     parser.add_argument('--blocks', type=int, default=fat12.MAX_SECTORS, help='FAT12 sectors, default 32736; tested UniDOS geometry: 32400')
-    parser.add_argument('--clock', type=int, default=100000)
+    parser.add_argument('--clock', type=int, default=1000000)
+    parser.add_argument('--stats', action='store_true', help='log measured transaction time and throughput')
     parser.add_argument('--serial')
     parser.add_argument('--index', type=int, default=0)
     parser.add_argument('--vid', type=lambda n: int(n, 0), default=0x403)
@@ -441,9 +524,10 @@ def main():
             return
         print(f'Serving {volume.path} at {link.clock} Hz; {volume.info["sectors"]} sectors', flush=True)
         last_write = 0
+        stats = TransferStats() if args.stats else None
         while not stop:
             if link.pending():
-                if serve_one(link, volume):
+                if serve_one(link, volume, stats=stats):
                     last_write = time.monotonic()
             elif isinstance(volume, DirectoryVolume) and time.monotonic() - last_write >= .5:
                 try:

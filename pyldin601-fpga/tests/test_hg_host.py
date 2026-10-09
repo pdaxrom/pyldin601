@@ -12,8 +12,8 @@ spec=importlib.util.spec_from_file_location('hgfsd',ROOT/'host/hg/hgfsd.py')
 hg=importlib.util.module_from_spec(spec);spec.loader.exec_module(hg)
 
 
-def header(op,block=0,count=512):
-    data=b'HG\x01'+struct.pack('<BBHH',op,0,block,count)
+def header(op,block=0,count=512,version=1):
+    data=b'HG'+bytes((version,))+struct.pack('<BBHH',op,0,block,count)
     xor=0
     for byte in data:xor^=byte
     return data+bytes((xor,))
@@ -27,6 +27,13 @@ class Link:
         if data is not None:self.out.extend(data);return bytes(len(data))
         result=bytes(self.incoming[:count]);del self.incoming[:count]
         assert len(result)==count
+        return result
+    def wait_phase(self,value,mask):pass
+    def exchange_packet(self,data=None,count=None):return self.exchange(data,count)
+    def exchange_flow(self,data=None,count=None):
+        self.select(True)
+        result=self.exchange(data,count)
+        self.select(False)
         return result
 
 
@@ -48,6 +55,11 @@ class HostTests(unittest.TestCase):
             now=datetime.datetime(2026,10,8,19,14,25,440000)
             link=Link(header(3,50,6));hg.serve_one(link,volume,now)
             self.assertEqual(link.out,b'\0'+hg.checked_payload(hg.host_time(50,now)))
+            for op,block,count in [(1,100,512),(2,100,512),(3,50,6)]:
+                incoming=header(op,block,count,2)+(hg.checked_payload(data) if op==2 else b'')
+                link=Link(incoming);hg.serve_one(link,volume,now)
+                expected=b'\0\0' if op==2 else b'\0'+hg.checked_payload(data if op==1 else hg.host_time(50,now))
+                self.assertEqual(link.out,expected);self.assertFalse(link.selected)
             for hdr in [header(3,51,6),header(3,50,5),header(9),header(0x81),header(1)[:-1]+b'\xff']:
                 link=Link(hdr);hg.serve_one(link,volume);self.assertEqual(link.out,bytes((hg.PROTOCOL,)))
             volume.close();volume=hg.Volume(path,True)
@@ -99,6 +111,14 @@ class HostTests(unittest.TestCase):
                 self.assertLess(high*65536+low,86400*hz)
         with self.assertRaises(ValueError):hg.host_time(50,datetime.datetime(2036,1,1))
 
+    def test_credit_phase_wait(self):
+        link=hg.Mpsse.__new__(hg.Mpsse)
+        phases=iter((0xff,0xff,0x9a))
+        link.exchange_packet=lambda count:bytes((next(phases),))
+        link.wait_phase(0x9a,0x9e)
+        link.exchange_packet=lambda count:b'\xcb'
+        with self.assertRaises(OSError):link.wait_phase(0x8b,0x9f)
+
     def test_mpsse_wire_and_open_drain(self):
         link=hg.Mpsse.__new__(hg.Mpsse)
         link.value=0;link.direction=0x0b;link.jtag_controlled=False
@@ -109,6 +129,18 @@ class HostTests(unittest.TestCase):
         link.jtag_enable(True);self.assertEqual(sent[-1],b'\x80\0\x0b')
         self.assertEqual(link.exchange(b'\x53\x19'),b'\xa5\xa5')
         self.assertEqual(sent[-2:],[b'\x39\0\0\x53\x87',b'\x39\0\0\x19\x87'])
+        self.assertEqual(link.exchange_packet(bytes(range(32))),b'\xa5'*32)
+        self.assertEqual(sent[-1],b'\x39\x1f\0'+bytes(range(32))+b'\x87')
+        for size in (0,33):
+            with self.assertRaises(ValueError):link.exchange_packet(count=size)
+        packets=[];credits=[]
+        link.wait_phase=lambda value,mask:credits.append((value,mask))
+        link.exchange_packet=lambda data,count:packets.append((data,count)) or bytes(count)
+        wire=hg.checked_payload(bytes(range(256))*2)
+        self.assertEqual(len(link.exchange_flow(wire)),514)
+        self.assertEqual([n for _,n in packets],[32]*16+[2])
+        self.assertEqual(b''.join(d for d,_ in packets),wire)
+        self.assertEqual(credits,[(0x8b,0x9f)]*17);self.assertFalse(link.value&8)
 
 
 if __name__=='__main__':unittest.main()

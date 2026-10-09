@@ -1,5 +1,27 @@
 # Diamond
 
+Пакетный HG v2, 9 октября: 6629/6864 LUT, 3327/3432 slices,
+2515/7209 registers, 25/26 EBR, 1/2 PLL. Осталось 235 LUT, 105 slices,
+4694 registers, 1 EBR, 1 PLL. TRACE setup/hold negative slack и
+unconstrained paths — 0; все ограничения SRAM проходят.
+JED `build/diamond/hg-packets/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`ae479c01f8163e848a15fe97dacdb404cfbe48ac0f8a61a2530d5a44cfdf133e`.
+Исходники `build/diamond/source-hg-packets.tar.gz` и `.sha256.json`;
+Linux `/tmp/pyldin601-hg-packets`. Программы HG отдельно собираются UniAS.
+FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification — PASS;
+JTAGENB high до/после, low после запуска HG проверены.
+[Протокол, USB-замер и проверки](HG.md).
+
+Повторная сборка 9 октября с HD6303 по умолчанию в первичном BIOS:
+те же 6529 LUT / 3274 slices / 2367 registers / 25 EBR / 1 PLL.
+TRACE setup/hold negative slack и unconstrained paths — 0.
+JED `build/diamond/view-hd-default/impl1/pyldin601_classic_impl1.jed`, SHA-256
+`54f1a9ba29b26f6fcb077f39fcd7552cdd9907b5c08e806da4819fa4c82233dd`.
+Исходники `build/diamond/source-view-hd-default.tar.gz` и `.sha256.json`;
+Linux `/tmp/pyldin601-view-hd-default`. Аппаратная графика не менялась;
+VIEW.PGM выполняется программно и не добавляет FPGA-ресурсов.
+[Вьюер, формат и проверки](PCX-VIEWER.md).
+
 Текущая версия с RGB332 и HG, 9 октября 2026: 6529 LUT, 3274 slices,
 2367 registers, 25 EBR, 1 PLL. Свободны 335 LUT, 158 slices,
 4842 registers, 1 EBR и 1 PLL. TRACE setup/hold negative slack

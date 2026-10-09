@@ -236,6 +236,7 @@ test-setup-hdl: test-mixed-clock fixtures
 test-handoff-fast: test-mixed-clock fixtures
 	@set -e; for setting in 12 14 15; do $(PYTHON) tests/prepare_handoff.py $$setting; model=""; if [ $$setting -eq 15 ]; then model="-D BOOT_MODEL_A=1"; fi; $(NVC) --std=2008 --work=work:$(BUILD)/handoff-fast-$$setting --ieee-warnings=off -a -D HANDOFF_CHECK=1 -D HANDOFF_SETTING=$$setting -D FULL_SYSTEM=1 $$model rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system --stop-time=2ms > $(BUILD)/handoff-fast-$$setting.log 2>&1; cat $(BUILD)/handoff-fast-$$setting.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU handoff/ROM lock/warm reset' in Path('build/handoff-fast-$$setting.log').read_text()"; done
 
+HG_ISA ?= 0
 .PHONY: hg-apps test-hg test-hg-hdl
 hg-apps: | $(BUILD)
 	$(PYTHON) tools/build_hg.py --unias "$(UNIAS)"
@@ -245,9 +246,16 @@ test-hg: fixtures hg-apps
 	$(VVP) $(BUILD)/tb_hg
 	$(PYTHON) tests/run_hg.py --cc "$(CC)"
 test-hg-hdl: fixtures hg-apps
-	$(PYTHON) tests/run_hg.py --hdl --nvc "$(NVC)" --cc "$(CC)"
+	$(PYTHON) tests/run_hg.py --hdl --isa "$(HG_ISA)" --nvc "$(NVC)" --cc "$(CC)"
 
 .PHONY: gfx-apps test-gfx test-gfx-app
+.PHONY: test-view
+test-view: gfx-apps fixtures
+	$(PYTHON) tests/prepare_view.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_view_unidos.c -o $(BUILD)/test_view_unidos
+	$(BUILD)/test_view_unidos $(BUILD)/view/sd.img 601
+	$(BUILD)/test_view_unidos $(BUILD)/view/sd.img 601a
+	$(PYTHON) tests/run_view_app.py --nvc $(NVC)
 gfx-apps: | $(BUILD)
 	$(PYTHON) tools/build_gfx.py --unias "$(UNIAS)"
 test-gfx: firmware

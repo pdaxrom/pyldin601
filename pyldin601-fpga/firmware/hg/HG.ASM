@@ -1,6 +1,7 @@
 ; UniDOS relocatable HG.PGM / HGTIME.PGM, classic MC6800 instructions only.
 ; Block-driver ABI and residency follow native-src/VDISK.601 (T. Todorov).
-; Wire ABI follows uJ11 HG v1: little-endian header, XOR, additive data sum.
+; HG v1 ABI or v2 FIFO credits: little-endian header, XOR, additive sum.
+; v2 pauses SELECT between <=32-byte packets; CPU/video are never stopped.
 datareg = $e670
 statusreg = $e671
 controlreg = $e672
@@ -174,7 +175,7 @@ header  dw init,read,write
         db 1,1,2
         dw 512,2880
         db $f8,9,18,2
-disk_ok db 'HG 1.0 remote disk '
+disk_ok db 'HG 2.0 remote disk '
 drive_letter db 'C:',13,10,0
 disk_failed db 'HG: host unavailable or invalid FAT12 disk.',13,10,0
 old_drive db 0
@@ -195,6 +196,14 @@ transfer
 transfer_idle
         ldaa #$80
         staa controlreg
+        ; Older FPGA images retain the original byte-paced HG v1 protocol.
+        ldaa #1
+        staa wire_header+2
+        ldaa statusreg
+        bita #$10
+        beq version_selected
+        inc wire_header+2
+version_selected
         clr sum
         clr sum+1
         ldaa operation
@@ -236,7 +245,7 @@ header_selected
         bcc header_drained
         jmp transfer_error
 header_drained
-        ldaa #3
+        jsr status_control
         staa controlreg
         jsr receive_byte
         bcc status_received
@@ -253,6 +262,13 @@ status_ok
         ldaa operation
         cmpa #2
         beq write_payload
+        ldaa #3
+        ldab wire_header+2
+        cmpb #2
+        bne read_control
+        ldaa #11
+read_control
+        staa controlreg
 read_payload
         jsr receive_byte
         bcc payload_received
@@ -278,6 +294,11 @@ checksum_received
         bra transfer_ok
 write_payload
         ldaa #5
+        ldab wire_header+2
+        cmpb #2
+        bne write_control
+        ldaa #13
+write_control
         staa controlreg
 write_next
         ldx pointer
@@ -296,15 +317,23 @@ write_next
         ldaa sum
         jsr send_byte
         bcs transfer_error
+        ldaa wire_header+2
+        cmpa #2
+        bne checksum_queued
+        ; All payload/checksum bytes are queued: permit the final short burst.
+        ldaa #45
+        staa controlreg
+checksum_queued
         jsr wait_tx_empty
         bcs transfer_error
-        ldaa #3
+        jsr status_control
         staa controlreg
         jsr receive_byte
         bcs transfer_error
         tsta
         bne status_error
 transfer_ok
+        jsr finish_packet
         clr controlreg
         clc
         rts
@@ -326,8 +355,35 @@ not_protected
 set_error
         staa io_error
 transfer_error
+        jsr finish_packet
         clr controlreg
         sec
+        rts
+
+; The host must observe completion before the next disk request can start.
+; SELECT low queries do not touch FIFOs; terminal state has neither RX nor TX.
+finish_packet
+        ; No completion handshake if the host never collected the header.
+        ldaa controlreg
+        bita #8
+        beq finish_done
+        jsr wait_idle
+        bcs finish_done
+        ldaa #25
+        staa controlreg
+        jsr wait_select
+finish_done
+        rts
+
+; No packet is granted until the status byte has selected RX/TX direction.
+status_control
+        ldaa wire_header+2
+        cmpa #2
+        bne status_v1
+        ldaa #27
+        rts
+status_v1
+        ldaa #3
         rts
 
 add_sum
@@ -404,8 +460,12 @@ receive_poll
         bne fifo_bad
         bita #1
         bne receive_ready
+        ldab wire_header+2
+        cmpb #2
+        beq receive_wait
         bita #4
         beq wait_bad
+receive_wait
         dex
         bne receive_poll
         dec timeout
@@ -427,8 +487,12 @@ send_poll
         bne fifo_bad
         bita #2
         bne send_ready
+        ldab wire_header+2
+        cmpb #2
+        beq send_wait
         bita #4
         beq wait_bad
+send_wait
         dex
         bne send_poll
         dec timeout

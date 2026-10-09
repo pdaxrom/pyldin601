@@ -26,39 +26,57 @@ module hg_bios_fixture #(parameter SPEED=0)(
   if(!pin_lb)memory[pin_address][7:0]=pin_data[7:0];
   if(!pin_ub)memory[pin_address][15:8]=pin_data[15:8];
  end
- reg[7:0]head[0:9],payload[0:5],dummy,got;integer n,transaction,sum,xor_sum,irqs=0,video_reads=0;
+ reg[7:0]head[0:9],payload[0:5],dummy,got;integer n,transaction,sum,xor_sum,packet_size,offset,irqs=0,video_reads=0;
  reg armed=0;reg[7:0]failed_stage,failed_a,failed_day,failed_month,failed_year_hi,failed_year_lo,failed_hour,failed_minute;
- task exchange;input[7:0]data;integer n;begin
-  for(n=0;n<8;n=n+1)begin
-   tdi=data[n];#5000;tck=1;#100;got[n]=tdo;#4900;tck=0;
+ task exchange;input[7:0]data;integer bitn;begin
+  for(bitn=0;bitn<8;bitn=bitn+1)begin
+   tdi=data[bitn];#500;tck=1;#100;got[bitn]=tdo;#400;tck=0;
   end
-  #140000; // completed USB byte pacing, with a CPU interrupt gap
  end endtask
  function[7:0]ram;input[15:0]a;begin ram=a[0]?memory[a>>1][15:8]:memory[a>>1][7:0];end endfunction
+ task status;begin
+  #1000000;tms=0;#1000000;query(8'h9a,8'h9e);#1000000;tms=1;#1000;exchange(0);#1000000;
+ end endtask
+ task query;input[7:0]expected,mask;begin
+  exchange(0);
+  while((got&mask)!==expected)begin #1000000;exchange(0);end
+ end endtask
+ task credit;begin
+  #1000000;tms=0;#1000000;query(transaction==1?8'h8d:8'h8b,8'h9f);#1000000;tms=1;#1000;
+ end endtask
  task host_request;begin
-  wait(enable&&tdo&&!tms);tms=1;#2000000;
+  wait(enable&&tdo&&!tms);#1000000;tms=1;#2000000;
   xor_sum=0;
   for(n=0;n<10;n=n+1)begin exchange(0);head[n]=got;if(n<9)xor_sum=xor_sum^got;end
-  if(head[0]!=="H"||head[1]!=="G"||head[2]!==1||head[4]!==0||head[9]!==xor_sum[7:0])$fatal(1,"HDL CPU HG header/XOR");
+  if(head[0]!=="H"||head[1]!=="G"||head[2]!==2||head[4]!==0||head[9]!==xor_sum[7:0])$fatal(1,"HDL CPU HG v2 header/XOR");
   if(head[3]!==transaction+1)$fatal(1,"HG operation got %h",head[3]);
   if(transaction<2&&(head[5]!==8'hdf||head[6]!==8'h7f||head[7]!==0||head[8]!==2))$fatal(1,"last-sector header mismatch");
   if(transaction==2&&(head[5]!==50||head[6]!==0||head[7]!==6||head[8]!==0))$fatal(1,"TIME header mismatch");
-  #500000;exchange(0);#500000;sum=0;
+  status();sum=0;
   if(transaction==0)begin
-   for(n=0;n<512;n=n+1)begin exchange(n[7:0]^8'ha5);sum=sum+(n[7:0]^8'ha5);end
-   exchange(sum[7:0]);exchange(sum[15:8]);
-  end else if(transaction==1)begin
-   for(n=0;n<512;n=n+1)begin
-    exchange(0);if(got!==(n[7:0]^8'ha5))$fatal(1,"HDL WRITE byte %d got %h",n,got);sum=sum+got;
+   for(offset=0;offset<512;offset=offset+32)begin
+    credit();
+    for(n=offset;n<offset+32;n=n+1)begin exchange(n[7:0]^8'ha5);sum=sum+(n[7:0]^8'ha5);end
    end
-   exchange(0);if(got!==sum[7:0])$fatal(1,"HDL WRITE checksum low");
+   credit();exchange(sum[7:0]);exchange(sum[15:8]);
+  end else if(transaction==1)begin
+   for(offset=0;offset<512;offset=offset+32)begin
+    credit();
+    for(n=offset;n<offset+32;n=n+1)begin
+     exchange(0);if(got!==(n[7:0]^8'ha5))$fatal(1,"HDL WRITE byte %d got %h",n,got);sum=sum+got;
+    end
+   end
+   credit();exchange(0);if(got!==sum[7:0])$fatal(1,"HDL WRITE checksum low");
    exchange(0);if(got!==sum[15:8])$fatal(1,"HDL WRITE checksum high");
-   #500000;exchange(0);
+   status();
   end else begin
+   credit();
    for(n=0;n<6;n=n+1)begin exchange(payload[n]);sum=sum+payload[n];end
    exchange(sum[7:0]);exchange(sum[15:8]);
   end
-  #500000;tms=0;#100000;
+  #1000000;tms=0;#1000000;query(8'h98,8'h9e);#1000000;tms=1;#1000000;query(0,8'h80);
+  $display("HG v2 transaction %0d completed at 1MHz TCK",transaction);
+  #1000000;tms=0;#1000000;
  end endtask
  initial begin
   $readmemh("build/hgdisk-sram.mem",memory);
@@ -71,7 +89,7 @@ module hg_bios_fixture #(parameter SPEED=0)(
   if(ram(16'h001c)!==8||ram(16'h001d)!==10||ram(16'h001e)!==7||ram(16'h001f)!==8'hea||ram(16'h001b)!==19||ram(16'h001a)!==14)$fatal(1,"HDL TIME conversion mismatch");
   if(irqs==0||video_reads<20)$fatal(1,"no concurrent IRQ/video traffic");
   if(dut.host_link.overflow||dut.host_link.underflow)$fatal(1,"HG FIFO error");
-  $display("PASS actual HDL CPU/native resident HG.PGM model_a=%0d %0dMHz: FTDI pins, last-sector read/write/checksum, TIME, %0d IRQ acknowledgements, %0d concurrent video reads",dut.model_a,1<<SPEED,irqs,video_reads);$finish;
+  $display("PASS actual HDL CPU/native resident HG.PGM v2 1MHz TCK model_a=%0d %0dMHz: FTDI pins, last-sector read/write/checksum, TIME, %0d IRQ acknowledgements, %0d concurrent video reads",dut.model_a,1<<SPEED,irqs,video_reads);$finish;
  end
  always @(posedge clk)if(armed)begin
   if(dut.bus_read&&cpu_addr==16'he62b&&dut.tick_pending)irqs=irqs+1;

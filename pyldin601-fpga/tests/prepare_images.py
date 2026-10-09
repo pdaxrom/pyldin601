@@ -10,7 +10,9 @@ spec=importlib.util.spec_from_file_location('make_sd',project/'tools/make_sd.py'
 sd=importlib.util.module_from_spec(spec);spec.loader.exec_module(sd)
 native=Path(sys.argv[1]);output=Path(sys.argv[2]);output.mkdir(exist_ok=True,parents=True)
 disk=sd.blank_disk()
-image,_=sd.build(native,[disk,disk]);output.joinpath('test-sd.img').write_bytes(image)
+# Saved MC6800 configuration exercises compatibility with existing cards even
+# though newly created cards and the BIOS fallback now default to HD6303.
+image,_=sd.build(native,[disk,disk],default_extension=False);output.joinpath('test-sd.img').write_bytes(image)
 partition=2048*512
 reserved=sd.u16(image,partition+14);spf=sd.u16(image,partition+22)
 root=partition+(reserved+image[partition+16]*spf)*512
@@ -43,7 +45,7 @@ output.joinpath('boot-config.mem').write_text(''.join(f'{v:02x}\n' for v in payl
 print('Prepared classic, fragmented, CRC-corrupt and truncated FAT-chain fixtures')
 
 # Preserve classic fixtures and also exercise both BIOS choices on one SD.
-a_image,_=sd.build(native,[disk,disk],bios_a=project.parent/'native-src/BIOS_A.ROM')
+a_image,_=sd.build(native,[disk,disk],bios_a=project.parent/'native-src/BIOS_A.ROM',default_extension=False)
 output.joinpath('models-sd.img').write_bytes(a_image)
 a_entry=next(p for p in range(root,data,32) if a_image[p:p+11]==b'P601A   ROM')
 a_cluster=sd.u16(a_image,a_entry+26);a_size=sd.u32(a_image,a_entry+28)

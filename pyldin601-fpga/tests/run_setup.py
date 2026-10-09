@@ -72,16 +72,16 @@ missing = bytearray(original)
 missing[entry] = 0xe5
 for copy in range(copies):
     struct.pack_into('<H', missing, start + (reserved + copy * spf) * 512 + cluster * 2, 0)
-run('missing-defaults', missing, 'setup-default', 0)
-run('create-missing', missing, 'save', 3, writes=4)
-run('create-busy-transition', missing, 'save-busy-transition', 3, writes=4)
+run('missing-defaults', missing, 'setup-default', 2)
+run('create-missing', missing, 'save-default', 3, writes=4)
+run('create-busy-transition', missing, 'save-default-busy', 3, writes=4)
 damaged = bytearray(original)
 damaged[record + 14] ^= 1
-run('bad-checksum', damaged, 'setup-default', 0)
+run('bad-checksum', damaged, 'setup-default', 2)
 damaged = bytearray(original)
 damaged[record + 8] = 2
 struct.pack_into('>H', damaged, record + 14, binascii.crc_hqx(damaged[record:record + 14], 0))
-run('bad-version', damaged, 'setup-default', 0)
+run('bad-version', damaged, 'setup-default', 2)
 
 for flags in range(16):
     configured = bytearray(original)

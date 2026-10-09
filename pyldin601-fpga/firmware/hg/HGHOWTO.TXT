@@ -1,4 +1,4 @@
-HG 1.0 host disk for Pyldin 601/601A
+HG 2.0 host disk for Pyldin 601/601A
 
 Requires HG FPGA firmware, FT2232A and ADBUS7 JTAGENB wiring as in uJ11.
 Host: python3 host/hg/hgfsd.py --directory /path/to/files
@@ -11,6 +11,9 @@ HG installs the first free drive (usually E: with ROM and RAM disks)
 and synchronizes local host date/time. Use DIR E: and COPY normally.
 B:HGTIME synchronizes time again without installing another drive.
 Both PGM programs run on MC6800; HD6303 extension is optional.
+Default TCK is 1 MHz. New FPGA/PGM use 32-byte FIFO-credit packets.
+Older FPGA/PGM keep byte-paced v1; update both FPGA and B:HG for v2.
+--stats logs sector transfer times separately from application rendering.
 
 --image serves an existing raw FAT12 volume, including subdirectories.
 --create-image creates a new empty FAT12 image and exits.

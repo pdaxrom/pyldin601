@@ -80,6 +80,8 @@ class SDTests(unittest.TestCase):
         image, config = sd.build(native,[disk,disk],1,bios_a=a_path)
         first = image[2048*512:(2048+sd.BOOT_SECTORS)*512]
         contents = root_files(first)
+        self.assertEqual(contents['P601    SET'], sd.settings_record(0, True, 1))
+        self.assertEqual(contents['P601    SET'][9], 2)
         bundle = contents['P601    ROM']
         self.assertEqual(bundle[:8],b'P601BOOT')
         self.assertEqual(bundle[24],1)
