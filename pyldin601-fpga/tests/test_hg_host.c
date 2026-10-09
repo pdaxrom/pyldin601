@@ -198,6 +198,176 @@ static void volume_tests(void) {
     puts("PASS native directory import/export, stable clusters, concurrent merge, conflict "
          "preservation, crash recovery, readonly and malformed FAT");
 }
+static void make_directory(const char *root, const char *name) {
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/%s", root, name);
+    assert(!mkdir(path, 0700));
+}
+static void guest_directory(HgVolume *v, const char *name) {
+    HgFiles files = {0};
+    assert(!hg_fat_files(v->image, v->size, &files));
+    HgFile f = {0};
+    strcpy(f.name, name);
+    strcpy(f.host, name);
+    f.attr = 16;
+    assert(!hg_file_copy(&files, &f));
+    uint8_t *data = malloc(v->size);
+    assert(data);
+    memcpy(data, v->image, v->size);
+    assert(!hg_fat_update(data, v->size, &files));
+    for (size_t at = 0; at < v->size; at += 512)
+        if (memcmp(v->image + at, data + at, 512))
+            assert(hg_volume_write(v, (unsigned)(at / 512), data + at, 512) == HG_OK);
+    free(data);
+    hg_files_free(&files);
+}
+static void guest_remove_tree(HgVolume *v, const char *name) {
+    HgFiles files = {0}, wanted = {0};
+    assert(!hg_fat_files(v->image, v->size, &files));
+    size_t len = strlen(name);
+    for (unsigned i = 0; i < files.n; i++)
+        if (strncmp(files.v[i].name, name, len) ||
+            (files.v[i].name[len] && files.v[i].name[len] != '/'))
+            assert(!hg_file_copy(&wanted, &files.v[i]));
+    uint8_t *data = malloc(v->size);
+    assert(data);
+    memcpy(data, v->image, v->size);
+    assert(!hg_fat_update(data, v->size, &wanted));
+    for (size_t at = 0; at < v->size; at += 512)
+        if (memcmp(v->image + at, data + at, 512))
+            assert(hg_volume_write(v, (unsigned)(at / 512), data + at, 512) == HG_OK);
+    free(data);
+    hg_files_free(&files);
+    hg_files_free(&wanted);
+}
+static void directory_tests(void) {
+    char dir[] = "/tmp/p601-hg-tree-XXXXXX", path[1024];
+    assert(mkdtemp(dir));
+    put(dir, "ROOT.TXT", "root remains");
+    make_directory(dir, "pictures");
+    make_directory(dir, "pictures/inner");
+    make_directory(dir, "EMPTY");
+    put(dir, "pictures/inner/lena.iff", "original image");
+    put(dir, "pictures/ROOT.TXT", "same leaf in another directory");
+    HgVolume v;
+    assert(!hg_volume_open(&v, dir, true, HG_MAX_SECTORS, false));
+    HgFiles files = {0};
+    assert(!hg_fat_files(v.image, v.size, &files));
+    assert(hg_find(&files, "EMPTY")->attr & 16);
+    unsigned cluster = hg_find(&files, "PICTURES/INNER/LENA.IFF")->chain[0];
+    hg_files_free(&files);
+    guest_file(&v, "PICTURES/INNER/NEW.TXT", "nested guest write");
+    put(dir, "pictures/ROOT.TXT", "independent host edit");
+    assert(!hg_volume_sync(&v));
+    expect(dir, "pictures/inner/NEW.TXT", "nested guest write");
+    expect(dir, "pictures/ROOT.TXT", "independent host edit");
+    assert(!hg_fat_files(v.image, v.size, &files));
+    assert(hg_find(&files, "PICTURES/INNER/LENA.IFF")->chain[0] == cluster);
+    hg_files_free(&files);
+    /* A full directory grows into a fragmented chain; retained file clusters
+       and all entries must survive another host edit. */
+    for (unsigned i = 0; i < 140; i++) {
+        char name[80];
+        snprintf(name, sizeof(name), "pictures/inner/F%03u.TXT", i);
+        put(dir, name, "entry");
+    }
+    assert(!hg_volume_sync(&v));
+    assert(!hg_fat_files(v.image, v.size, &files));
+    HgFile *folder = hg_find(&files, "PICTURES/INNER");
+    assert(folder && folder->nchain == 2 && folder->chain[1] != folder->chain[0] + 1);
+    assert(hg_find(&files, "PICTURES/INNER/F139.TXT"));
+    assert(hg_find(&files, "PICTURES/INNER/LENA.IFF")->chain[0] == cluster);
+    /* A directory loop and invalid parent pointer are rejected without export. */
+    size_t offset = v.fat.payload + (folder->chain[0] - 2) * 4096;
+    uint8_t *bad = malloc(v.size);
+    assert(bad);
+    memcpy(bad, v.image, v.size);
+    hg_p16(bad + offset + 58, folder->chain[0]);
+    HgFiles rejected = {0};
+    assert(hg_fat_files(bad, v.size, &rejected) < 0);
+    memcpy(bad, v.image, v.size);
+    hg_p16(bad + hg_find(&files, "PICTURES/INNER/LENA.IFF")->slot + 26, folder->chain[0]);
+    assert(hg_fat_files(bad, v.size, &rejected) < 0);
+    free(bad);
+    hg_files_free(&files);
+    /* Crash after durable guest directory/data writes, before any export. */
+    guest_directory(&v, "DISK_C");
+    guest_directory(&v, "DISK_C/SUB");
+    guest_file(&v, "DISK_C/SUB/UE.CMD", "durable nested guest");
+    hg_volume_close(&v);
+    put(dir, "pictures/inner/HOST.TXT", "host edited while down");
+    assert(!hg_volume_open(&v, dir, true, HG_MAX_SECTORS, false));
+    expect(dir, "DISK_C/SUB/UE.CMD", "durable nested guest");
+    expect(dir, "pictures/inner/HOST.TXT", "host edited while down");
+    guest_file(&v, "DISK_C/SUB/UE.CMD", NULL);
+    assert(!hg_volume_sync(&v));
+    guest_remove_tree(&v, "DISK_C");
+    assert(!hg_volume_sync(&v));
+    snprintf(path, sizeof(path), "%s/DISK_C", dir);
+    assert(access(path, F_OK) < 0);
+    /* Concurrent guest deletion / host addition retains the edited host tree. */
+    guest_remove_tree(&v, "PICTURES");
+    put(dir, "pictures/inner/ADDED.TXT", "host wins tree deletion conflict");
+    assert(!hg_volume_sync(&v));
+    expect(dir, "pictures/inner/lena.iff", "original image");
+    assert(!hg_fat_files(v.image, v.size, &files));
+    assert(hg_find(&files, "PICTURES/INNER/ADDED.TXT"));
+    hg_files_free(&files);
+    /* Host deletion / modified guest leaf is saved with its full path. */
+    guest_file(&v, "PICTURES/INNER/LENA.IFF", "guest conflict");
+    snprintf(path, sizeof(path), "%s/pictures", dir);
+    remove_tree(path);
+    assert(!hg_volume_sync(&v));
+    snprintf(path, sizeof(path), "%s/.p601-hg-conflicts/PICTURES/INNER", dir);
+    DIR *backups = opendir(path);
+    assert(backups);
+    bool saved = false;
+    struct dirent *de;
+    while ((de = readdir(backups)))
+        if (strstr(de->d_name, "LENA.IFF.guest-")) {
+            expect(path, de->d_name, "guest conflict");
+            saved = true;
+        }
+    closedir(backups);
+    assert(saved);
+    /* Replacing an unchanged host directory with a guest file removes only
+       its known children. Switching back to a directory also works. */
+    make_directory(dir, "SWAP");
+    put(dir, "SWAP/ONE.TXT", "old nested file");
+    assert(!hg_volume_sync(&v));
+    guest_remove_tree(&v, "SWAP");
+    guest_file(&v, "SWAP", "guest replaced directory");
+    assert(!hg_volume_sync(&v));
+    expect(dir, "SWAP", "guest replaced directory");
+    guest_file(&v, "SWAP", NULL);
+    guest_directory(&v, "SWAP");
+    guest_file(&v, "SWAP/ONE.TXT", "new nested file");
+    assert(!hg_volume_sync(&v));
+    expect(dir, "SWAP/ONE.TXT", "new nested file");
+    /* Nested case collisions and intermediate symlinks preserve the image. */
+    put(dir, "SWAP/one.txt", "duplicate");
+    assert(hg_volume_sync(&v) < 0);
+    snprintf(path, sizeof(path), "%s/SWAP/one.txt", dir);
+    assert(!unlink(path));
+    snprintf(path, sizeof(path), "%s/SWAP/LINK", dir);
+    assert(!symlink("/tmp", path));
+    assert(hg_volume_sync(&v) < 0);
+    assert(!unlink(path));
+    assert(!hg_volume_sync(&v));
+    hg_volume_close(&v);
+    assert(!hg_volume_open(&v, dir, true, HG_MAX_SECTORS, false));
+    expect(dir, "SWAP/ONE.TXT", "new nested file");
+    hg_volume_close(&v);
+    remove_tree(dir);
+    char normalized[HG_PATH_MAX];
+    assert(!hg_path("../OUT.TXT", normalized));
+    assert(!hg_path("DIR/../../OUT", normalized));
+    assert(!hg_path("/OUT.TXT", normalized));
+    assert(!hg_path("DIR//OUT", normalized));
+    assert(hg_path("Dir/Sub/a.txt", normalized) && !strcmp(normalized, "DIR/SUB/A.TXT"));
+    puts("PASS nested/empty directories, fragmented growth, stable clusters, bidirectional "
+         "merge/delete/type changes, crash recovery, tree conflicts, nested symlinks/collisions");
+}
 typedef struct {
     uint8_t input[524], output[1024];
     unsigned in_len, in_at, out_len, phases, packets, maxpacket;
@@ -334,5 +504,6 @@ int main(void) {
     assert(!hg_fat_blank(32737, &size));
     protocol_tests();
     volume_tests();
+    directory_tests();
     return 0;
 }

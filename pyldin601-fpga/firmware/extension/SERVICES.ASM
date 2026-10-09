@@ -9,7 +9,7 @@
 ; 5 music frame X=14 AY register bytes. R13=FF means keep current envelope.
 ; 6 silence AY channels (beeper stays under the original BIOS control).
 ; All descriptors must be in RAM accessible with ROM page B selected.
-SERVICE_PTR equ $ed7b
+SERVICE_PTR equ $ed7e
 GFX_CTRL equ $e650
 GFX_CMD equ $e651
 AY_BASE equ $e610

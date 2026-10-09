@@ -35,11 +35,13 @@ static int hg_write_byte(uint16_t a,unsigned char d){
 }
 static unsigned invoke(unsigned function,unsigned b,unsigned x){
  unsigned char*r=MC6800GetCpuRam(),saved=page;
+ unsigned char native_state[2];memcpy(native_state,r+0xed7c,2);
  r[0x210]=0x3f;r[0x211]=0xe0;r[0x212]=1;
  PC=0x210;SP=0xbdff;A=function;B=b;X=x;i=0;
  uint64_t limit=virtual_cycles+5000000;
  do{until(virtual_cycles+1);require(virtual_cycles<limit,"service returns");}while(PC!=0x212);
  require(SP==0xbdff&&page==saved&&X==x,"service preserves stack, X and ROM page");
+ require(!memcmp(r+0xed7c,native_state,2),"service preserves pseudo-RS/line-input state");
  require(!fdc_port_accesses,"no removed FDC accesses");return A;
 }
 static void put16(unsigned char*p,int v){p[0]=(unsigned)v>>8;p[1]=v;}

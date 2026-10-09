@@ -1,8 +1,8 @@
 {
-  "date": "2026-10-09",
+  "date": "2026-10-10",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "313f54f8fea9175bc96e1314f401c1e7560f502da3b879cf05b18defcc06d68e",
+  "sha256": "8e7d86a2f3a84ee5f4121c2d1c3c73ae939c86723eabc1d4c7c1cdb22d7f0fa7",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
@@ -18,11 +18,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "74ac07890157cda2c5ab89f9369616aae964adda1cbac2716f684fdbed1a6e0b",
+      "sha256": "759325609effe0fc4dfd93e9059ddad127eccf95d45bf3ebbcf01ac491aab540",
       "files": {
         "P601.ROM": {
           "bytes": 334336,
-          "sha256": "68c8384acf04850d4e3eb81355848ee07e4a0bd0f651203ae362032eb8bdfffe"
+          "sha256": "8c06f930bdfb5426eb1d59a77ee9da93ed89c3f652412fb60049f0121d616a6b"
         },
         "LOADER.BIN": {
           "bytes": 481,
@@ -30,11 +30,11 @@
         },
         "P601.CFG": {
           "bytes": 614,
-          "sha256": "8b0c1de0176852eec96d0a0a1c85a98a61dc2c623cb73b24138618658937f164"
+          "sha256": "867b08d0696b254d99f3e5ed1793c497582fded4457ba0cccc577a6f6a86911a"
         },
         "P601A.ROM": {
           "bytes": 334336,
-          "sha256": "817e9f45d1a242edb54d4cfddac8dabf7b4856a88f6ec1127eb09b169adc8340"
+          "sha256": "fcbd31699af17068e545ff918155aa3570763ccf207efd7ffc8eb23cec46f852"
         },
         "P601.SET": {
           "bytes": 16,
@@ -722,7 +722,7 @@
     "ROM_page": "B",
     "physical_address": 90112,
     "bytes": 8192,
-    "used_code_data_bytes": 2859,
+    "used_code_data_bytes": 2841,
     "CRC16_table_bytes": 512,
     "assembler": "UniAS",
     "checksum": "UniAS CHECKSUM",
@@ -731,8 +731,8 @@
     "native_BIOS_unchanged": true,
     "physical_card_updated": true,
     "physical_FPGA_programmed": true,
-    "physical_card_update_report": "build/hardware-direct-sd-20261009/sd-write.json",
-    "physical_card_readback_sha256": "886630517b0ab777a12f3e8b220d8e7cc6b6f82922eef8d4d0d7b141c389c240",
+    "physical_card_update_report": "build/hardware-romdisk-20261010/sd-write.json",
+    "physical_card_readback_sha256": "9e183be7040385b70aa902a1303cf9f16d77e59d5facacef6b4e7481740e5ad2",
     "physical_card_MBR_A_B_settings_preserved": true,
     "physical_card_extended_partition_metadata_preserved": true,
     "physical_card_extended_partition_EBR_count": 11,
@@ -810,5 +810,30 @@
     "FPGA_ROM_unchanged": true,
     "additional_HDL_test_completed": false,
     "additional_HDL_test_status": "stopped after native and physical verification; no PASS"
+  },
+  "rom_disk_fix": {
+    "date": "2026-10-10",
+    "SD_state": "BF85-BF9F",
+    "native_ROM_RAM_disk_state": "BF80-BF84 preserved",
+    "native_RS_line_input": "ED7C-ED7D preserved",
+    "regression": "test-romdisk",
+    "models": [
+      "601",
+      "601A"
+    ],
+    "CPU": [
+      "MC6800",
+      "HD6303"
+    ],
+    "original_files_byte_verified": 13,
+    "physical_card_updated": true,
+    "physical_user_verified": true,
+    "FPGA_reflash_required": false,
+    "physical_card_report": "build/hardware-romdisk-20261010/sd-write.json",
+    "physical_card_readback_sha256": "9e183be7040385b70aa902a1303cf9f16d77e59d5facacef6b4e7481740e5ad2",
+    "physical_user_verification_pending": false,
+    "physical_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+    "physical_user_report_date": "2026-10-10",
+    "physical_user_verification_report": "build/hardware-romdisk-20261010/user-verified.json"
   }
 }

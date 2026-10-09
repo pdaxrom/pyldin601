@@ -5,6 +5,8 @@
 #include "test_native_stability.c"
 #undef NATIVE_STABILITY_MAIN
 static unsigned calls;
+static unsigned char native_disk_state[5];
+static unsigned char native_input_state[2];
 static unsigned invoke(unsigned op,unsigned drive,unsigned track,unsigned head,unsigned sector,unsigned buf){
  unsigned char*r=MC6800GetCpuRam();unsigned saved_page=page;
  r[0x200]=drive;r[0x201]=track;r[0x202]=head;r[0x203]=sector;r[0x204]=buf>>8;r[0x205]=buf;
@@ -13,6 +15,8 @@ static unsigned invoke(unsigned op,unsigned drive,unsigned track,unsigned head,u
  uint64_t limit=virtual_cycles+20000000;
  do{until(virtual_cycles+1);if(virtual_cycles>limit){dump();fprintf(stderr,"INT17 timeout op=%02x\n",op);exit(1);}}while(PC!=0x212);
  if(page!=saved_page||SP!=0xbdff||X!=0x200||(spi_control&2)==0||fdc_port_accesses){fprintf(stderr,"SWI/page/stack/CS lost op=%02x page=%02x SP=%04x X=%04x\n",op,page,SP,X);exit(1);}
+ if(memcmp(r+0xbf80,native_disk_state,sizeof native_disk_state)){fprintf(stderr,"INT17 overwrote native ROM/RAM-disk state\n");exit(1);}
+ if(memcmp(r+0xed7c,native_input_state,sizeof native_input_state)){fprintf(stderr,"INT17 overwrote pseudo-RS/line-input state\n");exit(1);}
  calls++;return A;
 }
 static void require(int yes,const char*what){if(!yes){fprintf(stderr,"FAIL %s\n",what);exit(1);}}
@@ -27,6 +31,8 @@ int main(int argc,char**argv){
  unsigned char*original=malloc(image_size);memcpy(original,image,image_size);
  committed=1;MC6800Init();MC6800Reset();until(60000000);
  unsigned char*r=MC6800GetCpuRam();
+ memcpy(native_disk_state,r+0xbf80,sizeof native_disk_state);
+ memcpy(native_input_state,r+0xed7c,sizeof native_input_state);
  // UniDOS wraps INT17 and installs its saved BIOS vector at INT5F.
  // Register the same entry through the original INT2F service.
  unsigned entry=physical[0x16011]*256+physical[0x16012];
@@ -34,7 +40,7 @@ int main(int argc,char**argv){
  PC=0x210;SP=0xbdff;A=0x5f;B=11;X=entry;i=0;
  do{until(virtual_cycles+1);}while(PC!=0x212);
  require((r[0xedaf]&15)==11&&r[0xeebe]*256+r[0xeebf]==entry,"native INT2F registers banked INT17 entry");
- require(r[0xbf99]&&r[0xbf8b]&&r[0xbf97],"both MBR/BPB partitions mounted");
+ require(r[0xbf90]&&r[0xbf9c],"both MBR/BPB partitions mounted");
  require(invoke(0x80,0,0,0,1,0x3000)==0,"reset/mount");
  for(unsigned drive=0;drive<2;drive++){
   unsigned entry=462+16*drive,start=le32(image+entry+8),len=le16(image+start*512+19);
@@ -112,9 +118,9 @@ int main(int argc,char**argv){
    case 20:put_le32(image+458,0);break;
   }
   invoke(0x80,0,0,0,1,0x3000);unsigned before=sd_writes;
-  require(!r[0xbf8b],"corrupt partition not mounted");
+  require(!r[0xbf90],"corrupt partition not mounted");
   require(invoke(2,0,0,0,1,0x3000)!=0&&sd_writes==before,"corrupt layout cannot write");
-  if(fault==2)require(!r[0xbf97],"overlapping partitions both rejected");
+  if(fault==2)require(!r[0xbf9c],"overlapping partitions both rejected");
  }
  memcpy(image,original,image_size);
  require(invoke(0x80,0,0,0,1,0x3000)==0,"valid layout recovery");

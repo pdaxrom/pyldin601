@@ -2,8 +2,10 @@
 ; Original INT 17 ABI: A=0 reset,80 init,FF motor tick,1 read,2 write,
 ; 3 seek/read ID,4 format; bit7 double-step has no meaning on an SD card.
 ; X: drive,track,head,sector,buffer (big-endian word at +4).
-; Permanent state uses the BIOS-reserved BF80-BF9F. Temporary state replaces
-; only the old FDC variables ED61-ED7D; keyboard/console/RS variables stay free.
+; Native ROM/RAM-disk drivers own BF80-BF84, despite the BIOS memory map
+; calling BF80-BF9F reserved. SD state uses only BF85-BF9F. Temporary state
+; replaces the old FDC variables ED61-ED7B and free ED7E-ED7F; the pseudo-RS
+; flag ED7C and line-input limit ED7D must also remain untouched.
 SPI_DATA equ $e661
 SPI_CTL equ $e662
 SPI_DIV equ $e663
@@ -12,29 +14,25 @@ SWIA equ $06
 SWIB equ $05
 SYS_LINE equ $ed20
 FDDPARMS equ $ed26
-TABLE equ $bf80
-MODE equ $bf98
-MOUNTED equ $bf99
-SAVED_SP equ $bf9a
-INIT_BUF equ $bf9c
-FORMAT_LEFT equ $bf9e
+TABLE equ $bf85
+INIT_BUF equ $bf9d
+FORMAT_LEFT equ $bf9f
+SAVED_SP equ $ed7e
 BUF equ $ed61
 COUNT equ $ed63
 ARG equ $ed65
 LBA equ $ed69
 CMD equ $ed6d
-REPLY equ $ed6e
+STATUS equ $ed6e
 CRC equ $ed6f
 CRCPTR equ $ed71
 DRIVE equ $ed73
 PARAM equ $ed75
 OP equ $ed77
-TRIES equ $ed78
+FILL equ $ed78
 TRACK equ $ed79
 HEAD equ $ed7a
 SECTOR equ $ed7b
-FILL equ $ed7c
-STATUS equ $ed7d
     org $c000
     dw $a55a
     db "FPGABIOS"
@@ -60,9 +58,6 @@ init
     tsx
     stx INIT_BUF
     stx BUF
-    ldaa SD_INFO
-    staa MODE
-    clr MOUNTED
     ldx #TABLE
 init_clear
     clr 0,x
@@ -128,9 +123,6 @@ ext_skip_4
     ldx #TABLE+12
     stx DRIVE
     jsr geometry
-    ldaa TABLE+11
-    oraa TABLE+23
-    staa MOUNTED
 init_done
     jsr release
     lds SAVED_SP
@@ -474,7 +466,8 @@ ext_skip_22
     jmp bad_address
 ext_skip_23
     staa OP
-    tst MOUNTED
+    ldaa TABLE+11
+    oraa TABLE+23
     bne ext_skip_24
     jmp not_ready
 ext_skip_24
@@ -484,7 +477,7 @@ ext_skip_24
     bls ext_skip_25
     jmp bad_address
 ext_skip_25
-    ldab MODE
+    ldab SD_INFO
     lsrb
     andb #1
     ; Boot B swaps logical A/B exactly as the previous controller did.
@@ -556,7 +549,8 @@ seek_done
     jmp finish
 reset_disk
     jsr init
-    ldaa MOUNTED
+    ldaa TABLE+11
+    oraa TABLE+23
     bne ext_skip_33
     jmp not_ready
 ext_skip_33
@@ -686,7 +680,6 @@ format_track
     jmp bad_address
 ext_skip_43
     staa FORMAT_LEFT
-    clr FORMAT_LEFT+1
     ldx BUF
     stx CRCPTR
 format_validate
@@ -853,7 +846,6 @@ ext_skip_60
 ext_skip_61
     jmp timeout
 command_ready
-    staa REPLY
     rts
 prepare
     clr STATUS
@@ -865,7 +857,7 @@ prepare
     staa ARG+2
     ldaa LBA+3
     staa ARG+3
-    ldaa MODE
+    ldaa SD_INFO
     bita #1
     beq ext_skip_62
     jmp prepared

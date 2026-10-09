@@ -46,6 +46,7 @@ def main():
     for copy in range(copies):data[start_fat+copy*fat_size:start_fat+(copy+1)*fat_size]=table
     host_image.write_bytes(data)
     run(args.cc,'-O2','-I../pyldin601/src','tests/test_hg_unidos.c','host/hg/fat12.c','-o','build/test_hg_unidos')
+    run(args.cc,'-O2','-I../pyldin601/src','-Ihost/hg','tests/test_hg_directory_unidos.c','host/hg/fat12.c','host/hg/volume.c','-o','build/test_hg_directory_unidos')
     for model in args.models:
         for wire in (1,2):
             run('build/test_hg_unidos',str(test_image),str(host_image),model, *(() if wire == 1 else ('v2',)))
@@ -58,6 +59,8 @@ def main():
             assert a_files['LIVEB.TXT']==remote['LIVE.TXT']==b'Second host update\r\n'*500
             assert a_files['LAST.TXT']==remote['LAST.TXT']==tail
             print(f'PASS {model}/HG v{wire} byte-identical E->A->E copy and TEMP deletion; SHA256 {hashlib.sha256(text).hexdigest()}')
+        for cpu in ('mc6800', 'hd6303'):
+            run('build/test_hg_directory_unidos',str(test_image),model,cpu)
         if not args.hdl:continue
         run(sys.executable,'tests/prepare_hg_hdl.py')
         work=f'work:build/hg-bios-{model}'

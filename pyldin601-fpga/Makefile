@@ -86,7 +86,7 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-gfx test-ham-pal test-ay test-direct-sd test-extension-services test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-gfx test-ham-pal test-ay test-direct-sd test-romdisk test-extension-services test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 firmware: | $(BUILD)
 	$(PYTHON) tools/build_extension.py --unias $(UNIAS)
 	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
@@ -118,10 +118,13 @@ test-cpu: | $(BUILD)
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_cpu.vhd -e tb_cpu -r tb_cpu
 fixtures: firmware
 	$(PYTHON) tests/prepare_images.py $(NATIVE) $(BUILD)
-.PHONY: test-direct-sd test-extension-services test-runtime-session
+.PHONY: test-direct-sd test-romdisk test-extension-services test-runtime-session
 test-direct-sd: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_direct_sd.c -o $(BUILD)/test_direct_sd
 	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do for card in sdhc sdsc; do $(BUILD)/test_direct_sd images/sd.img $$model $$cpu $$card; done; done; done
+test-romdisk: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_romdisk_unidos.c -o $(BUILD)/test_romdisk_unidos
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_romdisk_unidos images/sd.img $$model $$cpu; done; done
 test-extension-services: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_extension_services.c -o $(BUILD)/test_extension_services
 	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_extension_services $$model $$cpu; done; done

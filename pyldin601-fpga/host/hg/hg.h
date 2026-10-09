@@ -6,11 +6,13 @@
 #include <time.h>
 
 #define HG_MAX_SECTORS 32736
-#define HG_MAX_FILES 512
+#define HG_MAX_FILES 4096
+#define HG_PATH_MAX 260
+#define HG_MAX_DEPTH 16
 enum { HG_OK, HG_PROTOCOL, HG_RANGE, HG_IO, HG_CHECKSUM, HG_READ_ONLY };
 
 typedef struct {
-    char name[13], host[13];
+    char name[HG_PATH_MAX], host[HG_PATH_MAX];
     uint8_t *data;
     uint32_t size;
     uint16_t date, time, *chain;
@@ -26,6 +28,11 @@ typedef struct {
     size_t fat, fat_size, root, payload;
 } HgFat;
 typedef struct {
+    int id;
+    char path[HG_PATH_MAX];
+    bool seen;
+} HgWatch;
+typedef struct {
     int fd, dirfd, lockfd, watchfd, watch_id;
     bool directory, readonly, dirty, changed;
     char *path;
@@ -33,8 +40,10 @@ typedef struct {
     size_t size;
     HgFat fat;
     HgFiles names;
-    char host_writes[HG_MAX_FILES][13];
+    char host_writes[HG_MAX_FILES][HG_PATH_MAX];
     unsigned nhost_writes;
+    HgWatch *watches;
+    unsigned nwatches;
     uint64_t event_ms, scan_ms;
 } HgVolume;
 
@@ -46,6 +55,7 @@ uint64_t hg_millis(void);
 void hg_delay(unsigned usec);
 int hg_error(const char *fmt, ...);
 bool hg_name(const char *name, char out[13]);
+bool hg_path(const char *path, char out[HG_PATH_MAX]);
 void hg_files_free(HgFiles *files);
 HgFile *hg_find(const HgFiles *files, const char *name);
 bool hg_same(const HgFile *a, const HgFile *b);

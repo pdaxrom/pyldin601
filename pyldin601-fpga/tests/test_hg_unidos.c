@@ -9,6 +9,11 @@ static int hg_write_byte(uint16_t a,unsigned char d);
 #undef NATIVE_STABILITY_MAIN
 
 static unsigned char *host_image;static size_t host_size;
+static int (*host_write)(unsigned, const uint8_t *, unsigned);
+static void store_host(unsigned block, const uint8_t *data, unsigned length){
+ if(host_write){if(host_write(block,data,length)!=HG_OK){fprintf(stderr,"native HG durable WRITE failed\n");exit(1);}}
+ else memcpy(host_image+block*512,data,length);
+}
 static unsigned char tx_fifo[64],rx_fifo[64],header[10],payload[514];
 static unsigned tx_read,tx_write,tx_count,rx_read,rx_write,rx_count;
 static unsigned hg_control,hg_selected,hg_phase,hg_pos,hg_block,hg_length,hg_operation;
@@ -52,7 +57,7 @@ static void hg_v2_pump(void){
    if(hg_pos==hg_length+2){
     unsigned sum=0;for(unsigned n=0;n<hg_length;n++)sum+=payload[n];
     if(le16(payload+hg_length)!=(sum&65535)){fprintf(stderr,"native v2 WRITE checksum\n");exit(1);}
-    memcpy(host_image+hg_block*512,payload,hg_length);hg_writes++;hg_phase=3;
+    store_host(hg_block,payload,hg_length);hg_writes++;hg_phase=3;
    }
   }else if(hg_operation!=2&&hg_control==11&&rx_count<=32){
    for(unsigned n=0;n<chunk;n++)rx_byte(payload[hg_pos++]);
@@ -84,7 +89,7 @@ static void hg_pump(void){
    payload[hg_pos++]=tx_byte();if(hg_pos==hg_length+2){
     unsigned sum=0;for(unsigned n=0;n<hg_length;n++)sum+=payload[n];
     if(le16(payload+hg_length)!=(sum&65535)){fprintf(stderr,"native WRITE checksum\n");exit(1);}
-    memcpy(host_image+hg_block*512,payload,hg_length);hg_writes++;hg_phase=3;
+    store_host(hg_block,payload,hg_length);hg_writes++;hg_phase=3;
    }
   }else if(hg_operation!=2&&(hg_control&2)&&rx_count<64){
    rx_byte(payload[hg_pos++]);if(hg_pos==hg_length+2)hg_phase=4;
@@ -130,8 +135,8 @@ static void command(const char*text){
  for(;*text;text++){
   const char*letters="abcdefghijklmnopqrstuvwxyz";
   static const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
-  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:0;
-  if(!scan)exit(2);if(*text==':')KBDModKeyDown(2);key(scan);if(*text==':')KBDModKeyUp(2);until(virtual_cycles+300000);
+  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='*'?0x09:*text=='\\'?0x2b:*text=='_'?0x0c:0;
+  if(!scan)exit(2);if(*text==':'||*text=='*'||*text=='_')KBDModKeyDown(2);key(scan);if(*text==':'||*text=='*'||*text=='_')KBDModKeyUp(2);until(virtual_cycles+300000);
  }key(0x1c);until(virtual_cycles+1000000);
  uint64_t deadline=virtual_cycles+200000000;
  while(!native_prompt()&&virtual_cycles<deadline)until(virtual_cycles+10000);
@@ -167,7 +172,10 @@ static void direct_io(unsigned op,unsigned block_number,unsigned expected){
  while(PC!=0x107&&virtual_cycles<deadline)until(virtual_cycles+1);
  if(PC!=0x107||A!=expected){dump();fprintf(stderr,"HG INT40 op=%u block=%u failed A=%u expected=%u phase=%u ctrl=%u\n",op,block_number,A,expected,hg_phase,hg_control);exit(1);}
 }
-int main(int argc,char**argv){
+#ifndef HG_UNIDOS_MAIN
+#define HG_UNIDOS_MAIN main
+#endif
+int HG_UNIDOS_MAIN(int argc,char**argv){
  if(argc!=4&&argc!=5)return 2;hg_v2=argc==5&&!strcmp(argv[4],"v2");model_a=!strcmp(argv[3],"601a");MC6800SetMachine(PYLDIN_MACHINE_601);
  size_t size;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&size);
  if(size!=0x51a00)return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
