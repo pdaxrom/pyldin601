@@ -330,3 +330,20 @@ test-ay-app: gfx-apps fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_ay_unidos.c -o $(BUILD)/test_ay_unidos
 	$(BUILD)/test_ay_unidos 601
 	$(BUILD)/test_ay_unidos 601a
+
+.PHONY: ham8conv test-ham8conv test-hview test-hview-app
+HAM_IMAGE_CFLAGS = $(shell pkg-config --cflags libjpeg libpng)
+HAM_IMAGE_LIBS = $(shell pkg-config --libs libjpeg libpng)
+ham8conv: $(BUILD)/ham8conv
+$(BUILD)/ham8conv: tools/ham8conv.c | $(BUILD)
+	$(CC) -O2 -Wall -Wextra -Wpedantic $(HAM_IMAGE_CFLAGS) $< -o $@ $(HAM_IMAGE_LIBS) -lm
+test-ham8conv: ham8conv
+	$(PYTHON) tests/test_ham8conv.py --cc "$(CC)"
+test-hview: gfx-apps fixtures
+	$(PYTHON) tests/prepare_hview.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_hview_unidos.c -o $(BUILD)/test_hview_unidos
+	$(BUILD)/test_hview_unidos $(BUILD)/hview/sd.img 601
+	$(BUILD)/test_hview_unidos $(BUILD)/hview/sd.img 601a
+test-hview-app: gfx-apps
+	$(PYTHON) tests/prepare_hview.py
+	$(PYTHON) tests/run_hview_app.py --nvc "$(NVC)" --unias "$(UNIAS)"

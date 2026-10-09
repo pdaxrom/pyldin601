@@ -1,0 +1,13 @@
+HVIEW - HD6303 HAM8 image viewer
+
+Requires HD6303 EXTENSION Y and FPGA graphics v5.
+Load HG with B:HG, then E:HVIEW E:PHOTO.IFF.
+Replace E: with the drive assigned by HG. ESC returns to UniDOS.
+
+Input: 320x200 IFF ILBM, 8 bitplanes, HAM CAMG $0800,
+fixed 64-colour RGB222 CMAP, uncompressed or ByteRun1.
+Other palettes, masking, sizes and video modes are rejected.
+Use the host C tool ham8conv to convert JPEG or PNG.
+
+The viewer writes a hidden framebuffer page, then flips at VBL.
+The original PAL table and legacy text mode are restored on exit.

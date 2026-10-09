@@ -2,7 +2,7 @@
   "date": "2026-10-09",
   "image": "sd.img",
   "bytes": 20971520,
-  "sha256": "de54114ae038625b34242340a52a84fa13352f055c4e8507d5b13c84cdd2aa2e",
+  "sha256": "313f54f8fea9175bc96e1314f401c1e7560f502da3b879cf05b18defcc06d68e",
   "sector_bytes": 512,
   "boot_disk": "A",
   "matches_physical_card_readback": false,
@@ -120,7 +120,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "b039acccb1266025b126256983f2be837a0a888c07c1b8272b4e29559b311513",
+      "sha256": "c5031d5cb37895747db55821c0220fdd453753d275e7429b28b298299e2c69d7",
       "geometry": {
         "sectors": 2880,
         "image_sectors": 2880,
@@ -271,6 +271,22 @@
         "AYHOWTO.TXT": {
           "bytes": 950,
           "sha256": "4465568ab60e8cf6a7fb67bfdcb268f7d1d7c65dbf6d955abf9a3edfb454d717"
+        },
+        "HVIEW.PGM": {
+          "bytes": 3355,
+          "sha256": "009226005ef85a7c077f4daac507d8b8f7541ce29597577b61275c7e3fc185bb"
+        },
+        "HVIEW.ASM": {
+          "bytes": 14462,
+          "sha256": "a0b09a6009cc38a226fd03050aebf40f3467a54fdc92295f10d232d3400ddca0"
+        },
+        "HVIEWHOW.TXT": {
+          "bytes": 562,
+          "sha256": "af1bda701575de2824b5f3a729a6c948ee1fc61d94a883109b08ebde86d2b03f"
+        },
+        "LENA.IFF": {
+          "bytes": 49290,
+          "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
         }
       }
     }
@@ -763,5 +779,36 @@
     "physical_boot_and_disk_and_sound_user_verification_pending": false,
     "physical_user_verification_report": "build/hardware-direct-sd-20261009/user-verified.json",
     "physical_full_reset_10_seconds_user_verified": true
+  },
+  "ham8_viewer": {
+    "program": "B:HVIEW.PGM",
+    "CPU": "HD6303",
+    "minimum_graphics_version": 5,
+    "format": "IFF ILBM HAM8 RGB222",
+    "dimensions": [
+      320,
+      200
+    ],
+    "compression": [
+      "raw",
+      "ByteRun1"
+    ],
+    "host_source": "tools/ham8conv.c",
+    "host_jpeg_png": true,
+    "code_data_bytes": 2809,
+    "BSS_bytes": 8192,
+    "file_bytes": 3355,
+    "native_601_601A_verified": true,
+    "host_macos_linux_verified": true,
+    "sanitizers_verified": true,
+    "physical_HG_files_verified": true,
+    "physical_user_verification_pending": false,
+    "physical_colours_and_ESC_user_verified": true,
+    "physical_user_report": "\u0426\u0432\u0435\u0442\u0430 \u0438 ESC \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
+    "physical_user_report_date": "2026-10-09",
+    "physical_card_updated": false,
+    "FPGA_ROM_unchanged": true,
+    "additional_HDL_test_completed": false,
+    "additional_HDL_test_status": "stopped after native and physical verification; no PASS"
   }
 }

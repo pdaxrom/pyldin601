@@ -14,6 +14,9 @@ v5: ESC возвращает UniDOS с восстановлением палит
 а также AY.PGM/ASM и AYHOWTO.TXT для трёхканальной мелодии.
 [HAM8](../audit/HAM.md), [обрезка](../audit/SPRITE-CLIPPING.md),
 [AY](../audit/AY.md).
+Добавлены HVIEW.PGM/ASM, HVIEWHOW.TXT и LENA.IFF: загрузчик HAM8 IFF ILBM
+для HD6303/v5. `B:HVIEW B:LENA.IFF`, ESC возвращает UniDOS.
+[C-конвертер JPEG/PNG и инструкция](../audit/HAM-VIEWER.md).
 
 Обе ROM обновлены дополнительной страницей B: прямой SD-драйвер INT17
 и INT E0 для графики/спрайтов/звука. Аппаратный i8272 удалён из нового
@@ -42,7 +45,7 @@ A/B физической карты сохранены и отличаются �
 |---|---|---:|---:|
 | 1 | FAT16: LOADER.BIN, P601.ROM, P601A.ROM, P601.CFG, P601.SET | 2048 | 16 МиБ |
 | 2 / A | FAT12: системный диск с UniDOS | 34816 | 720 КиБ |
-| 3 / B | FAT12: HDTEST, HDMUL, HDSLEEP, HG, HGTIME, GFX, VIEW, HAM, CLIPSPR, AY, PCX-примеры, ASM и инструкции | 36864 | 1,44 МиБ |
+| 3 / B | FAT12: HDTEST, HDMUL, HDSLEEP, HG, HGTIME, GFX, VIEW, HAM, CLIPSPR, AY, HVIEW, LENA.IFF, PCX-примеры, ASM и инструкции | 36864 | 1,44 МиБ |
 
 Контрольная сумма образа записана в [`SHA256SUMS`](SHA256SUMS).
 [`sd.json`](sd.json) содержит разметку и контрольные суммы разделов и файлов.
