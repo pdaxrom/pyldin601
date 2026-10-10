@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Prepare a FAT16 boot-partition update from a regular SD backup.
 
-Retain existing ROM banks/font/BIOS and all other boot files. Install the
-UniAS FPGA extension in free page B of both models, plus the current loader.
+Keep other boot files and install current compact partition ROMs and loader.
+This updates only the boot volume; migrate_sd.py also adds the software volume.
 Never open a block device.
 """
 import argparse
 import hashlib
 import importlib.util
 import json
+import mmap
 from pathlib import Path
 import stat
 import struct
@@ -51,51 +52,16 @@ def root_files(volume):
 
 
 def prepare(backup, bios_a, loader):
-    if backup[510:512] != b'\x55\xaa':
-        raise ValueError('missing MBR')
-    entries = [struct.unpack_from('<B3sB3sII', backup, 446 + i * 16) for i in range(3)]
-    start, sectors = entries[0][4:]
-    if entries[0][2] != 6 or start != sd.ALIGN or sectors != sd.BOOT_SECTORS:
-        raise ValueError('unexpected boot partition layout')
-    off, length = start * 512, sectors * 512
-    files = root_files(backup[off:off + length])
-    rom = files['P601.ROM']
-    if (len(rom) != 0x51a00 or rom[:8] != b'P601BOOT' or sd.u32(rom, 8) != 1
-            or sd.u32(rom, 12) != sd.ROM_BASE or sd.u32(rom, 16) != sd.ROM_SIZE
-            or rom[25] != 0 or rom[512+0x50ff7] != 0 or sd.u32(rom, 508) != zlib.crc32(rom[:508])
-            or sd.u32(rom, 20) != zlib.crc32(rom[512:])):
-        raise ValueError('existing classic ROM is invalid')
-    drives = []
-    for i, entry in enumerate(entries[1:]):
-        disk_start, disk_sectors = entry[4:]
-        begin, end = disk_start * 512, (disk_start + disk_sectors) * 512
-        if entry[2] != 1 or begin < off + length or end > len(backup):
-            raise ValueError('data partition outside backup')
-        info = sd.disk_info(backup[begin:end])
-        info['start_lba'] = disk_start
-        values = struct.unpack_from('<IIHHH', rom, 32 + i * 16)
-        expected = tuple(info[k] for k in ('start_lba', 'sectors', 'sectors_per_track', 'heads', 'cylinders'))
-        if values != expected:
-            raise ValueError('ROM disk geometry differs from existing data partitions')
-        drives.append(info)
-    rom_files = {f'ROM{i}.BIN': rom[512 + i * 65536:512 + (i + 1) * 65536] for i in range(5)}
-    rom_files['FONT.BIN'] = rom[512 + 0x51000:]
-    rom_files['BIOS.BIN'] = rom[512 + 0x50000:512 + 0x51000]
-    files['P601.ROM'] = sd.bundle(rom_files, drives, rom[24], 0)
-    rom_files['BIOS.BIN'] = bios_a
-    files['P601A.ROM'] = sd.bundle(rom_files, drives, rom[24], 1)
-    files['LOADER.BIN'] = loader
-    configuration = json.loads(files.get('P601.CFG', b'{}'))
-    configuration.update(models=['601', '601A'], rom_crc32=f'{sd.u32(files["P601.ROM"], 20):08x}',
-                         rom_a_crc32=f'{sd.u32(files["P601A.ROM"], 20):08x}')
-    files['P601.CFG'] = (json.dumps(configuration, indent=2) + '\n').encode('ascii')
-    files.setdefault('P601.SET', sd.settings_record())
-    return sd.fat16(files), {'start_lba': start, 'sectors': sectors, 'drives': drives,
-        'files_sha256': {name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
-        'original_classic_rom_sha256': hashlib.sha256(rom).hexdigest(),
-        'classic_rom_sha256': hashlib.sha256(files['P601.ROM']).hexdigest(),
-        'mbr_sha256': hashlib.sha256(backup[:512]).hexdigest(),
-        'data_sha256': [hashlib.sha256(backup[e[4]*512:(e[4]+e[5])*512]).hexdigest() for e in entries[1:]]}
+    from migrate_sd import prepare as migrate
+    if len(bios_a)!=4096 or bios_a[0xff7]!=0x80:raise ValueError('invalid 601A BIOS')
+    result,metadata=migrate(backup,add_data=False)
+    start,length=sd.ALIGN*512,sd.BOOT_SECTORS*512
+    volume=result[start:start+length]
+    files=root_files(volume);files['LOADER.BIN']=loader
+    volume=sd.fat16(files)
+    metadata.update(start_lba=sd.ALIGN,sectors=sd.BOOT_SECTORS,
+                    classic_rom_sha256=hashlib.sha256(files['P601.ROM']).hexdigest())
+    return volume,metadata
 
 
 def main():
@@ -109,13 +75,19 @@ def main():
     bios = args.bios_a.read_bytes()
     if len(bios) != 4096 or bios[0xff7] != 0x80:
         raise ValueError('expected original 4096-byte 601A BIOS, hardware version 80')
-    script = Path(__file__).resolve().with_name('asm6800.py')
-    spec = importlib.util.spec_from_file_location('asm6800', script)
-    assembler = importlib.util.module_from_spec(spec);spec.loader.exec_module(assembler)
-    loader, _ = assembler.assemble((script.parent.parent/'firmware/loader.asm').read_text(), 0x2000)
-    backup = args.backup.read_bytes()
-    volume, metadata = prepare(backup, bios, loader)
-    metadata.update(backup_sha256=hashlib.sha256(backup).hexdigest(), boot_sha256=hashlib.sha256(volume).hexdigest())
+    from unias_boot import build
+    loader,_ = build('loader')
+    from migrate_sd import boot_files,file_sha
+    from sd_partitions import scan
+    with args.backup.open('rb') as source:
+        with mmap.mmap(source.fileno(),0,access=mmap.ACCESS_READ) as backup:
+            boot,files,_,_=boot_files(backup,scan(backup,max_logical=32))
+            files['LOADER.BIN']=loader
+            volume=sd.fat16(files)
+        metadata=dict(start_lba=boot.start,sectors=boot.sectors,
+                      classic_rom_sha256=hashlib.sha256(files['P601.ROM']).hexdigest(),
+                      backup_sha256=file_sha(source),boot_sha256=hashlib.sha256(volume).hexdigest(),
+                      settings_sha256=hashlib.sha256(files['P601.SET']).hexdigest())
     with args.output.open('xb') as out:
         out.write(volume)
     args.output.with_suffix('.json').write_text(json.dumps(metadata, indent=2) + '\n')

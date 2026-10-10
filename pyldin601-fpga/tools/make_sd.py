@@ -18,8 +18,9 @@ SECTOR = 512
 ALIGN = 2048
 BOOT_SECTORS = 32768
 ROM_BASE = 0x10000
-ROM_SIZE = 0x51800
-MAX_DISK_SIZE = 12 * 1024 * 1024
+ROM_SIZE = 0x11800
+LEGACY_ROM_SIZE = 0x51800
+MAX_DISK_SIZE = 32400 * 512
 
 
 def u16(data, offset):
@@ -37,7 +38,7 @@ def unpack_file(path):
 
 def disk_info(data):
     if len(data) < SECTOR or len(data) % SECTOR or len(data) > MAX_DISK_SIZE:
-        raise ValueError('disk must contain whole 512-byte sectors, at most 12 MiB')
+        raise ValueError('disk must contain whole 512-byte sectors, at most 32400 sectors')
     # Classic Pyldin boot sectors can end in A5 5A, not PC 55 AA.
     if data[510:512] not in (b'\x55\xaa', b'\xa5\x5a'):
         raise ValueError('missing FAT boot signature (55AA or classic A55A)')
@@ -57,11 +58,9 @@ def disk_info(data):
         raise ValueError(f'expected FAT12, found {clusters} data clusters')
     if spf * SECTOR < math.ceil((clusters + 2) * 3 / 2):
         raise ValueError('FAT too small for data clusters')
-    if not 1 <= spt <= 255 or not 1 <= heads <= 2:
-        raise ValueError('classic CHS requires 1..255 sectors/track and 1..2 heads')
+    if not 1 <= spt <= 255 or not 1 <= heads <= 255:
+        raise ValueError('geometry metadata requires 1..255 sectors/track and heads')
     cylinders = (total + spt * heads - 1) // (spt * heads)
-    if cylinders > 256:
-        raise ValueError('geometry exceeds 8-bit cylinder addressing')
     return dict(sectors=total, image_sectors=len(data)//SECTOR,
                 sectors_per_track=spt, heads=heads, cylinders=cylinders,
                 sectors_per_cluster=spc, clusters=clusters)
@@ -120,7 +119,21 @@ def rom_files(native):
     return files
 
 
-def bundle(files, drives, boot, model=0):
+def bundle(files, drives, boot, model=0, legacy=False):
+    if not legacy:
+        from build_partitions import ROOT
+        bank=bytearray(files["ROM0.BIN"])
+        for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(7,"SHELL.ROM")]:
+            bank[slot*8192:(slot+1)*8192]=(ROOT/"build/partitions"/name).read_bytes()
+        bank[6*8192:7*8192]=b"\xff"*8192
+        bios=(ROOT/"build/partitions"/("BIOS_A.ROM" if model else "BIOS.ROM")).read_bytes()
+        payload=bytes(bank)+bios+files["FONT.BIN"]
+        if len(payload)!=ROM_SIZE:raise ValueError("invalid compact ROM size")
+        header=bytearray(512);header[:8]=b"P601BOOT"
+        struct.pack_into("<IIII",header,8,2,ROM_BASE,ROM_SIZE,zlib.crc32(payload))
+        header[25]=model
+        struct.pack_into("<I",header,508,zlib.crc32(header[:508]))
+        return bytes(header)+payload
     banks = [files[f'ROM{i}.BIN'] for i in range(5)]
     extension = Path(__file__).resolve().parents[1]/'build/extension/FPGA.ROM'
     data = extension.read_bytes()
@@ -133,7 +146,7 @@ def bundle(files, drives, boot, model=0):
     banks[0] = banks[0][:3*8192]+data+banks[0][4*8192:]
     payload = b''.join(banks)
     payload += files['BIOS.BIN'] + files['FONT.BIN']
-    assert len(payload) == ROM_SIZE
+    assert len(payload) == LEGACY_ROM_SIZE
     header = bytearray(SECTOR)
     header[:8] = b'P601BOOT'
     struct.pack_into('<IIII', header, 8, 1, ROM_BASE, len(payload), zlib.crc32(payload))
@@ -195,48 +208,48 @@ def fat16(files):
     return bytes(volume)
 
 
-def settings_record(model=0, extension=True, frequency=1):
+def settings_record(model=0, extension=True, frequency=1, boot_partition=0):
     if model not in (0, 1) or frequency not in (1, 2, 4, 8):
         raise ValueError('settings require model 601/601A and frequency 1/2/4/8 MHz')
     flags = model | (bool(extension) << 1) | ((frequency.bit_length() - 1) << 2)
-    data = b'P601SET\0' + bytes((1, flags)) + bytes(4)
+    if not 0<=boot_partition<=36:raise ValueError('boot partition must be AUTO/0 or 1..36')
+    data = b'P601SET\0' + bytes((2, flags, boot_partition)) + bytes(3)
     return data + struct.pack('>H', binascii.crc_hqx(data, 0))
 
 
-def build(native, disks, boot=0, allow_large=False, bios_a=None, default_extension=True):
+def build(native, disks, boot=0, allow_large=False, bios_a=None, default_extension=True, legacy=False, boot_partition=None):
     files = rom_files(native)
     start = ALIGN + BOOT_SECTORS
     drives = []
     for data in disks:
         info = disk_info(data)
-        if not allow_large and (info['sectors']>2880 or info['cylinders']>80
-                                or info['sectors_per_track']>18):
+        if legacy and not allow_large and (info['sectors']>2880 or info['cylinders']>80
+                                or info['sectors_per_track']>18 or info['heads']>2):
             raise ValueError('classic i8272 supports at most 80 cylinders, 2 heads, 18 sectors; '
                              'large disks require the future LBA driver')
         info['start_lba'] = start
         drives.append(info)
         start = ((start + len(data)//SECTOR + ALIGN-1)//ALIGN)*ALIGN
     classic_files = files
-    files = {'P601.ROM': bundle(classic_files, drives, boot)}
+    files = {'P601.ROM': bundle(classic_files, drives, boot, legacy=legacy)}
     if bios_a is not None:
         data = unpack_file(bios_a)
         if len(data) != 4096:
             raise ValueError('601A BIOS must be exactly 4096 bytes')
-        files['P601A.ROM'] = bundle({**classic_files, 'BIOS.BIN': data}, drives, boot, 1)
-    script = Path(__file__).resolve().parent/'asm6800.py'
-    spec = importlib.util.spec_from_file_location('asm6800',script)
-    assembler = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(assembler)
-    loader,_ = assembler.assemble((script.parent.parent/'firmware/loader.asm').read_text(),0x2000)
+        files['P601A.ROM'] = bundle({**classic_files, 'BIOS.BIN': data}, drives, boot, 1,legacy=legacy)
+    from unias_boot import build as build_boot
+    loader,_ = build_boot('loader')
     files['LOADER.BIN'] = loader
-    config = dict(version=1, controller='experimental-lba' if allow_large else 'i8272',
+    config = dict(version=1, controller='native-sd-lba' if not legacy else 'legacy-fixture',
                   boot_drive='B' if boot else 'A', drives=drives,
                   rom_crc32=f'{zlib.crc32(files["P601.ROM"][SECTOR:]):08x}')
     config['models'] = ['601', '601A'] if bios_a is not None else ['601']
     if bios_a is not None:
         config['rom_a_crc32'] = f'{zlib.crc32(files["P601A.ROM"][SECTOR:]):08x}'
     files['P601.CFG'] = (json.dumps(config, indent=2)+'\n').encode('ascii')
-    files['P601.SET'] = settings_record(extension=default_extension)
+    if boot_partition is None:
+        boot_partition = 3 if boot and not legacy else 0
+    files['P601.SET'] = settings_record(extension=default_extension, boot_partition=boot_partition)
     image = bytearray(start * SECTOR)
     image[510:512] = b'\x55\xaa'
     for i, (kind, lba, count) in enumerate(
@@ -266,15 +279,22 @@ def main():
                         help='size of missing data disks, default 1440 KiB')
     parser.add_argument('--blank-spt', type=int, default=18)
     parser.add_argument('--blank-heads', type=int, default=2)
-    parser.add_argument('--boot', choices=('A', 'B'), default='A')
+    parser.add_argument('--boot', choices=('A', 'B'), default='A',
+                        help='compatibility: B selects partition 3; A defaults to AUTO')
+    parser.add_argument('--boot-partition', type=int, choices=range(37),
+                        help='BIOS choice: 0=AUTO, primary 1..4, logical 5..36')
     parser.add_argument('--allow-large',action='store_true',
-                        help='prepare experimental LBA images; classic core refuses these')
+                        help='compatibility option; all production volumes use native LBA')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     disks = [unpack_file(path) if path else blank_disk(
         args.blank_kib*1024, args.blank_spt, args.blank_heads)
         for path in (args.disk_a, args.disk_b)]
-    image, config = build(args.native, disks, int(args.boot == 'B'),args.allow_large,args.bios_a)
+    image, config = build(args.native, disks, int(args.boot == 'B'),args.allow_large,args.bios_a,
+                          boot_partition=args.boot_partition)
+    from migrate_sd import prepare
+    image, migration = prepare(image,force_data=True)
+    config['data_partition'] = migration['data_partition']
     # Exclusive creation: no implicit overwrites and no raw device writes.
     with args.output.open('xb') as out:
         out.write(image)

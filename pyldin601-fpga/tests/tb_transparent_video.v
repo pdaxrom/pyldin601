@@ -12,7 +12,7 @@ module tb_transparent_video #(parameter MODEL_A=0,parameter SPEED=0);
         .cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_in(result),
         .ps2clk(1'b1),.ps2dat(1'b1),.rxd(1'b1),.miso(1'b1),
         .SRAM_ADDR(sa),.SRAM_DATA(sd),.SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb));
-    reg[15:0]memory[0:1048575];reg[7:0]header[0:95];
+    reg[15:0]memory[0:1048575];reg[7:0]header[0:63];
     assign sd=!ce&&!oe&&we?memory[sa]:16'bz;
     always @(posedge we)if(!ce)begin
         if(!lb)memory[sa][7:0]=sd[7:0];if(!ub)memory[sa][15:8]=sd[15:8];
@@ -42,18 +42,12 @@ module tb_transparent_video #(parameter MODEL_A=0,parameter SPEED=0);
     always @(posedge clk_fast)if(stress&&dut.runtime_memory.grant_video&&!dut.runtime_memory.active)fetches=fetches+1;
     initial begin
         for(i=0;i<32768;i=i+1)memory[i]=16'hff00;
-        for(i=0;i<96;i=i+1)header[i]=0;
+        for(i=0;i<64;i=i+1)header[i]=0;
         {header[0],header[1],header[2],header[3],header[4],header[5],header[6],header[7]}="P601BOOT";
-        header[8]=1;header[14]=1;header[17]=8'h18;header[18]=5;
-        header[33]=8'h88;header[36]=8'h40;header[37]=8'h0b;
-        header[40]=18;header[42]=2;header[44]=80;
-        header[49]=8'h98;header[52]=8'h40;header[53]=8'h0b;
-        header[56]=18;header[58]=2;header[60]=80;
-        header[68]=1;header[73]=8'h88;header[76]=8'h40;header[77]=8'h0b;
-        header[84]=1;header[89]=8'h98;header[92]=8'h40;header[93]=8'h0b;
+        header[8]=2;header[14]=1;header[17]=8'h18;header[18]=1;
         wait(cpu_reset===1'b0);
         if(MODEL_A)begin header[25]=1;put(16'he6a0,1);end
-        for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);
+        for(i=0;i<64;i=i+1)put(16'he6a3,header[i]);
         put(16'he6a0,8'ha5);force dut.speed=SPEED;if(!dut.locked)$fatal(1,"fixture commit failed");
         put(16'he600,1);put(16'he601,MODEL_A?80:48);
         put(16'he600,6);put(16'he601,28);

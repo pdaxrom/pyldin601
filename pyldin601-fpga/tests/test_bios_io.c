@@ -22,8 +22,8 @@ static void switch_key(unsigned scan,unsigned old,unsigned caps){
 }
 int main(void){
  size_t size;unsigned char*rom=load("build/rom.reference",&size);
- if(size!=0x51a00)return 1;
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ if(size!=(ROM_BYTES+512))return 1;
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load("images/sd.img",&image_size);memcpy(config+64,image+462,32);
  committed=1;MC6800Init();MC6800Reset();run_bios(60000000);
  key(0x1c);key(0x1c);wait_prompt();

@@ -6,21 +6,13 @@ module classic_memory_map (
     output reg [20:0] physical_addr,
     output wire io_selected
 );
-    reg[2:0]bank_base;
-    always @*case(page_select[7:4])
-        0,5,10,15:bank_base=1;
-        1,6,11:bank_base=2;
-        2,7,12:bank_base=3;
-        3,8,13:bank_base=4;
-        default:bank_base=5;
-    endcase
     assign io_selected = cpu_addr[15:8] == 8'he6;
     always @* begin
         physical_addr = {5'b0, cpu_addr};
         if (!cpu_write && cpu_addr >= 16'hf000)
-            physical_addr = {9'h060,cpu_addr[11:0]};
+            physical_addr = {9'h020,cpu_addr[11:0]};
         else if (!cpu_write && cpu_addr >= 16'hc000 && cpu_addr < 16'he000
                  && page_select[3])
-            physical_addr = {2'b0,bank_base,page_select[2:0],cpu_addr[12:0]};
+            physical_addr = {5'b0,1'b1,page_select[2:0],cpu_addr[12:0]};
     end
 endmodule

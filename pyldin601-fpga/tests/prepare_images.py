@@ -6,6 +6,7 @@ import sys
 import zlib
 
 project=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(project/'tools'))
 spec=importlib.util.spec_from_file_location('make_sd',project/'tools/make_sd.py')
 sd=importlib.util.module_from_spec(spec);spec.loader.exec_module(sd)
 native=Path(sys.argv[1]);output=Path(sys.argv[2]);output.mkdir(exist_ok=True,parents=True)
@@ -41,7 +42,7 @@ output.joinpath('corrupt-rom.img').write_bytes(corrupt)
 short=bytearray(image)
 for copy in range(2):struct.pack_into('<H',short,fat+copy*spf*512+chain[0]*2,0xffff)
 output.joinpath('short-chain.img').write_bytes(short)
-output.joinpath('boot-config.mem').write_text(''.join(f'{v:02x}\n' for v in payload[:64]+image[462:494]))
+output.joinpath('boot-config.mem').write_text(''.join(f'{v:02x}\n' for v in payload[:64]))
 print('Prepared classic, fragmented, CRC-corrupt and truncated FAT-chain fixtures')
 
 # Preserve classic fixtures and also exercise both BIOS choices on one SD.
@@ -57,3 +58,9 @@ struct.pack_into('<I',wrong,a_offset+508,zlib.crc32(wrong[a_offset:a_offset+508]
 output.joinpath('wrong-model.img').write_bytes(wrong)
 missing=bytearray(a_image);missing[a_entry]=0xe5
 output.joinpath('missing-model.img').write_bytes(missing)
+
+# Historical ROM/RAM disk code is executed only to extract the original archives.
+legacy,_=sd.build(native,[disk,disk],legacy=True)
+from update_boot import root_files
+legacy_files=root_files(legacy[2048*512:(2048+32768)*512])
+output.joinpath('legacy-rom.reference').write_bytes(legacy_files['P601.ROM'])

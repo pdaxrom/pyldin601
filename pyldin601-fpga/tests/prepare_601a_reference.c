@@ -18,8 +18,8 @@ static void word_at(unsigned address,unsigned value){
 }
 int main(void){
  size_t size;unsigned char*rom=load("build/rom-a.reference",&size);
- if(size!=0x51a00||rom[25]!=1||rom[512+0x50ff7]!=0x80)return 1;
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ if(size!=(ROM_BYTES+512)||rom[25]!=1||rom[512+0x10ff7]!=0x80)return 1;
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load("build/models-sd.img",&image_size);memcpy(config+64,image+462,32);
  committed=1;model_a=1;MC6800Init();MC6800Reset();
  for(unsigned n=0;n<2000000;n++){
@@ -84,7 +84,7 @@ int main(void){
    else{
     unsigned a=0xf000+(y/8)*80+x/(mode==4?8:16)*(mode==4?1:2);
     unsigned ch=r[a+(mode==4?0:1)],attribute=r[a];
-    unsigned font_byte=physical[0x61000+(ch&127)*16+(ch>>7)*8+y%8];
+    unsigned font_byte=physical[(ROM_BIOS+4096)+(ch&127)*16+(ch>>7)*8+y%8];
     unsigned on=(font_byte>>(7-(mode==4?x%8:(x%16)/2)))&1;
     if(test>=10&&y/8==3&&x/(mode==4?8:16)==7)on=!on;
     c=test>=8&&mode==0?(on?(attribute>>4)&7:attribute&15):on?15:0;

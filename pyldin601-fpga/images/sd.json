@@ -1,16 +1,18 @@
 {
   "date": "2026-10-10",
   "image": "sd.img",
-  "bytes": 20971520,
-  "sha256": "8e7d86a2f3a84ee5f4121c2d1c3c73ae939c86723eabc1d4c7c1cdb22d7f0fa7",
+  "bytes": 37748736,
+  "sha256": "b7e68bbaa6cfd78f31504d78e7347b8188d0a6467fa97a9bb6165df74971dda1",
   "sector_bytes": 512,
-  "boot_disk": "A",
-  "matches_physical_card_readback": false,
-  "fpga_jed_sha256": "1b1e8b851944f846ca351005594e1b51302fc9f1598872e2b6337158a252f473",
+  "controller": "native-sd-lba",
+  "boot_partition": "AUTO",
   "models": [
     "601",
     "601A"
   ],
+  "matches_physical_card_readback": false,
+  "installed_on_physical_board": true,
+  "fpga_jed_sha256": "6668b44f19303065f73dd1b1444f577de67de1e727f16f0e6d8a49f89d29a9cb",
   "partitions": [
     {
       "number": 1,
@@ -18,23 +20,23 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "759325609effe0fc4dfd93e9059ddad127eccf95d45bf3ebbcf01ac491aab540",
+      "sha256": "cb9aa5a0e3fc62bbc36fd0c86af58fee961fd740ff4b091e28b3f76f5ab280d5",
       "files": {
         "P601.ROM": {
-          "bytes": 334336,
-          "sha256": "8c06f930bdfb5426eb1d59a77ee9da93ed89c3f652412fb60049f0121d616a6b"
+          "bytes": 72192,
+          "sha256": "ec26bd55baf3b2864e4f06e3007052f59bc0e5a76728328d1d30f3c79b5fef76"
         },
         "LOADER.BIN": {
-          "bytes": 481,
-          "sha256": "4f93274293c4dd7326a94d39378646a2be8e6bfc79f81b203e153fda664e5dea"
+          "bytes": 406,
+          "sha256": "429c97efeedcfbc8781c9a1fdfcad51be527831f8402fde831f0252e7d30512f"
         },
         "P601.CFG": {
-          "bytes": 614,
-          "sha256": "867b08d0696b254d99f3e5ed1793c497582fded4457ba0cccc577a6f6a86911a"
+          "bytes": 222,
+          "sha256": "4ba56f070d09083133fc2db12c2eb598b2a5fb4fb2231a05891651e4f670a26a"
         },
         "P601A.ROM": {
-          "bytes": 334336,
-          "sha256": "fcbd31699af17068e545ff918155aa3570763ccf207efd7ffc8eb23cec46f852"
+          "bytes": 72192,
+          "sha256": "5b87468062a5389824f4b41293d33990df2e6dd55365dcdd80bdc4d202694091"
         },
         "P601.SET": {
           "bytes": 16,
@@ -49,16 +51,6 @@
       "sectors": 1440,
       "bytes": 737280,
       "sha256": "d6144e9b7fc4ff19a963e87c92485a570e5bf6f5f87c8683047c3848d0e30c6e",
-      "geometry": {
-        "sectors": 1440,
-        "image_sectors": 1440,
-        "sectors_per_track": 9,
-        "heads": 2,
-        "cylinders": 80,
-        "sectors_per_cluster": 2,
-        "clusters": 713,
-        "start_lba": 34816
-      },
       "files": {
         "UNIDOS.CMD": {
           "bytes": 10001,
@@ -121,16 +113,6 @@
       "sectors": 2880,
       "bytes": 1474560,
       "sha256": "c5031d5cb37895747db55821c0220fdd453753d275e7429b28b298299e2c69d7",
-      "geometry": {
-        "sectors": 2880,
-        "image_sectors": 2880,
-        "sectors_per_track": 18,
-        "heads": 2,
-        "cylinders": 80,
-        "sectors_per_cluster": 1,
-        "clusters": 2829,
-        "start_lba": 36864
-      },
       "files": {
         "HDMUL.ASM": {
           "bytes": 2923,
@@ -289,551 +271,306 @@
           "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
         }
       }
+    },
+    {
+      "number": 4,
+      "type": "01",
+      "start_lba": 40960,
+      "sectors": 32400,
+      "bytes": 16588800,
+      "sha256": "9c6a4a092d82d292952c304c15264cfbbcab944feda75e2721bae5cac1e70592",
+      "files": {
+        "BASIC.CMD": {
+          "bytes": 12728,
+          "sha256": "e4d8b19f945eadf5749beb6df1a34ed78c3cee23af57246a49948efd5f36d650"
+        },
+        "E90.JOB": {
+          "bytes": 9,
+          "sha256": "55281228ba39a19d9a92ff4ef6521eac0cd868bac300dddfc15eb9e3302ade58"
+        },
+        "E90.PGM": {
+          "bytes": 29160,
+          "sha256": "a6427b413b0e25a3702c1a4b6c4c8755c40415964b35e05537db7c4fe65eba0b"
+        },
+        "FDISK.PGM": {
+          "bytes": 6301,
+          "sha256": "da8ba3b0df7548e64f18532a68ed1cffaadbbb8f3146a5bb13220ba98ced12bd"
+        },
+        "FORMAT.PGM": {
+          "bytes": 1022,
+          "sha256": "351ef75aa3e310ac9596b842d53d34c7fca48803bd5f30de2527cbb74b8ebc61"
+        },
+        "GD.CMD": {
+          "bytes": 26097,
+          "sha256": "b7d771c3071feb947f501bcc20b914f76814109620bd99606d4d321be5488a8d"
+        },
+        "GD.JOB": {
+          "bytes": 8,
+          "sha256": "68ef9ce8e058b4ab0bc1b3510428d674c001c7c4ac91ff0b7e0d60428ecd5a23"
+        },
+        "MOUNT.PGM": {
+          "bytes": 991,
+          "sha256": "30c9b3db16a4613ed161bed5e3cf78457be9661f0e9b72fb9bba7c2612afbad6"
+        },
+        "PASCAL.JOB": {
+          "bytes": 11,
+          "sha256": "7ffc79f4f933a1cee0b7d14d1be409f441942d60d16b60fcfa1d41d0c71fbfd5"
+        },
+        "SYSTEM.UPL": {
+          "bytes": 27287,
+          "sha256": "381756dcdf15aaae08e31493cf3eb38f945dbdbbdf0469ea04cb562739038993"
+        },
+        "TLO.CMD": {
+          "bytes": 31744,
+          "sha256": "94f27147a1a9e6b80c1242123f75b55459dcd7e604278bac33297f7671830154"
+        },
+        "TLO.JOB": {
+          "bytes": 9,
+          "sha256": "3d60425c1403e4303964fa787ce62dc22d6a663194c6552b1a1182a989d9c887"
+        },
+        "UASM.CMD": {
+          "bytes": 5609,
+          "sha256": "7a7599638478518784edb3bc87e282585bec4aa3a1a3e9a853cdf29f423aabaf"
+        },
+        "UASM.JOB": {
+          "bytes": 10,
+          "sha256": "25306d5faa4505bee8d60d2aeae40580775f5150edb8331dcf59aa068e35f36d"
+        },
+        "UE.CMD": {
+          "bytes": 9544,
+          "sha256": "e4758a52635b9789529f6457834c903cd340fc159cd2230b301b022468630ac4"
+        },
+        "ULINK.CMD": {
+          "bytes": 2872,
+          "sha256": "3c396f646dcb39f575511d50af3542008a5e63c687e5a4cffdfd21a8afc65a5d"
+        },
+        "UMOUNT.PGM": {
+          "bytes": 941,
+          "sha256": "28fc2cef6355b3ff337d1a9e5e75822f410a50de872f1a11f592bd7f38e7b27b"
+        },
+        "UNARC.CMD": {
+          "bytes": 2655,
+          "sha256": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525"
+        },
+        "UPC.PGM": {
+          "bytes": 61172,
+          "sha256": "88c15ebec8b8b274a7be9a0f94077da2b714f0938d470ea062d212968943887b"
+        },
+        "UPL.PGM": {
+          "bytes": 8808,
+          "sha256": "f5842d07790f836f5de5b054702b0e0da992f264d0c9916748a721895edfa8d1"
+        }
+      }
     }
   ],
-  "physical_hd6303_program_execution_verified": true,
-  "validation": {
-    "loader_matches_current_firmware": true,
-    "rom_header_and_payload_crc32": true,
-    "rom_payloads_match_native_sources": true,
-    "rom_and_partition_geometries_match": true,
-    "all_B_files_match_built_tests": true,
-    "software_boot_modes_passed": [
-      "601/MC6800",
-      "601/HD6303",
-      "601A/MC6800",
-      "601A/HD6303"
-    ],
-    "unidos_HD6303_tests_passed": {
-      "601": [
-        "HDTEST",
-        "HDMUL",
-        "HDSLEEP"
-      ],
-      "601A": [
-        "HDTEST",
-        "HDMUL",
-        "HDSLEEP"
-      ]
+  "migration": {
+    "input_sha256": "8e7d86a2f3a84ee5f4121c2d1c3c73ae939c86723eabc1d4c7c1cdb22d7f0fa7",
+    "boot_files_sha256": {
+      "P601.ROM": "ec26bd55baf3b2864e4f06e3007052f59bc0e5a76728328d1d30f3c79b5fef76",
+      "LOADER.BIN": "429c97efeedcfbc8781c9a1fdfcad51be527831f8402fde831f0252e7d30512f",
+      "P601.CFG": "4ba56f070d09083133fc2db12c2eb598b2a5fb4fb2231a05891651e4f670a26a",
+      "P601A.ROM": "5b87468062a5389824f4b41293d33990df2e6dd55365dcdd80bdc4d202694091",
+      "P601.SET": "c50f4bc83bcd6d198363f85bd7eeff393404a81c19a212934d5624d6ca60ab8c"
     },
-    "unidos_DIR_resumed_after_each_test": true,
-    "software_boot_current_setup_default_passed": true,
-    "software_boot_current_HD6303_default_passed": true
-  },
-  "settings": {
-    "file": "P601.SET",
-    "model": "601",
-    "hd6303_extension": true,
-    "frequency_mhz": 1,
-    "physical_card_updated_for_HD6303_default": false
-  },
-  "settings_update": {
-    "base_physical_readback_sha256": "bd6c8c0b3fc60924a005e9883b0818603603c100c5d51a509e2dc91bbc4a057f",
-    "only_boot_partition_changed": true,
-    "all_existing_boot_files_preserved": true,
-    "physical_card_updated": true,
-    "scope": "historical P601.SET update before HG addition to B"
-  },
-  "physical_card_readback_sha256": "11428fd0023979e8f2798a81a7072173224f2474b320d8ca9360310443b84d60",
-  "physical_card_boot_update": {
-    "report": "build/hardware-bios-setup/sd-write.json",
-    "only_boot_partition_written": true,
-    "MBR_A_B_preserved": true,
-    "readback_sha256_scope": "snapshot after host update, before user SAVE"
-  },
-  "physical_boot_partition_matched_image_after_host_update": true,
-  "physical_saved_configuration_user_report": {
-    "model": "601A",
-    "hd6303_extension": true,
-    "frequency_mhz": 4,
-    "reloaded_after_power_cycle": true,
-    "save_reported_error_before_busy_fix": true
-  },
-  "physical_cold_start_user_report": true,
-  "pal_tick_read_collision_fixed": true,
-  "physical_full_reset_fix_verified": true,
-  "physical_full_reset_user_report_date": "2026-10-04",
-  "keyboard_fifo_bios_debounce_fixed": true,
-  "physical_keyboard_fast_input_verified": true,
-  "physical_keyboard_fast_input_user_report_date": "2026-10-08",
-  "physical_keyboard_fast_input_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
-  "hg": {
-    "driver": "B:HG.PGM",
-    "time_program": "B:HGTIME.PGM",
-    "default_drive_with_ROM_and_RAM_disks": "E",
-    "source": "firmware/hg/HG.ASM",
-    "host": "host/hg/hgfsd.c",
-    "default_host_sectors": 32736,
-    "host_clusters": 4084,
-    "physical_card_updated": true,
-    "physical_FPGA_programmed": true,
-    "native_601_and_601A_copy_delete_time_verified": true,
-    "mbr_boot_partition_A_and_existing_B_files_preserved": true,
-    "hdl_models_and_frequencies_passed": [
-      "601/1",
-      "601/2",
-      "601/4",
-      "601/8",
-      "601A/1",
-      "601A/2",
-      "601A/4",
-      "601A/8"
-    ],
-    "physical_ftdi_jtag_enable_low_high_verified": true,
-    "physical_FPGA_program_report": "build/hardware-hg-20261008/result.json",
-    "physical_FPGA_program_verify_passed": true,
-    "physical_card_update_report": "build/hardware-hg-20261008/sd-write.json",
-    "physical_card_B_files_verified": true,
-    "physical_card_MBR_boot_A_and_original_B_preserved": true,
-    "physical_card_extended_partition_preserved": true,
-    "physical_card_prefix_readback_sha256": "329c7bb3c5193142fbe5239240130956c444c8c0f9a03e52924b8695ef80442a",
-    "physical_card_extended_sha256": "4a5c24eba5efda3484febb7752a41744c58ccbd4c5cff35f8497138cd3d506f2",
-    "physical_card_direct_readback_and_independent_Mac_verification": true,
-    "physical_host_daemon_started": true,
-    "physical_host_daemon_start_report": "build/hardware-hg-20261008/hg-start.json",
-    "physical_host_directory": "/home/sash/Work/FPGA/pyldin601-hg/files",
-    "physical_native_exchange_verified": true,
-    "physical_native_exchange_report": "build/hardware-hg-20261008/hg-verified.json",
-    "physical_user_report": "\u0433\u043e\u0442\u043e\u0432\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
-    "physical_DIR_TYPE_COPY_user_verified": true,
-    "physical_host_TEST_TXT_byte_match_verified": true,
-    "physical_host_TEST_TXT_bytes": 1097,
-    "physical_guest_clock_independently_verified": false,
-    "current_host_clock_hz": 1000000,
-    "packet_v2": {
-      "packet_bytes": 32,
-      "FIFOs_bytes_each": 64,
-      "SD_image_driver_updated": true,
-      "physical_card_driver_updated": false,
-      "physical_v2_transfer_verified": true,
-      "FPGA_program_verify_passed": true,
-      "FPGA_program_report": "build/hardware-hg-packets-20261009/result.json",
-      "host_install_report": "build/hardware-hg-packets-20261009/install-result.json",
-      "USB_benchmark_report": "build/hardware-hg-packets-20261009/usb-benchmark.json",
-      "MC6800_native_v1_v2_models_verified": true,
-      "HDL_HD6303_models_speeds_verified": [
-        "601/1",
-        "601/8",
-        "601A/1",
-        "601A/8"
-      ],
-      "real_PCX_load_time_verified": false,
-      "physical_user_report": "\u0434\u0430, \u043e\u0442\u043b\u0438\u0447\u043d\u043e",
-      "physical_user_report_date": "2026-10-09",
-      "physical_READ_requests_verified": 45,
-      "physical_READ_KiB_per_second": 9.13,
-      "physical_verification_report": "build/hardware-hg-packets-20261009/hg-user-verified.json"
-    },
-    "host_binary": "build/hg-host/hgfsd",
-    "automatic_directory_updates": true,
-    "host_service": "p601-hg.service",
-    "host_runtime": "C11/libftdi1",
-    "host_native_live_add_replace_delete_verified": true,
-    "host_native_C_physical_READ_verified": true,
-    "native_host_user_service_installed": true,
-    "native_host_install_report": "build/hardware-pal-rom-20261009/install-result.json",
-    "native_host_live_mirror_report": "build/hg-native-live-verified.json"
-  },
-  "graphics": {
-    "program": "B:GFX.PGM",
-    "source": "firmware/gfx/GFX.ASM",
-    "mode": "320x200 indexed, 256 programmable PAL colours, RGB332 power-up palette",
-    "commands": [
-      "FILL",
-      "COPY",
-      "VBL FLIP",
-      "WRITE BYTE",
-      "READ BYTE",
-      "TRANSPARENT COPY"
-    ],
-    "graphics_sram": "100000-1FFFFF",
-    "demo_pages": [
-      0,
-      1
-    ],
-    "space_changes_page": true,
-    "esc_restores_native_video": true,
-    "mbr_boot_A_and_existing_B_files_preserved": true,
-    "physical_card_updated": false,
-    "physical_FPGA_programmed": true,
-    "physical_user_verified": true,
-    "hdl_test": "tests/run_gfx_app.py",
-    "hdl_uses_actual_MC6800_and_minimal_SWI_fixture": true,
-    "hdl_models_and_frequencies_passed": [
-      "601/1",
-      "601/2",
-      "601/4",
-      "601/8",
-      "601A/1",
-      "601A/2",
-      "601A/4",
-      "601A/8"
-    ],
-    "physical_FPGA_verify_passed": true,
-    "physical_FPGA_program_report": "build/hardware-gfx-20261009/result.json",
-    "physical_HG_demo_files_verified": true,
-    "physical_host_daemon_pid": 536605,
-    "physical_user_report": "\u043e\u0442\u043b\u0438\u0447\u043d\u043e, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
-    "physical_user_report_date": "2026-10-09",
-    "PAL_RGB332_ROM_address_order_fixed": true,
-    "synthesized_PAL_EBR_and_vendor_models_verified": true,
-    "PAL_RGB332_ROM_fix_FPGA_program_verify_passed": true,
-    "PAL_RGB332_ROM_fix_program_report": "build/hardware-pal-rom-20261009/result.json",
-    "PAL_viewport": {
-      "horizontal_start_us": 12,
-      "horizontal_width_us": 48,
-      "physical_rows_per_field": 264,
-      "logical_framebuffer_unchanged": true,
-      "FPGA_program_verify_passed": true,
-      "program_report": "build/hardware-pal-aperture-20261009/result.json",
-      "physical_geometry_user_verified": true,
-      "SD_update_required": false,
-      "continuous_PAL_burst_all_modes": true,
-      "PAL_sync": {
-        "equalizing_us": 2.375,
-        "horizontal_us": 4.75,
-        "broad_us": 27.25,
-        "broad_gap_us": 4.75,
-        "line_us": 64,
-        "field_hz": 50,
-        "DAC_four_field_regression_passed": true,
-        "old_broad_pulse_us": 29.625,
-        "user_report": "Bootstrap top/left, UniDOS left and clock bottom remain cropped before and after VIEW",
-        "physical_cropping_resolved_by_sync_change": false
+    "data_partition": 4,
+    "preserved_partitions": [
+      {
+        "number": 2,
+        "start": 34816,
+        "sectors": 1440,
+        "sha256": "d6144e9b7fc4ff19a963e87c92485a570e5bf6f5f87c8683047c3848d0e30c6e"
       },
-      "vertical_first_line": 38,
-      "PAR_start_point": 2,
-      "previous_shift_left_320_mode_pixels": 8,
-      "logical_pixel_coverage_verified": true,
-      "physical_geometry_user_report": "\u0443\u0436\u0435 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e",
-      "physical_geometry_user_report_date": "2026-10-09",
-      "physical_geometry_validation_scope": [
-        "bootstrap banner",
-        "UniDOS edges and clock",
-        "VIEW ESC return"
-      ]
+      {
+        "number": 3,
+        "start": 36864,
+        "sectors": 2880,
+        "sha256": "c5031d5cb37895747db55821c0220fdd453753d275e7429b28b298299e2c69d7"
+      }
+    ],
+    "software": {
+      "root_files": {
+        "E90.PGM": "a6427b413b0e25a3702c1a4b6c4c8755c40415964b35e05537db7c4fe65eba0b",
+        "SYSTEM.UPL": "381756dcdf15aaae08e31493cf3eb38f945dbdbbdf0469ea04cb562739038993",
+        "UPC.PGM": "88c15ebec8b8b274a7be9a0f94077da2b714f0938d470ea062d212968943887b",
+        "GD.CMD": "b7d771c3071feb947f501bcc20b914f76814109620bd99606d4d321be5488a8d",
+        "ULINK.CMD": "3c396f646dcb39f575511d50af3542008a5e63c687e5a4cffdfd21a8afc65a5d",
+        "UPL.PGM": "f5842d07790f836f5de5b054702b0e0da992f264d0c9916748a721895edfa8d1",
+        "TLO.CMD": "94f27147a1a9e6b80c1242123f75b55459dcd7e604278bac33297f7671830154",
+        "UASM.CMD": "7a7599638478518784edb3bc87e282585bec4aa3a1a3e9a853cdf29f423aabaf",
+        "UE.CMD": "e4758a52635b9789529f6457834c903cd340fc159cd2230b301b022468630ac4",
+        "BASIC.CMD": "e4d8b19f945eadf5749beb6df1a34ed78c3cee23af57246a49948efd5f36d650",
+        "UNARC.CMD": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525",
+        "MOUNT.PGM": "30c9b3db16a4613ed161bed5e3cf78457be9661f0e9b72fb9bba7c2612afbad6",
+        "UMOUNT.PGM": "28fc2cef6355b3ff337d1a9e5e75822f410a50de872f1a11f592bd7f38e7b27b",
+        "FDISK.PGM": "da8ba3b0df7548e64f18532a68ed1cffaadbbb8f3146a5bb13220ba98ced12bd",
+        "FORMAT.PGM": "351ef75aa3e310ac9596b842d53d34c7fca48803bd5f30de2527cbb74b8ebc61",
+        "E90.JOB": "55281228ba39a19d9a92ff4ef6521eac0cd868bac300dddfc15eb9e3302ade58",
+        "GD.JOB": "68ef9ce8e058b4ab0bc1b3510428d674c001c7c4ac91ff0b7e0d60428ecd5a23",
+        "TLO.JOB": "3d60425c1403e4303964fa787ce62dc22d6a663194c6552b1a1182a989d9c887",
+        "UASM.JOB": "25306d5faa4505bee8d60d2aeae40580775f5150edb8331dcf59aa068e35f36d",
+        "PASCAL.JOB": "7ffc79f4f933a1cee0b7d14d1be409f441942d60d16b60fcfa1d41d0c71fbfd5"
+      },
+      "original_archives": "ARCHIVES",
+      "extraction": {
+        "original_rom_sha256": "07eabef09417349844e64ef9c76b0e5ffe07e137e1f8abc852b9be0c98771fa2",
+        "originals": {
+          "E90.ARC": {
+            "bytes": 18596,
+            "sha256": "28566b6c2691d691b01fd497ddf2445600e60081516021e6c666ad2acb04d9d5"
+          },
+          "E90.JOB": {
+            "bytes": 34,
+            "sha256": "4e76a9f0383768dd3715d18ddd776b6d45fa14a40e53bfa46f06726e8fe28294"
+          },
+          "PAS.ARC": {
+            "bytes": 66094,
+            "sha256": "628b0d322a67df03e87c61ac248bc85ff061a6ae2388bbbb35f9e56e30fa6b31"
+          },
+          "PASCAL.JOB": {
+            "bytes": 46,
+            "sha256": "70e6db64c6e503bf4a463a08b16c84b1dda66a9ca10cfad671e5ac1156485ae0"
+          },
+          "TLO.ARC": {
+            "bytes": 15764,
+            "sha256": "d5c4ecdf5a71d575706c597ee1cb0c9f683b84a5faebed0120fd6c0ef9854cbd"
+          },
+          "TLO.JOB": {
+            "bytes": 30,
+            "sha256": "07123de293b4c8e27eefc6f95fa91e5f1a32778c2ef838e0552883dbb421c1ac"
+          },
+          "UASM.ARC": {
+            "bytes": 8371,
+            "sha256": "5a289d019b12ef4854e0f76dd76761e8f16c8d1c39e7b6014eee1777285d3535"
+          },
+          "UNARC.CMD": {
+            "bytes": 2655,
+            "sha256": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525"
+          },
+          "UE.CMD": {
+            "bytes": 9544,
+            "sha256": "e4758a52635b9789529f6457834c903cd340fc159cd2230b301b022468630ac4"
+          },
+          "GD.ARC": {
+            "bytes": 15823,
+            "sha256": "28d3b3b60e5ed530e8d413ebe664c42ec0b2bcae00a46536fd9a51d14f2bb348"
+          },
+          "UASM.JOB": {
+            "bytes": 28,
+            "sha256": "e88148edec7f9e7aca339c931d339b958c7c315d253afbc3426f05c3353e24fc"
+          },
+          "GD.JOB": {
+            "bytes": 28,
+            "sha256": "16dae9ce256a59daff6ec9f6b9fed35f96d4707f43bfd446edde74a0cb42714c"
+          },
+          "BASIC.CMD": {
+            "bytes": 12728,
+            "sha256": "e4d8b19f945eadf5749beb6df1a34ed78c3cee23af57246a49948efd5f36d650"
+          }
+        },
+        "extracted": {
+          "E90.ARC": {
+            "E90.PGM": {
+              "bytes": 29160,
+              "sha256": "a6427b413b0e25a3702c1a4b6c4c8755c40415964b35e05537db7c4fe65eba0b"
+            }
+          },
+          "PAS.ARC": {
+            "SYSTEM.UPL": {
+              "bytes": 27287,
+              "sha256": "381756dcdf15aaae08e31493cf3eb38f945dbdbbdf0469ea04cb562739038993"
+            },
+            "UPC.PGM": {
+              "bytes": 61172,
+              "sha256": "88c15ebec8b8b274a7be9a0f94077da2b714f0938d470ea062d212968943887b"
+            },
+            "UPL.PGM": {
+              "bytes": 8808,
+              "sha256": "f5842d07790f836f5de5b054702b0e0da992f264d0c9916748a721895edfa8d1"
+            }
+          },
+          "TLO.ARC": {
+            "TLO.CMD": {
+              "bytes": 31744,
+              "sha256": "94f27147a1a9e6b80c1242123f75b55459dcd7e604278bac33297f7671830154"
+            }
+          },
+          "UASM.ARC": {
+            "UASM.CMD": {
+              "bytes": 5609,
+              "sha256": "7a7599638478518784edb3bc87e282585bec4aa3a1a3e9a853cdf29f423aabaf"
+            },
+            "ULINK.CMD": {
+              "bytes": 2872,
+              "sha256": "3c396f646dcb39f575511d50af3542008a5e63c687e5a4cffdfd21a8afc65a5d"
+            }
+          },
+          "GD.ARC": {
+            "GD.CMD": {
+              "bytes": 26097,
+              "sha256": "b7d771c3071feb947f501bcc20b914f76814109620bd99606d4d321be5488a8d"
+            }
+          }
+        },
+        "extractor": "original UniDOS UNARC.CMD in MC6800 emulator"
+      }
     },
-    "programmable_palette": {
-      "version": 2,
-      "colours": 256,
-      "PAL_samples_per_colour": 32,
-      "DAC_bits": 6,
-      "same_six_EBR_as_RGB332": true,
-      "CPU_reset_retains_table": true,
-      "FPGA_program_verify_passed": true,
-      "program_report": "build/hardware-palette-20261009/result.json",
-      "PAR_start_point": 3,
-      "physical_colour_user_verified": true,
-      "HDL_models_and_frequencies_verified": [
-        "601/1",
-        "601/2",
-        "601/4",
-        "601/8",
-        "601A/1",
-        "601A/2",
-        "601A/4",
-        "601A/8"
-      ],
-      "physical_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!",
-      "physical_user_report_date": "2026-10-09",
-      "physical_user_model_frequency": "not specified"
-    },
-    "interface_version": 4,
-    "sprites": {
-      "program": "B:SPRITES.PGM",
-      "source": "firmware/gfx/SPRITES.ASM",
-      "CPU": "HD6303",
-      "pages": [
-        0,
-        1,
-        2,
-        3
-      ],
-      "sprite_size": [
-        32,
-        32
-      ],
-      "count": 3,
-      "key_index": 0,
-      "dirty_rectangle_restore": true,
-      "physical_user_verified": true,
-      "physical_FPGA_programmed": true,
-      "physical_HG_files_verified": true,
-      "file_bytes": 1354,
-      "native_601_601A_verified": true,
-      "HDL_models_frequencies_verified": [
-        "601/1",
-        "601/2",
-        "601/4",
-        "601/8",
-        "601A/1",
-        "601A/2",
-        "601A/4",
-        "601A/8"
-      ],
-      "verification_report": "build/sprites/validation.json",
-      "physical_FPGA_verify_passed": true,
-      "program_report": "build/hardware-sprites-20261009/result.json",
-      "files_install_report": "build/hardware-sprites-20261009/files-install.json",
-      "host_daemon_pid": 608596,
-      "physical_user_report": "\u0421\u043f\u0440\u0430\u0439\u0442\u044b \u0438 ESC \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
-      "physical_user_verification_report": "build/hardware-sprites-20261009/user-verified.json",
-      "physical_user_model_frequency": "not specified"
-    },
-    "current_firmware_user_verification_pending": true
+    "output_sha256": "b7e68bbaa6cfd78f31504d78e7347b8188d0a6467fa97a9bb6165df74971dda1",
+    "bytes": 37748736,
+    "settings_sha256": "c50f4bc83bcd6d198363f85bd7eeff393404a81c19a212934d5624d6ca60ab8c"
   },
-  "pcx_viewer": {
-    "program": "B:VIEW.PGM",
-    "CPU": "HD6303",
-    "format": "PCX v5 8-bit one-plane RLE + RGB palette",
-    "max_size": [
-      320,
-      200
-    ],
-    "source": "firmware/gfx/VIEW.ASM",
-    "native_601_601A_verified": true,
-    "physical_card_updated": false,
-    "code_data_bytes": 3288,
-    "file_bytes": 3750,
-    "no_host_conversion": true,
-    "hdl_models_and_frequencies_passed": [
-      "601/1",
-      "601/2",
-      "601/4",
-      "601/8",
-      "601A/1",
-      "601A/2",
-      "601A/4",
-      "601A/8"
-    ],
-    "native_zero_resets_verified": true,
-    "physical_FPGA_programmed": true,
-    "physical_FPGA_verify_passed": true,
-    "physical_FPGA_program_report": "build/hardware-palette-20261009/result.json",
-    "physical_HG_files_verified": true,
-    "physical_host_daemon_pid": 604281,
-    "physical_user_verification_pending": false,
-    "physical_image_visible_user_report": "\u0432\u0438\u0436\u0443 \u0444\u0440\u0430\u043a\u0442\u0430\u043b",
-    "physical_user_report_date": "2026-10-09",
-    "physical_ESC_return_verified": true,
-    "physical_fast_HG_v2_image_verified": true,
-    "physical_HG_v2_user_report": "\u0434\u0430, \u043e\u0442\u043b\u0438\u0447\u043d\u043e",
-    "lena_file_sha256": "bcba5e27b97f26d678d58bc53bc8020a9ffa0954730dffefa5c45f79b4edfd56",
-    "lena_native_64000_pixels_verified": true,
-    "lena_physical_colour_verified": true,
-    "lena_original_physical_colour_failure_report": true,
-    "physical_ESC_return_verification_date": "2026-10-09",
-    "BSS_bytes": 8192,
-    "programmable_RGB888_palette": true,
-    "palette_restored_on_exit_and_error": true,
-    "physical_new_palette_verified": true,
-    "physical_HG_install_report": "build/hardware-palette-20261009/view-install.json",
-    "previous_RGB332_physical_program_execution_verified": true,
-    "physical_program_execution_verified": true,
-    "physical_new_palette_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!",
-    "physical_new_palette_user_report_date": "2026-10-09",
-    "physical_new_palette_user_report_scope": [
-      "E:VIEW E:LENA.PCX colour",
-      "ESC return to UniDOS; text and clock positions"
-    ],
-    "physical_new_palette_user_verification_report": "build/hardware-palette-20261009/user-verified.json",
-    "minimum_graphics_version": 2,
-    "version_2_and_3_native_verified": true
-  },
-  "clipping": {
-    "program": "B:CLIPSPR.PGM",
-    "library": "B:GFXCLIP.ASM",
-    "howto": "B:CLIPHOW.TXT",
-    "native_cases_verified": 249072,
-    "native_models_verified": [
-      "601",
-      "601A"
-    ],
-    "HDL_models_frequencies_verified": [
-      "601/8",
-      "601A/8"
-    ],
-    "physical_card_updated": false,
-    "physical_HG_installed": true,
-    "physical_user_verified": true,
-    "physical_ESC_user_verified": true,
-    "physical_user_report_date": "2026-10-09"
-  },
-  "previous_ham_v4": {
-    "program": "B:HAM.PGM",
-    "CPU": "HD6303",
-    "minimum_graphics_version": 4,
-    "formats": [
-      "HAM6",
-      "HAM8"
-    ],
-    "logical_RGB_states": {
-      "HAM6": 4096,
-      "HAM8": 262144
-    },
-    "shared_existing_PAL_EBR": true,
-    "framebuffer_bytes": 64000,
-    "BSS_bytes": 8192,
-    "code_data_bytes": 1009,
-    "file_bytes": 1227,
-    "native_601_601A_verified": true,
-    "palette_restored_on_exit_and_error": true,
-    "physical_card_updated": false,
-    "physical_FPGA_programmed": true,
-    "physical_user_verification_pending": true,
-    "physical_FPGA_verify_passed": true,
-    "physical_FPGA_program_report": "build/hardware-ham-20261009/result.json",
-    "physical_HG_files_verified": true,
-    "physical_HG_files_install_report": "build/hardware-ham-20261009/files-install.json",
-    "native_host_daemon_pid": 615134,
-    "HDL_models_frequencies_verified": [
-      "601/8",
-      "601A/1"
-    ],
-    "verification_report": "build/ham/validation.json",
-    "physical_image_user_verified": true,
-    "physical_user_report_date": "2026-10-09",
-    "physical_photo_scope": [
-      "HAM8 diagonal RGB ramp",
-      "HAM6 repeated 4096-colour blocks"
-    ],
-    "physical_ESC_user_verified": false
-  },
-  "ham": {
-    "program": "B:HAM.PGM",
-    "CPU": "HD6303",
-    "minimum_graphics_version": 5,
-    "formats": [
-      "HAM8"
-    ],
-    "logical_RGB_states": 262144,
-    "shared_existing_PAL_EBR": true,
-    "framebuffer_bytes": 64000,
-    "BSS_bytes": 8192,
-    "code_data_bytes": 886,
-    "file_bytes": 1070,
-    "physical_FPGA_programmed": true,
-    "physical_card_updated": false,
-    "physical_HG_files_verified": true,
-    "physical_HG_files_install_report": "build/hardware-direct-sd-20261009/files-install.json",
-    "physical_user_verification_pending": true
-  },
-  "fpga_bios": {
-    "ROM_page": "B",
-    "physical_address": 90112,
-    "bytes": 8192,
-    "used_code_data_bytes": 2841,
-    "CRC16_table_bytes": 512,
-    "assembler": "UniAS",
-    "checksum": "UniAS CHECKSUM",
-    "INT17": "software SDHC/SDSC, MBR partitions 2/3",
-    "INT_E0_API_version": 1,
-    "native_BIOS_unchanged": true,
-    "physical_card_updated": true,
-    "physical_FPGA_programmed": true,
-    "physical_card_update_report": "build/hardware-romdisk-20261010/sd-write.json",
-    "physical_card_readback_sha256": "9e183be7040385b70aa902a1303cf9f16d77e59d5facacef6b4e7481740e5ad2",
-    "physical_card_MBR_A_B_settings_preserved": true,
-    "physical_card_extended_partition_metadata_preserved": true,
-    "physical_card_extended_partition_EBR_count": 11,
-    "physical_FPGA_verify_passed": true,
-    "physical_FPGA_program_report": "build/hardware-direct-sd-20261009/result.json",
-    "physical_boot_and_disk_user_verified": true,
-    "physical_DIR_A_B_user_verified": true,
-    "physical_full_reset_10_seconds_user_verified": true,
-    "physical_SD_file_write_user_verified": false,
-    "physical_user_report": "\u0434\u0430",
-    "physical_user_report_date": "2026-10-09",
-    "physical_user_verification_report": "build/hardware-direct-sd-20261009/user-verified.json"
-  },
-  "ay": {
-    "program": "B:AY.PGM",
-    "CPU": "HD6303",
-    "master_Hz": 2000000,
-    "register_base": "E610",
-    "channels": 3,
-    "audio_pins": [
-      21,
-      22
-    ],
-    "code_data_bytes": 350,
-    "file_bytes": 424,
-    "native_601_601A_verified": true,
-    "physical_sound_verified": true,
-    "physical_FPGA_programmed": true,
-    "physical_HG_files_verified": true,
-    "physical_HG_files_install_report": "build/hardware-direct-sd-20261009/files-install.json",
-    "physical_ESC_user_verified": true,
-    "physical_user_report": "\u0434\u0430",
-    "physical_user_report_date": "2026-10-09",
-    "physical_user_verification_report": "build/hardware-direct-sd-20261009/user-verified.json"
-  },
-  "current_physical_update": {
-    "date": "2026-10-09",
-    "report_directory": "build/hardware-direct-sd-20261009",
-    "SD_boot_partition_direct_read_verified": true,
-    "FPGA_FLASH_verify_passed": true,
-    "HG_native_daemon_pid": 630683,
-    "HG_restarted": true,
-    "user_files_preserved": true,
-    "physical_boot_and_disk_and_sound_user_verification_pending": false,
-    "physical_user_verification_report": "build/hardware-direct-sd-20261009/user-verified.json",
-    "physical_full_reset_10_seconds_user_verified": true
-  },
-  "ham8_viewer": {
-    "program": "B:HVIEW.PGM",
-    "CPU": "HD6303",
-    "minimum_graphics_version": 5,
-    "format": "IFF ILBM HAM8 RGB222",
-    "dimensions": [
-      320,
-      200
-    ],
-    "compression": [
-      "raw",
-      "ByteRun1"
-    ],
-    "host_source": "tools/ham8conv.c",
-    "host_jpeg_png": true,
-    "code_data_bytes": 2809,
-    "BSS_bytes": 8192,
-    "file_bytes": 3355,
-    "native_601_601A_verified": true,
-    "host_macos_linux_verified": true,
-    "sanitizers_verified": true,
-    "physical_HG_files_verified": true,
-    "physical_user_verification_pending": false,
-    "physical_colours_and_ESC_user_verified": true,
-    "physical_user_report": "\u0426\u0432\u0435\u0442\u0430 \u0438 ESC \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
-    "physical_user_report_date": "2026-10-09",
-    "physical_card_updated": false,
-    "FPGA_ROM_unchanged": true,
-    "additional_HDL_test_completed": false,
-    "additional_HDL_test_status": "stopped after native and physical verification; no PASS"
-  },
-  "rom_disk_fix": {
+  "physical_installation": {
     "date": "2026-10-10",
-    "SD_state": "BF85-BF9F",
-    "native_ROM_RAM_disk_state": "BF80-BF84 preserved",
-    "native_RS_line_input": "ED7C-ED7D preserved",
-    "regression": "test-romdisk",
-    "models": [
-      "601",
-      "601A"
+    "method": "preserving migration of shared card; matching ROM and FPGA installed",
+    "card_bytes": 7988051968,
+    "card_sha256_at_installation": "374fcaf46ac180d81d5e8190666d0a1909f6bd5115d2fed2869b59625e32f5b3",
+    "backup_sha256": "c91e06dda165741282afad4ac63a0e6e5eb84f3b816dc3a6ebb5249eeb568451",
+    "data_partition": 16,
+    "data_start_lba": 124928,
+    "data_sectors": 32400,
+    "settings_preserved": true,
+    "settings": {
+      "model": "601",
+      "hd6303": true,
+      "cpu_mhz": 8,
+      "boot_partition": "AUTO"
+    },
+    "preserved_partitions": [
+      2,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
     ],
-    "CPU": [
-      "MC6800",
-      "HD6303"
-    ],
-    "original_files_byte_verified": 13,
-    "physical_card_updated": true,
-    "physical_user_verified": true,
-    "FPGA_reflash_required": false,
-    "physical_card_report": "build/hardware-romdisk-20261010/sd-write.json",
-    "physical_card_readback_sha256": "9e183be7040385b70aa902a1303cf9f16d77e59d5facacef6b4e7481740e5ad2",
-    "physical_user_verification_pending": false,
-    "physical_user_report": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
-    "physical_user_report_date": "2026-10-10",
-    "physical_user_verification_report": "build/hardware-romdisk-20261010/user-verified.json"
+    "card_readback": "O_DIRECT: all written regions and every preserved data partition",
+    "fpga_flash_verify": true,
+    "hg_service_restored": true,
+    "physical_boot_verified": true,
+    "note": "Generic sd.img is not a byte-for-byte copy of the shared card.",
+    "user_confirmation": {
+      "date": "2026-10-10",
+      "source": "user reply to hardware verification request",
+      "user_reply": "\u0434\u0430, \u043f\u0440\u043e\u0433\u043d\u0430\u043b \u0432\u0441\u0435 \u0434\u0435\u043c\u043e \u043f\u0440\u043e\u0433\u0438 \u0438 gd, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!",
+      "requested_checks": [
+        "boot",
+        "DIR A:/B:/C:",
+        "B:HG",
+        "C:GD",
+        "full Reset (10 seconds)"
+      ],
+      "reported_checks": [
+        "all demo programs",
+        "GD"
+      ],
+      "physical_boot_verified": true,
+      "all_models_and_frequencies_verified": false
+    }
   }
 }

@@ -3,6 +3,7 @@ from pathlib import Path
 import importlib.util
 import re
 import struct
+import json
 
 root=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('asm',root/'tools/asm6800.py')
@@ -53,7 +54,7 @@ bra halt
 '''
 program,_=asm.assemble(source,0x100)
 ram[0x100:0x100+len(program)]=program
-ram[0x300:0x305]=bytes.fromhex('4000047fdf')  # E:, last FAT12 sector 32735
+ram[0x300:0x305]=bytes((0x40,0,json.loads((root/'build/hgdisk-context.json').read_text())['hg_drive'],0x7f,0xdf))  # E:, last FAT12 sector 32735
 ram[0x380]=0
 (root/'build/hgdisk-ram.bin').write_bytes(ram)
 (root/'build/hgdisk-expected-ram.bin').write_bytes(ram)

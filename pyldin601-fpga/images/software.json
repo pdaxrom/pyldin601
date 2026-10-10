@@ -1,0 +1,127 @@
+{
+  "root_files": {
+    "E90.PGM": "a6427b413b0e25a3702c1a4b6c4c8755c40415964b35e05537db7c4fe65eba0b",
+    "SYSTEM.UPL": "381756dcdf15aaae08e31493cf3eb38f945dbdbbdf0469ea04cb562739038993",
+    "UPC.PGM": "88c15ebec8b8b274a7be9a0f94077da2b714f0938d470ea062d212968943887b",
+    "GD.CMD": "b7d771c3071feb947f501bcc20b914f76814109620bd99606d4d321be5488a8d",
+    "ULINK.CMD": "3c396f646dcb39f575511d50af3542008a5e63c687e5a4cffdfd21a8afc65a5d",
+    "UPL.PGM": "f5842d07790f836f5de5b054702b0e0da992f264d0c9916748a721895edfa8d1",
+    "TLO.CMD": "94f27147a1a9e6b80c1242123f75b55459dcd7e604278bac33297f7671830154",
+    "UASM.CMD": "7a7599638478518784edb3bc87e282585bec4aa3a1a3e9a853cdf29f423aabaf",
+    "UE.CMD": "e4758a52635b9789529f6457834c903cd340fc159cd2230b301b022468630ac4",
+    "BASIC.CMD": "e4d8b19f945eadf5749beb6df1a34ed78c3cee23af57246a49948efd5f36d650",
+    "UNARC.CMD": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525",
+    "MOUNT.PGM": "30c9b3db16a4613ed161bed5e3cf78457be9661f0e9b72fb9bba7c2612afbad6",
+    "UMOUNT.PGM": "28fc2cef6355b3ff337d1a9e5e75822f410a50de872f1a11f592bd7f38e7b27b",
+    "FDISK.PGM": "da8ba3b0df7548e64f18532a68ed1cffaadbbb8f3146a5bb13220ba98ced12bd",
+    "FORMAT.PGM": "351ef75aa3e310ac9596b842d53d34c7fca48803bd5f30de2527cbb74b8ebc61",
+    "E90.JOB": "55281228ba39a19d9a92ff4ef6521eac0cd868bac300dddfc15eb9e3302ade58",
+    "GD.JOB": "68ef9ce8e058b4ab0bc1b3510428d674c001c7c4ac91ff0b7e0d60428ecd5a23",
+    "TLO.JOB": "3d60425c1403e4303964fa787ce62dc22d6a663194c6552b1a1182a989d9c887",
+    "UASM.JOB": "25306d5faa4505bee8d60d2aeae40580775f5150edb8331dcf59aa068e35f36d",
+    "PASCAL.JOB": "7ffc79f4f933a1cee0b7d14d1be409f441942d60d16b60fcfa1d41d0c71fbfd5"
+  },
+  "original_archives": "ARCHIVES",
+  "extraction": {
+    "original_rom_sha256": "07eabef09417349844e64ef9c76b0e5ffe07e137e1f8abc852b9be0c98771fa2",
+    "originals": {
+      "E90.ARC": {
+        "bytes": 18596,
+        "sha256": "28566b6c2691d691b01fd497ddf2445600e60081516021e6c666ad2acb04d9d5"
+      },
+      "E90.JOB": {
+        "bytes": 34,
+        "sha256": "4e76a9f0383768dd3715d18ddd776b6d45fa14a40e53bfa46f06726e8fe28294"
+      },
+      "PAS.ARC": {
+        "bytes": 66094,
+        "sha256": "628b0d322a67df03e87c61ac248bc85ff061a6ae2388bbbb35f9e56e30fa6b31"
+      },
+      "PASCAL.JOB": {
+        "bytes": 46,
+        "sha256": "70e6db64c6e503bf4a463a08b16c84b1dda66a9ca10cfad671e5ac1156485ae0"
+      },
+      "TLO.ARC": {
+        "bytes": 15764,
+        "sha256": "d5c4ecdf5a71d575706c597ee1cb0c9f683b84a5faebed0120fd6c0ef9854cbd"
+      },
+      "TLO.JOB": {
+        "bytes": 30,
+        "sha256": "07123de293b4c8e27eefc6f95fa91e5f1a32778c2ef838e0552883dbb421c1ac"
+      },
+      "UASM.ARC": {
+        "bytes": 8371,
+        "sha256": "5a289d019b12ef4854e0f76dd76761e8f16c8d1c39e7b6014eee1777285d3535"
+      },
+      "UNARC.CMD": {
+        "bytes": 2655,
+        "sha256": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525"
+      },
+      "UE.CMD": {
+        "bytes": 9544,
+        "sha256": "e4758a52635b9789529f6457834c903cd340fc159cd2230b301b022468630ac4"
+      },
+      "GD.ARC": {
+        "bytes": 15823,
+        "sha256": "28d3b3b60e5ed530e8d413ebe664c42ec0b2bcae00a46536fd9a51d14f2bb348"
+      },
+      "UASM.JOB": {
+        "bytes": 28,
+        "sha256": "e88148edec7f9e7aca339c931d339b958c7c315d253afbc3426f05c3353e24fc"
+      },
+      "GD.JOB": {
+        "bytes": 28,
+        "sha256": "16dae9ce256a59daff6ec9f6b9fed35f96d4707f43bfd446edde74a0cb42714c"
+      },
+      "BASIC.CMD": {
+        "bytes": 12728,
+        "sha256": "e4d8b19f945eadf5749beb6df1a34ed78c3cee23af57246a49948efd5f36d650"
+      }
+    },
+    "extracted": {
+      "E90.ARC": {
+        "E90.PGM": {
+          "bytes": 29160,
+          "sha256": "a6427b413b0e25a3702c1a4b6c4c8755c40415964b35e05537db7c4fe65eba0b"
+        }
+      },
+      "PAS.ARC": {
+        "SYSTEM.UPL": {
+          "bytes": 27287,
+          "sha256": "381756dcdf15aaae08e31493cf3eb38f945dbdbbdf0469ea04cb562739038993"
+        },
+        "UPC.PGM": {
+          "bytes": 61172,
+          "sha256": "88c15ebec8b8b274a7be9a0f94077da2b714f0938d470ea062d212968943887b"
+        },
+        "UPL.PGM": {
+          "bytes": 8808,
+          "sha256": "f5842d07790f836f5de5b054702b0e0da992f264d0c9916748a721895edfa8d1"
+        }
+      },
+      "TLO.ARC": {
+        "TLO.CMD": {
+          "bytes": 31744,
+          "sha256": "94f27147a1a9e6b80c1242123f75b55459dcd7e604278bac33297f7671830154"
+        }
+      },
+      "UASM.ARC": {
+        "UASM.CMD": {
+          "bytes": 5609,
+          "sha256": "7a7599638478518784edb3bc87e282585bec4aa3a1a3e9a853cdf29f423aabaf"
+        },
+        "ULINK.CMD": {
+          "bytes": 2872,
+          "sha256": "3c396f646dcb39f575511d50af3542008a5e63c687e5a4cffdfd21a8afc65a5d"
+        }
+      },
+      "GD.ARC": {
+        "GD.CMD": {
+          "bytes": 26097,
+          "sha256": "b7d771c3071feb947f501bcc20b914f76814109620bd99606d4d321be5488a8d"
+        }
+      }
+    },
+    "extractor": "original UniDOS UNARC.CMD in MC6800 emulator"
+  }
+}

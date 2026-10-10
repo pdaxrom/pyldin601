@@ -15,6 +15,7 @@ import stat
 import struct
 
 import make_sd as sd
+import sd_partitions as partitions
 
 
 def fat_get(table, cluster):
@@ -38,7 +39,7 @@ def short_name(name):
 
 
 def layout(volume):
-    info = sd.disk_info(volume)
+    info = partitions.bpb(volume, len(volume)//512)
     reserved, copies, spf, entries = sd.u16(volume,14), volume[16], sd.u16(volume,22), sd.u16(volume,17)
     fat_start, fat_size = reserved*512, spf*512
     root_start = (reserved+copies*spf)*512
@@ -120,7 +121,7 @@ def add_files(volume, files, replace=False):
     extracted=root_files(result)
     assert all(extracted[name]==data for name,data in files.items())
     assert all(extracted[name]==data for name,data in original_files.items() if name not in files)
-    assert result[:512]==volume[:512] and sd.disk_info(result)==info
+    assert result[:512]==volume[:512] and partitions.bpb(result,len(result)//512)==info
     return bytes(result)
 
 

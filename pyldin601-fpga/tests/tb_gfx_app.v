@@ -17,8 +17,8 @@ module gfx_app_fixture #(parameter SPEED=0,MODEL_A=0)(
  reg[15:0]memory[0:32767],graphics[0:65535];integer jobs=0,checks=0,flips=0;
  assign #10 pa=sa;assign #10 pc=ce,po=oe,pu=ub,pl=lb;
  assign #6 pw=we;assign #14.5 pd=sd;
- wire[15:0]read_word=pa[19]?graphics[pa[15:0]]:pa==20'h307fd ? 16'h0001:memory[pa[14:0]];
- always @(negedge oe)if(!ce&&sa>=20'h08000&&sa!=20'h307fd&&!(sa>=20'h80000&&sa<20'h90000))
+ wire[15:0]read_word=pa[19]?graphics[pa[15:0]]:pa==20'h107fd ? 16'h0001:memory[pa[14:0]];
+ always @(negedge oe)if(!ce&&sa>=20'h08000&&sa!=20'h107fd&&!(sa>=20'h80000&&sa<20'h90000))
   $fatal(1,"GFX PGM unexpected physical read %h",sa);
  assign #18 sd=!pc&&!po&&pw?read_word:16'bz;
  always @(posedge pw)if(!pc)begin

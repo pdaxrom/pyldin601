@@ -8,7 +8,7 @@ entity tb_boot_lockstep is
  generic(PREFIX:string:="boot-lockstep";ROM_FILE:string:="build/rom.reference.mem";HD:boolean:=false);
 end;
 architecture test of tb_boot_lockstep is
- type bytes is array(0 to 399359)of std_logic_vector(7 downto 0);
+ type bytes is array(0 to 137215)of std_logic_vector(7 downto 0);
  type base_bytes is array(0 to 65535)of std_logic_vector(7 downto 0);
  impure function expected_ram return base_bytes is
   file f:text open read_mode is "build/"&PREFIX&"-base.mem";
@@ -22,7 +22,7 @@ architecture test of tb_boot_lockstep is
   file f:text open read_mode is ROM_FILE;
   variable l:line;variable data:bytes:=(others=>x"00");variable v:std_logic_vector(7 downto 0);
  begin
-  for a in 65536 to 399359 loop readline(f,l);hread(l,v);data(a):=v;end loop;
+  for a in 65536 to 137215 loop readline(f,l);hread(l,v);data(a):=v;end loop;
   return data;
  end;
  signal memory:bytes:=rom_image;
@@ -31,7 +31,7 @@ architecture test of tb_boot_lockstep is
  signal registers:std_logic_vector(71 downto 0);signal page:std_logic_vector(7 downto 0):=x"00";
  signal opcode:std_logic_vector(7 downto 0);
  signal io_value:std_logic_vector(7 downto 0):=x"00";
- signal physical:natural range 0 to 399359;
+ signal physical:natural range 0 to 137215;
  signal count:natural:=0;signal hd_mode:std_logic;
 begin
  hd_mode<='1' when HD else '0';
@@ -39,10 +39,9 @@ begin
  process(all)variable a:natural;begin
   a:=to_integer(unsigned(address));physical<=a;
   if rw='1' then
-   if a>=16#f000# then physical<=16#60000#+a-16#f000#;
+   if a>=16#f000# then physical<=16#20000#+a-16#f000#;
    elsif a>=16#c000# and a<16#e000# and page(3)='1' then
-    physical<=16#10000#+(to_integer(unsigned(page(7 downto 4))) mod 5)*65536+
-      to_integer(unsigned(page(2 downto 0)))*8192+a-16#c000#;
+    physical<=16#10000#+to_integer(unsigned(page(2 downto 0)))*8192+a-16#c000#;
    end if;
   end if;
  end process;

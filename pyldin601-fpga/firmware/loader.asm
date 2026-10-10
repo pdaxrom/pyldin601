@@ -1,5 +1,5 @@
 ; Stage two runs in ordinary RAM. It fills physical ROM through a boot-only port,
-; verifies CRC32, clears cold RAM/electronic disk, hands off through the resident BIOS RAM trampoline.
+; verifies CRC32, clears cold RAM, hands off through the resident BIOS RAM trampoline.
 OPEN equ $f003
 GET equ $f006
 FAIL equ $f009
@@ -35,7 +35,7 @@ selected_rom:
     cmpa #$1a
     bne bad_size
     ldaa SIZE+2
-    cmpa #5
+    cmpa #1
     bne bad_size
     ldaa SIZE+3
     bne bad_size
@@ -103,7 +103,7 @@ header_ok:
     anda #1
     cmpa $1019
     lbne FAIL
-    ; Provide ROM header and the MBR entries mounted by resident CPU firmware.
+    ; Provide only the compact ROM header; runtime firmware scans MBR/EBR.
     ldx #$1000
     clrb
 config_copy:
@@ -113,27 +113,19 @@ config_copy:
     incb
     cmpb #64
     bne config_copy
-    ldx #$150
-    ldab #32
-partition_copy:
-    ldaa 0,x
-    staa CONFIG
-    inx
-    decb
-    bne partition_copy
     clr ADDR
     clr ADDR+1
     ldaa #1
     staa ADDR+2
     staa CRCRESET
-    ldaa #5
+    ldaa #1
     staa BLOCKS
     ldaa #6
     jsr STATUS
 payload_block:
-    ldaa #6
+    ldaa #2
     suba BLOCKS
-    ldab #5
+    ldab #1
     jsr PROGRESS
     clr LEFT
     clr LEFT+1
@@ -186,23 +178,6 @@ payload_tail:
     ldx #$d000
     stx LEFT
     jsr clear_region
-    ldaa #10
-    jsr STATUS
-    clr ADDR
-    clr ADDR+1
-    ldaa #8
-    staa ADDR+2
-    staa BLOCKS
-clear_disk:
-    ldaa #9
-    suba BLOCKS
-    ldab #8
-    jsr PROGRESS
-    clr LEFT
-    clr LEFT+1
-    jsr clear_region
-    dec BLOCKS
-    bne clear_disk
     ; Resident BIOS installs a RAM trampoline and clears the loader/stack itself.
     jmp $f00c
 bad_payload:

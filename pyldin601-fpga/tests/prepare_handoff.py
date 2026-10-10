@@ -11,7 +11,7 @@ settings=int(sys.argv[1],0) if len(sys.argv)>1 and sys.argv[1]!='601a' else (1 i
 assert 0 <= settings <= 15
 model_a=bool(settings&1)
 b=bytearray(root.joinpath('build/rom-a.reference' if model_a else 'build/rom.reference').read_bytes()[:64]);b[20:24]=bytes(4)
-image=root.joinpath('build/test-sd.img').read_bytes();b+=image[462:494]
+image=root.joinpath('build/test-sd.img').read_bytes()
 source='''org $f000
 sei
 lds #$1fff
@@ -19,7 +19,7 @@ ldaa #$40
 staa $e6a2
 clr $e6aa
 ldx #config
-ldab #96
+ldab #64
 send:
 ldaa 0,x
 staa $e6a3

@@ -22,9 +22,8 @@ class BootUpdateTests(unittest.TestCase):
         a_start = sd.u32(image, 462+8) * 512
         cls.backup[a_start+2048:a_start+2056] = b'USERDATA'
         cls.bios = (project.parent/'native-src/BIOS_A.ROM').read_bytes()
-        spec = importlib.util.spec_from_file_location('assembler', TOOLS/'asm6800.py')
-        assembler = importlib.util.module_from_spec(spec);spec.loader.exec_module(assembler)
-        cls.loader, _ = assembler.assemble((project/'firmware/loader.asm').read_text(), 0x2000)
+        from unias_boot import build
+        cls.loader,_=build('loader')
 
     def test_update_preserves_user_disks_and_classic_rom(self):
         volume, metadata = update.prepare(self.backup, self.bios, self.loader)
@@ -38,9 +37,9 @@ class BootUpdateTests(unittest.TestCase):
         self.assertEqual(files['LOADER.BIN'], self.loader)
         alternate = files['P601A.ROM']
         self.assertEqual(alternate[25], 1)
-        self.assertEqual(alternate[512+0x50000:512+0x51000], self.bios)
-        self.assertEqual(alternate[512:512+0x50000], files['P601.ROM'][512:512+0x50000])
-        self.assertEqual(alternate[512+0x51000:], files['P601.ROM'][512+0x51000:])
+        self.assertEqual(alternate[512+0x10000:512+0x11000], (TOOLS.parent/'build/partitions/BIOS_A.ROM').read_bytes())
+        self.assertEqual(alternate[512:512+0x10000], files['P601.ROM'][512:512+0x10000])
+        self.assertEqual(alternate[512+0x11000:], files['P601.ROM'][512+0x11000:])
         self.assertEqual(metadata['classic_rom_sha256'], hashlib.sha256(files['P601.ROM']).hexdigest())
 
     def test_add_extension_preserves_all_native_rom_bytes(self):

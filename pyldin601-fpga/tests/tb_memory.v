@@ -14,18 +14,18 @@ module tb_memory;
     initial begin
         cpu_addr=16'hf006; cpu_write=0; page=0; address=0;
         #12;reset=0;#1;
-        check(physical==21'h60006,"BIOS mapping");
+        check(physical==21'h20006,"BIOS mapping");
         cpu_write=1;#1;check(physical==21'hf006,"RAM under BIOS");
         cpu_addr=16'hc123;cpu_write=0;page=8'h4f;#1;
-        check(physical==21'h5e123,"last bank/page mapping");
+        check(physical==21'h1e123,"single ROM bank/page mapping");
         cpu_write=1;#1;check(physical==21'hc123,"RAM under bank");
         cpu_write=0;page=0;#1;check(physical==21'hc123,"disabled bank");
-        page=8'hff;#1;check(physical==21'h1e123,"bank wraps modulo five like classic emulator");
+        page=8'hff;#1;check(physical==21'h1e123,"obsolete high bank bits ignored");
         cpu_addr=16'he6f0;#1;check(io,"I/O decoding");
-        write_req=1;address=21'h60000;#1;check(allowed,"load before lock");
+        write_req=1;address=21'h20000;#1;check(allowed,"load before lock");
         commit=1;#1;check(!allowed,"commit edge protection");
         @(posedge clk);#1;commit=0;#1;check(locked&&!allowed,"one way lock");
-        address=21'h80000;#1;check(allowed,"RAM disk writable");
+        address=21'h80000;#1;check(allowed,"freed SRAM writable");
         address=21'hf006;#1;check(allowed,"underlying RAM writable");
         $display("PASS memory overlays, ROM lock");$finish;
     end

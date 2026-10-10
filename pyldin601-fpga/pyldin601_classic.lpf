@@ -40,9 +40,8 @@ MULTICYCLE FROM CELL "system/gfx/job_*" TO CLKNET "clk_fast" 4 X;
 MULTICYCLE FROM CELL "system/video/gfx_line_y*" TO CLKNET "clk_fast" 4 X;
 # A byte read is consumed only after the two-clock DONE synchronization.
 MULTICYCLE FROM CELL "system/gfx/fast_read*" TO CLKNET "clk" 2 X;
-# CPU page/disk-pointer writes finish >=41.667 ns before next payload capture.
+# CPU ROM-page writes finish >=41.667 ns before next payload capture.
 MAXDELAY FROM CELL "system/page*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
-MAXDELAY FROM CELL "system/ramdisk_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
 # Video address remains stable through the four-stage request synchronizer.
 MAXDELAY FROM CELL "system/boot/write_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
 MAXDELAY FROM CELL "system/boot/write_data*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
@@ -52,7 +51,6 @@ MULTICYCLE FROM CELL "system/boot/locked*" TO CLKNET "clk_fast" 4 X;
 # Bundled addresses cross only after their request pipeline. Clock qualifiers
 # cover PIO registers even when MAP moves/renames them outside the hierarchy.
 MULTICYCLE FROM CELL "system/page*" TO CLKNET "clk_fast" 4 X;
-MULTICYCLE FROM CELL "system/ramdisk_address*" TO CLKNET "clk_fast" 4 X;
 MULTICYCLE FROM CELL "system/boot/write_address*" TO CLKNET "clk_fast" 4 X;
 MULTICYCLE FROM CELL "system/boot/write_data*" TO CLKNET "clk_fast" 4 X;
 MULTICYCLE FROM CELL "system/video/mem_address*" TO CLKNET "clk_fast" 4 X;
@@ -80,7 +78,7 @@ MAXDELAY FROM CELL "system/*" TO CELL "cpu/*" 50 ns DATAPATH_ONLY;
 MAXDELAY FROM CELL "system/runtime_memory/cpu_result*" TO CELL "cpu/*" 27 ns DATAPATH_ONLY;
 # Non-SRAM outputs remain clocked by the 24 MHz system domain.
 CLOCK_TO_OUT ALLPORTS 15 ns CLKNET "clk";
-# SD runs at 6 MHz during boot and FDC service (divider 1).
+# SD runs at 6 MHz during boot and direct SD service (divider 1).
 # MISO changes on the next SCK falling edge, >=83 ns after sampling.
 INPUT_SETUP PORT "miso" 10 ns HOLD 5 ns CLKNET "clk";
 # These asynchronous inputs only feed their first synchronizer stages.

@@ -58,7 +58,7 @@ def main():
             assert a_files['LIVE.TXT']==b'First host update\r\n'
             assert a_files['LIVEB.TXT']==remote['LIVE.TXT']==b'Second host update\r\n'*500
             assert a_files['LAST.TXT']==remote['LAST.TXT']==tail
-            print(f'PASS {model}/HG v{wire} byte-identical E->A->E copy and TEMP deletion; SHA256 {hashlib.sha256(text).hexdigest()}')
+            print(f'PASS {model}/HG v{wire} byte-identical HG->A->HG copy and TEMP deletion; SHA256 {hashlib.sha256(text).hexdigest()}')
         for cpu in ('mc6800', 'hd6303'):
             run('build/test_hg_directory_unidos',str(test_image),model,cpu)
         if not args.hdl:continue

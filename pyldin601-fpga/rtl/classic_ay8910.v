@@ -24,6 +24,7 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
  reg[2:0]state;
  reg[5:0]pc;
  reg[8:0]instruction,clock_count;
+ reg clock_terminal;
  reg[7:0]period_low,count_low;
  reg[8:0]period_high,count_high;
  reg carry,terminal;
@@ -43,7 +44,7 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
  wire gate=(tone[channel]||mixer[channel])&&(noise_lfsr[0]||mixer[{1'b0,channel}+3'd3]);
  // Related PLL clocks: one outstanding CPU command, serviced within five
  // fast cycles. The fastest CPU bus writes are twelve fast cycles apart.
- wire service_write=!initializing&&write_token!=write_seen&&(state==0||state==4&&operation==13&&clock_count!=383);
+ wire service_write=!initializing&&write_token!=write_seen&&(state==0||state==4&&operation==13&&!clock_terminal);
  wire[9:0]engine_address=service_write?{6'b0,write_address}:initializing?{5'b0,init_address}:
   state<2?{4'b1000,pc}:
   operation==12?{6'b000010,volume}:{5'b0,instruction[4:0]};
@@ -86,7 +87,7 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
 `endif
  always @(posedge fast)begin
   if(reset)begin
-   initializing<=1;init_address<=0;state<=0;pc<=0;clock_count<=0;
+   initializing<=1;init_address<=0;state<=0;pc<=0;clock_count<=0;clock_terminal<=0;
    period_low<=0;period_high<=0;count_low<=0;count_high<=0;carry<=0;terminal<=0;operand<=0;incremented<=0;
    tone<=0;noise_prescale<=0;noise_lfsr<=1;write_seen<=0;env_dirty<=0;
    env_step<=0;env_attack<=0;env_holding<=1;mixer<=0;mix<=0;sample<=0;instruction<=0;volume<=0;
@@ -95,6 +96,9 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
    else init_address<=init_address+1'b1;
   end else begin
    clock_count<=clock_count==383?0:clock_count+1'b1;
+   // Look ahead by one fast edge: this flag is true exactly when count is
+   // 383. Keep the nine-bit comparison out of the EBR write-data mux path.
+   clock_terminal<=clock_count==382;
    if(service_write)begin
     write_seen<=write_token;
     if(write_address==13)env_dirty<=1;
@@ -108,7 +112,7 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
     3:begin operand<=word;incremented<=word+(operation==2?!(instruction[3]&&env_holding):carry);state<=4;end
     4:begin
      if(operation!=13)begin state<=0;pc<=pc+1'b1;end
-     else if(clock_count==383)begin state<=0;pc<=0;end
+     else if(clock_terminal)begin state<=0;pc<=0;end
      case(operation)
       0:begin period_low<=operand[7:0];period_high<=0;end
       1:period_high<={1'b0,operand[7:0]};

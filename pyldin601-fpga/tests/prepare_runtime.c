@@ -5,8 +5,9 @@
 static void save(const char*path,const void*data,size_t n){FILE*f=fopen(path,"wb");if(!f||fwrite(data,1,n,f)!=n)exit(1);fclose(f);}
 int main(int argc,char**argv){
  if(argc<2||argc>3)return 2;size_t size;unsigned char*rom=load("build/rom.reference",&size);
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
+#ifdef LEGACY_FIXTURE
  for(unsigned d=0;d<2;d++){
   unsigned off=462+16*d,base=32+16*d;memcpy(config+base,image+off+8,8);
   const unsigned char*bpb=image+le32(config+base)*512;
@@ -14,6 +15,7 @@ int main(int argc,char**argv){
   config[base+8]=spt;config[base+9]=0;config[base+10]=heads;config[base+11]=0;
   config[base+12]=sectors/(spt*heads);config[base+13]=0;
  }
+#endif
  committed=1;MC6800Init();MC6800Reset();until(60000000);key(0x1c);until(62000000);
  for(unsigned steps=0;steps<1000000&&(PC!=0xf39c||i);steps++){
   unsigned cycles=MC6800Step();virtual_cycles+=cycles;

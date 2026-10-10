@@ -22,49 +22,21 @@ static void native_command(const char *text) {
     assert(!hg_volume_sync(&volume));
     host_image = volume.image;
 }
-static void verify_rom_copy(void) {
-    uint8_t oracle[320 * 512];
-    memcpy(oracle, physical + 0x20000, 65536);
-    for (unsigned bank = 2; bank <= 4; bank++)
-        memcpy(oracle + 65536 + (bank - 2) * 32768, physical + 0x10000 + bank * 65536, 32768);
-    unsigned root = (le16(oracle + 14) + oracle[16] * le16(oracle + 22)) * 512;
-    unsigned data = root + ((le16(oracle + 17) * 32 + 511) / 512) * 512;
-    const uint8_t *table = oracle + le16(oracle + 14) * 512;
-    HgFiles files = {0};
-    assert(!hg_fat_files(volume.image, volume.size, &files));
-    unsigned count = 0;
-    for (unsigned at = root; at < root + le16(oracle + 17) * 32 && oracle[at]; at += 32) {
-        const uint8_t *e = oracle + at;
-        if (e[0] == 0xe5 || e[11] & 0x18)
-            continue;
-        char name[80] = "DISK_C/", *p = name + 7;
-        for (unsigned k = 0; k < 8 && e[k] != ' '; k++)
-            *p++ = e[k];
-        *p++ = '.';
-        for (unsigned k = 8; k < 11 && e[k] != ' '; k++)
-            *p++ = e[k];
-        *p = 0;
-        const HgFile *f = hg_find(&files, name);
-        assert(f && f->size == le32(e + 28));
-        unsigned cluster = le16(e + 26), offset = 0, unit = oracle[13] * 512;
-        while (offset < f->size) {
-            unsigned length = f->size - offset > unit ? unit : f->size - offset;
-            assert(!memcmp(f->data + offset, oracle + data + (cluster - 2) * unit, length));
-            unsigned next = le16(table + cluster + cluster / 2);
-            cluster = cluster & 1 ? next >> 4 : next & 4095;
-            offset += length;
-        }
-        char path[1024];
-        snprintf(path, sizeof(path), "%s/%s", volume.path, name);
-        FILE *host = fopen(path, "rb");
-        assert(host);
-        for (unsigned k = 0; k < f->size; k++)
-            assert(fgetc(host) == f->data[k]);
-        assert(fgetc(host) == EOF && !fclose(host));
-        count++;
+static void verify_sd_copy(void) {
+    HgFiles source={0},files={0};
+    assert(!hg_fat_files(image+le32(image+502)*512,le32(image+506)*512,&source));
+    assert(!hg_fat_files(volume.image,volume.size,&files));
+    unsigned count=0;
+    for(size_t i=0;i<source.n;i++) {
+        const HgFile *original=&source.v[i];
+        if(original->attr&0x10)continue;
+        char name[96],path[1024];snprintf(name,sizeof(name),"DISK_C/%s",original->name);
+        const HgFile *f=hg_find(&files,name);assert(f&&f->size==original->size&&!memcmp(f->data,original->data,f->size));
+        snprintf(path,sizeof(path),"%s/%s",volume.path,name);FILE *host=fopen(path,"rb");assert(host);
+        for(unsigned k=0;k<f->size;k++)assert(fgetc(host)==f->data[k]);
+        assert(fgetc(host)==EOF&&!fclose(host));count++;
     }
-    assert(count == 13);
-    hg_files_free(&files);
+    assert(count>=20);hg_files_free(&source);hg_files_free(&files);
 }
 static void cleanup(const char *path) {
     DIR *dir = opendir(path);
@@ -94,9 +66,9 @@ int main(int argc, char **argv) {
     MC6800SetMachine(cpu_hd ? PYLDIN_MACHINE_HD6303 : PYLDIN_MACHINE_601);
     size_t size;
     uint8_t *rom = load(model_a ? "build/rom-a.reference" : "build/rom.reference", &size);
-    assert(size == 0x51a00);
+    assert(size == (ROM_BYTES+512));
     memcpy(config, rom, 64);
-    memcpy(physical + 0x10000, rom + 512, 0x51800);
+    memcpy(physical + 0x10000, rom + 512, ROM_BYTES);
     free(rom);
     image = load(argv[1], &image_size);
     memcpy(config + 64, image + 462, 32);
@@ -114,10 +86,13 @@ int main(int argc, char **argv) {
     key(0x1c);
     until(virtual_cycles + 1000000);
     watch_resets = 1;
+    unsigned char *r=MC6800GetCpuRam();hg_drive=0;while(hg_drive<8&&(r[0xeb03+hg_drive*2]||r[0xeb04+hg_drive*2]))hg_drive++;
     native_command("b:hg");
     native_command("md e:disk_c");
     native_command("copy c:*.* e:disk_c\\*.*");
-    verify_rom_copy();
+    native_command("md e:disk_c\\archives");
+    native_command("copy c:archives\\*.* e:disk_c\\archives\\*.*");
+    verify_sd_copy();
     native_command("md e:disk_c\\sub");
     native_command("copy e:disk_c\\ue.cmd e:disk_c\\sub\\ue.cmd");
     native_command("copy e:disk_c\\sub\\ue.cmd a:ue.cmd");
@@ -132,10 +107,10 @@ int main(int argc, char **argv) {
     native_command("dir e:disk_c\\*.*");
     hg_volume_close(&volume);
     assert(!hg_volume_open(&volume, dir, true, HG_MAX_SECTORS, false));
-    verify_rom_copy();
+    verify_sd_copy();
     hg_volume_close(&volume);
     cleanup(dir);
-    printf("PASS native %s/%s HG v2: MD/COPY all 13 ROM files byte-exact to host DISK_C, "
+    printf("PASS native %s/%s HG v2: MD/COPY all SD software and original archives byte-exact to host DISK_C, "
            "nested COPY/read/delete/RD, C-server restart, zero resets\n",
            argv[2], argv[3]);
     return 0;

@@ -5,10 +5,12 @@
 #undef main
 static uint64_t virtual_cycles,next_irq=20000;
 static unsigned irq_count,resets,watch_resets;
+static void (*native_step_hook)(void);
 static void until(uint64_t target){
  while(virtual_cycles<target){
   if(virtual_cycles>=next_irq){tick=128;KBDUpdate();MC6800SetInterrupt(1);irq_count++;next_irq+=20000;}
   if(watch_resets&&PC==0xf006)resets++;
+  if(native_step_hook)native_step_hook();
   int cycles=MC6800Step();virtual_cycles+=cycles>0?cycles:1;
  }
 }
@@ -36,9 +38,10 @@ static void wait_prompt(void){
 #define NATIVE_STABILITY_MAIN main
 #endif
 int NATIVE_STABILITY_MAIN(int argc,char**argv){
- if(argc<2)return 2;size_t size;unsigned char*rom=load("build/rom.reference",&size);if(size!=0x51a00)return 1;
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ if(argc<2)return 2;size_t size;unsigned char*rom=load("build/rom.reference",&size);if(size!=(ROM_BYTES+512))return 1;
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
+#ifdef LEGACY_FIXTURE
  for(unsigned n=0;n<2;n++){
   unsigned off=446+16*(n+1),base=32+16*n;memcpy(config+base,image+off+8,8);
   const unsigned char*bpb=image+le32(config+base)*512;
@@ -46,6 +49,7 @@ int NATIVE_STABILITY_MAIN(int argc,char**argv){
   config[base+8]=spt;config[base+9]=0;config[base+10]=heads;config[base+11]=0;
   config[base+12]=sectors/(spt*heads);config[base+13]=0;
  }
+#endif
  committed=1;MC6800Init();MC6800Reset();until(60000000);key(0x1c);until(62000000);
  watch_resets=1;
  unsigned start=crtc[12]*256+crtc[13],stride=crtc[1];unsigned char header[120];

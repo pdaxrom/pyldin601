@@ -7,7 +7,7 @@ module rom_write_guard (
     output reg locked,
     output wire write_allowed
 );
-    wire rom_address = address >= 21'h10000 && address < 21'h61800;
+    wire rom_address = address >= 21'h10000 && address < 21'h21800;
     assign write_allowed = write_request && !(rom_address && (locked || commit));
     always @(posedge clk) begin
         if (cold_reset) locked <= 0;

@@ -8,8 +8,9 @@ int main(int argc,char **argv){
  if(argc!=3)return 2;
  model_a=!strcmp(argv[2],"601a");
  size_t size;unsigned char *rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&size);
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
+#ifdef LEGACY_FIXTURE
  for(unsigned d=0;d<2;d++){
   unsigned off=462+16*d,base=32+16*d;memcpy(config+base,image+off+8,8);
   const unsigned char *bpb=image+le32(config+base)*512;
@@ -17,11 +18,12 @@ int main(int argc,char **argv){
   config[base+8]=spt;config[base+9]=0;config[base+10]=heads;config[base+11]=0;
   config[base+12]=sectors/(spt*heads);config[base+13]=0;
  }
+#endif
  committed=1;MC6800Init();MC6800Reset();until(60000000);key(0x1c);until(62000000);
  const unsigned char *ram=MC6800GetCpuRam();
  unsigned entry=ram[0xee22]*256+ram[0xee23],input_pc=0;
  for(unsigned p=entry;p<entry+96;p++){
-  const unsigned char *code=physical+0x60000+p-0xf000;
+  const unsigned char *code=physical+ROM_BIOS+p-0xf000;
   if(code[0]==0x0e&&code[1]==0x01&&code[2]==0x0f){input_pc=p+2;break;}
  }
  for(unsigned steps=0;steps<1000000&&(PC!=input_pc||i);steps++)MC6800Step();

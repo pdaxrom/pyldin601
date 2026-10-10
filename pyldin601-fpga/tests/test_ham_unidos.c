@@ -78,13 +78,15 @@ static void run_demo(void){
 int main(int argc,char**argv){
  if(argc!=3)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=1;MC6800SetMachine(PYLDIN_MACHINE_HD6303);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
- if(n!=0x51a00)return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ if(n!=(ROM_BYTES+512))return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
+#ifdef LEGACY_FIXTURE
  for(unsigned disk=0;disk<2;disk++){
   unsigned off=462+16*disk,base=32+16*disk;memcpy(config+base,image+off+8,8);
   const unsigned char*bpb=image+le32(config+base)*512;unsigned spt=le16(bpb+24),heads=le16(bpb+26),sectors=le16(bpb+19);
   config[base+8]=spt;config[base+10]=heads;config[base+12]=sectors/(spt*heads);
  }
+#endif
  committed=1;MC6800Init();MC6800Reset();i=1;until(60000000);key(0x1c);key(0x1c);until(virtual_cycles+1000000);wait_dos();watch_resets=1;
  size_t table_size;unsigned char*table=load("build/ham/components.bin",&table_size);if(table_size!=6144)return 1;memcpy(components,table,6144);free(table);
  for(unsigned a=0;a<8192;a++)original[a]=palette[a]=(a*17+(a>>5)*7)&63;

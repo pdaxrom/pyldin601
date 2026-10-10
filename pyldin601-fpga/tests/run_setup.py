@@ -25,7 +25,7 @@ cluster = sd.u16(original, entry + 26)
 record = data_start + (cluster - 2) * 512
 
 
-def run(name, image, mode, flags, writes=0):
+def run(name, image, mode, flags, writes=0, partition=0):
     source, output = work / f'{name}.img', work / f'{name}-result.img'
     source.write_bytes(image)
     result = subprocess.run(['build/test_firmware', 'build/boot.bin', str(source),
@@ -33,7 +33,7 @@ def run(name, image, mode, flags, writes=0):
     (work / f'{name}.log').write_text(result.stdout + result.stderr)
     if result.returncode:
         raise AssertionError(f'{name}: {result.stdout}{result.stderr}')
-    expected = f'settings={flags & 1}/{(flags >> 1) & 1}/{1 << (flags >> 2)}MHz, SD writes={writes}'
+    expected = f'settings={flags & 1}/{(flags >> 1) & 1}/{1 << (flags >> 2)}MHz, partition={partition}, SD writes={writes}'
     assert expected in result.stdout, (name, result.stdout)
     after = output.read_bytes()
     assert after[:start] == image[:start] and after[start + length:] == image[start + length:], name
@@ -41,7 +41,7 @@ def run(name, image, mode, flags, writes=0):
     assert {k: v for k, v in before_files.items() if k != 'P601.SET'} == {
         k: v for k, v in after_files.items() if k != 'P601.SET'}, name
     if writes:
-        expected_record = sd.settings_record(flags & 1, bool(flags & 2), 1 << (flags >> 2))
+        expected_record = sd.settings_record(flags & 1, bool(flags & 2), 1 << (flags >> 2), partition)
         assert after_files['P601.SET'] == expected_record, name
         updated_volume = after[start:start + length]
         assert updated_volume[reserved * 512:(reserved + spf) * 512] == updated_volume[
@@ -79,7 +79,7 @@ damaged = bytearray(original)
 damaged[record + 14] ^= 1
 run('bad-checksum', damaged, 'setup-default', 2)
 damaged = bytearray(original)
-damaged[record + 8] = 2
+damaged[record + 8] = 3
 struct.pack_into('>H', damaged, record + 14, binascii.crc_hqx(damaged[record:record + 14], 0))
 run('bad-version', damaged, 'setup-default', 2)
 
@@ -88,3 +88,23 @@ for flags in range(16):
     configured[record:record + 16] = sd.settings_record(flags & 1, bool(flags & 2), 1 << (flags >> 2))
     run(f'config-{flags:02x}', configured, 'auto', flags)
 print('PASS all sixteen model/ISA/frequency settings and BIOS persistence/error cases')
+
+part_saved=run('save-part4',original,'save-part4',3,writes=1,partition=4)
+run('load-part4',part_saved,'auto',3,partition=4)
+run('temporary-part4',original,'temporary-part4',0,partition=4)
+run('discard-part4',original,'exit-part4',0)
+run('partition-wrap-left',original,'save-part-left',0,writes=1,partition=36)
+for number in (1,36):
+    configured=bytearray(original)
+    configured[record:record+16]=sd.settings_record(0,False,1,number)
+    run(f'load-part-{number}',configured,'auto',0,partition=number)
+configured=bytearray(original)
+legacy=bytearray(sd.settings_record(1,True,4));legacy[8]=1;legacy[10]=0
+struct.pack_into('>H',legacy,14,binascii.crc_hqx(legacy[:14],0))
+configured[record:record+16]=legacy
+run('legacy-v1-auto',configured,'auto',11)
+configured[record:record+16]=sd.settings_record(0,False,1)
+configured[record+10]=37
+struct.pack_into('>H',configured,record+14,binascii.crc_hqx(configured[record:record+14],0))
+run('partition-out-of-range',configured,'setup-default',2)
+print('PASS BIOS partition persistence, temporary/EXIT, AUTO, logical bounds and version-1 compatibility')

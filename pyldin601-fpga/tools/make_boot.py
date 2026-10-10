@@ -4,17 +4,14 @@ import argparse
 import json
 from pathlib import Path
 
-from asm6800 import assemble
+from unias_boot import build as unias_build
 
 
 def build():
-    root = Path(__file__).resolve().parents[1]
-    source = '\n'.join((root / 'firmware' / name).read_text()
-                       for name in ('boot.asm', 'setup.asm'))
-    binary, labels = assemble(source, 0xd000, 0x3000, hd6303=True)
-    if labels['setup_end'] > 0xe000 or binary[4096:8192] != b'\xff' * 4096:
-        raise ValueError('setup ROM must fit D000-DFFF; E000-EFFF remains RAM/I/O')
-    return binary[8192:] + binary[:4096], labels
+    binary, labels = unias_build()
+    if len(binary) != 8192 or labels['setup_end'] > 0xe000:
+        raise ValueError('bootstrap ROM must fit two 4 KiB pages')
+    return binary, labels
 
 
 def main():

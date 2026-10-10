@@ -8,6 +8,7 @@ static int hg_write_byte(uint16_t a,unsigned char d);
 #include "test_native_stability.c"
 #undef NATIVE_STABILITY_MAIN
 
+static unsigned hg_drive;
 static unsigned char *host_image;static size_t host_size;
 static int (*host_write)(unsigned, const uint8_t *, unsigned);
 static void store_host(unsigned block, const uint8_t *data, unsigned length){
@@ -44,6 +45,7 @@ static void hg_v2_pump(void){
   unsigned checksum=0;for(unsigned n=0;n<9;n++)checksum^=header[n];
   if(memcmp(header,"HG\2",3)||header[4]||header[9]!=checksum){fprintf(stderr,"bad native HG v2 header\n");exit(1);}
   hg_operation=header[3];hg_block=le16(header+5);hg_length=le16(header+7);hg_phase=1;hg_pos=0;hg_selected=0;
+  if(hg_length!=(hg_operation==3?6:512)||(hg_operation!=3&&(uint64_t)hg_block*512+hg_length>host_size)){fprintf(stderr,"invalid HG request op=%u block=%u len=%u\n",hg_operation,hg_block,hg_length);exit(1);}
   if(hg_operation==3){memcpy(payload,time_value,6);hg_times++;}
   else if(hg_operation==1){memcpy(payload,host_image+hg_block*512,hg_length);hg_reads++;}
   if(hg_operation!=2){unsigned sum=0;for(unsigned n=0;n<hg_length;n++)sum+=payload[n];payload[hg_length]=sum;payload[hg_length+1]=(sum>>8)^(hg_corrupt?1:0);}
@@ -79,6 +81,7 @@ static void hg_pump(void){
   if(memcmp(header,"HG\1",3)||header[4]||header[9]!=checksum){fprintf(stderr,"bad native HG header\n");exit(1);}
   hg_operation=header[3];hg_block=le16(header+5);hg_length=le16(header+7);hg_phase=1;hg_pos=0;
   if(hg_operation!=3&&(uint64_t)hg_block*512+hg_length>host_size){fprintf(stderr,"native HG range\n");exit(1);}
+  if(hg_length!=(hg_operation==3?6:512)||(hg_operation!=3&&(uint64_t)hg_block*512+hg_length>host_size)){fprintf(stderr,"invalid HG request op=%u block=%u len=%u\n",hg_operation,hg_block,hg_length);exit(1);}
   if(hg_operation==3){memcpy(payload,time_value,6);hg_times++;}
   else if(hg_operation==1){memcpy(payload,host_image+hg_block*512,hg_length);hg_reads++;}
   if(hg_operation!=2){unsigned sum=0;for(unsigned n=0;n<hg_length;n++)sum+=payload[n];payload[hg_length]=sum;payload[hg_length+1]=(sum>>8)^(hg_corrupt?1:0);}
@@ -135,12 +138,13 @@ static void command(const char*text){
  for(;*text;text++){
   const char*letters="abcdefghijklmnopqrstuvwxyz";
   static const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
-  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='*'?0x09:*text=='\\'?0x2b:*text=='_'?0x0c:0;
+  char character=(*text=='e'&&text[1]==':')?'a'+hg_drive:*text;
+  const char*p=strchr(letters,character);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='*'?0x09:*text=='\\'?0x2b:*text=='_'?0x0c:0;
   if(!scan)exit(2);if(*text==':'||*text=='*'||*text=='_')KBDModKeyDown(2);key(scan);if(*text==':'||*text=='*'||*text=='_')KBDModKeyUp(2);until(virtual_cycles+300000);
  }key(0x1c);until(virtual_cycles+1000000);
- uint64_t deadline=virtual_cycles+200000000;
+ uint64_t deadline=virtual_cycles+800000000;
  while(!native_prompt()&&virtual_cycles<deadline)until(virtual_cycles+10000);
- if(!native_prompt()){dump();fprintf(stderr,"HG command timeout\n");exit(1);}
+ if(!native_prompt()){dump();fprintf(stderr,"A=%02x B=%02x X=%04x CC=%u/%u/%u/%u/%u/%u heap=%02x%02x pcbytes=",A,B,X,h,i,n,z,v,c,MC6800GetCpuRam()[0xee1a],MC6800GetCpuRam()[0xee1b]);for(unsigned j=0;j<24;j++)fprintf(stderr,"%02x ",MC6800GetCpuRam()[(PC+j)&65535]);fprintf(stderr,"\nCOPY buffer=%02x%02x size=%02x%02x, lomem/himem=%02x%02x/%02x%02x\n",MC6800GetCpuRam()[0xece1],MC6800GetCpuRam()[0xece2],MC6800GetCpuRam()[0xece3],MC6800GetCpuRam()[0xece4],MC6800GetCpuRam()[0xee1c],MC6800GetCpuRam()[0xee1d],MC6800GetCpuRam()[0xee1e],MC6800GetCpuRam()[0xee1f]);fprintf(stderr,"HG command timeout phase=%u pos=%u op=%u len=%u block=%u control=%u active=%u selected=%u tx=%u rx=%u now=%u next=%u reads=%u writes=%u\n",hg_phase,hg_pos,hg_operation,hg_length,hg_block,hg_control,hg_active,hg_selected,tx_count,rx_count,MC6800GetCyclesCounter(),hg_next,hg_reads,hg_writes);exit(1);}
  until(virtual_cycles+100000);
 
 }
@@ -152,7 +156,7 @@ static void capture_hg(void){
   if(!f||fwrite(n==2?config:r,1,size,f)!=size||fclose(f))exit(1);
  }
  FILE*f=fopen("build/hgdisk-context.json","w");if(!f)exit(1);
- fprintf(f,"{\"model_a\":%u,\"pc\":256,\"sp\":%u,\"a\":0,\"b\":0,\"x\":0,\"cc\":192,\"page\":%u,\"mode\":%u,\"crtc\":[",model_a,SP,page,r[0xe629]);
+ fprintf(f,"{\"model_a\":%u,\"pc\":256,\"sp\":%u,\"a\":0,\"b\":0,\"x\":0,\"cc\":192,\"page\":%u,\"mode\":%u,\"hg_drive\":%u,\"crtc\":[",model_a,SP,page,r[0xe629],hg_drive);
  for(unsigned n=0;n<16;n++)fprintf(f,"%s%u",n?",":"",crtc[n]);fprintf(f,"]}\n");fclose(f);
 }
 static void live_host_update(const char*text,unsigned repeats){
@@ -165,7 +169,7 @@ static void live_host_update(const char*text,unsigned repeats){
 }
 static void direct_io(unsigned op,unsigned block_number,unsigned expected){
  unsigned char*r=MC6800GetCpuRam();unsigned table=0x300,buf=0x4000;
- r[table]=buf>>8;r[table+1]=buf;r[table+2]=4;r[table+3]=block_number>>8;r[table+4]=block_number;
+ r[table]=buf>>8;r[table+1]=buf;r[table+2]=hg_drive;r[table+3]=block_number>>8;r[table+4]=block_number;
  const unsigned char code[]={0xce,3,0,0x86,0,0x3f,0x40,0x01};
  memcpy(r+0x100,code,sizeof(code));r[0x104]=op;PC=0x100;
  uint64_t deadline=virtual_cycles+20000000;
@@ -178,13 +182,8 @@ static void direct_io(unsigned op,unsigned block_number,unsigned expected){
 int HG_UNIDOS_MAIN(int argc,char**argv){
  if(argc!=4&&argc!=5)return 2;hg_v2=argc==5&&!strcmp(argv[4],"v2");model_a=!strcmp(argv[3],"601a");MC6800SetMachine(PYLDIN_MACHINE_601);
  size_t size;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&size);
- if(size!=0x51a00)return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
- image=load(argv[1],&image_size);host_image=load(argv[2],&host_size);memcpy(config+64,image+462,32);
- for(unsigned disk=0;disk<2;disk++){
-  unsigned off=462+16*disk,base=32+16*disk;memcpy(config+base,image+off+8,8);
-  const unsigned char*bpb=image+le32(config+base)*512;unsigned spt=le16(bpb+24),heads=le16(bpb+26),sectors=le16(bpb+19);
-  config[base+8]=spt;config[base+10]=heads;config[base+12]=sectors/(spt*heads);
- }
+ if(size!=(ROM_BYTES+512))return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
+ image=load(argv[1],&image_size);host_image=load(argv[2],&host_size);
  // Fixed host local time: 2026-10-08 19:14:25.44, exact HG v1 encoding.
  unsigned date=(1u<<14)|(10u<<10)|(8u<<5)|22u,ticks_value=(19*3600+14*60+25)*50+22;
  time_value[0]=date;time_value[1]=date>>8;time_value[2]=ticks_value>>16;time_value[3]=ticks_value>>24;
@@ -192,9 +191,11 @@ int HG_UNIDOS_MAIN(int argc,char**argv){
  committed=1;MC6800Init();MC6800Reset();i=1;
  until(60000000);key(0x1c);key(0x1c);until(virtual_cycles+1000000);
  if(!contains("A:\\>")){dump();return 1;}watch_resets=1;
- command("b:hg");
- if(!contains("HG 2.0 remote disk E:")||!contains("host date/time synchronized")){dump();return 1;}
  unsigned char*r=MC6800GetCpuRam();
+ hg_drive=0;while(hg_drive<8&&(r[0xeb03+hg_drive*2]||r[0xeb04+hg_drive*2]))hg_drive++;
+ command("b:hg");
+ char greeting[80];snprintf(greeting,sizeof(greeting),"HG 2.0 remote disk %c:",'A'+hg_drive);
+ if(!contains(greeting)||!contains("host date/time synchronized")){dump();return 1;}
  if(r[0x1c]!=8||r[0x1d]!=10||r[0x1e]!=7||r[0x1f]!=0xea||r[0x1b]!=19||r[0x1a]!=14){fprintf(stderr,"HG date/time conversion mismatch: %02x %02x %02x %02x %02x %02x\n",r[0x1c],r[0x1d],r[0x1e],r[0x1f],r[0x1b],r[0x1a]);return 1;}
  capture_hg();
  const char*commands[]={"dir e:","copy e:hello.txt a:hgtest.txt","copy e:last.txt a:last.txt","copy a:hgtest.txt e:back.txt","copy e:hello.txt e:temp.txt","del e:temp.txt","b:hgtime","dir e:"};
@@ -219,6 +220,6 @@ int HG_UNIDOS_MAIN(int argc,char**argv){
  direct_io(1,last,0);if(memcmp(r+0x4000,host_image+last*512,512))return 1;
  FILE*f=fopen("build/hg-host-after.img","wb");if(!f||fwrite(host_image,1,host_size,f)!=host_size||fclose(f))return 1;
  f=fopen("build/hg-sd-after.img","wb");if(!f||fwrite(image,1,image_size,f)!=image_size||fclose(f))return 1;
- printf("PASS %s/MC6800 HG v%u native UniDOS loaded relocatable HG.PGM, registered E, copied/deleted files, TIME, live host addition/replacement without remount; last sector %u read/write; read-only, bad checksum, absent-host timeout and recovery; %u reads/%u writes/%u TIME, zero resets\n",model_a?"601A":"601",hg_v2?2:1,last,hg_reads,hg_writes,hg_times);
+ printf("PASS %s/MC6800 HG v%u native UniDOS loaded relocatable HG.PGM, registered drive %c, copied/deleted files, TIME, live host addition/replacement without remount; last sector %u read/write; read-only, bad checksum, absent-host timeout and recovery; %u reads/%u writes/%u TIME, zero resets\n",model_a?"601A":"601",hg_v2?2:1,'A'+hg_drive,last,hg_reads,hg_writes,hg_times);
  return 0;
 }

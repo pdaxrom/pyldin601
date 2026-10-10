@@ -12,7 +12,7 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
   .cpu_rw(rw),.cpu_vma(vma),.cpu_addr(address),.cpu_out(data),.cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_in(result),
   .ps2clk(1'b1),.ps2dat(1'b1),.rxd(1'b1),.miso(1'b1),
   .SRAM_ADDR(sa),.SRAM_DATA(sd),.SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb));
- reg[15:0]memory[0:1048575];reg[7:0]header[0:95];
+ reg[15:0]memory[0:1048575];reg[7:0]header[0:63];
  assign #ADDR_DELAY pa=sa;assign #CONTROL_DELAY pc=ce,po=oe,pu=ub,pl=lb;
  assign #(WE_RISE,WE_FALL) pw=we;assign #DATA_DELAY pd=sd;
  // Worst SRAM tAA=10 ns plus 8 ns FPGA input budget; output disable 4 ns.
@@ -100,16 +100,12 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
  end
  initial begin
   for(i=0;i<1048576;i=i+1)memory[i]=16'h5aa5;
-  for(i=0;i<96;i=i+1)header[i]=0;
+  for(i=0;i<64;i=i+1)header[i]=0;
   {header[0],header[1],header[2],header[3],header[4],header[5],header[6],header[7]}="P601BOOT";
-  header[8]=1;header[14]=1;header[17]=8'h18;header[18]=5;
-  header[33]=8'h88;header[36]=8'h40;header[37]=8'h0b;header[40]=18;header[42]=2;header[44]=80;
-  header[49]=8'h98;header[52]=8'h40;header[53]=8'h0b;header[56]=18;header[58]=2;header[60]=80;
-  header[68]=1;header[73]=8'h88;header[76]=8'h40;header[77]=8'h0b;
-  header[84]=1;header[89]=8'h98;header[92]=8'h40;header[93]=8'h0b;
+  header[8]=2;header[14]=1;header[17]=8'h18;header[18]=1;
   wait(cpu_reset===0);
 
-  for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
+  for(i=0;i<64;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
   if(!dut.locked)$fatal(1,"fixture lock failed");armed=1;
   get(16'he65e,8'h47);get(16'he65f,5);
   for(s=0;s<4;s=s+1)begin

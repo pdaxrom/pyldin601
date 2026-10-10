@@ -26,8 +26,8 @@ static void word_at(unsigned address,unsigned value){
 }
 int main(void){
  size_t size;unsigned char*rom=load("build/rom.reference",&size);
- if(size!=0x51a00)return 1;
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ if(size!=(ROM_BYTES+512))return 1;
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load("build/test-sd.img",&image_size);memcpy(config+64,image+462,32);
  committed=1;MC6800Init();MC6800Reset();
  for(unsigned n=0;n<2000000;n++){

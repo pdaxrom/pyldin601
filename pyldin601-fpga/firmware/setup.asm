@@ -24,12 +24,15 @@ SET_SUBTICKS equ $1bf
 SET_EDIT equ $1c0
 SET_LOADING equ $1c1
 SET_LOAD_SP equ $1c2
+SET_PART equ $1c4
+SET_PART_ORIGINAL equ $1c5
+SET_PART_EDIT equ $1c6
 CFGDATA equ $a00
 SAVEBUF equ $c00
     org $d000
 setup_wait:
     clr SET_REQUEST
-    ldx #$590
+    ldx #$5e0
     stx UI_DEST
     ldx #setup_notice
     jsr ui_puts
@@ -64,7 +67,7 @@ setup_wait_del:
     inc SET_REQUEST
     rts
 setup_countdown:
-    ldx #$5e0
+    ldx #$630
     stx UI_DEST
     ldx #setup_countdown_text
     jsr ui_puts
@@ -89,6 +92,8 @@ setup_configure:
     jsr settings_load
     ldaa SET_CURRENT
     staa SET_ORIGINAL
+    ldaa SET_PART
+    staa SET_PART_ORIGINAL
     tst SET_VALID
     lbeq setup_menu
     jsr setup_summary
@@ -96,12 +101,14 @@ setup_configure:
     tst SET_REQUEST
     lbne setup_menu
 setup_apply:
+    ldaa SET_PART
+    staa $e6ae
     ldaa SET_CURRENT
     staa MODEL
     jmp ui_init
 setup_menu:
     clr SET_CURSOR
-    ldaa #6
+    ldaa #7
     staa SET_DRAW_ROWS
     jsr setup_draw
     tst SET_VALID
@@ -130,12 +137,14 @@ setup_read_key:
     cmpa #$c0
     lbne setup_read_key
     ldaa SET_CURSOR
-    cmpa #3
+    cmpa #4
     lbcs setup_right
     lbeq setup_save
-    cmpa #4
+    cmpa #5
     lbeq setup_apply
 setup_exit:
+    ldaa SET_PART_ORIGINAL
+    staa SET_PART
     ldaa SET_ORIGINAL
     staa SET_CURRENT
     lbra setup_apply
@@ -143,6 +152,8 @@ setup_save:
     sts SET_SP
     ldaa SET_CURRENT
     staa SET_EDIT
+    ldaa SET_PART
+    staa SET_PART_EDIT
     inc SET_SAVING
     jsr settings_save
     clr SET_SAVING
@@ -152,6 +163,8 @@ setup_save_failed:
     lds SET_SP
     clr SET_SAVING
     clr SET_LOADING
+    ldaa SET_PART_EDIT
+    staa SET_PART
     ldaa SET_EDIT
     staa SET_CURRENT
     ldaa #$23
@@ -163,7 +176,7 @@ setup_save_failed:
 setup_up:
     ldaa SET_CURSOR
     lbne setup_up_dec
-    ldaa #6
+    ldaa #7
 setup_up_dec:
     deca
     staa SET_CURSOR
@@ -171,7 +184,7 @@ setup_up_dec:
 setup_down:
     ldaa SET_CURSOR
     inca
-    cmpa #6
+    cmpa #7
     lbcs setup_cursor_store
     clra
 setup_cursor_store:
@@ -184,8 +197,10 @@ setup_right:
     ldab #4
 setup_change:
     ldaa SET_CURSOR
-    cmpa #3
+    cmpa #4
     lbcc setup_read_key
+    cmpa #3
+    lbeq setup_change_part
     tsta
     lbne setup_not_model
     ldaa SET_CURRENT
@@ -197,6 +212,24 @@ setup_not_model:
     ldaa SET_CURRENT
     eora #2
     lbra setup_value_store
+setup_change_part:
+    ldaa SET_PART
+    cmpb #12
+    lbeq setup_part_left
+    inca
+    cmpa #37
+    lbcs setup_part_store
+    clra
+    lbra setup_part_store
+setup_part_left:
+    tsta
+    lbne setup_part_dec
+    ldaa #37
+setup_part_dec:
+    deca
+setup_part_store:
+    staa SET_PART
+    lbra setup_redraw
 setup_frequency:
     ldaa SET_CURRENT
     aba
@@ -253,7 +286,7 @@ setup_draw_yn:
     lbra setup_draw_next
 setup_draw_not_cpu:
     cmpa #2
-    lbne setup_draw_next
+    lbne setup_draw_partition
     ldaa SET_CURRENT
     lsra
     lsra
@@ -270,6 +303,31 @@ setup_draw_freq:
 setup_draw_freq_done:
     jsr ui_putc
     ldx #setup_mhz
+    lbra setup_draw_value
+setup_draw_partition:
+    cmpa #3
+    lbne setup_draw_next
+    ldx #setup_auto
+    tst SET_PART
+    lbeq setup_draw_value
+    ldx #setup_sdpart
+    jsr ui_puts
+    ldaa SET_PART
+    ldab #'0'
+setup_part_tens:
+    cmpa #10
+    lbcs setup_part_digits
+    suba #10
+    incb
+    lbra setup_part_tens
+setup_part_digits:
+    psha
+    jsr ui_putc
+    pula
+    adda #'0'
+    tab
+    jsr ui_putc
+    lbra setup_draw_next
 setup_draw_value:
     jsr ui_puts
 setup_draw_next:
@@ -283,16 +341,16 @@ setup_draw_next:
     ldaa SET_COPY
     cmpa SET_DRAW_ROWS
     lbne setup_draw_row
-    cmpa #3
+    cmpa #4
     lbeq setup_draw_done
-    ldx #$680
+    ldx #$6d0
     stx UI_DEST
     ldx #setup_help
     jmp ui_puts
 setup_draw_done:
     rts
 setup_summary:
-    ldaa #3
+    ldaa #4
     staa SET_DRAW_ROWS
     ldaa #$ff
     staa SET_CURSOR
@@ -305,9 +363,9 @@ setup_summary:
     jmp ui_puts
 setup_message:
     stx SET_TABLE
-    ldx #$630
+    ldx #$680
     jsr ui_clear_line
-    ldx #$630
+    ldx #$680
     stx UI_DEST
     ldx SET_TABLE
     jmp ui_puts
@@ -315,6 +373,7 @@ settings_load:
     sts SET_LOAD_SP
     inc SET_LOADING
     clr SET_VALID
+    clr SET_PART
     ldaa #2                 ; New systems: 601, HD6303 ISA, 1 MHz.
     staa SET_CURRENT
     ldx #settings_name
@@ -363,11 +422,21 @@ settings_load:
     lbne settings_invalid
     ldaa CFGDATA+8
     cmpa #1
+    lbeq settings_legacy
+    cmpa #2
     lbne settings_invalid
+    ldaa CFGDATA+10
+    cmpa #36
+    lbhi settings_invalid
+    lbra settings_version_ok
+settings_legacy:
+    tst CFGDATA+10
+    lbne settings_invalid
+settings_version_ok:
     ldaa CFGDATA+9
     cmpa #15
     lbhi settings_invalid
-    ldd CFGDATA+10
+    tst CFGDATA+11
     lbne settings_invalid
     ldd CFGDATA+12
     lbne settings_invalid
@@ -377,6 +446,8 @@ settings_load:
     lbne settings_invalid
     ldaa CFGDATA+9
     staa SET_CURRENT
+    ldaa CFGDATA+10
+    staa SET_PART
     inc SET_VALID
 settings_invalid:
     clr SET_LOADING
@@ -385,6 +456,7 @@ settings_load_failed:
     lds SET_LOAD_SP
     clr SET_LOADING
     clr SET_VALID
+    clr SET_PART
     ldaa #2                 ; Existing valid P601.SET always takes priority.
     staa SET_CURRENT
     ldaa #$23
@@ -462,13 +534,13 @@ settings_crc_byte:
     psha
     eora CRC16
     staa CRCPTR+1
-    ldaa #crc16_hi>>8
+    ldaa #crc16_hi/256
     staa CRCPTR
     ldx CRCPTR
     ldaa 0,x
     eora CRC16+1
     staa CRC16
-    ldaa #crc16_lo>>8
+    ldaa #crc16_lo/256
     staa CRCPTR
     ldx CRCPTR
     ldaa 0,x
@@ -559,6 +631,8 @@ settings_write_data:
     jsr settings_copy
     ldaa SET_CURRENT
     staa CFGDATA+9
+    ldaa SET_PART
+    staa CFGDATA+10
     jsr settings_checksum
     ldd CRC16
     std CFGDATA+14
@@ -655,7 +729,12 @@ settings_publish_name:
 settings_save_verify:
     ldaa SET_CURRENT
     psha
+    ldaa SET_PART
+    psha
     jsr settings_load
+    pula
+    cmpa SET_PART
+    lbne failed
     pula
     tst SET_VALID
     lbeq failed
@@ -985,13 +1064,19 @@ setup_title:
 setup_summary_title:
     db "PYLDIN SYSTEM BIOS",0
 setup_labels:
-    dw setup_model,setup_cpu,setup_freq,setup_save_text,setup_nosave,setup_exit_text
+    dw setup_model,setup_cpu,setup_freq,setup_partition,setup_save_text,setup_nosave,setup_exit_text
 setup_model:
     db "MODEL                  ",0
 setup_cpu:
     db "CPU HD6303 EXTENSION    ",0
 setup_freq:
     db "CPU FREQ               ",0
+setup_partition:
+    db "BOOT PARTITION         ",0
+setup_auto:
+    db "AUTO",0
+setup_sdpart:
+    db "SD0:PART",0
 setup_save_text:
     db "SAVE AND BOOT",0
 setup_nosave:
@@ -1013,5 +1098,5 @@ setup_save_error:
 settings_name:
     db "P601    SET"
 settings_magic:
-    db "P601SET",0,1,0,0,0,0,0
+    db "P601SET",0,2,0,0,0,0,0
 setup_end:

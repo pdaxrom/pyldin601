@@ -15,8 +15,9 @@ static void input_context(void){
 int main(int argc,char**argv){
  if(argc<2||argc>3)return 2;unsigned dos=argc==3&&!strcmp(argv[2],"dir");
  size_t size;unsigned char*rom=load("build/rom.reference",&size);
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
+#ifdef LEGACY_FIXTURE
  for(unsigned d=0;d<2;d++){
   unsigned off=462+16*d,base=32+16*d;memcpy(config+base,image+off+8,8);
   const unsigned char*bpb=image+le32(config+base)*512;
@@ -24,6 +25,7 @@ int main(int argc,char**argv){
   config[base+8]=spt;config[base+9]=0;config[base+10]=heads;config[base+11]=0;
   config[base+12]=sectors/(spt*heads);config[base+13]=0;
  }
+#endif
  committed=1;MC6800Init();MC6800Reset();until(60000000);key(0x1c);until(62000000);
  key(0x1c);wait_prompt();watch_resets=1;
  for(unsigned cmd=0;cmd<(dos?0:2);cmd++){

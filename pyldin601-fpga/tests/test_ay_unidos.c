@@ -19,7 +19,7 @@ int main(int argc,char**argv){
  if(argc!=2)return 2;model_a=!strcmp(argv[1],"601a");cpu_hd=1;
  MC6800SetMachine(PYLDIN_MACHINE_HD6303);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
- require(n==0x51a00,"ROM size");memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ require(n==(ROM_BYTES+512),"ROM size");memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load("build/ay/sd.img",&image_size);memcpy(config+64,image+462,32);
  committed=1;MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);wait_dos();watch_resets=1;
  for(unsigned run=0;run<2;run++){

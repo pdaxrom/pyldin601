@@ -52,7 +52,7 @@ int EXTENSION_SERVICES_MAIN(int argc,char**argv){
  if(argc!=3)return 2;model_a=!strcmp(argv[1],"601a");cpu_hd=!strcmp(argv[2],"hd6303");
  MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
- require(n==0x51a00,"ROM size");memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ require(n==(ROM_BYTES+512),"ROM size");memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load("images/sd.img",&image_size);memcpy(config+64,image+462,32);
  committed=1;MC6800Init();MC6800Reset();until(60000000);
  require(invoke(0,0,0x3000)==1&&B==15,"API version/features");

@@ -15,7 +15,7 @@ module tb_memory_bus_audit #(
   .cpu_clk(cpu_clk),.cpu_reset(cpu_reset),.cpu_hold(cpu_hold),.cpu_in(result),
   .rxd(1'b1),.ps2clk(1'b1),.ps2dat(1'b1),.miso(1'b1),
   .SRAM_ADDR(sa),.SRAM_DATA(dq),.SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_LB(lb),.SRAM_UB(ub));
- reg[15:0]memory[0:524287];reg[7:0]shadow[0:1048575],header[0:95];
+ reg[15:0]memory[0:524287];reg[7:0]shadow[0:1048575],header[0:63];
  wire[19:0]pa;wire pce,poe,pwe,plb,pub;wire[15:0]pd;
  assign #(ADDR_DELAY)pa=sa;
  assign #(CONTROL_DELAY)pce=ce;assign #(CONTROL_DELAY)poe=oe;
@@ -32,10 +32,9 @@ module tb_memory_bus_audit #(
  function[20:0]physical;input[15:0]a;input wr;reg[3:0]bank;begin
   bank=reference_page[7:4]%5;
   physical=a;
-  if(a==16'he683)physical=21'h80000+reference_disk;
-  else if(!wr&&a>=16'hf000)physical=21'h60000+a-16'hf000;
+  if(!wr&&a>=16'hf000)physical=21'h20000+a-16'hf000;
   else if(!wr&&a>=16'hc000&&a<16'he000&&reference_page[3])
-   physical=21'h10000+bank*65536+reference_page[2:0]*8192+(a&16'h1fff);
+   physical=21'h10000+reference_page[2:0]*8192+(a&16'h1fff);
  end endfunction
  real write_start,write_end,address_changed,lane_changed,data_changed;
  always @(pa)begin
@@ -66,15 +65,11 @@ module tb_memory_bus_audit #(
  always @(posedge clk)if(armed)begin
   if(dut.cycle&&!rw)case(address)
    16'he6f0:reference_page=data;
-   16'he680:reference_disk[18:16]=data[2:0];
-   16'he681:reference_disk[15:8]=data;
-   16'he682:reference_disk[7:0]=data;
   endcase
   if(cpu_reset)begin reference_page=0;reference_disk=0;cpu_check=0;end
-  if(dut.cycle&&address>=16'he680&&address<=16'he682&&rw)begin
+  if(dut.cycle&&address>=16'he680&&address<=16'he683&&rw)begin
    cpu_expected=0;cpu_check=1;
   end
-  if(dut.disk_advance&&!cpu_reset)begin reference_disk=reference_disk+1'b1;disk_advances=disk_advances+1;end
  end
  always @(posedge clk_fast)if(armed)begin
   if(owner>=0)begin
@@ -112,7 +107,6 @@ module tb_memory_bus_audit #(
  end
  always @(negedge cpu_clk)if(armed&&!cpu_reset)begin
   if(cpu_hold)$fatal(1,"CPU held at capture");
-  if(dut.ramdisk_address!==reference_disk)$fatal(1,"disk pointer changed incorrectly");
   if(cpu_check&&result!==cpu_expected)$fatal(1,"CPU latch overwritten by video addr=%h got=%h expected=%h",address,result,cpu_expected);
   cpu_check=0;captures=captures+1;
  end
@@ -136,23 +130,17 @@ module tb_memory_bus_audit #(
    b=(i^(i>>8)^(i>>16)^8'h5a)&255;shadow[i]=b;
    if(i[0])memory[i>>1][15:8]=b;else memory[i>>1][7:0]=b;
   end
-  for(i=0;i<96;i=i+1)header[i]=0;
+  for(i=0;i<64;i=i+1)header[i]=0;
   {header[0],header[1],header[2],header[3],header[4],header[5],header[6],header[7]}="P601BOOT";
-  header[8]=1;header[14]=1;header[17]=8'h18;header[18]=5;
-  header[32]=1;header[36]=36;header[40]=18;header[42]=2;header[44]=1;
-  header[48]=128;header[52]=36;header[56]=18;header[58]=2;header[60]=1;
-  header[68]=1;header[72]=1;header[76]=36;
-  header[84]=1;header[88]=128;header[92]=36;
+  header[8]=2;header[14]=1;header[17]=8'h18;header[18]=1;
   wait(!cpu_reset);
-  for(i=0;i<96;i=i+1)put(16'he6a3,header[i]);
+  for(i=0;i<64;i=i+1)put(16'he6a3,header[i]);
   put(16'he6a0,8'ha5);if(!dut.locked)$fatal(1,"fixture commit");
   armed=1;video_setup;
   put(16'he680,7);put(16'he681,8'hff);put(16'he682,8'hf0);
   for(i=0;i<32;i=i+1)put(16'he683,i^8'ha5);
-  if(dut.ramdisk_address!=16)$fatal(1,"disk write address did not wrap");
   put(16'he680,7);put(16'he681,8'hff);put(16'he682,8'hf0);
   for(i=0;i<32;i=i+1)get(16'he683);
-  if(dut.ramdisk_address!=16)$fatal(1,"disk read address did not wrap");
   // Alternating screen modes and all 16 bank-select values (including modulo
   // aliases), with random reads/writes crossing page and byte-lane boundaries.
   @(negedge cpu_clk);#1;vma=1;
@@ -186,7 +174,7 @@ module tb_memory_bus_audit #(
   repeat(3)@(negedge cpu_clk);
   for(i=0;i<1048576;i=i+1)
    if((i[0]?memory[i>>1][15:8]:memory[i>>1][7:0])!==shadow[i])$fatal(1,"unexpected physical modification %h",i);
-  if(owner>=0||cpu_grants<100000||video_grants<30000||resets!=24||disk_reads<100||disk_writes<100||disk_advances!=disk_reads+disk_writes)$fatal(1,"incomplete audit");
+  if(owner>=0||cpu_grants<100000||video_grants<30000||resets!=24||disk_reads||disk_writes)$fatal(1,"incomplete audit");
   $display("PASS SRAM bus audit: %d CPU, %d video reads, %d physical writes, %d captures; electronic disk %d reads/%d writes, single completion increment and 512KiB wrap, all ROM banks/underlays, 24 warm-reset phases, full 1MiB integrity",cpu_grants,video_grants,writes,captures,disk_reads,disk_writes);$finish;
  end
  initial begin #180000000;$fatal(1,"bus audit timeout");end

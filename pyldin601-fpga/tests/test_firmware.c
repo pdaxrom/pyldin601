@@ -16,7 +16,7 @@ static unsigned sdsc,sd_idle=1,sd_commands,sd_reads,spi_transfers,sd_mode;
 static unsigned char cmd[6],queue[520];static unsigned cmd_index,queue_count,queue_pos;
 static unsigned char page,crtc_index,crtc[16],tick;
 static unsigned fdc_port_accesses;
-static word PC;
+static word PC,SP,X;
 static unsigned caps_off=1;
 static unsigned model_a,cpu_hd,menu_phase,menu_key[2],menu_key_sent[2],boot_tick_number;
 static uint32_t menu_start_cycles[2],menu_end_cycles[2];
@@ -24,6 +24,22 @@ static unsigned boot_speed,setup_script[64],setup_length,setup_position,setup_re
 static unsigned sd_write_phase,sd_write_count,sd_write_lba,sd_write_crc,sd_received_crc;
 static unsigned sd_deny_write,setup_error_exit;
 static unsigned setup_frequency,setup_frequency_left;
+static unsigned setup_partition_steps,setup_partition_left;
+static unsigned boot_partition;
+#ifndef LEGACY_FIXTURE
+#ifndef COMPACT_FIXTURE
+#define COMPACT_FIXTURE 1
+#endif
+#define ROM_BYTES 0x11800
+#define ROM_BIOS 0x20000
+#define HEADER_BYTES 64
+#define HEADER_VERSION 2
+#else
+#define ROM_BYTES 0x51800
+#define ROM_BIOS 0x60000
+#define HEADER_BYTES 96
+#define HEADER_VERSION 1
+#endif
 static unsigned sd_busy_active,sd_busy_reads,sd_busy_remaining,sd_busy_transition,sd_busy_tail;
 static unsigned sd_cmd0_count,sd_startup_clocks,sd_cmd0_silent,sd_cmd8_silent,sd_cmd55_silent,sd_acmd_silent;
 static unsigned sd_init_reject,sd_init_never,sd_bad_r7,sd_reply_delay,sd_tick_stopped;
@@ -40,6 +56,10 @@ static void setup_keys(unsigned a,unsigned hd,unsigned save){
  setup_script[setup_length++]=0xc3;
  for(unsigned n=0;n<setup_frequency;n++)setup_script[setup_length++]=setup_frequency_left?0xc1:0xc2;
  setup_script[setup_length++]=0xc3;
+#ifdef COMPACT_FIXTURE
+ for(unsigned n=0;n<setup_partition_steps;n++)setup_script[setup_length++]=setup_partition_left?0xc1:0xc2;
+ setup_script[setup_length++]=0xc3;
+#endif
  if(!save)setup_script[setup_length++]=0xc3;
  setup_script[setup_length++]=0xc0;
 }
@@ -81,6 +101,22 @@ static void sd_command(void){
   else{sd_idle=0;queue[0]=0;}break;
  case 58:queue[0]=0;queue[1]=sdsc?0x80:0xc0;queue[2]=0xff;queue[3]=0x80;queue[4]=0;queue_count=5;break;
  case 16:if(arg!=512)queue[0]=4;break;
+ case 9:{
+  unsigned char csd[16]={0};uint32_t sectors=image_size/512;
+  if(sdsc){
+   unsigned shift=2;while((sectors>>shift)>4096&&shift<9)shift++;
+   if(!sectors||(sectors&((1u<<shift)-1))){fprintf(stderr,"unrepresentable test SDSC capacity\n");exit(1);}
+   unsigned csize=(sectors>>shift)-1,mult=shift-2;
+   csd[5]=9;csd[6]=(csize>>10)&3;csd[7]=csize>>2;csd[8]=(csize&3)<<6;
+   csd[9]=(mult>>1)&3;csd[10]=(mult&1)<<7;
+  }else{
+   if(!sectors||(sectors&1023)){fprintf(stderr,"test SDHC capacity must be aligned\n");exit(1);}
+   uint32_t csize=sectors/1024-1;csd[0]=0x40;csd[7]=(csize>>16)&63;csd[8]=csize>>8;csd[9]=csize;
+  }
+  queue[0]=0;queue[1]=255;queue[2]=0xfe;memcpy(queue+3,csd,16);
+  unsigned c=0;for(unsigned n=0;n<16;n++){c^=csd[n]<<8;for(unsigned bit=0;bit<8;bit++)c=c&0x8000?(c<<1)^0x1021:c<<1;c&=65535;}
+  queue[19]=c>>8;queue[20]=c;queue_count=21;break;
+ }
  case 17:{uint32_t lba=sdsc?arg/512:arg;sd_reads++;
   if((uint64_t)lba*512+512>image_size){queue[0]=0x20;break;}
   queue[0]=0;queue[1]=255;queue[2]=0xfe;memcpy(queue+3,image+lba*512,512);unsigned c=0;for(unsigned i=0;i<512;i++){c^=queue[3+i]<<8;for(unsigned bit=0;bit<8;bit++)c=c&0x8000?(c<<1)^0x1021:c<<1;c&=65535;}queue[515]=c>>8;queue[516]=c;queue_count=517;
@@ -131,16 +167,35 @@ void SuperIoPs2ModKeyDown(byte n){}void SuperIoPs2ModKeyUp(byte n){}
 void resetRequested(void){}
 int SWIemulator(int n,byte*a,byte*b,word*x,byte*t,word*pc){return 0;}
 int SuperIoReadByte(word a,byte*out){
+#ifdef PARTITION_FIXTURE
+ if(a>=0xe680&&a<=0xe683){fprintf(stderr,"removed RAM disk read %04x\n",a);exit(1);}
+#endif
+#ifdef COMPACT_FIXTURE
+ if(a==0xe6ae&&committed){*out=boot_partition;return 1;}
+#endif
 #ifdef HG_FIXTURE
  if(hg_read_byte(a,out))return 1;
 #endif
  if(a>=0xe680&&a<=0xe682){*out=0;return 1;}
- if(a==0xe683){*out=physical[0x80000+disk_address];disk_address=(disk_address+1)&0x7ffff;return 1;}
+ if(a==0xe683){
+#ifdef COMPACT_FIXTURE
+  *out=0;
+#else
+  *out=physical[0x80000+disk_address];disk_address=(disk_address+1)&0x7ffff;
+#endif
+  return 1;
+ }
  if(a==0xe600||a==0xe604){*out=crtc_index;return 1;}
  if(a==0xe601||a==0xe605){*out=crtc[crtc_index&15];return 1;}
- if(a>=0xf000){*out=committed?physical[0x60000+a-0xf000]:resident[a-0xf000];return 1;}
+ if(a>=0xf000){*out=committed?physical[ROM_BIOS+a-0xf000]:resident[a-0xf000];return 1;}
  if(!committed&&a>=0xd000&&a<0xe000){*out=resident[4096+a-0xd000];return 1;}
- if(committed&&a>=0xc000&&a<0xe000&&(page&8)){*out=physical[0x10000+(page>>4)%5*65536+(page&7)*8192+a-0xc000];return 1;}
+ if(committed&&a>=0xc000&&a<0xe000&&(page&8)){*out=physical[0x10000+
+#ifdef COMPACT_FIXTURE
+0+
+#else
+(page>>4)%5*65536+
+#endif
+(page&7)*8192+a-0xc000];return 1;}
  if(a>=0xe660&&a<=0xe664){switch(a&7){case 0:*out=spi_high;break;case 1:*out=spi_low;break;case 2:*out=0x80|spi_control;break;case 3:*out=spi_div;break;default:*out=spi_pout;}return 1;}
  if(a>=0xe6a0&&a<=0xe6af){unsigned p=a&15;*out=255;
   if(p==0)*out=(committed?0x80:0)|(cpu_hd<<1)|model_a;else if(p==1)*out=debug;else if(p==2)*out=(sd_mode>>6)|((config[24]&1)<<1);else if(p==8)*out=error?128:0;
@@ -154,7 +209,7 @@ int SuperIoReadByte(word a,byte*out){
  if(a==0xe628||a==0xe62a||a==0xe62e){
   KBDUpdate();
   if(!committed&&a==0xe628){
-   if(setup_error_exit&&setup_position==setup_length&&screen_is(0x630,"SAVE FAILED - CHECK SD")){setup_script[setup_length++]=0xc3;setup_script[setup_length++]=0xc0;setup_error_exit=0;}
+   if(setup_error_exit&&setup_position==setup_length&&screen_is(0x680,"SAVE FAILED - CHECK SD")){setup_script[setup_length++]=0xc3;setup_script[setup_length++]=0xc0;setup_error_exit=0;}
    if(setup_release){setup_release=0;*out=255;return 1;}
    if(setup_position<setup_length){*out=setup_script[setup_position++];setup_release=1;return 1;}
    *out=255;return 1;
@@ -167,12 +222,35 @@ int SuperIoReadByte(word a,byte*out){
   case 0xe628:*out=KBDReadKey();return 1;case 0xe62a:case 0xe62e:*out=KBDCheckKey()|0x37|(caps_off?8:0);return 1;
   case 0xe62b:*out=tick|0x37;tick=0;return 1;
   case 0xe632:*out=0x80;return 1;
-  case 0xe6c0:return 0;case 0xe6d0:*out=0x80;return 1;case 0xe6d1:*out=(fdc_port_accesses++,fprintf(stderr,"removed FDC read %04x PC=%04x page=%02x vector=%02x%02x\n",a,PC,page,MC6800GetCpuRam()[0xee2e],MC6800GetCpuRam()[0xee2f]),exit(1),0);return 1;
+  case 0xe6c0:return 0;case 0xe6d0:
+#ifdef COMPACT_FIXTURE
+  // The native memory mover can read an otherwise unmapped I/O address
+  // while compacting saved monitor variables. Match the RTL's base RAM
+  // behind removed ports; only old FDC routines must trip this assertion.
+  if(PC<0xf400||PC>=0xf900)return 0;
+  fdc_port_accesses++;
+  fprintf(stderr,"removed FDC status read %04x PC=%04x X=%04x SP=%04x mode=%02x\n",a,PC,X,SP,MC6800GetCpuRam()[0xe629]);
+  for(unsigned j=1;j<=32;j++)fprintf(stderr,"%02x%c",MC6800GetCpuRam()[(SP+j)&65535],j==32?'\n':' ');
+  exit(1);
+#else
+  *out=0x80;return 1;
+#endif
+case 0xe6d1:
+#ifdef COMPACT_FIXTURE
+  if(PC<0xf400||PC>=0xf900)return 0;
+#endif
+  *out=(fdc_port_accesses++,fprintf(stderr,"removed FDC read %04x PC=%04x page=%02x vector=%02x%02x\n",a,PC,page,MC6800GetCpuRam()[0xee2e],MC6800GetCpuRam()[0xee2f]),exit(1),0);return 1;
  }}return 0;
 }
 int SuperIoWriteByte(word a,byte d){
+#ifdef PARTITION_FIXTURE
+ if(a>=0xe680&&a<=0xe683){fprintf(stderr,"removed RAM disk write %04x\n",a);exit(1);}
+#endif
 #ifdef HG_FIXTURE
  if(hg_write_byte(a,d))return 1;
+#endif
+#ifdef COMPACT_FIXTURE
+ if(a>=0xe680&&a<=0xe683)return 1;
 #endif
  if(a==0xe680){disk_address=(disk_address&0xffff)|((d&7)<<16);return 1;}
  if(a==0xe681){disk_address=(disk_address&0x700ff)|(d<<8);return 1;}
@@ -189,23 +267,23 @@ int SuperIoWriteByte(word a,byte d){
  if(a>=0xe6a0&&a<=0xe6af&&!committed){unsigned p=a&15;
   if(p==1){
    if(d>=1&&d<=12)seen_stages|=1u<<d;
-   if(d==7){if(!screen_is(0x4a0,"BLOCK 05/05")){fprintf(stderr,"ROM block progress failed\n");exit(1);}screen_dump("build/boot-status-screen.bin");}
+   if(d==7){if(!screen_is(0x4a0,"BLOCK 01/01")){fprintf(stderr,"ROM block progress failed\n");exit(1);}screen_dump("build/boot-status-screen.bin");}
    if(d==12){
-    if(!screen_is(0x4a0,"BLOCK 08/08")){fprintf(stderr,"electronic disk progress missing\n");exit(1);}
-    if(sram_fault)physical[0x31234]^=0x80;
+    if(sram_fault)physical[0x11234]^=0x80;
    }
    debug=d;
   }else if(p==2)sd_mode=d;
-  else if(p==3){if(config_index<96)config[config_index++]=d;else error=1;}
+  else if(p==14)boot_partition=d;
+  else if(p==3){if(config_index<HEADER_BYTES)config[config_index++]=d;else error=1;}
   else if(p>=4&&p<=6){unsigned shift=(p-4)*8;physical_address=(physical_address&~(255u<<shift))|(unsigned)d<<shift;}
   else if(p==7){if(physical_address>=sizeof(physical)){error=1;return 1;}
    if(physical_address<65536)MC6800GetCpuRam()[physical_address]=d;else physical[physical_address]=d;
-   if(physical_address>=0x10000&&physical_address<0x61800)rom_writes++;physical_address++;all_writes++;}
+   if(physical_address>=0x10000&&physical_address<0x10000+ROM_BYTES)rom_writes++;physical_address++;all_writes++;}
   else if(p==11){if(physical_address>=sizeof(physical)){error=1;return 1;}
    aperture_byte=physical_address<65536?MC6800GetCpuRam()[physical_address]:physical[physical_address];physical_address++;aperture_reads++;}
   else if(p==9)crc=crc_byte(crc,d);else if(p==10)crc=0xffffffff;
-  else if(p==0){if(d<=15&&config_index==0){model_a=d&1;cpu_hd=(d>>1)&1;boot_speed=d>>2;menu_end_cycles[menu_phase++]=MC6800GetCyclesCounter();return 1;}if(d!=0xa5||error||config_index!=96||memcmp(config,"P601BOOT",8)
-   ||config[25]!=model_a||le32(config+8)!=1||le32(config+12)!=0x10000||le32(config+16)!=0x51800
+  else if(p==0){if(d<=15&&config_index==0){model_a=d&1;cpu_hd=(d>>1)&1;boot_speed=d>>2;menu_end_cycles[menu_phase++]=MC6800GetCyclesCounter();return 1;}if(d!=0xa5||error||config_index!=HEADER_BYTES||memcmp(config,"P601BOOT",8)
+   ||config[25]!=model_a||le32(config+8)!=HEADER_VERSION||le32(config+12)!=0x10000||le32(config+16)!=ROM_BYTES
    ||le32(config+20)!=(crc^0xffffffff)||(spi_control&2)==0)error=1;else{committed=1;MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);}}
   return 1;
  }
@@ -214,7 +292,11 @@ int SuperIoWriteByte(word a,byte d){
  case 0xe6f0:page=d;break;
  case 0xe600:case 0xe604:crtc_index=d;return 1;
  case 0xe601:case 0xe605:crtc[crtc_index&15]=d;return 1;
- case 0xe6c0:return 0;case 0xe6d0:case 0xe6d1:fdc_port_accesses++;fprintf(stderr,"removed FDC write %04x\n",a);exit(1);return 1;
+ case 0xe6c0:return 0;case 0xe6d0:case 0xe6d1:
+#ifdef COMPACT_FIXTURE
+  if(PC<0xf400||PC>=0xf900)return 0;
+#endif
+  fdc_port_accesses++;fprintf(stderr,"removed FDC write %04x PC=%04x\n",a,PC);exit(1);return 1;
  }return 0;
 }
 #include "core/mc6800.c"
@@ -246,9 +328,13 @@ int main(int argc,char**argv){
  if(argc>3&&!strcmp(argv[3],"init-acmd-timeout")){sd_init_never=2;sd_init_reject=reject=1;}
  if(argc>3&&!strcmp(argv[3],"init-bad-r7")){sd_bad_r7=1;sd_init_reject=reject=1;}
  if(argc>3&&!strcmp(argv[3],"init-no-tick")){sd_tick_stopped=1;sd_init_reject=reject=1;}
+ if(argc>3&&!strcmp(argv[3],"save-part4")){setup_partition_steps=4;setup_keys(1,1,1);}
+ if(argc>3&&!strcmp(argv[3],"temporary-part4")){setup_partition_steps=4;setup_keys(0,0,0);}
+ if(argc>3&&!strcmp(argv[3],"save-part-left")){setup_partition_steps=1;setup_partition_left=1;setup_keys(0,0,1);}
+ if(argc>3&&!strcmp(argv[3],"exit-part4")){setup_script[setup_length++]=0xf9;for(unsigned n=0;n<3;n++)setup_script[setup_length++]=0xc3;for(unsigned n=0;n<4;n++)setup_script[setup_length++]=0xc2;setup_script[setup_length++]=0x1b;}
  MC6800SetMachine(PYLDIN_MACHINE_HD6303);MC6800Init();memset(physical,0xcc,sizeof(physical));memset(MC6800GetCpuRam(),0xcc,65536);MC6800Reset();
- unsigned steps;for(steps=0;steps<100000000&&!committed&&debug!=0xee;steps++)MC6800Step();
- if(!missing_sd&&!sd_init_reject&&menu_phase!=1){fprintf(stderr,"BIOS configuration was not applied pc=%04x debug=%02x; SD writes=%u; save-error=%d\n",PC,debug,sd_writes,screen_is(0x630,"SAVE FAILED - CHECK SD"));return 1;}
+ unsigned steps;for(steps=0;steps<100000000&&!committed&&debug!=0xee;steps++){MC6800Step();}
+ if(!missing_sd&&!sd_init_reject&&menu_phase!=1){fprintf(stderr,"BIOS configuration was not applied pc=%04x debug=%02x; SD writes=%u; save-error=%d\n",PC,debug,sd_writes,screen_is(0x680,"SAVE FAILED - CHECK SD"));fprintf(stderr,"stage=%u phase=%u CMD=%02x R1=%02x A=%02x cycles=%u\n",MC6800GetCpuRam()[0x18a],MC6800GetCpuRam()[0x193],MC6800GetCpuRam()[0x144],MC6800GetCpuRam()[0x146],MC6800GetCpuRam()[0x194],MC6800GetCyclesCounter());return 1;}
  if(!setup_length&&!missing_sd&&!sd_init_reject){unsigned elapsed=menu_end_cycles[0]-menu_start_cycles[0];if(elapsed<39920000||elapsed>40100000){fprintf(stderr,"BIOS timeout not 10 seconds: %u cycles\n",elapsed);return 1;}}
  if(argc>3&&!strcmp(argv[3],"save")&&!sd_writes){fprintf(stderr,"SAVE did not write SD\n");return 1;}
  if(argc>3&&!strcmp(argv[3],"exit")&&(model_a||cpu_hd||boot_speed||sd_writes)){fprintf(stderr,"EXIT did not discard changes\n");return 1;}
@@ -259,7 +345,7 @@ int main(int argc,char**argv){
    ||!screen_is(0x590,"PRESS RESET TO RETRY")){
    fprintf(stderr,"bad ROM accepted/stalled or missing text error pc=%04x error=%u\n",PC,error);return 1;
   }screen_dump("build/boot-error-screen.bin");
-  if(sram_fault&&(aperture_reads!=0x51800||MC6800GetCpuRam()[0x18a]!=12)){fprintf(stderr,"SRAM fault not rejected by readback\n");return 1;}
+  if(sram_fault&&(aperture_reads!=ROM_BYTES||MC6800GetCpuRam()[0x18a]!=12)){fprintf(stderr,"SRAM fault not rejected by readback\n");return 1;}
   if((missing_sd||sd_init_reject)&&(MC6800GetCpuRam()[0x18a]!=1||sd_reads||sd_writes||rom_writes||spi_control!=0x23)){fprintf(stderr,"init failure did not stop before disks/ROM with CS high\n");return 1;}
   uint32_t elapsed=MC6800GetCyclesCounter()-(sd_init_never==2?sd_first_acmd_cycles:sd_first_cmd0_cycles);
   if(sd_init_never&&(elapsed<8000000||elapsed>8400000)){fprintf(stderr,"init timeout not two seconds: %u cycles\n",elapsed);return 1;}
@@ -267,12 +353,12 @@ int main(int argc,char**argv){
  }
  if(sd_first_cmd0_cycles<1200000){fprintf(stderr,"CMD0 sent before 300 ms power delay: %u cycles\n",sd_first_cmd0_cycles);return 1;}
  if(sd_acmd_delay_cycles&&MC6800GetCyclesCounter()-sd_first_acmd_cycles<sd_acmd_delay_cycles){fprintf(stderr,"ACMD41 ignored real-time readiness\n");return 1;}
- if(!committed||error||rom_writes!=0x51800||sd_reads<650){fprintf(stderr,"boot failure pc=%04x err=%u debug=%02x writes=%u steps=%u SD reads=%u commands=%u\n",PC,error,debug,rom_writes,steps,sd_reads,sd_commands);return 1;}
- if(seen_stages!=0x1ffe||!screen_checked||aperture_reads!=0x51800){fprintf(stderr,"missing boot text stages/readback mask=%x reads=%u\n",seen_stages,aperture_reads);return 1;}
- for(unsigned a=0x80000;a<0x100000;a++)if(physical[a]!=0){fprintf(stderr,"electronic disk not initialized at %x\n",a);return 1;}
+ if(!committed||error||rom_writes!=ROM_BYTES||sd_reads<140){fprintf(stderr,"boot failure pc=%04x err=%u debug=%02x writes=%u steps=%u SD reads=%u commands=%u\n",PC,error,debug,rom_writes,steps,sd_reads,sd_commands);return 1;}
+ if(seen_stages!=0x1bfe||!screen_checked||aperture_reads!=ROM_BYTES){fprintf(stderr,"missing boot text stages/readback mask=%x reads=%u\n",seen_stages,aperture_reads);return 1;}
+ for(unsigned a=0x21800;a<0x80000;a++)if(physical[a]!=0xcc){fprintf(stderr,"unused SRAM overwritten at %x\n",a);return 1;}
  size_t reference_size;unsigned char*reference=load(model_a?"build/rom-a.reference":"build/rom.reference",&reference_size);
- if(reference_size!=0x51a00||memcmp(physical+0x10000,reference+512,0x51800)){fprintf(stderr,"physical ROM content mismatch\n");return 1;}free(reference);
- unsigned reset_vector=physical[0x60ffe]*256+physical[0x60fff];
+ if(reference_size!=ROM_BYTES+512||memcmp(physical+0x10000,reference+512,ROM_BYTES)){fprintf(stderr,"physical ROM content mismatch\n");return 1;}free(reference);
+ unsigned reset_vector=physical[ROM_BIOS+0xffe]*256+physical[ROM_BIOS+0xfff];
  for(unsigned n=0;n<10&&PC!=reset_vector;n++)MC6800Step();
  if(PC!=reset_vector){fprintf(stderr,"handoff failed pc=%04x expected=%04x\n",PC,reset_vector);return 1;}
  for(unsigned n=0;n<200000;n++){if(n%10000==0){tick=128;MC6800SetInterrupt(1);}MC6800Step();}
@@ -297,6 +383,6 @@ int main(int argc,char**argv){
   printf("PASS full reset reinitializes powered SD before FAT/ROM reload; retained RAM and disks unchanged\n");
  }
  if(argc>4){FILE*f=fopen(argv[4],"wb");if(!f||fwrite(image,1,image_size,f)!=image_size||fclose(f))return 1;}
- printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; 512KiB electronic disk initialized; warm reset keeps ROM/disk; removed FDC accesses=%u; settings=%u/%u/%uMHz, SD writes=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_port_accesses,model_a,cpu_hd,1u<<boot_speed,sd_writes);
+ printf("PASS selectable CPU software SD/FAT boot (%s): %u steps, %u SPI commands, %u sectors; BIOS executed; compact ROM loaded; warm reset keeps ROM/SD; removed FDC accesses=%u; settings=%u/%u/%uMHz, partition=%u, SD writes=%u\n",sdsc?"SDSC":"SDHC",steps,sd_commands,sd_reads,fdc_port_accesses,model_a,cpu_hd,1u<<boot_speed,boot_partition,sd_writes);
  return 0;
 }

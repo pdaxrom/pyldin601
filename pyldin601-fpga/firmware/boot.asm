@@ -243,13 +243,13 @@ read_data:
     staa 0,x
     eora CRC16
     staa CRCPTR+1
-    ldaa #crc16_hi>>8
+    ldaa #crc16_hi/256
     staa CRCPTR
     ldx CRCPTR
     ldaa 0,x
     eora CRC16+1
     staa CRC16
-    ldaa #crc16_lo>>8
+    ldaa #crc16_lo/256
     staa CRCPTR
     ldx CRCPTR
     ldaa 0,x
@@ -823,7 +823,7 @@ get_buffered:
 handoff:
     sei
     ; The loader's CRC covers bytes received from SD. Check what SRAM actually
-    ; retained as well, after RAM/disk clearing and before locking/executing ROM.
+    ; retained as well, after RAM clearing and before locking/executing ROM.
     ldaa #12
     jsr ui_status
     jsr verify_sram
@@ -1128,7 +1128,7 @@ verify_sram:
     ldaa #1
     staa $e6a6
     staa $e6aa
-    ldaa #5
+    ldaa #1
     staa VERIFY_BLOCKS
 verify_bank:
     ldx #0

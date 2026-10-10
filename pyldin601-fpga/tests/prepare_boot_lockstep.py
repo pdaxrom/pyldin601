@@ -40,5 +40,5 @@ int SuperIoReadByte(word a,byte*out){
 ''' + needle)
 (root / 'build/lockstep-devices.inc').write_text(model)
 payload = (root / 'build/rom.reference').read_bytes()[512:]
-assert len(payload) == 0x51800
+assert len(payload) == 0x11800
 (root / 'build/rom.reference.mem').write_text(''.join(f'{v:02x}\n' for v in payload))

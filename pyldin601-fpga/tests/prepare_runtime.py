@@ -18,7 +18,7 @@ ldaa #$40
 staa $e6a2
 clr $e6aa
 ldx #config
-ldab #96
+ldab #64
 send:
 ldaa 0,x
 staa $e6a3

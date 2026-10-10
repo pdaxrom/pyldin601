@@ -7,20 +7,19 @@ module classic_cpu_bus(
  input wire[4:0]phase,
  input wire cpu_vma,cpu_rw,input wire[7:0]cpu_out,
  input wire peripheral,input wire[7:0]peripheral_data,
- input wire[20:0]physical_address,input wire disk_access,
- output wire cycle,request,hold,disk_advance,
+ input wire[20:0]physical_address,
+ output wire cycle,request,hold,
  output reg write,output reg[20:0]address,output reg[7:0]data,
  input wire accept,done,input wire[7:0]read_data,
  output reg[7:0]cpu_in
 );
- reg pending,complete,issued,memory_cycle,accessing_disk;
+ reg pending,complete,issued,memory_cycle;
  assign cycle=phase==2&&!reset&&!pending&&cpu_vma;
  assign request=pending&&memory_cycle&&!complete&&!issued&&!reset;
  assign hold=pending&&!complete;
- assign disk_advance=!reset&&done&&pending&&issued&&accessing_disk;
  always @(posedge clk)begin
   if(reset)begin
-   pending<=0;complete<=0;issued<=0;memory_cycle<=0;accessing_disk<=0;
+   pending<=0;complete<=0;issued<=0;memory_cycle<=0;
    write<=0;address<=0;data<=0;cpu_in<=8'hff;
   end else begin
    // This edge follows CPU capture by half a system period.
@@ -29,7 +28,7 @@ module classic_cpu_bus(
    if(done&&pending&&issued)begin cpu_in<=read_data;complete<=1;end
    if(cycle)begin
     pending<=1;complete<=peripheral;issued<=0;memory_cycle<=!peripheral;
-    write<=!cpu_rw;address<=physical_address;data<=cpu_out;accessing_disk<=disk_access;
+    write<=!cpu_rw;address<=physical_address;data<=cpu_out;
     if(peripheral)cpu_in<=peripheral_data;
    end
   end

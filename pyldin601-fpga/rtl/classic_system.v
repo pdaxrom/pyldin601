@@ -100,7 +100,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  always @(posedge clk)boot_byte<=boot_rom[{~cpu_addr[13],cpu_addr[11:0]}];
  wire cycle=phase==1&&!cpu_reset&&cpu_vma;
  wire bus_read=cycle&&cpu_rw,bus_write=cycle&&!cpu_rw;
- wire boot_io=(boot_mode||(cpu_rw&&(cpu_addr==16'he6a0||cpu_addr==16'he6a2)))&&cpu_addr[15:4]==12'he6a;
+ wire boot_io=(boot_mode||(cpu_rw&&(cpu_addr==16'he6a0||cpu_addr==16'he6a2||cpu_addr==16'he6ae)))&&cpu_addr[15:4]==12'he6a;
  wire spi_io=cpu_addr>=16'he660&&cpu_addr<=16'he664;
  wire hg_io=cpu_addr[15:2]==14'h399c;
  wire gfx_io=cpu_addr[15:4]==12'he65;
@@ -108,16 +108,12 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
  wire timer_io=cpu_addr==16'he62b;
- wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he682
+ wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he683
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
- wire disk_data_io=cpu_addr==16'he683;
- // Native ROM tests bit7 at E6D0 before calling INT17. This constant is
- // a presence strap only; command/data registers and the i8272 FSM are absent.
- wire disk_present=cpu_rw&&!boot_mode&&cpu_addr==16'he6d0;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
- wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||crtc_io||keyboard_io||timer_io||simple_io||rom_read||disk_present;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||crtc_io||keyboard_io||timer_io||simple_io||rom_read;
  wire[7:0]ay_result;wire ay_audio;
- reg[7:0]page,mode;reg caps_off,speaker;reg[18:0]ramdisk_address;
+ reg[7:0]page,mode;reg caps_off,speaker;
  classic_ay8910 ay(clk,clk_fast,cpu_reset,bus_write&&ay_io,cpu_addr[3:0],cpu_out,ay_result,ay_audio,speaker);
  wire[20:0]mapped_address;wire ignored_io;
  classic_memory_map map(cpu_addr,!cpu_rw,page,mapped_address,ignored_io);
@@ -130,14 +126,13 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   cpu_addr[1:0],cpu_out,hg_result,hg_tms,hg_tck,hg_tdi,hg_tdo,hg_tdo_enable);
  wire boot_request,boot_write,boot_accept,boot_done;wire[20:0]boot_address;wire[7:0]boot_data,boot_result,boot_debug;
  wire[7:0]memory_read_data;wire[7:0]runtime_video_data,runtime_cpu_data;
- wire[31:0]a_start,a_length,b_start,b_length;wire[7:0]aspt,ah,bspt,bh;wire[8:0]ac,bc;
- wire boot_b,sd_mode,model_a,configured_hd;
+ wire sd_mode,model_a,configured_hd;wire[7:0]boot_partition;
  // Resident firmware uses HD6303; the selected runtime ISA takes effect at lock.
  assign hd6303_en=boot_mode||configured_hd;
  classic_boot_ports boot(clk,cold_reset,cpu_reset,bus_read&&boot_io,bus_write&&boot_io,
   cpu_addr[3:0],cpu_out,boot_result,boot_request,boot_write,boot_address,boot_data,boot_accept,boot_done,memory_read_data,
   !raw_busy&&raw_cs,locked,boot_mode,boot_error,boot_debug,sd_mode,
-  a_start,a_length,b_start,b_length,aspt,ah,bspt,bh,ac,bc,boot_b,model_a,configured_hd,boot_speed);
+  model_a,configured_hd,boot_partition,boot_speed);
  // Runtime INT17 and the bootstrap use the same CPU-driven SPI registers.
  // No FDC protocol emulator, sector RAM, autonomous SD host or ownership mux.
  wire raw_start,byte_busy,byte_done;
@@ -150,7 +145,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   miso,msck,mosi,byte_busy,byte_done,byte_rx);
  assign mss=raw_cs;
  wire video_request,video_accept,video_done,video_tick;wire[20:0]video_address;wire[7:0]video_result;
- wire font_write=boot_accept&&boot_write&&boot_address>=21'h61000&&boot_address<21'h61800;
+ wire font_write=boot_accept&&boot_write&&boot_address>=21'h21000&&boot_address<21'h21800;
  wire gfx_enabled,gfx_line_request,gfx_vblank,gfx_pixel_bank;wire[7:0]gfx_line_y,gfx_pixel,gfx_result;
  wire[8:0]gfx_pixel_x;wire gfx_request,gfx_write,gfx_word,gfx_ready,gfx_done;
  wire[20:0]gfx_address;wire[15:0]gfx_data,gfx_memory_result;
@@ -165,7 +160,6 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   bus_write&&gfx_io,cpu_addr[3:0],cpu_out,palette_read_mode,palette_result,clk_fast);
  // One optimized physical SRAM sequencer for bootstrap, CPU and video.
  // Registered requests cross to 96 MHz; completions remain until consumed.
- wire disk_advance;
  wire fast_video_accept,fast_video_done,fast_boot_accept,fast_boot_done;
  reg runtime_prepare=0;
  always @(posedge clk)runtime_prepare<=phase==0;
@@ -204,7 +198,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  assign boot_accept=boot_pending&&(boot_accept_sync[1]!=boot_accept_seen);
  assign boot_done=boot_pending&&(boot_done_sync[1]!=boot_done_seen);
  classic_runtime_memory #(.GFX(1)) runtime_memory(clk_fast,cold_reset,locked,cpu_reset,runtime_prepare,
-  cpu_vma,cpu_rw,peripheral,disk_data_io?21'h80000+ramdisk_address:mapped_address,cpu_out,
+  cpu_vma,cpu_rw,peripheral,mapped_address,cpu_out,
   video_token,video_address,speed_pending,
   boot_token,boot_write,boot_address,boot_data,fast_boot_accept,fast_boot_done,memory_read_data,
   fast_video_accept,fast_video_done,runtime_video_data,runtime_cpu_data,fast_memory_busy,
@@ -214,7 +208,6 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  always @*begin
   peripheral_data=8'hff;
   if(rom_read)peripheral_data=boot_byte;
-  else if(disk_present)peripheral_data=8'h80;
   else if(boot_io)peripheral_data=boot_result;
   else if(spi_io)peripheral_data=raw_result;
   else if(hg_io)peripheral_data=hg_result;
@@ -229,25 +222,21 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  reg[7:0]runtime_peripheral_data;reg runtime_memory_read;
  assign cpu_hold=1'b0;
  assign cpu_in=runtime_memory_read?runtime_cpu_data:runtime_peripheral_data;
- assign disk_advance=cycle&&disk_data_io;
  always @(posedge clk)begin
   if(cpu_reset)begin runtime_peripheral_data<=8'hff;runtime_memory_read<=0;end
   else if(cycle)begin runtime_memory_read<=!peripheral;if(peripheral)runtime_peripheral_data<=peripheral_data;end
  end
  always @(posedge clk)begin
   if(cpu_reset)begin
-   page<=0;mode<=1;caps_off<=1;speaker<=0;ramdisk_address<=0;tick_pending<=0;
+   page<=0;mode<=1;caps_off<=1;speaker<=0;tick_pending<=0;
   end else begin
    if(bus_read&&timer_io)tick_pending<=0;
    // A read captures the OLD pending bit. Preserve a PAL pulse arriving on
    // that same edge, otherwise a phase-aligned polling loop loses every tick.
    if(video_tick)tick_pending<=1;
-   if(disk_advance)ramdisk_address<=ramdisk_address+1'b1;
    if(bus_write)case(cpu_addr)
     16'he6f0:page<=cpu_out;16'he629:mode<=cpu_out;
     16'he62a,16'he62e:caps_off<=cpu_out[3];16'he62b:speaker<=cpu_out[3];
-    16'he680:ramdisk_address[18:16]<=cpu_out[2:0];16'he681:ramdisk_address[15:8]<=cpu_out;
-    16'he682:ramdisk_address[7:0]<=cpu_out;
    endcase
   end
  end

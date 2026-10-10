@@ -30,11 +30,11 @@ test-cpu-interrupts: fixtures
 .PHONY: test-mixed-clock
 .PHONY: test-setup
 test-setup: fixtures
-	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
+	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(PYTHON) tests/run_setup.py
 .PHONY: test-sd-init
 test-sd-init: fixtures
-	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
+	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(PYTHON) tests/run_sd_init.py
 test-mixed-clock: | $(BUILD)
 	$(NVC) --work=work:$(BUILD)/mixed-clock -a tests/fast_clock.v tests/tb_fast_clock.v -e tb_fast_clock -r tb_fast_clock > $(BUILD)/mixed-clock.log 2>&1
@@ -86,15 +86,16 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-gfx test-ham-pal test-ay test-direct-sd test-romdisk test-extension-services test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 firmware: | $(BUILD)
-	$(PYTHON) tools/build_extension.py --unias $(UNIAS)
+	$(PYTHON) tools/build_partitions.py --unias $(UNIAS)
+	$(PYTHON) tools/build_storage.py --unias $(UNIAS)
 	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
 	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
 	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
 	$(PYTHON) tools/make_psg.py --output rtl/ay8910.mem
-	$(PYTHON) tools/make_boot.py
-	$(PYTHON) tools/asm6800.py firmware/loader.asm --output $(BUILD)/loader.bin --origin 0x2000
+	UNIAS="$(UNIAS)" $(PYTHON) tools/make_boot.py
+	UNIAS="$(UNIAS)" $(PYTHON) -c "import sys;sys.path.insert(0,'tools');from unias_boot import build;from pathlib import Path;Path('build/loader.bin').write_bytes(build('loader')[0])"
 $(BUILD):
 	mkdir -p $(BUILD)
 test-python: firmware
@@ -117,14 +118,15 @@ test-cpu: | $(BUILD)
 	$(BUILD)/cpu_reference $(BUILD)/cpu.bin $(BUILD)/cpu.expected.mem
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_cpu.vhd -e tb_cpu -r tb_cpu
 fixtures: firmware
+	$(PYTHON) tools/build_extension.py --unias $(UNIAS)
 	$(PYTHON) tests/prepare_images.py $(NATIVE) $(BUILD)
-.PHONY: test-direct-sd test-romdisk test-extension-services test-runtime-session
-test-direct-sd: fixtures
-	$(CC) -O2 -I$(EMUSRC) tests/test_direct_sd.c -o $(BUILD)/test_direct_sd
-	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do for card in sdhc sdsc; do $(BUILD)/test_direct_sd images/sd.img $$model $$cpu $$card; done; done; done
+.PHONY: test-partitions test-raw-sd test-extension-services test-runtime-session romdisk-extract
+test-direct-sd: test-raw-sd test-partitions
+# Historical ROM-disk extraction is tested separately; no ROM/RAM drives ship.
 test-romdisk: fixtures
-	$(CC) -O2 -I$(EMUSRC) tests/test_romdisk_unidos.c -o $(BUILD)/test_romdisk_unidos
-	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_romdisk_unidos images/sd.img $$model $$cpu; done; done
+	$(PYTHON) tools/extract_romdisk.py --output build/romdisk-check
+romdisk-extract: fixtures
+	$(PYTHON) tools/extract_romdisk.py
 test-extension-services: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_extension_services.c -o $(BUILD)/test_extension_services
 	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_extension_services $$model $$cpu; done; done
@@ -138,7 +140,7 @@ test-runtime-session: test-mixed-clock fixtures
 	@tail -8 $(BUILD)/monitor-debug/runtime-session.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual VHDL CPU/PS2/banked INT17/direct SD' in Path('build/monitor-debug/runtime-session.log').read_text()"
 test-firmware: fixtures
-	$(CC) -O2 -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
+	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/test-sd.img
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img 601a
 	$(BUILD)/test_firmware $(BUILD)/boot.bin $(BUILD)/models-sd.img hd6303
@@ -163,7 +165,7 @@ test-system: test-mixed-clock fixtures
 	$(NVC) --std=2008 --work=work:$(BUILD)/system-test --ieee-warnings=off -a -D FULL_SYSTEM=1 rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_system.v tests/tb_system.vhd -e tb_system -r tb_system > $(BUILD)/system-test.log 2>&1
 	@cat $(BUILD)/system-test.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU+SRAM+SPI boot' in Path('build/system-test.log').read_text()"
-image: firmware
+image: romdisk-extract
 	$(PYTHON) tools/make_sd.py --native $(NATIVE) --disk-a $(NATIVE)/Floppy/system.imz --output $(BUILD)/sd.img
 
 test-board-syntax: | $(BUILD)
@@ -350,3 +352,23 @@ test-hview: gfx-apps fixtures
 test-hview-app: gfx-apps
 	$(PYTHON) tests/prepare_hview.py
 	$(PYTHON) tests/run_hview_app.py --nvc "$(NVC)" --unias "$(UNIAS)"
+
+.PHONY: storage-apps test-partitions test-raw-sd test-storage-software
+test-storage-software: fixtures hg-apps romdisk-extract
+	$(PYTHON) tests/run_storage_gd.py --cc "$(CC)"
+storage-apps: | $(BUILD)
+	$(PYTHON) tools/build_partitions.py --unias $(UNIAS)
+	$(PYTHON) tools/build_storage.py --unias $(UNIAS)
+test-partitions: fixtures
+	$(PYTHON) tests/prepare_partitions.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_partitions.c -o $(BUILD)/test_partitions
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do for card in sdhc sdsc; do $(BUILD)/test_partitions $(BUILD)/partitions/sd-test.img $$model $$cpu $$card; done; done; done
+test-raw-sd: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_raw_sd.c -o $(BUILD)/test_raw_sd
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do for card in sdhc sdsc; do $(BUILD)/test_raw_sd $$model $$cpu $$card; done; done; done
+
+.PHONY: test-boot-partitions
+test-boot-partitions: fixtures
+	$(PYTHON) tests/prepare_partitions.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_boot_partitions.c -o $(BUILD)/test_boot_partitions
+	$(PYTHON) tests/run_boot_partitions.py

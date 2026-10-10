@@ -27,9 +27,10 @@ int main(int argc,char**argv){
  if(argc<2||argc>3)return 2;model_a=argc==3&&!strcmp(argv[2],"601a");cpu_hd=1;
  MC6800SetMachine(PYLDIN_MACHINE_HD6303);
  size_t size;unsigned char *rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&size);
- if(size!=0x51a00)return 1;
- memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,0x51800);free(rom);
+ if(size!=(ROM_BYTES+512))return 1;
+ memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);
+#ifdef LEGACY_FIXTURE
  for(unsigned disk=0;disk<2;disk++){
   unsigned off=462+16*disk,base=32+16*disk;memcpy(config+base,image+off+8,8);
   const unsigned char*bpb=image+le32(config+base)*512;
@@ -37,6 +38,7 @@ int main(int argc,char**argv){
   config[base+8]=spt;config[base+9]=0;config[base+10]=heads;config[base+11]=0;
   config[base+12]=sectors/(spt*heads);config[base+13]=0;
  }
+#endif
  committed=1;MC6800Init();MC6800Reset();i=1;
  until(60000000);key(0x1c);key(0x1c);until(virtual_cycles+1000000);
  if(!contains("A:\\>")){dump();fprintf(stderr,"missing initial DOS prompt\n");return 1;}

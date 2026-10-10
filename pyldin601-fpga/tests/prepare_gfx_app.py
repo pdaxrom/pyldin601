@@ -13,13 +13,10 @@ code = bytearray(pgm[offset:])
 for pos in struct.unpack(f'>{count}H', pgm[16:offset]):
     code[pos] = (code[pos]+0x20) & 255
 ram[0x2000:0x2000+length] = code
-header = bytearray(96)
+header = bytearray(64)
 header[:8] = b'P601BOOT'
-for at, value in [(8,1),(12,0x10000),(16,0x51800),(32,34816),(36,1440),
-                  (48,36864),(52,2880),(72,34816),(76,1440),(88,36864),(92,2880)]:
+for at, value in [(8,2),(12,0x10000),(16,0x11800)]:
     struct.pack_into('<I', header, at, value)
-for at, value in [(40,9),(42,2),(44,80),(56,18),(58,2),(60,80),(68,1),(84,1)]:
-    struct.pack_into('<H' if at<64 else '<B', header, at, value)
 service = '''org $0100
 tsx
 ldx 5,x
@@ -50,10 +47,10 @@ halt: bra halt
 '''
 binary, _ = asm6800.assemble(service, 0x100)
 ram[0x100:0x100+len(binary)] = binary
-ram[0x300:0x360] = header
+ram[0x300:0x340] = header
 for model in (0,1):
     for speed in range(4):
-        h = bytearray(header);h[25] = model;ram[0x300:0x360] = h
+        h = bytearray(header);h[25] = model;ram[0x300:0x340] = h
         source = f'''org $0800
 sei
 lds #$bfff
@@ -63,7 +60,7 @@ ldx #$0300
 loop: ldaa 0,x
 staa $e6a3
 inx
-cpx #$0360
+cpx #$0340
 bne loop
 ldaa #$a5
 staa $e6a0

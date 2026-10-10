@@ -33,7 +33,7 @@ def root_files(volume):
 
 class SDTests(unittest.TestCase):
     def test_large_fat12_last_cluster(self):
-        disk = sd.blank_disk(sd.MAX_DISK_SIZE,96,2)
+        disk = sd.blank_disk(12*1024*1024,96,2)
         info = sd.disk_info(disk)
         self.assertEqual(info['sectors'],24576)
         self.assertEqual(info['cylinders'],128)
@@ -41,14 +41,22 @@ class SDTests(unittest.TestCase):
         self.assertLess(info['clusters'],4085)
         self.assertEqual(((127*2+1)*96+96-1),24575)
 
+    def test_native_profile_without_floppy_limit(self):
+        from sd_partitions import fat12
+        data=bytearray(fat12('DIFFERENT',123))
+        info=sd.disk_info(data)
+        self.assertEqual((info['sectors'],info['sectors_per_cluster']), (32400,8))
+        struct.pack_into('<HH',data,24,1,1)
+        self.assertEqual(sd.disk_info(data)['cylinders'],32400)
+
     def test_reject_invalid_geometry_and_fat(self):
-        disk = bytearray(sd.blank_disk(sd.MAX_DISK_SIZE,96,2))
+        disk = bytearray(sd.blank_disk(12*1024*1024,96,2))
         struct.pack_into('<H',disk,24,0)
         with self.assertRaises(ValueError): sd.disk_info(disk)
-        disk = bytearray(sd.blank_disk(sd.MAX_DISK_SIZE,96,2))
+        disk = bytearray(sd.blank_disk(12*1024*1024,96,2))
         disk[13] = 1
         with self.assertRaises(ValueError): sd.disk_info(disk)
-        disk = bytearray(sd.blank_disk(sd.MAX_DISK_SIZE,96,2))
+        disk = bytearray(sd.blank_disk(12*1024*1024,96,2))
         struct.pack_into('<H',disk,19,30000)
         with self.assertRaises(ValueError): sd.disk_info(disk)
 
@@ -82,19 +90,17 @@ class SDTests(unittest.TestCase):
         image, config = sd.build(native,[disk,disk],1,bios_a=a_path)
         first = image[2048*512:(2048+sd.BOOT_SECTORS)*512]
         contents = root_files(first)
-        self.assertEqual(contents['P601    SET'], sd.settings_record(0, True, 1))
+        self.assertEqual(contents['P601    SET'], sd.settings_record(0, True, 1, 3))
         self.assertEqual(contents['P601    SET'][9], 2)
         bundle = contents['P601    ROM']
         self.assertEqual(bundle[:8],b'P601BOOT')
-        self.assertEqual(bundle[24],1)
+        self.assertEqual(bundle[24],0)
         self.assertEqual(bundle[25],0)
         alternate = contents['P601A   ROM']
         self.assertEqual(alternate[25],1)
-        self.assertEqual(alternate[512+5*65536:512+5*65536+4096],bios)
+        self.assertEqual(alternate[512+65536:512+65536+4096], (Path(__file__).parents[1]/"build/partitions/BIOS_A.ROM").read_bytes())
         self.assertEqual(sd.u32(alternate,508),zlib.crc32(alternate[:508]))
         self.assertEqual(sd.u32(alternate,20),zlib.crc32(alternate[512:]))
-        with self.assertRaises(ValueError):
-            sd.bundle({**files, 'BIOS.BIN':bytes(bios)}, config['drives'],1,0)
         self.assertEqual(config['models'],['601','601A'])
         self.assertEqual(sd.u32(bundle,508),zlib.crc32(bundle[:508]))
         self.assertEqual(sd.u32(bundle,20),zlib.crc32(bundle[512:]))

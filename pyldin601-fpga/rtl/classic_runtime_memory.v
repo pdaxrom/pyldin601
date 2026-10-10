@@ -37,7 +37,7 @@ module classic_runtime_memory #(parameter GFX=0)(
  wire gfx_memory=GFX&&slot_event&&!cpu_event&&!boot_memory&&!video_memory&&!cpu_reset_sync[1]&&!pause_sync[1]&&gfx_request;
  wire[20:0]chosen_address=grant_cpu?cpu_address:grant_boot?boot_address:grant_video?video_address:gfx_address;
  // All ROM pages, BIOS and font stay locked throughout warm resets.
- wire protected_address=cpu_address>=21'h10000&&cpu_address<21'h61800;
+ wire protected_address=cpu_address>=21'h10000&&cpu_address<21'h21800;
  assign busy=active;
  // Both lanes carry the same byte; exactly one byte-enable permits writing.
  assign SRAM_DATA=drive?{held_data,held_data}:16'bz;
