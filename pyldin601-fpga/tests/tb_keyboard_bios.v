@@ -20,10 +20,16 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
  wire[19:0]pin_address;wire pin_ce,pin_oe,pin_we,pin_lb,pin_ub;wire[15:0]pin_data;
  assign #10 pin_address=sa;assign #10 pin_ce=ce;assign #10 pin_oe=oe;
  assign #6 pin_we=we;assign #10 pin_lb=lb;assign #10 pin_ub=ub;assign #15 pin_data=sd;
- assign #18 sd=!pin_ce&&!pin_oe&&pin_we?memory[pin_address]:16'bz;
+ reg[15:0]read_word;reg memory_epoch=0;
+ // Retain the 18-ns SRAM access delay without subscribing the simulator
+ // to an entire 199680-word array on every pin/address transition.
+ always @(pin_ce or pin_oe or pin_we or pin_address or memory_epoch)
+  read_word=!pin_ce&&!pin_oe&&pin_we?memory[pin_address]:16'bz;
+ assign #18 sd=read_word;
  always @(posedge pin_we)if(!pin_ce)begin
   if(!pin_lb)memory[pin_address][7:0]=pin_data[7:0];
   if(!pin_ub)memory[pin_address][15:8]=pin_data[15:8];
+  memory_epoch<=!memory_epoch;
  end
  task send;input[7:0]b;reg[10:0]frame;integer bit_index;
   begin
@@ -34,7 +40,9 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
    psdata=1;#10000;
   end
  endtask
- integer key_index,accepted=0;reg armed=0;
+ integer key_index,accepted=0,released_count;reg armed=0,holding=0;
+ integer test_cycles=0,first_held,last_held;
+ always @(posedge clk)test_cycles=test_cycles+1;
  reg[7:0]scan[0:7],expected[0:7];
  wire[7:0]timer0=memory[16'hed09>>1][15:8],timer1=memory[16'hed0a>>1][7:0],timer2=memory[16'hed0b>>1][15:8];
  initial begin
@@ -52,12 +60,37 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
   end
   wait(accepted==8);#20000000;
   if(dut.keyboard.queue_count!=0||dut.keyboard.data!=8'hff)$fatal(1,"keyboard did not drain");
-  $display("PASS actual HDL CPU/native BIOS model_a=%0d accepted 8 fast PS/2 taps including identical consecutive keys at %0d MHz",dut.model_a,1<<SPEED);
+  #160000000;holding=1;
+  send(8'h3e); // Hold 8; BIOS owns the initial repeat delay and rate.
+  #200000000;
+  if(accepted!=9)$fatal(1,"premature held repeat accepted=%0d",accepted);
+  send(8'h3e);send(8'h3e); // PS/2 typematic duplicates must not enqueue taps.
+  #700000000;
+  if(accepted<12)$fatal(1,"native BIOS autorepeat missing accepted=%0d",accepted);
+  send(8'hf0);send(8'h3e);
+  #100000000;released_count=accepted;
+  #200000000;
+  if(accepted!=released_count||dut.keyboard.queue_count!=0||dut.keyboard.data!=8'hff)
+   $fatal(1,"autorepeat continued after release");
+  if({memory[16'he180>>1][7:0],memory[16'he180>>1][15:8]}<100)
+   $fatal(1,"shared 100-Hz music IRQ did not run");
+  $display("PASS actual HDL CPU/native BIOS model_a=%0d: 8 fast taps, held BIOS repeat/delay/rate, typematic/break and 100-Hz audio IRQ at %0d MHz",dut.model_a,1<<SPEED);
   $finish;
  end
  always @(posedge clk)if(armed&&dut.bus_write&&cpu_addr>=16'hbff0&&cpu_addr<16'hc000)begin
   $display("BIOS key %0d = %h at %0t",accepted,cpu_out,$time);
-  if(accepted>=8||cpu_out!==expected[accepted])$fatal(1,"BIOS key order got=%h expected[%0d]=%h",cpu_out,accepted,expected[accepted]);
+  if(!holding)begin
+   if(accepted>=8||cpu_out!==expected[accepted])$fatal(1,"BIOS key order got=%h expected[%0d]=%h",cpu_out,accepted,expected[accepted]);
+  end else begin
+   if(cpu_out!=="8")$fatal(1,"held BIOS key changed: %h",cpu_out);
+   if(accepted==8)first_held=test_cycles;
+   else if(accepted==9)begin
+    if(test_cycles-first_held<560000000/42||test_cycles-first_held>760000000/42)
+     $fatal(1,"native initial repeat delay %0d ns",(test_cycles-first_held)*42);
+   end else if(test_cycles-last_held<40000000/42||test_cycles-last_held>100000000/42)
+    $fatal(1,"native repeat interval %0d ns",(test_cycles-last_held)*42);
+   last_held=test_cycles;
+  end
   accepted=accepted+1;
  end
  always @(posedge clk)if(armed&&dut.bus_read)begin
@@ -66,5 +99,5 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
   if(cpu_addr==16'he62b&&dut.tick_pending)
    $display("Timer ack qt=%0d timer=%0d/%0d/%0d at %0t",dut.keyboard.quiet_ticks,timer0,timer1,timer2,$time);
  end
- initial begin #1000000000;$fatal(1,"BIOS keyboard timeout PC=%h accepted=%0d",cpu_addr,accepted);end
+ initial begin #3000000000;$fatal(1,"BIOS keyboard timeout PC=%h accepted=%0d",cpu_addr,accepted);end
 endmodule

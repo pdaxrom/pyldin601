@@ -7,7 +7,7 @@ UniDOS находится в ROM, программы прежнего C: рас�
 
 Для записи карты без сборки используй [`images/sd.img`](images/sd.img):
 текущие ROM 601/601A, загрузчик, UniDOS на A и тесты HD6303, HG/HGTIME,
-GFX.PGM, VIEW.PGM с PCX-примерами, SPRITES.PGM, HAM.PGM, CLIPSPR.PGM, AY.PGM и HVIEW.PGM с LENA.IFF на B.
+GFX.PGM, VIEW.PGM с PCX-примерами, SPRITES.PGM, HAM.PGM, CLIPSPR.PGM, AY.PGM, YPLAY.PGM с YM-демо и HVIEW.PGM с LENA.IFF на B.
 [Контрольная сумма и инструкция записи](images/README.md).
 
 Добавлено независимое графическое расширение **320×200, 256 программируемых цветов**:
@@ -46,9 +46,22 @@ FDISK.PGM, FORMAT.PGM, MOUNT.PGM и UMOUNT.PGM. Все собраны UniAS с C
 [Использование и миграция](audit/STORAGE.md), [ROM API](audit/FPGA-BIOS.md).
 
 `B:AY` — музыкальное HD6303-демо трёх каналов AY-3-8910; ESC останавливает
-звук и возвращает UniDOS. Генераторы имеют фиксированную частоту 2 МГц,
+звук и возвращает UniDOS. Генераторы по умолчанию имеют частоту 2 МГц,
 независимую от CPU; смешанный AY и штатный beeper идут на оба аудиовыхода.
 [Регистры, частоты и проверки](audit/AY.md).
+
+`B:YPLAY B:DEMO.YM /L` — нативный проигрыватель YM3/3b/5/6 и PSG
+для HD6303. Поддерживает LHA/LH5 без конвертации на хосте: файл
+распаковывается в 888 КиБ страничной SRAM. Отдельный аппаратный таймер
+задаёт IRQ с частотой записи 1..100 Гц без обращений к SD/HG; системные
+PAL 50 Гц сохраняются. Программируемый делитель задаёт AY clock
+1/2 МГц или Spectrum/MSX, значения регистров передаются без пересчёта.
+Нужны новая FPGA E690–E69F и согласованный BIOS; обновлены 601 и 601А. SPACE — пауза, ESC — выход; работает при 1/2/4/8 МГц.
+`DEMOH5.YM` — тот же пример в LH5. [Форматы и команды](audit/AUDIO-PLAYER.md).
+
+Удержание клавиш вызывает штатный автоповтор BIOS, включая Backspace
+и стрелки; быстрые отдельные нажатия сохраняются в FIFO. Кир/Лат
+и Caps Lock переключаются один раз за нажатие. [Проверки](audit/KEYBOARD.md).
 
 При включении первичный BIOS работает на HD6303 ISA на 4 МГц, независимо
 от выбранного рабочего CPU. Он читает P601.SET с первого раздела SD и
@@ -199,8 +212,8 @@ FPGA и согласованные BIOS установлены 10 октября
 и FLASH Verify прошли. Пользователь подтвердил PASS RAMPAGE на плате
 при 1/2/4/8 МГц, возврат по ESC и DIR A:/B:/C: после теста.
 
-Diamond со страничной RAM: 5000/6864 LUT, 1887 регистров,
-2508/3432 slices, 24/26 EBR; 0 setup/hold errors, 100% покрытия путей.
+Diamond с музыкальным таймером, делителем AY и автоповтором: 5336/6864 LUT,
+2187 регистров, 2679/3432 slices, 24/26 EBR; 0 setup/hold errors, 100% покрытия путей.
 Предыдущая версия с нативными разделами установлена 10 октября 2026;
 чтение SD и FLASH Verify прошли. Пользователь подтвердил загрузку,
 демо и GD на плате. [SD-образ и установка](images/README.md).
@@ -216,7 +229,7 @@ Diamond со страничной RAM: 5000/6864 LUT, 1887 регистров,
 make test UNIAS=/path/to/hd6303-toolchain/unias
 make test-hg UNIAS=/path/to/hd6303-toolchain/unias
 make test-storage-software UNIAS=/path/to/hd6303-toolchain/unias
-make test-view test-hview test-ham test-sprites test-clip-sprites test-ay-app UNIAS=/path/to/hd6303-toolchain/unias
+make test-view test-hview test-ham test-sprites test-clip-sprites test-ay-app test-audio-irq UNIAS=/path/to/hd6303-toolchain/unias
 make test-turbo UNIAS=/path/to/hd6303-toolchain/unias
 make image UNIAS=/path/to/hd6303-toolchain/unias
 ```
@@ -266,16 +279,25 @@ LCMXO2-7000HC-4TG144I по схеме hardware-lcd и кварц 12 МГц:
 system 24 МГц, SRAM 96 МГц. Первичный BIOS работает на 4 МГц;
 после загрузки применяется выбранная частота 1/2/4/8 МГц.
 
-Сборка Diamond 3.14 со страничной RAM завершила synthesis, MAP, PAR,
-TRACE и Jedecgen: 5000/6864 LUT, 2508/3432 slices, 1887/7209 registers,
-24/26 EBR и 1/2 PLL. Свободны 1864 LUT, 924 slices, 5322 registers и 2 EBR.
+Сборка Diamond 3.14 с музыкальным таймером, делителем AY и автоповтором
+завершила synthesis, MAP, PAR, TRACE и Jedecgen: 5336/6864 LUT,
+2679/3432 slices, 2187/7209 registers, 24/26 EBR и 1/2 PLL.
+Свободны 1528 LUT, 753 slices, 5022 registers и 2 EBR.
+PAR seed 5 проходит прежние ограничения.
 Setup/hold errors = 0, unconstrained paths = 0. Ограничения SRAM-10
 и SRAM→CPU за 27 нс сохранены. Проверки EDIF/INITVAL подтверждают
 подключения PAL-палитры и AY.
 
-JED: `build/diamond/ram-pages/pyldin601_classic_impl1.jed`.
-FPGA со страничной RAM и ROM с сохранением E6F1 требуется устанавливать
-вместе. Эта пара записана на плату и общую SD 10 октября 2026;
+JED: `build/diamond/keyboard-repeat/pyldin601_classic_impl1.jed`.
+Исправление автоповтора записано 11 октября 2026, Flash Verify прошёл;
+SD для этой версии не требовала обновления. Пользователь подтвердил
+автоповтор клавиш и управление YPLAY на новой прошивке.
+Оба согласованных BIOS и YPLAY записаны на физическую SD и проверены
+прямым чтением; FPGA с музыкальным таймером прошита, FLASH Verify и JTAG
+Chain прошли. HG восстановлен, YPLAY установлен в сетевую папку с
+сохранением пользовательских файлов. Пользователь подтвердил музыку и управление
+YPLAY на обеих моделях 601/601А. Предыдущая пара
+со страничной RAM записана на плату и общую SD 10 октября 2026;
 FLASH Verify прошёл, HG восстановлен. C: на общей карте — SD0:PART16;
 настройки, прежние файлы A/B и остальные тома сохранены.
 Пользователь подтвердил PASS RAMPAGE на физической плате при 1/2/4/8 МГц,

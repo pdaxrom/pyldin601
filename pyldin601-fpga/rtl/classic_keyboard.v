@@ -60,6 +60,15 @@ module classic_keyboard #(
         ||(quiet_ticks>=4&&queue_code[queue_head]!=key_code);
     wire incoming_ready=!runtime_mode||quiet_ticks==6
         ||(quiet_ticks>=4&&translated_byte!=key_code);
+    // The BIOS owns repeat delay/rate, but needs another keyboard IRQ to
+    // sample a held key. PAL-first dispatch no longer polls PIA CRA on each
+    // timer IRQ. Sample it on each PAL acknowledge, including reads the
+    // BIOS ignores during debounce. This keeps old_key alive until its
+    // repeat timer expires; unlike a released FIFO tap, no event can be lost.
+    // Caps Lock and LAT/CYR remain one toggle per physical make/break.
+    wire held_repeat=runtime_mode&&timer_ack
+        &&key_ready&&active_down&&consumed&&!irq&&!read_data
+        &&key_code!=8'hfb&&key_code!=8'hfc;
     assign data=key_ready?key_code:8'hff;
     assign status=key_ready&&trigger?8'h80:0;
     initial begin $readmemh(TRANSLATE_FILE,translate);$readmemh(SET2_FILE,set2);end
@@ -94,8 +103,9 @@ module classic_keyboard #(
             end
             if(read_status&&key_ready)trigger<=!trigger;
             if(read_data)begin trigger<=0;consumed<=1;irq<=0;end
+            if(held_repeat)begin trigger<=1;irq<=1;end
             if(key_ready&&consumed&&!active_down)begin
-                key_ready<=0;trigger<=0;consumed<=0;
+                key_ready<=0;trigger<=0;consumed<=0;irq<=0;
             end
             if(!key_ready&&queue_count!=0&&!received&&translation_ready==0&&queued_ready)begin
                 key_code<=queue_code[queue_head];active_scan<=queue_scan[queue_head];
@@ -122,7 +132,7 @@ module classic_keyboard #(
                         for(k=0;k<8;k=k+1)
                             if(queue_valid[k]&&queue_scan[k]==scan&&queue_extended[k]==extended)queue_down[k]<=0;
                         if(active_scan==scan&&active_extended==extended&&consumed)begin
-                            key_ready<=0;trigger<=0;consumed<=0;
+                            key_ready<=0;trigger<=0;consumed<=0;irq<=0;
                         end
                     end else if(pc_scan!=8'hff&&translated_byte!=8'hff)begin
                         // Typematic make repeats retain the active key, as the classic PIA does.

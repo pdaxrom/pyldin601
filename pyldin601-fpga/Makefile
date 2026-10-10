@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := hg frequency_controls timer_tick memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_queue keyboard_pacing keyboard_layout keyboard_navigation video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
+BENCHES := hg frequency_controls timer_tick audio_control memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_queue keyboard_pacing keyboard_repeat keyboard_layout keyboard_navigation video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -68,7 +68,7 @@ $(BUILD)/stability-sd.img: | $(BUILD)
 test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_runtime.c -o $(BUILD)/prepare_runtime
 	$(BUILD)/prepare_runtime $(STABILITY_IMAGE) rollover
-	$(PYTHON) tests/prepare_runtime.py
+	UNIAS="$(UNIAS)" $(PYTHON) tests/prepare_runtime.py
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-irq --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd -e -j tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-irq.log 2>&1
 	@cat $(BUILD)/runtime-irq.log
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-irq.log').read_text()"
@@ -76,17 +76,17 @@ test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 .PHONY: test-keyboard-bios
 test-keyboard-bios: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_keyboard_bios.c -o $(BUILD)/prepare_keyboard_bios
-	@set -e; for model in 601 601a; do $(BUILD)/prepare_keyboard_bios $(STABILITY_IMAGE) $$model; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_keyboard_bios.v tests/tb_keyboard_bios.vhd; for speed in 0 1 2 3; do $(PYTHON) tests/prepare_runtime.py --prefix keyboard --speed $$speed; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -e -j -gSPEED=$$speed tb_keyboard_bios -r tb_keyboard_bios > $(BUILD)/keyboard-bios-$$model-$$speed.log 2>&1; cat $(BUILD)/keyboard-bios-$$model-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS' in Path('build/keyboard-bios-$$model-$$speed.log').read_text()"; done; done
+	@set -e; for model in 601 601a; do $(BUILD)/prepare_keyboard_bios $(STABILITY_IMAGE) $$model; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_keyboard_bios.v tests/tb_keyboard_bios.vhd; for speed in 0 1 2 3; do UNIAS="$(UNIAS)" $(PYTHON) tests/prepare_runtime.py --prefix keyboard --speed $$speed --music-irq; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -e -j -gSPEED=$$speed tb_keyboard_bios -r tb_keyboard_bios > $(BUILD)/keyboard-bios-$$model-$$speed.log 2>&1; cat $(BUILD)/keyboard-bios-$$model-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS' in Path('build/keyboard-bios-$$model-$$speed.log').read_text()"; done; done
 
 .PHONY: test-runtime-turbo
 test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_runtime.c -o $(BUILD)/prepare_runtime
 	$(BUILD)/prepare_runtime $(STABILITY_IMAGE) rollover
-	$(PYTHON) tests/prepare_runtime.py
+	UNIAS="$(UNIAS)" $(PYTHON) tests/prepare_runtime.py
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-memory-app test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-memory-app test-audio-app test-audio-irq test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 .PHONY: test-ram-pages-ycode
 .PHONY: memory-test test-memory-app
 memory-test: | $(BUILD)
@@ -152,7 +152,7 @@ test-runtime-session: test-mixed-clock fixtures
 	mkdir -p $(BUILD)/monitor-debug
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_monitor.c -o $(BUILD)/prepare_monitor
 	$(BUILD)/prepare_monitor images/sd.img dir > $(BUILD)/monitor-debug/native-session.log 2>&1
-	$(PYTHON) tests/prepare_runtime.py --prefix session
+	UNIAS="$(UNIAS)" $(PYTHON) tests/prepare_runtime.py --prefix session
 	$(PYTHON) -c "from pathlib import Path; p=Path('images/sd.img').read_bytes()[34816*512:(34816+2880)*512]; Path('build/session-disk-a.mem').write_text(''.join('%02x\\n'%v for v in p))"
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-session --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_session.v tests/tb_runtime_session.vhd -e -j tb_runtime_session -r tb_runtime_session > $(BUILD)/monitor-debug/runtime-session.log 2>&1
 	@tail -8 $(BUILD)/monitor-debug/runtime-session.log
@@ -345,6 +345,14 @@ test-clip-sprites: gfx-apps fixtures
 	$(PYTHON) tests/run_clip_sprites_app.py --nvc $(NVC)
 
 .PHONY: test-ay test-ay-app
+.PHONY: audio-apps test-audio-app test-audio-irq
+audio-apps: | $(BUILD)
+	$(PYTHON) tools/build_audio.py --unias "$(UNIAS)"
+test-audio-app: audio-apps fixtures
+	$(PYTHON) tests/prepare_audio.py
+	$(PYTHON) tests/run_audio_app.py --cc "$(CC)"
+test-audio-irq: test-audio-app
+	$(PYTHON) tests/run_audio_irq.py --unias "$(UNIAS)" --nvc "$(NVC)"
 test-ay: firmware
 	$(IVERILOG) -g2012 -s tb_ay8910 -o $(BUILD)/tb_ay8910 rtl/classic_ay8910.v tests/tb_ay8910.v
 	$(VVP) $(BUILD)/tb_ay8910

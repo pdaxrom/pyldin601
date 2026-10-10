@@ -55,7 +55,7 @@ int EXTENSION_SERVICES_MAIN(int argc,char**argv){
  require(n==(ROM_BYTES+512),"ROM size");memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load("images/sd.img",&image_size);memcpy(config+64,image+462,32);
  committed=1;MC6800Init();MC6800Reset();until(60000000);
- require(invoke(0,0,0x3000)==1&&B==15,"API version/features");
+ require(invoke(0,0,0x3000)==1&&B==31,"API version/features");
  require(invoke(7,0,0x3000)==1,"unknown function rejected");
  require(invoke(1,1,0x3000)==0&&gfx[0]==1,"indexed mode");
  require(invoke(1,7,0x3000)==0&&gfx[0]==7,"HAM8 mode");

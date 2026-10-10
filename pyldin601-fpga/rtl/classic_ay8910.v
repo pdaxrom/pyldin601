@@ -1,11 +1,12 @@
 // AY-3-8910 generators, using the BK's digital behaviour and volume curve.
-// A fixed 2 MHz master gives one /8 tick per 384 existing 96 MHz clocks.
+// Default 2 MHz master; programmable Q16 divisor for the master/8 tick.
 // One nine-bit ALU, two-byte counters and one EBR serve all five generators;
 // neither the CPU nor the video SRAM participates in sound generation.
 module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
  input wire clk,fast,reset,write,
  input wire[3:0]register_address,input wire[7:0]data,
- output wire[7:0]result,output wire audio,input wire beeper
+ output wire[7:0]result,output wire audio,input wire beeper,
+ input wire divider_update,input wire[31:0]divider_value,output reg divider_seen
 );
  (* syn_keep=1 *) wire[8:0]cpu_value;
  wire[8:0]word;
@@ -23,7 +24,17 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
  reg initializing;reg[4:0]init_address;
  reg[2:0]state;
  reg[5:0]pc;
- reg[8:0]instruction,clock_count;
+ reg[8:0]instruction;
+ reg[15:0]clock_count,clock_period,clock_fraction;
+ reg[15:0]clock_before_last;
+ reg[31:0]clock_divider;
+ reg[1:0]divider_sync;
+ reg[1:0]fast_reset_sync;
+ // Reset originates in the 24-MHz domain. Register it locally instead of
+ // driving the fast engine through the system's high-fanout reset decode.
+ always @(posedge fast)fast_reset_sync<={fast_reset_sync[0],reset};
+ wire fast_reset=fast_reset_sync[1];
+ reg[16:0]fraction_sum;
  reg clock_terminal;
  reg[7:0]period_low,count_low;
  reg[8:0]period_high,count_high;
@@ -61,7 +72,7 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
   .WRITEMODE_A("READBEFOREWRITE"),.WRITEMODE_B("READBEFOREWRITE"),
   `include "rtl/ay8910_init.vh"
  ) ram(
-  .CLKA(fast),.CEA(1'b1),.OCEA(1'b1),.WEA(engine_write&&!reset),.RSTA(1'b0),
+  .CLKA(fast),.CEA(1'b1),.OCEA(1'b1),.WEA(engine_write&&!fast_reset),.RSTA(1'b0),
   .CLKB(clk),.CEB(1'b1),.OCEB(1'b1),.WEB(1'b0),.RSTB(1'b0),
   .CSA0(1'b0),.CSA1(1'b0),.CSA2(1'b0),.CSB0(1'b0),.CSB1(1'b0),.CSB2(1'b0),
   .ADA0(aa[0]),.ADA1(aa[1]),.ADA2(aa[2]),.ADA3(aa[3]),.ADA4(aa[4]),.ADA5(aa[5]),.ADA6(aa[6]),
@@ -80,25 +91,48 @@ module classic_ay8910 # (parameter MEMORY_FILE="rtl/ay8910.mem")(
  initial $readmemh(MEMORY_FILE,memory,0,1023);
  always @(posedge fast)begin
   engine_read<=memory[engine_address];
-  if(engine_write&&!reset)memory[engine_address]<=engine_data;
+  if(engine_write&&!fast_reset)memory[engine_address]<=engine_data;
  end
  always @(posedge clk)cpu_read<=memory[{6'b0,register_address}];
  assign word=engine_read;assign cpu_value=cpu_read;
 `endif
  always @(posedge fast)begin
-  if(reset)begin
+  divider_sync<={divider_sync[0],divider_update};
+  if(fast_reset)begin
    initializing<=1;init_address<=0;state<=0;pc<=0;clock_count<=0;clock_terminal<=0;
    period_low<=0;period_high<=0;count_low<=0;count_high<=0;carry<=0;terminal<=0;operand<=0;incremented<=0;
    tone<=0;noise_prescale<=0;noise_lfsr<=1;write_seen<=0;env_dirty<=0;
+   clock_divider<=32'h01800000;clock_period<=384;clock_before_last<=382;clock_fraction<=0;fraction_sum<=0;divider_seen<=0;divider_sync<=0;
    env_step<=0;env_attack<=0;env_holding<=1;mixer<=0;mix<=0;sample<=0;instruction<=0;volume<=0;
   end else if(initializing)begin
    if(init_address==25)begin initializing<=0;clock_count<=0;end
    else init_address<=init_address+1'b1;
   end else begin
-   clock_count<=clock_count==383?0:clock_count+1'b1;
+   // Period/fraction change only at chip ticks, at least 384 clocks apart.
+   // Pipeline arithmetic before the comparator to meet the 96-MHz engine.
+   clock_before_last<=clock_period-2;
+   fraction_sum<={1'b0,clock_fraction}+{1'b0,clock_divider[15:0]};
+   if(clock_terminal)begin
+    clock_count<=0;
+    if(divider_sync[1]!=divider_seen)begin
+     clock_divider<=divider_value;clock_period<=divider_value[31:16];clock_fraction<=0;
+     divider_seen<=divider_sync[1];
+    end else begin
+     clock_fraction<=fraction_sum[15:0];
+     clock_period<=clock_divider[31:16]+fraction_sum[16];
+    end
+   end else begin
+    // Independent nibble counters keep the initialization enable out of a
+    // sixteen-bit ripple chain. Carries come from the previous count.
+    clock_count[3:0]<=clock_count[3:0]+1'b1;
+    clock_count[7:4]<=clock_count[7:4]+(&clock_count[3:0]);
+    clock_count[11:8]<=clock_count[11:8]+(&clock_count[7:0]);
+    clock_count[15:12]<=clock_count[15:12]+(&clock_count[11:0]);
+   end
    // Look ahead by one fast edge: this flag is true exactly when count is
-   // 383. Keep the nine-bit comparison out of the EBR write-data mux path.
-   clock_terminal<=clock_count==382;
+   // The divider is applied only at a chip-tick boundary. Period writes do
+   // not restart tone/noise/envelope or form a shortened chip tick.
+   clock_terminal<=clock_count==clock_before_last;
    if(service_write)begin
     write_seen<=write_token;
     if(write_address==13)env_dirty<=1;

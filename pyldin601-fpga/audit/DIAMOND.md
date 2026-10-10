@@ -1,3 +1,57 @@
+# Автоповтор клавиатуры, 11 октября 2026
+
+Diamond 3.14 завершил synthesis, MAP, PAR, TRACE и Jedecgen:
+5336/6864 LUT, 2679/3432 slices, 2187/7209 registers, 24/26 EBR, 1/2 PLL.
+Относительно предыдущей аудиосборки: −6 LUT, −3 slices; количество
+регистров, EBR и PLL прежнее. Свободны 1528 LUT, 753 slices,
+5022 registers, две EBR и одна PLL.
+
+Setup/hold cumulative negative slack=0, unconstrained paths=0.
+SRAM→CPU: 22,260 нс при бюджете 27 нс, запас 4,740 нс.
+96-МГц ограничение сохранено; минимальный запас 0,137 нс.
+Seed 4 после изменения клавиатуры нарушал путь PAL EBR→ham_sample
+на 0,028 нс; seed 5 проходит без изменения ограничений и логики PAL/SRAM.
+EDIF/INITVAL-аудит PAL и AY прошёл.
+
+JED: `build/diamond/keyboard-repeat/pyldin601_classic_impl1.jed`, SHA-256
+`4d362fba08c324d0ba55e4fffc42ec24d40633fa1c4040d735f73882021761af`.
+90 замороженных входов: `source-keyboard-repeat-seed5.tar.gz` и
+`.sha256.json`, Linux `/tmp/p601-keyboard-repeat-seed5`.
+По сравнению с установленной аудиосборкой изменились только Makefile,
+PAR seed и `rtl/classic_keyboard.v`; первичный BIOS и ROM остались теми же.
+[Причина и регрессии](KEYBOARD.md). FPGA записана с успешным Flash Verify
+11 октября 2026; HG восстановлен. [Протокол](HARDWARE.md).
+
+## Предыдущая сборка: программируемый AY
+
+# Программируемый AY и музыкальный IRQ, 10 октября 2026
+
+Diamond 3.14 завершил synthesis, MAP, PAR, TRACE и Jedecgen:
+5342/6864 LUT, 2682/3432 slices, 2187/7209 registers, 24/26 EBR, 1/2 PLL.
+Свободны 1522 LUT, 750 slices, 5022 registers, две EBR и одна PLL.
+Относительно страничной RAM: +342 LUT, +174 slices, +300 registers;
+EBR и PLL не прибавились. Делитель Q16 и таймер используют существующие
+96/24-МГц тактовые домены. Счётчик AY разделён на четыре короткие цепочки,
+сравнение и перенос дробной части подготовлены заранее; Reset двигателя
+регистрируется в 96-МГц домене.
+
+Setup/hold cumulative negative slack=0, unconstrained paths=0.
+Все ограничения SRAM, включая INPUT_SETUP 8 нс и SRAM→CPU 27 нс,
+сохранены. PAR seed 3 нарушал один путь SRAM_DATA[13]→boot_result[5]
+на 0,099 нс; seed 4 проходит без изменения RTL памяти или ограничений.
+JED: `build/diamond/programmable-audio/pyldin601_classic_impl1.jed`, SHA-256
+`45f3ebb0663cc5a602faa8e1de8bc84ced1fecdf6f40143c4e16635dfe6fa664`.
+Заморожены и сверены 90 входов: `source-programmable-audio-seed4.tar.gz`
+и `.sha256.json`; Linux `/tmp/p601-programmable-audio-seed4`.
+EDIF/INITVAL-аудит PAL и AY прошёл. Подробности проверок CPU/BIOS
+и файлового декодера — [AUDIO-PLAYER.md](AUDIO-PLAYER.md).
+Оба BIOS 601/601А записаны на физическую SD и проверены O_DIRECT;
+готовый SD-образ обновлён. FPGA прошита, FLASH Verify и JTAG Chain — PASS;
+HG восстановлен. Пользователь подтвердил музыку и управление YPLAY
+на обеих моделях 601/601А.
+
+## История: HAM8, прямой SD и AY
+
 # HAM8, прямой SD и AY, 9 октября 2026
 
 Итоговый кандидат Diamond 3.14: 5542/6864 LUT, 2782/3432 slices,

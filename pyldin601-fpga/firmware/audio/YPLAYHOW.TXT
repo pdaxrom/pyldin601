@@ -1,0 +1,42 @@
+LILITH YPLAY - HD6303 AY-3-8910 MUSIC PLAYER
+
+YPLAY filename [/L] [/A|C|S|M]
+Example: B:YPLAY B:DEMO.YM /L
+HG: B:HG, then D:YPLAY D:DEMO.YM /L
+Use the drive letter reported by HG.
+
+SPACE pauses/resumes; ESC stops and returns to UniDOS.
+ESC also cancels loading, decompression and validation.
+/L repeats (YM loop point; PSG from the beginning).
+
+Supported original files:
+  YM3 / YM3b / YM5 / YM6, raw or LHA level 0 -lh0-/-lh5-.
+  PSG register logs: 50 or 60 Hz, FF/FE delays and FD end.
+No host conversion: LH5 decompression runs on the HD6303.
+
+YM5/6: 1..100 Hz, frame-major or register planes.
+Supported clocks: 2 MHz, 1 MHz, 1773400 and 1789773 Hz.
+PSG has no chip clock field: default is ZX Spectrum.
+  /A Atari ST 2 MHz    /C Amstrad CPC 1 MHz
+  /S ZX Spectrum      /M MSX
+Clock options apply to PSG; YM uses its own header.
+The hardware AY clock follows the file; register periods are unchanged.
+R13=FF does not retrigger the envelope.
+
+Not supported: digidrums, Atari MFP/SID effects, YM2/YM4,
+LHA header levels 1/2, LH1/LH6/LH7, VTX and VGM.
+Such files are rejected before playback.
+
+Needs HD6303, paged RAM, updated 601/601A BIOS and audio FPGA.
+The decompressed original file must fit in 888 KiB.
+Loading uses expansion RAM; previous data there is replaced.
+Conventional RAM footprint is about 17 KiB plus DOS buffers.
+8 MHz is recommended for loading; playback works at 1/2/4/8.
+Playback uses its own hardware INT E4 timer at the file frame rate.
+A 16-frame queue keeps decoding and bank reads out of IRQ.
+The native PAL 50-Hz clock and keyboard keep running.
+INT E4 vector, AY clock, timer period and pages are restored on exit.
+
+DEMO.YM is the original three-channel AY scale, 7.5 seconds.
+DEMOH5.YM contains the same song compressed with standard LH5.
+YPLAY.ASM, YMREAD.INC and LHA5.INC are built with real UniAS.

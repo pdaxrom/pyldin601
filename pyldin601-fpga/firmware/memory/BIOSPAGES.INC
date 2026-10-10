@@ -2,7 +2,37 @@
 ; on the interrupted stack, including nested SWI/IRQ/NMI. Vector page zero
 ; preserves BOTH registers. Nonzero vectors use their native page in group 0.
 ; Based on the original BIOS.ASM SWI register exchange and call convention.
-    global paged_irq,paged_swi
+    global paged_irq,paged_swi,audio_irq_dispatch,audio_irq_rti
+; New audio hardware has a latched, separately acknowledged IRQ. Check the
+; signature first so these ROMs remain safe with an older FPGA (open bus FF).
+; INT E4 is its vector; native INT05 remains exactly the PAL system tick.
+audio_irq_dispatch
+    ldaa $e691
+    cmpa #$59
+    bne audio_irq_native
+    ldaa $e690
+    bpl audio_irq_native
+    ldaa #3
+    staa $e690
+    ldab swipag+$72
+    lsrb
+    lsrb
+    lsrb
+    lsrb
+    ldx swivec+$1c8
+    jmp paged_irq
+audio_irq_native
+    ; Service a latched PAL tick before keyboard soundkey reads PIACRB.
+    ; Otherwise a simultaneous key IRQ can acknowledge and lose the tick.
+    tst $e62b
+    bpl audio_irq_keyboard
+    tst $e629
+    ldab swipag+2
+    ldx swivec+10
+    jmp paged_irq
+audio_irq_keyboard
+    ldab swipag+4
+    jmp audio_native_irq
 paged_irq
     ldaa rompage
     psha
@@ -22,6 +52,7 @@ irq_return
     staa $e6f1
     pula
     staa rompage
+audio_irq_rti
     rti
 
 paged_swi

@@ -1,14 +1,16 @@
 """Restore native DOS registers with an RTI trampoline; no runtime RTL patch."""
 from pathlib import Path
-import argparse,importlib.util,json
+import argparse,json,os,sys
 root=Path(__file__).parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--prefix',default='runtime',choices=['runtime','session','keyboard','hgdisk'])
 parser.add_argument('--speed',type=int,choices=range(4))
+parser.add_argument('--unias',default=os.environ.get('UNIAS','unias'))
+parser.add_argument('--music-irq',action='store_true')
 args=parser.parse_args()
 prefix=args.prefix
-spec=importlib.util.spec_from_file_location('asm',root/'tools/asm6800.py')
-asm=importlib.util.module_from_spec(spec);spec.loader.exec_module(asm)
+sys.path.insert(0,str(root/'tools'))
+from build_partitions import assemble
 ctx=json.loads((root/f'build/{prefix}-context.json').read_text())
 config=bytearray((root/f'build/{prefix}-config.bin').read_bytes());config[20:24]=bytes(4)
 source='''org $f000
@@ -27,11 +29,16 @@ decb
 bne send
 jmp $e000
 config:
-'''+ 'db '+','.join(f'${v:02x}' for v in config)+'\norg $fff8\ndw $f000,$f000,$f000,$f000\n'
+'''+ ''.join('db '+','.join(f'${v:02x}' for v in config[i:i+16])+'\n'
+             for i in range(0,len(config),16))+'ds $fff8-*,0\ndw $f000,$f000,$f000,$f000\n'
 if ctx.get('model_a',0) or args.speed is not None:
     setting=ctx.get('model_a',0)|((args.speed or 0)<<2)
     source=source.replace('ldaa #$40',f'ldaa #{setting}\nstaa $e6a0\nldaa #$40',1)
-boot,_=asm.assemble(source,0xf000,4096)
+out=root/'build/runtime-assembly';out.mkdir(exist_ok=True)
+(out/'BOOT.ASM').write_text('\n'.join(line[:-1] if line.endswith(':') else '    '+line
+                                    for line in source.splitlines())+'\n    end\n')
+boot=assemble(args.unias,out,'BOOT.ASM','BOOT.BIN')
+assert len(boot)==4096
 (root/f'build/{prefix}-boot.mem').write_text(''.join(f'{v:02x}\n' for v in boot))
 ram=bytearray((root/f'build/{prefix}-ram.bin').read_bytes())
 # RTI pull order: CC, B, A, X hi/lo, PC hi/lo, above the decremented SP.
@@ -39,9 +46,23 @@ frame=bytes([ctx['cc'],ctx['b'],ctx['a'],ctx['x']>>8,ctx['x']&255,ctx['pc']>>8,c
 ram[ctx['sp']-6:ctx['sp']+1]=frame
 restore=['org $e000','ldaa #$a5','staa $e6a0',f"ldaa #${ctx['page']:02x}",'staa $e6f0',f"ldaa #${ctx['mode']:02x}",'staa $e629']
 for reg,value in enumerate(ctx['crtc']):restore += [f'ldaa #{reg}','staa $e600',f'ldaa #{value}','staa $e601']
+if args.music_irq:
+    # Exercise production audio/PAL/keyboard dispatch together. This tiny
+    # MC6800 handler only counts callbacks; YPLAY is tested separately.
+    restore += ['ldx #$e100','stx $efc8','ldaa $edf2','anda #$0f','staa $edf2',
+                'ldx #0','stx $e180','ldx #$0003','stx $e692',
+                'ldx #$a980','stx $e694','ldaa #1','staa $e696','staa $e690']
 restore += [f"lds #${ctx['sp']-7:04x}",'rti']
-trampoline,_=asm.assemble('\n'.join(restore),0xe000)
+restore += ['end']
+(out/'RESTORE.ASM').write_text('\n'.join('    '+line for line in restore)+'\n')
+trampoline=assemble(args.unias,out,'RESTORE.ASM','RESTORE.BIN')
+assert len(trampoline)<256
 ram[0xe000:0xe000+len(trampoline)]=trampoline
+if args.music_irq:
+    (out/'MUSIC.ASM').write_text('    org $e100\n    ldx $e180\n    inx\n    stx $e180\n    rts\n    end\n')
+    handler=assemble(args.unias,out,'MUSIC.ASM','MUSIC.BIN')
+    ram[0xe100:0xe100+len(handler)]=handler
+    ram[0xe180:0xe182]=bytes(2)
 rom='rom-a.reference' if ctx.get('model_a',0) else 'rom.reference'
 physical=ram+(root/f'build/{rom}').read_bytes()[512:]
 (root/f'build/{prefix}-sram.mem').write_text(''.join(f'{physical[j+1]:02x}{physical[j]:02x}\n' for j in range(0,len(physical),2)))

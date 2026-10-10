@@ -59,6 +59,12 @@ def monitor_frame(unias,out,native):
 def paging_bios(source, symbols, model):
     # Relocate the dispatch into the now-unused floppy routine. Trampolines
     # and explicit pads retain ALL native BIOS public addresses and vectors.
+    # Replace only the first three-byte instruction of IRQ entry; the native
+    # keyboard/timer dispatcher and all absolute BIOS entry points stay put.
+    entry='irqhndl\n\t\tldab\tswipag+4'
+    if source.count(entry)!=1:raise ValueError('cannot locate native IRQ entry')
+    source=source.replace(entry,'irqhndl\n\t\tjmp\taudio_irq_dispatch',1)
+    source=f'audio_native_irq equ ${symbols["IRQHNDL"]+3:04x}\n'+source
     start=source.index('irqhndl1\tldaa\trompage')
     end=source.index('\t\tendp',start)
     source=source[:start]+('irqhndl1\tjmp\tpaged_irq\n'

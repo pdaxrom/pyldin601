@@ -1,6 +1,6 @@
 ; INT E0: common FPGA BIOS services. A selects the function. Results in A:
 ; 0 success, 1 bad arguments, 2 hardware error/timeout, 3 HD6303 required.
-; Function 0: A=API version (1), B=feature bits (indexed/HAM8/blitter/AY).
+; Function 0: A=API version (1), B=features (indexed/HAM8/blitter/AY/audio IRQ).
 ; 1 mode B=0/native,1/indexed,7/HAM8 (caller supplies HAM component tables).
 ; 2 present B=frame page (0..15), waits until vblank flip completes.
 ; 3 blit X=11-byte RAM descriptor: cmd,key,srcpage,dstpage,srcBE,dstBE,wBE,h.
@@ -37,7 +37,7 @@ service_not_frame
 service_info
     ldaa #1
     staa SWIA
-    ldab #15
+    ldab #31
     stab SWIB
     rts
 service_bad

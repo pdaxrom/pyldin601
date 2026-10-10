@@ -93,7 +93,8 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  assign cpu_clk=cpu_clock;
  reg tick_pending;
  wire keyboard_irq;
- assign cpu_irq=(tick_pending||keyboard_irq)&&!boot_mode;
+ wire music_irq;
+ assign cpu_irq=(tick_pending||keyboard_irq||music_irq)&&!boot_mode;
  (* syn_ramstyle = "block_ram" *) reg[7:0]boot_rom[0:8191];
  reg[7:0]boot_byte;
  initial $readmemh(BOOT_FILE,boot_rom);
@@ -105,6 +106,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire hg_io=cpu_addr[15:2]==14'h399c;
  wire gfx_io=cpu_addr[15:4]==12'he65;
  wire ay_io=cpu_addr[15:4]==12'he61;
+ wire audio_control_io=cpu_addr[15:4]==12'he69;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
  wire timer_io=cpu_addr==16'he62b;
@@ -112,11 +114,15 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he683
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
- wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||crtc_io||keyboard_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
- wire[7:0]ay_result;wire ay_audio;
- reg[7:0]page,mode;reg caps_off,speaker;
- classic_ay8910 ay(clk,clk_fast,cpu_reset,bus_write&&ay_io,cpu_addr[3:0],cpu_out,ay_result,ay_audio,speaker);
  wire[20:0]legacy_address,mapped_address;wire ignored_io,invalid_ram_window;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||audio_control_io||crtc_io||keyboard_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
+ wire[7:0]ay_result;wire ay_audio;
+ wire[7:0]audio_control_result;wire divider_update,divider_seen;wire[31:0]divider_value;
+ reg[7:0]page,mode;reg caps_off,speaker;
+ classic_audio_control audio_control(clk,cpu_reset,bus_read&&audio_control_io,bus_write&&audio_control_io,
+  cpu_addr[3:0],cpu_out,audio_control_result,music_irq,divider_update,divider_value,divider_seen);
+ classic_ay8910 ay(clk,clk_fast,cpu_reset,bus_write&&ay_io,cpu_addr[3:0],cpu_out,ay_result,ay_audio,speaker,
+  divider_update,divider_value,divider_seen);
  wire[7:0]ram_page_result;
  classic_memory_map map(cpu_addr,!cpu_rw,page,legacy_address,ignored_io);
  classic_ram_pages ram_pages(clk,cpu_reset,!boot_mode,
@@ -217,6 +223,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   else if(spi_io)peripheral_data=raw_result;
   else if(hg_io)peripheral_data=hg_result;
   else if(ay_io)peripheral_data=ay_result;
+  else if(audio_control_io)peripheral_data=audio_control_result;
   else if(gfx_io)peripheral_data=cpu_addr[3:0]==14&&palette_read_mode?{2'b0,palette_result}:gfx_result;
   else if(crtc_io)peripheral_data=video_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);

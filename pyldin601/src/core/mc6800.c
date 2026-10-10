@@ -531,6 +531,7 @@ int MC6800Step(void)
 	MC6800MemWriteByte(SP--, B);
 	MC6800MemWriteByte(SP--, t);
 	PC = MC6800MemReadByte(0xfff8)<<8; PC |= MC6800MemReadByte(0xfff9);
+	i = 1;
 	IRQrequest = 0;
 	mc6800_global_takts += 12;
 	return 12;

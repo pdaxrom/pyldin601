@@ -9,6 +9,9 @@ static void (*native_step_hook)(void);
 static void until(uint64_t target){
  while(virtual_cycles<target){
   if(virtual_cycles>=next_irq){tick=128;KBDUpdate();MC6800SetInterrupt(1);irq_count++;next_irq+=20000;}
+  // Like the board, PAL and unread keyboard events hold IRQ until ACK.
+  // Do not read KBDCheckKey here: it toggles the PIA handshake.
+  if(!i&&(tick||(keyReady&&!keyConsumed)))MC6800SetInterrupt(1);
   if(watch_resets&&PC==0xf006)resets++;
   if(native_step_hook)native_step_hook();
   int cycles=MC6800Step();virtual_cycles+=cycles>0?cycles:1;

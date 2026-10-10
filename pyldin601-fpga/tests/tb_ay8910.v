@@ -5,7 +5,7 @@ module tb_ay8910;
  always #20.833 clk=~clk;
  always #5.20825 fast=~fast;
  reg[3:0]address=0;reg[7:0]data=0;wire[7:0]result;wire audio;
- classic_ay8910 dut(clk,fast,reset,write,address,data,result,audio,beeper);
+ classic_ay8910 dut(clk,fast,reset,write,address,data,result,audio,beeper,1'b0,32'h01800000,);
 `ifdef SYNTHESIS
  GSR GSR_INST(1'b1);PUR PUR_INST(1'b1);
 `endif
