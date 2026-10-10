@@ -18,6 +18,69 @@ def assemble(unias,out,source,output,defines=()):
 def data_source(data):
     return ''.join('    db '+','.join(f'${n:02x}' for n in data[k:k+16])+'\n' for k in range(0,len(data),16))
 
+def bios_symbols(listing):
+    return {name:int(value,16) for name,value in
+            re.findall(r'^([A-Z][A-Z0-9_]*) =\$([0-9A-F]+)$',listing,re.M)}
+
+def shift_frame_operands(source, label, replacements):
+    """Adjust native routines which directly inspect the SWI stack frame."""
+    start=re.search(r'^'+label+r'\s*(?:proc\b)?',source,re.M)
+    if not start:raise ValueError('cannot locate native frame consumer: '+label)
+    end=source.index('\t\tendp',start.end())
+    body=source[start.start():end]
+    for old,new in replacements:
+        if body.count(old)!=1:raise ValueError('unexpected frame operand in '+label+': '+old)
+        body=body.replace(old,new)
+    return source[:start.start()]+body+source[end:]
+
+def monitor_frame(unias,out,native):
+    # The supplied UniBIOS binary differs from UNIBIOS.ASM. Retain every native
+    # instruction/address and font byte; assemble only the two changed sites.
+    from make_sd import rom_files
+    rom=rom_files(native)['ROM0.BIN'][:8192]
+    signature=b'\x31'*10+b'\x7a\x00\x00\x8d'
+    if rom.count(signature)!=1:raise ValueError('cannot locate native monitor frame unwind')
+    unwind=rom.index(signature);entry=unwind-15
+    if rom[entry:entry+3]!=bytes.fromhex('30ee08') or rom[unwind+15]!=0x7e:
+        raise ValueError('unexpected native monitor breakpoint')
+    displacement=rom[unwind+14];displacement-=256 if displacement>=128 else 0
+    regdump=0xc000+unwind+15+displacement
+    loop=int.from_bytes(rom[unwind+16:unwind+18],'big')
+    (out/'MONLAYOUT.INC').write_text(f'MON_REGDUMP equ ${regdump:04x}\nMON_LOOP equ ${loop:04x}\npaged_breakpoint_return equ $f800\n')
+    for name,data in [('MONPREFIX.INC',rom[:entry]),('MONBODY.INC',rom[entry+3:unwind]),
+                      ('MONTEXT.INC',rom[unwind+3:6143]),('MONFONT.INC',rom[6144:])]:
+        (out/name).write_text(data_source(data))
+    data=assemble(unias,out,'MONPAGES.ASM','UNIBIOS.ROM')
+    if len(data)!=8192 or sum(data)%256:raise ValueError('invalid paging monitor ROM')
+    changed={entry+2,*range(unwind,unwind+3),6143}
+    if any(a not in changed and data[a]!=rom[a] for a in range(8192)):
+        raise ValueError('unrelated native monitor bytes changed')
+
+def paging_bios(source, symbols, model):
+    # Relocate the dispatch into the now-unused floppy routine. Trampolines
+    # and explicit pads retain ALL native BIOS public addresses and vectors.
+    start=source.index('irqhndl1\tldaa\trompage')
+    end=source.index('\t\tendp',start)
+    source=source[:start]+('irqhndl1\tjmp\tpaged_irq\n'
+             f'\t\tds\t${symbols["SWIHNDL"]:04x}-*,1\n')+source[end:]
+    match=re.search(r'^swihndl\s+proc\b.*?^\s*endp\b',source,re.M|re.S)
+    if not match:raise ValueError('cannot locate native SWI dispatcher')
+    source=source[:match.start()]+('swihndl\tproc\n\t\tjmp\tpaged_swi\n'
+             f'\t\tds\t${symbols["RESET"]:04x}-*,1\n\t\tendp')+source[match.end():]
+    match=re.search(r'^int17\s+proc\b.*?^\s*endp\b',source,re.M|re.S)
+    if not match:raise ValueError('cannot locate unused native floppy routine')
+    stop=symbols['RS232C' if model=='BIOS' else 'INT20']
+    source=source[:match.start()]+('int17\tproc\n\t\tsei\n\t\tldaa\t#1\n\t\trts\n'
+             '\t\tinclude\tBIOSPAGES.INC\n'
+             '\t\tds\t$f800-*,$ff\n\t\tinclude\tMONRETURN.INC\n'
+             f'\t\tds\t${stop:04x}-*,$ff\n\t\tendp')+source[match.end():]
+    source=shift_frame_operands(source,'int_37',[
+        ('stab\t2,x','stab\t3,x'),('stab\t8,x','stab\t9,x'),
+        ('staa\t9,x','staa\t10,x'),('ldaa\t3,x','ldaa\t4,x'),
+        ('ldab\t4,x','ldab\t5,x'),('ldaa\t5,x','ldaa\t6,x'),
+        ('ldx\t6,x','ldx\t7,x')])
+    return source
+
 def build(unias):
     unias=shutil.which(unias) or str(Path(unias).resolve())
     out=ROOT/'build/partitions';out.mkdir(exist_ok=True,parents=True)
@@ -27,6 +90,9 @@ def build(unias):
     for n in ('DIRECTSD.ASM','RAWSD.ASM','SERVICES.ASM'):shutil.copyfile(ROOT/'firmware/extension'/n,out/n)
     shutil.copyfile(ROOT/'firmware/gfx/GFXCLIP.ASM',out/'GFXCLIP.ASM')
     shutil.copyfile(native/'MEMORY.INC',out/'MEMORY.INC')
+    for p in (ROOT/'firmware/memory').glob('*'):
+        if p.is_file():shutil.copyfile(p,out/p.name)
+    monitor_frame(unias,out,ROOT.parent/'native')
     shell=(native/'UNIDOS.ASM').read_text(encoding='latin1')
     shell=shell.replace('\t\tclr\tfdcslct\n\t\tinc\tfdcslct\n','')
     a=shell.index('\nver_ok\n')+len('\nver_ok\n');b=shell.index('floppyok\tclr\tlast_drive',a)
@@ -38,6 +104,9 @@ def build(unias):
     new="\t\tsbcb\tbuff_ptr\n\t\tsuba\t#0\n\t\tsbcb\t#2\n\t\tbcs\tcopy_no_memory\n\t\tandb\t#$FE\n\t\tbne\tmem_ok\ncopy_no_memory\n"
     if shell.count(old)!=1:raise ValueError('cannot locate native COPY stack budget')
     shell=shell.replace(old,new)
+    shell=shift_frame_operands(shell,'terminate',[
+        ('staa\tx, 2','staa\tx, 3'),('staa\tx, 9','staa\tx, 10'),
+        ('staa\tx, 8','staa\tx, 9')])
     (out/'SHELL.ASM').write_text(shell,encoding='latin1')
     shell_data=assemble(unias,out,'SHELL.ASM','SHELL.CMD')
     split=8000
@@ -74,7 +143,7 @@ shell_bytes
     ds $e000-*,$ff
     end
 ''')
-    built={}
+    built={'UNIBIOS.ROM':8192}
     for src,name,defines in [('DIRECTSD.ASM','SD.ROM',('-D','GFXCLIP_ROM')),('SHELLROM.ASM','SHELL.ROM',()),('PARTS.ASM','PARTS.ROM',())]:
         data=assemble(unias,out,src,name,defines)
         if len(data)!=8192 or sum(data)%256:raise ValueError('invalid checksummed ROM: '+name)
@@ -85,6 +154,7 @@ shell_bytes
         source=(native/(model+'.ASM')).read_text(encoding='latin1')
         (out/(model+'.ASM')).write_text(source,encoding='latin1')
         original=assemble(unias,out,model+'.ASM',model+'-BASE.ROM')
+        symbols=bios_symbols((out/(model+'-BASE.ROM.LST')).read_text(encoding='latin1'))
         # The native source disables listings inside the reset procedure.
         # Its fallback loop is INT 1; BRA back to INT 1. Locate that unique
         # sequence in the assembled original so later entry points stay fixed.
@@ -95,9 +165,16 @@ shell_bytes
         start=source.index('\t\tcli\n\t\tldaa\tfdcstat')
         end=source.index('nofloppy\nresetloop',start)
         source=source[:start]+f'\t\tcli\n\t\tldaa\t#7\n\t\tint\t$e1\n\t\tds\t${limit:04x}-*,1\n'+source[end:]
+        source=paging_bios(source,symbols,model)
+        layout=(out/'MONLAYOUT.INC').read_text().replace('paged_breakpoint_return equ $f800\n','')
+        source=layout+source
         (out/(model+'.ASM')).write_text(source,encoding='latin1')
         data=assemble(unias,out,model+'.ASM',model+'.ROM')
         if len(data)!=4096 or sum(data)%256:raise ValueError('invalid system BIOS')
+        updated=bios_symbols((out/(model+'.ROM.LST')).read_text(encoding='latin1'))
+        for name,address in symbols.items():
+            if name in updated and updated[name]!=address:
+                raise ValueError(f'native BIOS address moved: {model} {name}')
         built[model+'.ROM']=len(data)
     (out/'manifest.json').write_text(json.dumps(dict(assembler=unias,roms=built,shell_bytes=len(shell_data)),indent=2)+'\n')
     print('UniAS partition ROMs built: '+', '.join(built))

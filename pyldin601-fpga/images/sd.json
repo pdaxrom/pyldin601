@@ -2,7 +2,7 @@
   "date": "2026-10-10",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "b7e68bbaa6cfd78f31504d78e7347b8188d0a6467fa97a9bb6165df74971dda1",
+  "sha256": "cd257910e4376559bcd5abdf407e67ab0b22a40437787ce037a094cf18728ee9",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -12,7 +12,6 @@
   ],
   "matches_physical_card_readback": false,
   "installed_on_physical_board": true,
-  "fpga_jed_sha256": "6668b44f19303065f73dd1b1444f577de67de1e727f16f0e6d8a49f89d29a9cb",
   "partitions": [
     {
       "number": 1,
@@ -20,11 +19,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "cb9aa5a0e3fc62bbc36fd0c86af58fee961fd740ff4b091e28b3f76f5ab280d5",
+      "sha256": "a5d4528ee8ddf68e549f424d15f655253a6521b136d458aa69ce4f14cf8530a0",
       "files": {
         "P601.ROM": {
           "bytes": 72192,
-          "sha256": "ec26bd55baf3b2864e4f06e3007052f59bc0e5a76728328d1d30f3c79b5fef76"
+          "sha256": "8d4ea55f460b5033e8561922a5490534bee763fabf131969ffc23965c887cadb"
         },
         "LOADER.BIN": {
           "bytes": 406,
@@ -36,7 +35,7 @@
         },
         "P601A.ROM": {
           "bytes": 72192,
-          "sha256": "5b87468062a5389824f4b41293d33990df2e6dd55365dcdd80bdc4d202694091"
+          "sha256": "042ba30484909457a8b31c31bc72f31726d646460872ab6a09f7a1c540ea226e"
         },
         "P601.SET": {
           "bytes": 16,
@@ -112,7 +111,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "c5031d5cb37895747db55821c0220fdd453753d275e7429b28b298299e2c69d7",
+      "sha256": "881fe55afd0916ee4be2ebe3a4a4fe49d20d63a60663eb2f46955a2a310ffa06",
       "files": {
         "HDMUL.ASM": {
           "bytes": 2923,
@@ -269,6 +268,18 @@
         "LENA.IFF": {
           "bytes": 49290,
           "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
+        },
+        "RAMPAGE.PGM": {
+          "bytes": 1257,
+          "sha256": "8032fa4640747ad64262218aed64d736da7fcdce351fd70c2f94fba59e8349a8"
+        },
+        "RAMPAGE.ASM": {
+          "bytes": 5824,
+          "sha256": "753f45a7ebd75c5e5426f58291f0b76485d0da3804a7c8a3763b37a53107e917"
+        },
+        "RAMHOW.TXT": {
+          "bytes": 812,
+          "sha256": "9e74f877fcbb285ef05d78906c51ae9348366dda2b223c38fa54d5d9a861fb36"
         }
       }
     },
@@ -553,11 +564,11 @@
     "fpga_flash_verify": true,
     "hg_service_restored": true,
     "physical_boot_verified": true,
-    "note": "Generic sd.img is not a byte-for-byte copy of the shared card.",
+    "note": "Historical native-partition installation; current paged-RAM ROMs and FPGA were installed separately as recorded in paged_ram_installation.",
     "user_confirmation": {
       "date": "2026-10-10",
       "source": "user reply to hardware verification request",
-      "user_reply": "\u0434\u0430, \u043f\u0440\u043e\u0433\u043d\u0430\u043b \u0432\u0441\u0435 \u0434\u0435\u043c\u043e \u043f\u0440\u043e\u0433\u0438 \u0438 gd, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!",
+      "user_reply": "да, прогнал все демо проги и gd, работает!",
       "requested_checks": [
         "boot",
         "DIR A:/B:/C:",
@@ -572,5 +583,135 @@
       "physical_boot_verified": true,
       "all_models_and_frequencies_verified": false
     }
-  }
+  },
+  "paged_ram": {
+    "window": "C000-DFFF",
+    "page_register": "E6F0",
+    "group_register": "E6F1",
+    "pages": 111,
+    "page_bytes": 8192,
+    "bytes": 909312,
+    "irq_nmi_swi_preserve_both_registers": true,
+    "swi_frame_consumers": [
+      "BIOS INT37",
+      "UniDOS INT38",
+      "UniBIOS breakpoint"
+    ],
+    "diagnostic": {
+      "program": "B:RAMPAGE",
+      "pgm_bytes": 1257,
+      "pgm_sha256": "8032fa4640747ad64262218aed64d736da7fcdce351fd70c2f94fba59e8349a8",
+      "checks": [
+        "all 111 banks / all bytes",
+        "address/bank pattern and inversion",
+        "invalid groups and slots",
+        "SWI and 50-Hz IRQ context",
+        "ESC cleanup"
+      ],
+      "tested_models": [
+        "601",
+        "601A"
+      ],
+      "tested_isa": [
+        "MC6800",
+        "HD6303"
+      ]
+    }
+  },
+  "previous_fpga_jed_sha256": "6668b44f19303065f73dd1b1444f577de67de1e727f16f0e6d8a49f89d29a9cb",
+  "prepared_fpga_jed_sha256": "44ddf9e2884df7a7d8c94bb3ddfe9695a68170674046ce83f007f78d3d7b7847",
+  "diagnostic_installation": {
+    "drive": "B",
+    "start_lba": 36864,
+    "sectors": 2880,
+    "input_sha256": "d97972668e957bc4b6af46bcf3cf1bd7803e24171858f23eb38cbba1d8cd0e72",
+    "output_sha256": "cd257910e4376559bcd5abdf407e67ab0b22a40437787ce037a094cf18728ee9",
+    "mbr_and_other_partitions_preserved": true,
+    "files": {
+      "RAMPAGE.PGM": {
+        "bytes": 1257,
+        "sha256": "8032fa4640747ad64262218aed64d736da7fcdce351fd70c2f94fba59e8349a8"
+      },
+      "RAMPAGE.ASM": {
+        "bytes": 5824,
+        "sha256": "753f45a7ebd75c5e5426f58291f0b76485d0da3804a7c8a3763b37a53107e917"
+      },
+      "RAMHOW.TXT": {
+        "bytes": 812,
+        "sha256": "9e74f877fcbb285ef05d78906c51ae9348366dda2b223c38fa54d5d9a861fb36"
+      }
+    }
+  },
+  "paged_ram_installation": {
+    "date": "2026-10-10",
+    "sd_installed": true,
+    "fpga_programmed": true,
+    "physical_ram_test_verified": true,
+    "backup": "/Storage2/pyldin601-backups/20261010-ram-pages/card-before.img",
+    "backup_sha256": "e175788068721958adef28578d20fbbd71d0d0f8302f327056f240c8654e87b9",
+    "card_bytes": 7988051968,
+    "settings_preserved": true,
+    "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+    "mbr_ebr_preserved": true,
+    "existing_b_files_preserved": true,
+    "preserved_partitions": [
+      2,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "rom_files": {
+      "P601.ROM": "8d4ea55f460b5033e8561922a5490534bee763fabf131969ffc23965c887cadb",
+      "P601A.ROM": "042ba30484909457a8b31c31bc72f31726d646460872ab6a09f7a1c540ea226e"
+    },
+    "diagnostic_files": {
+      "RAMPAGE.PGM": "8032fa4640747ad64262218aed64d736da7fcdce351fd70c2f94fba59e8349a8",
+      "RAMPAGE.ASM": "753f45a7ebd75c5e5426f58291f0b76485d0da3804a7c8a3763b37a53107e917",
+      "RAMHOW.TXT": "9e74f877fcbb285ef05d78906c51ae9348366dda2b223c38fa54d5d9a861fb36"
+    },
+    "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+    "note": "Paired ROMs and diagnostic installed on SD; FPGA programmed and FLASH Verify passed. User confirmed all requested RAMPAGE checks passed on the physical board.",
+    "fpga_flash_verify": true,
+    "fpga_verify_id": true,
+    "fpga_programmed_date_utc": "2026-10-10T11:44:05.479544+00:00",
+    "fpga_jed_sha256": "44ddf9e2884df7a7d8c94bb3ddfe9695a68170674046ce83f007f78d3d7b7847",
+    "fpga_source_manifest_verified": true,
+    "fpga_inputs_verified": 36,
+    "hg_service_restored": true,
+    "physical_boot_verified": true,
+    "program_protocol": "build/hardware-ram-pages/program-result.json",
+    "user_confirmation": {
+      "date": "2026-10-10",
+      "source": "user reply to RAMPAGE hardware verification request",
+      "user_reply": "готово, все PASS",
+      "requested_checks": [
+        "B:RAMPAGE at 1/2/4/8 MHz",
+        "nonzero IRQ counter",
+        "ESC cleanup",
+        "DIR A:/B:/C: after test"
+      ],
+      "physical_ram_test_verified": true,
+      "ram_bytes": 909312,
+      "ram_banks": 111,
+      "cpu_mhz": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "model": null,
+      "hd6303_extension": null,
+      "all_models_and_isa_verified": false
+    }
+  },
+  "fpga_jed_sha256": "44ddf9e2884df7a7d8c94bb3ddfe9695a68170674046ce83f007f78d3d7b7847"
 }

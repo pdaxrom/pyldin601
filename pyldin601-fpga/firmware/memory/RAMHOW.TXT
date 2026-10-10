@@ -1,0 +1,16 @@
+RAMPAGE.PGM - expansion RAM test (MC6800 / HD6303)
+
+Run B:RAMPAGE. Repeat at 1, 2, 4 and 8 MHz, or change frequency
+with a short press of Reset while the test runs.
+
+Writes and checks all 111 pages (888 KiB) with an address/bank
+pattern, inverts it, then checks again. Tests invalid groups,
+invalid slots, main-memory alias pages 0/7, and SWI/IRQ context.
+The 50-Hz probe deliberately changes E6F0/E6F1, chains the native
+timer, and restores the original handler on completion or ESC.
+PASS includes a nonzero hexadecimal IRQ counter. Failure reports
+phase (00 write / 01 invert / 02 read), bank (00..6E), CPU address,
+expected byte and actual byte. One dot is printed per 16 pages.
+
+DESTRUCTIVE to expansion RAM only: loaded songs/data are erased.
+Conventional RAM, graphics buffers, ROM and disks are retained.

@@ -123,6 +123,7 @@ def bundle(files, drives, boot, model=0, legacy=False):
     if not legacy:
         from build_partitions import ROOT
         bank=bytearray(files["ROM0.BIN"])
+        bank[:8192]=(ROOT/"build/partitions/UNIBIOS.ROM").read_bytes()
         for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(7,"SHELL.ROM")]:
             bank[slot*8192:(slot+1)*8192]=(ROOT/"build/partitions"/name).read_bytes()
         bank[6*8192:7*8192]=b"\xff"*8192

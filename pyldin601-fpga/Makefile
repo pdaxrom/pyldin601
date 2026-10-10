@@ -86,7 +86,25 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-memory-app test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+.PHONY: test-ram-pages-ycode
+.PHONY: memory-test test-memory-app
+memory-test: | $(BUILD)
+	$(PYTHON) tools/build_memory_test.py --unias $(UNIAS)
+test-memory-app: fixtures memory-test
+	$(PYTHON) tests/run_memory_app.py --cc "$(CC)"
+test-ram-pages-ycode: fixtures romdisk-extract
+	$(PYTHON) tests/run_ram_pages_ycode.py --cc "$(CC)"
+.PHONY: test-ram-pages test-ram-pages-bios
+test-ram-pages: | $(BUILD)
+	$(IVERILOG) -g2012 -s tb_ram_pages -o $(BUILD)/tb_ram_pages $(RTL) tests/tb_ram_pages.v
+	$(VVP) $(BUILD)/tb_ram_pages
+test-ram-pages-bios: fixtures
+	$(PYTHON) tests/prepare_ram_pages_abi.py --unias $(UNIAS)
+	$(NVC) --std=2008 --work=work:$(BUILD)/ram-pages-abi --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_ram_pages_abi.vhd
+	@set -e; for model in BIOS BIOS_A; do for hd in false true; do $(NVC) --std=2008 --work=work:$(BUILD)/ram-pages-abi --ieee-warnings=off -e -gMODEL=$$model -gHD=$$hd tb_ram_pages_abi -r tb_ram_pages_abi; done; done
+	$(CC) -O2 -I$(EMUSRC) tests/test_ram_pages_monitor.c -o $(BUILD)/test_ram_pages_monitor
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_ram_pages_monitor $(BUILD)/test-sd.img $$model $$cpu; done; done
 firmware: | $(BUILD)
 	$(PYTHON) tools/build_partitions.py --unias $(UNIAS)
 	$(PYTHON) tools/build_storage.py --unias $(UNIAS)

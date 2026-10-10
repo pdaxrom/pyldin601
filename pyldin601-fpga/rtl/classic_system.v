@@ -108,15 +108,20 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
  wire timer_io=cpu_addr==16'he62b;
+ wire page_io=cpu_addr>=16'he6f0&&cpu_addr<=16'he6f3;
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he683
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
- wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||crtc_io||keyboard_io||timer_io||simple_io||rom_read;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||crtc_io||keyboard_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
  wire[7:0]ay_result;wire ay_audio;
  reg[7:0]page,mode;reg caps_off,speaker;
  classic_ay8910 ay(clk,clk_fast,cpu_reset,bus_write&&ay_io,cpu_addr[3:0],cpu_out,ay_result,ay_audio,speaker);
- wire[20:0]mapped_address;wire ignored_io;
- classic_memory_map map(cpu_addr,!cpu_rw,page,mapped_address,ignored_io);
+ wire[20:0]legacy_address,mapped_address;wire ignored_io,invalid_ram_window;
+ wire[7:0]ram_page_result;
+ classic_memory_map map(cpu_addr,!cpu_rw,page,legacy_address,ignored_io);
+ classic_ram_pages ram_pages(clk,cpu_reset,!boot_mode,
+  bus_write&&cpu_addr==16'he6f1&&!boot_mode,cpu_out,cpu_addr,page,legacy_address,
+  ram_page_result,mapped_address,invalid_ram_window);
  wire[7:0]kbd_data,kbd_status;
  classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq,
@@ -216,6 +221,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   else if(crtc_io)peripheral_data=video_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);
   else if(timer_io)peripheral_data=8'h37|(tick_pending?8'h80:0)|(speaker?8'h08:0);
+  else if(page_io)peripheral_data=cpu_addr==16'he6f0 ? page:ram_page_result;
   // UniBIOS reads DRB before modifying video or LAT/CYR bits.
   else if(simple_io)peripheral_data=cpu_addr==16'he629 ? mode:cpu_addr==16'he632 ? 8'h80:0;
  end

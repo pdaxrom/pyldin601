@@ -42,6 +42,9 @@ MULTICYCLE FROM CELL "system/video/gfx_line_y*" TO CLKNET "clk_fast" 4 X;
 MULTICYCLE FROM CELL "system/gfx/fast_read*" TO CLKNET "clk" 2 X;
 # CPU ROM-page writes finish >=41.667 ns before next payload capture.
 MAXDELAY FROM CELL "system/page*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
+# MAP may move SRAM pad flops to system_runtime_memory_SRAM_ADDRio outside
+# the hierarchy. Match those as well as internal SRAM-controller flops.
+MAXDELAY FROM CELL "system/ram_pages/page_base*" TO CELL "*runtime_memory*" 35 ns DATAPATH_ONLY;
 # Video address remains stable through the four-stage request synchronizer.
 MAXDELAY FROM CELL "system/boot/write_address*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;
 MAXDELAY FROM CELL "system/boot/write_data*" TO CELL "system/runtime_memory/*" 35 ns DATAPATH_ONLY;

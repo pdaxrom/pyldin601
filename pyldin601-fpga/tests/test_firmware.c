@@ -15,6 +15,7 @@ static unsigned missing_sd,seen_stages,video_mode,screen_checked;
 static unsigned sdsc,sd_idle=1,sd_commands,sd_reads,spi_transfers,sd_mode;
 static unsigned char cmd[6],queue[520];static unsigned cmd_index,queue_count,queue_pos;
 static unsigned char page,crtc_index,crtc[16],tick;
+static unsigned char ram_group;
 static unsigned fdc_port_accesses;
 static word PC,SP,X;
 static unsigned caps_off=1;
@@ -160,13 +161,23 @@ static unsigned char transfer(unsigned char d){
 }
 byte*allocateCpuRam(dword size){return calloc(1,size);}
 int SuperIoInit(void){return 0;}int SuperIoFinish(void){return 0;}
-void SuperIoReset(void){if(committed){sd_idle=0;sd_mode=sdsc?0:0x40;spi_control=0x23;spi_div=29;}page=0;disk_address=0;crtc_index=0;memset(crtc,0,sizeof(crtc));tick=0;KBDReset();}
+void SuperIoReset(void){if(committed){sd_idle=0;sd_mode=sdsc?0:0x40;spi_control=0x23;spi_div=29;}page=ram_group=0;disk_address=0;crtc_index=0;memset(crtc,0,sizeof(crtc));tick=0;KBDReset();}
 void SuperIoUpdate(void){KBDUpdate();}
 void SuperIoPs2KeyDown(unsigned n){}void SuperIoPs2KeyUp(unsigned n){}
 void SuperIoPs2ModKeyDown(byte n){}void SuperIoPs2ModKeyUp(byte n){}
 void resetRequested(void){}
 int SWIemulator(int n,byte*a,byte*b,word*x,byte*t,word*pc){return 0;}
 int SuperIoReadByte(word a,byte*out){
+#ifdef COMPACT_FIXTURE
+ if(a==0xe6f0){*out=page;return 1;}
+ if(a==0xe6f1){*out=ram_group;return 1;}
+ if(a==0xe6f2){*out='R';return 1;}
+ if(a==0xe6f3){*out=111;return 1;}
+ if(committed&&a>=0xc000&&a<0xe000&&(page&15)>=1&&(page&15)<=6){
+  unsigned bank=ram_group*6+(page&15)-1;
+  *out=bank<111?physical[0x22000+bank*8192+(a&8191)]:255;return 1;
+ }
+#endif
 #ifdef PARTITION_FIXTURE
  if(a>=0xe680&&a<=0xe683){fprintf(stderr,"removed RAM disk read %04x\n",a);exit(1);}
 #endif
@@ -243,6 +254,15 @@ case 0xe6d1:
  }}return 0;
 }
 int SuperIoWriteByte(word a,byte d){
+#ifdef COMPACT_FIXTURE
+ if(a==0xe6f0){page=d;return 1;}
+ if(a==0xe6f1){if(committed&&d<=18)ram_group=d;return 1;}
+ if(a==0xe6f2||a==0xe6f3)return 1;
+ if(committed&&a>=0xc000&&a<0xe000&&(page&15)>=1&&(page&15)<=6){
+  unsigned bank=ram_group*6+(page&15)-1;
+  if(bank<111)physical[0x22000+bank*8192+(a&8191)]=d;return 1;
+ }
+#endif
 #ifdef PARTITION_FIXTURE
  if(a>=0xe680&&a<=0xe683){fprintf(stderr,"removed RAM disk write %04x\n",a);exit(1);}
 #endif

@@ -21,6 +21,7 @@
     <Source name="rtl/classic_memory_map.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
+    <Source name="rtl/classic_ram_pages.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_pll.vhd" type="VHDL" type_short="VHDL">
       <Options />
     </Source>
