@@ -35,6 +35,10 @@ module tb_keyboard_raw;
   begin @(negedge cpu_clk);address=16'he6b3;out=bits;vma=1;rw=0;
    @(negedge cpu_clk);vma=0;rw=1;end
  endtask
+ task native_video;
+  begin @(negedge cpu_clk);address=16'he650;out=0;vma=1;rw=0;
+   @(negedge cpu_clk);vma=0;rw=1;end
+ endtask
  task raw_read;input[7:0]expected;
   reg[7:0]old_data,old_status;reg old_irq;reg[3:0]old_count;
   begin
@@ -44,7 +48,7 @@ module tb_keyboard_raw;
     $fatal(1,"raw read consumed a native keyboard event");
   end
  endtask
- integer k;
+ integer k;reg[7:0]native_a;
  initial begin
   wait(reset===0);force dut.boot_mode=0;
   read_register(16'he6b0,8'h52);read_register(16'he6b1,0);raw_read(8'hff);
@@ -64,7 +68,31 @@ module tb_keyboard_raw;
   event_key(0,0,8'h29);read_register(16'he6b3,1);
   force dut.cpu_reset=1;repeat(4)@(negedge clk);release dut.cpu_reset;
   wait(reset===0);read_register(16'he6b3,0);read_register(16'he6b1,0);
-  $display("PASS raw PS/2 CPU/MMIO: exact E0/F0/E1 bytes, full native FIFO independence, raw overflow/flush/reset");$finish;
+  event_key(0,0,8'h1c);native_a=dut.kbd_data;
+  if(!dut.keyboard_irq||native_a==8'hff)$fatal(1,"native held-key fixture missing");
+  control(7);read_register(16'he6b1,8'h40);read_register(16'he628,8'hff);
+  // A held/queued native event cannot click or repeat during raw capture.
+  for(k=0;k<10;k=k+1)begin
+   event_key(1,0,8'h6b);
+   force dut.keyboard.timer_ack=1;repeat(4)@(negedge clk);release dut.keyboard.timer_ack;
+   if(dut.keyboard_irq||dut.kbd_status||dut.keyboard.queue_count||dut.keyboard.key_ready)
+    $fatal(1,"captured raw key reached native BIOS/repeat");
+  end
+  read_register(16'he6b3,20);
+  for(k=0;k<10;k=k+1)begin raw_read(8'he0);raw_read(8'h6b);end
+  event_key(0,0,8'h12);event_key(0,0,8'h14);
+  if(!dut.keyboard.shift_l||!dut.keyboard.ctrl_l)$fatal(1,"capture stopped modifier parsing");
+  event_key(0,1,8'h12);event_key(0,1,8'h14);
+  control(3);read_register(16'he6b1,8'h40); // flush must retain capture
+  control(11);read_register(16'he6b1,0);
+  event_key(0,0,8'h1c);
+  if(!dut.keyboard_irq||dut.kbd_data!=native_a)$fatal(1,"native keys/modifiers not restored");
+  control(7);native_video();read_register(16'he6b1,0);
+  event_key(0,0,8'h1c);
+  if(!dut.keyboard_irq)$fatal(1,"native-video/process cleanup did not release capture");
+  control(7);force dut.cpu_reset=1;repeat(4)@(negedge clk);release dut.cpu_reset;
+  wait(reset===0);read_register(16'he6b1,0);
+  $display("PASS raw PS/2 CPU/MMIO: exact prefixes, capture suppresses native IRQ/repeat, modifiers live, release/native-video/reset restore keyboard, overflow/flush");$finish;
  end
  initial begin #3000000;$fatal(1,"keyboard raw timeout");end
 endmodule

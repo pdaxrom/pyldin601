@@ -41,11 +41,15 @@ sdk_missing
     ldaa #GB_UNAVAILABLE
     rts
 sdk_close
+    ldaa #GB_PS2_FLUSH+GB_PS2_CLEAR+GB_PS2_RELEASE
+    staa GB_PS2_CONTROL
     ldaa #GB_CLOSE
     int GB_INT
     rts
 ; Raw PS/2 set 2 input, separate from the native UniBIOS character queue.
-; sdk_input_reset: flush stale bytes and clear physical state before play.
+; sdk_input_reset: capture keyboard exclusively, flush bytes/physical state.
+; Native BIOS IRQ/repeat/clicks are suppressed until sdk_close, native video
+; restoration (including process cleanup), or reset. PAL/music IRQs continue.
 ; sdk_input: A=status, B=held logical mask, X preserved; sdk_pressed contains
 ; make edges since this call, including a tap released before the next frame.
 ; Arrows/WASD and both CTRL/SHIFT aliases have separate physical state.
@@ -55,6 +59,12 @@ sdk_input_reset
     ldaa GB_PS2_IDENT
     cmpa #'R'
     beq *+5
+    jmp sdk_input_missing
+    ldaa #GB_PS2_FLUSH+GB_PS2_CLEAR+GB_PS2_CAPTURE
+    staa GB_PS2_CONTROL
+    ldaa GB_PS2_STATUS
+    bita #GB_PS2_CAPTURED
+    bne *+5
     jmp sdk_input_missing
     jsr sdk_input_clear
     clra

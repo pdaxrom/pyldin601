@@ -87,13 +87,16 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
 test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-ram-manager test-memory-app test-audio-app test-audio-irq test-gfxmusic test-gamebios test-gamebios-rtl test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
-.PHONY: game-apps test-gamebios test-gamebios-rtl
+.PHONY: game-apps test-gamebios test-gamebios-rtl test-game-perf
+GAME_PERF_ARGS ?= --frames 3
 game-apps: | $(BUILD)
 	$(PYTHON) tools/build_game.py --unias "$(UNIAS)"
 test-gamebios: fixtures
 	$(PYTHON) tests/run_gamebios.py --unias "$(UNIAS)" --cc "$(CC)"
 test-gamebios-rtl: fixtures
 	$(PYTHON) tests/run_gamebios_rtl.py --unias "$(UNIAS)" --cc "$(CC)" --nvc "$(NVC)"
+test-game-perf: fixtures game-apps
+	$(PYTHON) tests/run_game_perf.py --unias "$(UNIAS)" --cc "$(CC)" --nvc "$(NVC)" $(GAME_PERF_ARGS)
 .PHONY: test-ram-pages-ycode
 .PHONY: memory-test test-memory-app
 memory-test: | $(BUILD)

@@ -92,7 +92,8 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  end
  assign cpu_clk=cpu_clock;
  reg tick_pending;
- wire keyboard_irq;
+ wire keyboard_irq,native_keyboard_irq,kbd_capture;
+ assign keyboard_irq=native_keyboard_irq&&!kbd_capture;
  wire music_irq;
  assign cpu_irq=(tick_pending||keyboard_irq||music_irq)&&!boot_mode;
  (* syn_ramstyle = "block_ram" *) reg[7:0]boot_rom[0:8191];
@@ -131,10 +132,11 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   ram_page_result,mapped_address,invalid_ram_window);
  wire[7:0]kbd_data,kbd_status,kbd_raw_byte,kbd_raw_result;wire kbd_raw_valid;
  classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
-  bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq,
-  !boot_mode,bus_read&&timer_io&&tick_pending,kbd_raw_valid,kbd_raw_byte);
+  bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,native_keyboard_irq,
+  !boot_mode,bus_read&&timer_io&&tick_pending,kbd_raw_valid,kbd_raw_byte,kbd_capture);
  classic_ps2_raw keyboard_raw(clk,cpu_reset,kbd_raw_valid,kbd_raw_byte,
-  bus_read&&keyboard_raw_io,bus_write&&keyboard_raw_io,cpu_addr[1:0],cpu_out,kbd_raw_result);
+  bus_read&&keyboard_raw_io,bus_write&&keyboard_raw_io,cpu_addr[1:0],cpu_out,kbd_raw_result,
+  bus_write&&cpu_addr==16'he650&&cpu_out[2:0]==0,kbd_capture);
  wire[7:0]hg_result;
  classic_hg host_link(clk,cpu_reset,bus_read&&hg_io,bus_write&&hg_io,
   cpu_addr[1:0],cpu_out,hg_result,hg_tms,hg_tck,hg_tdi,hg_tdo,hg_tdo_enable);

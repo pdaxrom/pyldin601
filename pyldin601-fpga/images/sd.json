@@ -2,7 +2,7 @@
   "date": "2026-10-11",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "63960c4e8a1e2ffcced78438f4ce977a1217efb6ef10b62343da4cdd25f83244",
+  "sha256": "90ca2c45301ef4e4eac454be1c5c9523418f5e9abbdcbbb92e9bf759b249c083",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -111,7 +111,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "3ff75bc41715fe9288b0b26286d526de61645e6be9e1510377455fad595bbba6",
+      "sha256": "c720a459db69ca706345240a5a8c316fef8fe7fecfddb034e1f826825d837da5",
       "files": {
         "HDMUL.ASM": {
           "bytes": 2923,
@@ -378,20 +378,20 @@
           "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
         },
         "GAMEHOW.TXT": {
-          "bytes": 2221,
-          "sha256": "326566b6bd12b748e6497a5651c26ca39c6023f420429c553da63b8e4b2f29af"
+          "bytes": 2365,
+          "sha256": "81862658ffaefbf9ef3528d41a3c7731db84e28e034d383572f91f6407d18798"
         },
         "ARKANOID.ASM": {
-          "bytes": 14058,
-          "sha256": "32b02479b9bbe116c3f106315bebc493c8c0b0214db22c2b6e781db1c4cb1db8"
+          "bytes": 15886,
+          "sha256": "14ac3a1fc3d45c5bbc78ad95f3745c94c9d1e9252b0129315631bb3f45873ce9"
         },
         "SDKTEST.ASM": {
           "bytes": 1864,
           "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
         },
         "ARKANOID.PGM": {
-          "bytes": 5042,
-          "sha256": "ce2e144098f6204ca4bb128bf626dfa714485bdf4bfb0c93056f76f1e0b327d0"
+          "bytes": 5342,
+          "sha256": "a20389fcfe820bc247ea578ef795efb980f63968fdfd970329cc42bf1e17d12e"
         },
         "SDKTEST.PGM": {
           "bytes": 1850,
@@ -1343,20 +1343,20 @@
     "files_on_b": true,
     "build": {
       "ARKANOID": {
-        "bytes": 5042,
-        "code": 3984,
-        "bss": 9784,
-        "ram_bytes": 13768,
-        "relocations": 521,
-        "sha256": "ce2e144098f6204ca4bb128bf626dfa714485bdf4bfb0c93056f76f1e0b327d0"
+        "bytes": 5559,
+        "code": 4367,
+        "bss": 9796,
+        "ram_bytes": 14163,
+        "relocations": 588,
+        "sha256": "729ecd7fe1933114df96dc9ddfe08937913dbe7718b5be0ceb116186bc73daf8"
       },
       "SDKTEST": {
-        "bytes": 1850,
-        "code": 1426,
+        "bytes": 1872,
+        "code": 1446,
         "bss": 8668,
-        "ram_bytes": 10094,
-        "relocations": 204,
-        "sha256": "c50e65408cd3b34bc0b371be4167658b8b3816c678e504680bbd75a466305a94"
+        "ram_bytes": 10114,
+        "relocations": 205,
+        "sha256": "b0c6bec18ffeff7afeba472e5a390bda48967626947cb8aaadccd8606df30be2"
       }
     },
     "validation": {
@@ -1516,7 +1516,60 @@
         "SPACE",
         "ESC"
       ],
-      "user_confirmed_cpu_model_unspecified": true
+      "user_confirmed_cpu_model_unspecified": true,
+      "exclusive_capture": {
+        "status_bit": 6,
+        "capture_command": 4,
+        "release_command": 8,
+        "native_irq_repeat_clicks_suppressed": true,
+        "automatic_release": [
+          "native video command",
+          "reset",
+          "SDK close"
+        ],
+        "fpga_programmed": true,
+        "hardware_confirmed": true,
+        "user_board_confirmation_pending": false,
+        "native_models_tested": [
+          "601",
+          "601A"
+        ],
+        "production_hdl_stress": {
+          "cpu_mhz": 1,
+          "frames_per_case": 20,
+          "scenario": "miss",
+          "physical_ps2_typematic": true,
+          "music": true,
+          "passed": true,
+          "max_frame_ms": 221.969
+        },
+        "fpga_verify_passed": true,
+        "par_seed": 6,
+        "jed_sha256": "79559e1a6ab0bdc0da36652cfbfb12be468e5904da74a04f87c772e63205ffa9",
+        "resources": {
+          "registers": 2210,
+          "slices": 2759,
+          "lut": 5498,
+          "ebr": 24,
+          "pll": 1
+        },
+        "hg_programs_installed": true,
+        "hg_files_preserved": 79,
+        "physical_b_programs_updated": false,
+        "program_report": "build/hardware-ps2-capture/program-result.json",
+        "hg_report": "build/hardware-ps2-capture/hg-installed.json",
+        "user_confirmed_cpu_mhz": 1,
+        "user_confirmed_model_unspecified": true,
+        "user_confirmed_checks": [
+          "native keyboard clicks suppressed",
+          "held arrows/A/D",
+          "loss of life",
+          "SPACE",
+          "ESC",
+          "native repeat after exit"
+        ],
+        "user_reported_no_failure_in_check": true
+      }
     },
     "rom_hardware_confirmed": true,
     "paddle_rebound": {
@@ -1541,6 +1594,44 @@
       "hg_report": "build/hardware-arkanoid-spin/hg-installed.json",
       "user_confirmed_angle_and_controls": true,
       "user_confirmed_cpu_model_unspecified": true
+    },
+    "performance": {
+      "cached_hud_digits": true,
+      "static_hud_drawn_once": true,
+      "music_refill_status_reads_per_call": 1,
+      "native_models_tested": [
+        "601",
+        "601A"
+      ],
+      "hud_font_oracle": true,
+      "decimal_carry_tested": true,
+      "fpga_or_rom_update_required": false,
+      "hg_installed": true,
+      "physical_b_programs_updated": false,
+      "hardware_confirmed": true,
+      "user_board_confirmation_pending": false,
+      "hg_report": "build/hardware-arkanoid-perf/hg-installed.json",
+      "production_hdl_runs": 16,
+      "cpu_mhz": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "models": [
+        "601",
+        "601A"
+      ],
+      "scenarios": [
+        "steady",
+        "brick"
+      ],
+      "frames_per_case": 3,
+      "measurement": "production HDL; clock counts normalized to 24 MHz",
+      "timing_report": "audit/GAME-PERFORMANCE.json",
+      "user_report": "Improved at 1 MHz; native BIOS clicks and one generic error reported",
+      "user_confirmed_cpu_mhz": 1,
+      "physical_board_timing_measured": false
     }
   }
 }

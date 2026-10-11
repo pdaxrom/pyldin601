@@ -2,12 +2,13 @@ GAMEBIOS ABI 1 / HD6303 SDK
 
 Install the matching P601.ROM and P601A.ROM on the boot partition.
 GAMEBIOS ROM calls retain their existing FPGA compatibility.
-This ARKANOID version requires the FPGA PS/2 raw FIFO at E6B0-E6B3.
+This ARKANOID requires raw PS/2 FIFO with exclusive capture at E6B0-E6B3.
 Select HD6303 EXTENSION Y in BIOS. Both 601 and 601A are supported.
 
 B:ARKANOID
   LEFT/RIGHT or A/D: paddle, 4 pixels per frame while held; release stops.
   Independent of UniBIOS debounce and PS/2 typematic.
+  Native keyboard IRQ, repeat and clicks are blocked during play.
   SPACE: launch ball; then pause/resume game and music
   ESC: return to UniDOS
   Rebound angle depends on hit position and actual paddle motion.
@@ -15,6 +16,7 @@ B:ARKANOID
   A clamped paddle supplies no spin; rebound always travels upwards.
   40 bricks, 3 lives, 10 points per brick. Start again after a game ends.
   Indexed 320x200 video, double buffering, tiles, keyed ball, AY music/SFX.
+  Score/life updates copy cached digits; static labels are drawn once.
   CPU 4 or 8 MHz is recommended for the game; ABI supports all CPU speeds.
 
 B:SDKTEST
@@ -28,10 +30,13 @@ The 8608-byte caller context includes palette backup and all private state.
 Closing or terminating its owning process restores video, palette and AY.
 GAMEBIOS consumes no extra conventional RAM during normal system startup.
 
-Raw PS/2: E6B0 identity R; E6B1 status (bit0 data, bit5 full, bit7 overflow);
-E6B2 read/pop; E6B3 count (0..64), write bit0 flush / bit1 clear overflow.
-Native translated keyboard queue and IRQ remain independent.
-sdk_input_reset clears raw history. sdk_input returns A=status, B=held;
+Raw PS/2: E6B0 identity R; E6B1 bits 0 data, 5 full, 6 capture, 7 overflow;
+E6B2 read/pop; E6B3 count (0..64), write bits 0 flush, 1 clear overflow,
+2 capture native input, 3 release. Commands 1/2 retain capture state.
+sdk_input_reset captures input and clears history; sdk_close releases it.
+Native video restoration (including process cleanup) and Reset also release.
+PS/2 prefixes/modifiers and PAL/music IRQs continue during capture.
+sdk_input returns A=status, B=held;
 sdk_pressed contains make edges, including taps released between frames.
 
 SDK sources: GAMEBIOS.INC, GAMESDK.ASM, GAMESDTA.INC.
@@ -39,3 +44,6 @@ ARKANOID.ASM includes the prepared register frames in ARKSONG.INC.
 SDKTEST.ASM includes the test map in SDKWORLD.INC.
 Build relocatable PGM files using the supplied UniAS cross-assembler.
 Detailed ABI, descriptors and tests: audit/GAMEBIOS.md in the repository.
+CPU/frame timing: audit/GAME-PERFORMANCE.md (production HDL simulation).
+An error prints OP/STATUS/RAW/GFX/AY in hex before returning to DOS.
+OP FE is raw input, FC is SDK map; other OP values are INT E6 functions.

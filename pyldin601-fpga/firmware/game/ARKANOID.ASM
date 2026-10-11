@@ -8,6 +8,14 @@ start
     ldx #need_gamebios
     jmp message_exit
 started
+    ; Remove launch-command characters once, before exclusive raw capture.
+drain_keys
+    int $10
+    cmpa #$ff
+    beq capture_keys
+    int $11
+    bra drain_keys
+capture_keys
     jsr sdk_input_reset
     tsta
     beq input_present
@@ -104,6 +112,17 @@ atlas_loop
     ldaa #2
     staa rect_desc+6
     jsr rectangle
+    ; Cache HUD digits once, outside the 64x64 tile atlas and ball sprite.
+    ; Runtime score updates use COPY instead of repainting text pixel by pixel.
+    ldaa #GB_ATTR
+    ldx #text_attr
+    jsr api
+    ldaa #GB_CURSOR
+    ldx #digit_cursor
+    jsr api
+    ldaa #GB_PUTS
+    ldx #digit_text
+    jsr api
     ldaa #GB_TARGET
     ldab #3
     jsr api
@@ -158,6 +177,8 @@ brick_map_column
     cmpa #5
     bne brick_map_row
     ldx #map_desc
+    ldaa #$fc
+    staa last_operation
     jsr sdk_map
     tsta
     beq *+5
@@ -174,6 +195,7 @@ brick_map_column
     clr valid
     clr valid+1
     clr song_index
+    clr hud_initialized
     ldd #136
     std paddle
     jsr reset_ball
@@ -200,15 +222,9 @@ brick_map_column
     ldab #1
     jsr api
 frame_loop
-    ; Drain native characters so typematic events do not spill into DOS.
-    ; Movement comes exclusively from physical make/break state below.
-drain_keys
-    int $10
-    cmpa #$ff
-    beq sample_keys
-    int $11
-    bra drain_keys
 sample_keys
+    ldaa #$fe
+    staa last_operation
     jsr sdk_input
     tsta
     beq *+5
@@ -624,18 +640,6 @@ refresh_rectangle
     staa hidden
     rts
 hud
-    ldaa #GB_TARGET
-    ldab #3
-    jsr api
-    ldaa #GB_ATTR
-    ldx #text_attr
-    jsr api
-    ldaa #GB_CURSOR
-    ldx #hud_cursor
-    jsr api
-    ldx #hud_text
-    ldaa #GB_PUTS
-    jsr api
     ; Three decimal digits, maximum score 400.
     ldd score
     std work_count
@@ -661,12 +665,30 @@ tens_done
     ldaa lives
     adda #'0'
     staa score_text+10
+    tst hud_initialized
+    bne hud_update
+    inc hud_initialized
+    ldaa #GB_TARGET
+    ldab #3
+    jsr api
+    ldaa #GB_ATTR
+    ldx #text_attr
+    jsr api
+    ldaa #GB_CURSOR
+    ldx #hud_cursor
+    jsr api
+    ldx #hud_text
+    ldaa #GB_PUTS
+    jsr api
     ldaa #GB_PUTS
     ldx #score_text
     jsr api
-    ldaa #'0'
-    staa score_text
-    staa score_text+1
+    ldd score_text
+    std hud_previous
+    ldaa score_text+2
+    staa hud_previous+2
+    ldaa score_text+10
+    staa hud_previous+3
     clr rect_desc
     clr rect_desc+1
     clr rect_desc+2
@@ -676,7 +698,71 @@ tens_done
     std rect_desc+4
     ldaa #8
     staa rect_desc+6
-    jmp refresh_rectangle
+    jsr refresh_rectangle
+    jmp hud_done
+hud_update
+    clr hud_index
+hud_digit_loop
+    ldab hud_index
+    ldx #hud_offsets
+    abx
+    ldab 0,x
+    ldx #score_text
+    abx
+    ldaa 0,x
+    ldab hud_index
+    ldx #hud_previous
+    abx
+    cmpa 0,x
+    beq hud_digit_next
+    staa 0,x
+    ; Atlas glyph -> background, then background -> both display buffers.
+    suba #'0'
+    tab
+    clra
+    asld
+    asld
+    asld
+    addd #80
+    std blit_desc+4
+    ldab hud_index
+    aslb
+    ldx #hud_columns
+    abx
+    ldd 0,x
+    std rect_desc
+    addd #2560
+    std blit_desc+6
+    ldd #8
+    std blit_desc+8
+    std rect_desc+4
+    std rect_desc+2
+    ldaa #8
+    staa blit_desc+10
+    staa rect_desc+6
+    ldaa #2
+    staa blit_desc
+    staa blit_desc+2
+    clr blit_desc+1
+    ldaa #3
+    staa blit_desc+3
+    ldx #blit_desc
+    ldaa #GB_COPY
+    jsr api
+    jsr refresh_rectangle
+hud_digit_next
+    inc hud_index
+    ldaa hud_index
+    cmpa #4
+    beq hud_done
+    jmp hud_digit_loop
+hud_done
+    ldaa #'0'
+    staa score_text
+    staa score_text+1
+    rts
+hud_offsets db 0,1,2,10
+hud_columns dw 200,208,216,280
 centre_message
     stx message_pointer
     ldaa #GB_TARGET
@@ -722,8 +808,12 @@ effect
 fill_music
     ldaa #GB_STATUS
     jsr api
-    cmpb #16
+    ; IRQ only removes frames: one queue snapshot safely bounds this refill.
+    negb
+    addb #16
+    stab music_needed
     beq music_done
+music_refill
     ldaa #14
     ldab song_index
     mul
@@ -735,19 +825,62 @@ fill_music
     ldaa song_index
     anda #63
     staa song_index
-    bra fill_music
+    dec music_needed
+    bne music_refill
 music_done
     rts
 api
+    staa last_operation
     int GB_INT
     tsta
     beq *+5
     jmp failed
     rts
 failed
+    staa failure_status
+    ldaa GB_PS2_STATUS
+    staa failure_raw
+    ldaa $e650
+    staa failure_gfx
+    ldaa $e690
+    staa failure_audio
     jsr sdk_close
+    ldaa last_operation
+    ldx #error_op
+    jsr error_hex
+    ldaa failure_status
+    ldx #error_status
+    jsr error_hex
+    ldaa failure_raw
+    ldx #error_raw
+    jsr error_hex
+    ldaa failure_gfx
+    ldx #error_gfx
+    jsr error_hex
+    ldaa failure_audio
+    ldx #error_audio
+    jsr error_hex
     ldx #error_text
     jmp message_exit
+error_hex
+    tab
+    lsra
+    lsra
+    lsra
+    lsra
+    bsr error_nibble
+    staa 0,x
+    tba
+    anda #15
+    bsr error_nibble
+    staa 1,x
+    rts
+error_nibble
+    adda #'0'
+    cmpa #'9'
+    bls *+4
+    adda #7
+    rts
 exit_game
     jsr sdk_close
     ldx #done_text
@@ -767,6 +900,8 @@ sprite_desc
     db 8,2,0,0
 text_attr db 7,0
 hud_cursor db 1,1
+digit_cursor db 10,0
+digit_text db '0123456789',0
 message_cursor db 9,13
 hud_text db 'PULDIN  ARKANOID  SCORE ',0
 score_text db '000 LIFE: 3',0
@@ -774,12 +909,22 @@ launch_text db 'SPACE: LAUNCH   ESC: EXIT',0
 win_text db 'ALL BRICKS!    ESC: EXIT ',0
 lose_text db 'GAME OVER      ESC: EXIT ',0
 need_gamebios db 'ARKANOID needs HD6303 and GAMEBIOS ABI 1.',13,10,0
-need_input db 'ARKANOID needs PS/2 raw FPGA.',13,10,0
-error_text db 'ARKANOID: GAMEBIOS operation failed.',13,10,0
+need_input db 'ARKANOID needs raw PS/2 capture FPGA.',13,10,0
+error_text db 'ARKANOID: GAMEBIOS operation failed.',13,10,'OP='
+error_op db '00 STATUS='
+error_status db '00 RAW='
+error_raw db '00',13,10,'GFX='
+error_gfx db '00 AY='
+error_audio db '00',13,10,0
 done_text db 'ARKANOID: returned to UniDOS.',13,10,0
 song
     include ARKSONG.INC
 bss_start
+last_operation ds 1
+failure_status ds 1
+failure_raw ds 1
+failure_gfx ds 1
+failure_audio ds 1
 palette_number ds 1
 palette_pointer ds 2
 pal_desc ds 4
@@ -799,6 +944,10 @@ launched ds 1
 hidden ds 1
 valid ds 2
 song_index ds 1
+music_needed ds 1
+hud_initialized ds 1
+hud_index ds 1
+hud_previous ds 4
 held_keys ds 1
 paddle ds 2
 paddle_delta ds 2

@@ -3,7 +3,7 @@ module tb_ps2_raw;
  reg clk=0;always #5 clk=~clk;
  reg reset=1,received=0,read=0,write=0;reg[7:0]scan=0,din=0;reg[1:0]address=0;
  wire[7:0]dout;
- classic_ps2_raw dut(clk,reset,received,scan,read,write,address,din,dout);
+ classic_ps2_raw dut(clk,reset,received,scan,read,write,address,din,dout,1'b0,);
  task push;input[7:0]b;begin @(negedge clk);received=1;scan=b;@(negedge clk);received=0;end endtask
  task check;input[1:0]a;input[7:0]expected;
   begin address=a;#1;if(dout!==expected)$fatal(1,"raw reg%0d=%h expected%h",a,dout,expected);end endtask

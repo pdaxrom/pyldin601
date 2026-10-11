@@ -35,6 +35,8 @@ shutil.copyfile(ROOT / 'firmware/game/GAMEBIOS.INC', out / 'GAMEBIOS.INC')
     int GB_INT
     tsta
     bne failed
+    ldaa #7
+    staa GB_PS2_CONTROL
     clra
     int $38
 failed

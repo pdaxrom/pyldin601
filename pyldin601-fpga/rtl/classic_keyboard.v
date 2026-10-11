@@ -12,7 +12,8 @@ module classic_keyboard #(
     output reg irq,
     input wire runtime_mode,timer_ack,
     output wire raw_valid,
-    output wire [7:0] raw_byte
+    output wire [7:0] raw_byte,
+    input wire native_inhibit
 );
     reg [2:0] clock_sync,data_sync;
     reg [7:0] filter;
@@ -74,8 +75,8 @@ module classic_keyboard #(
     wire held_repeat=runtime_mode&&timer_ack
         &&key_ready&&active_down&&consumed&&!irq&&!read_data
         &&key_code!=8'hfb&&key_code!=8'hfc;
-    assign data=key_ready?key_code:8'hff;
-    assign status=key_ready&&trigger?8'h80:0;
+    assign data=key_ready&&!native_inhibit?key_code:8'hff;
+    assign status=key_ready&&trigger&&!native_inhibit?8'h80:0;
     initial begin $readmemh(TRANSLATE_FILE,translate);$readmemh(SET2_FILE,set2);end
     always @(posedge clk)begin
         clock_sync<={clock_sync[1:0],ps2_clk};data_sync<={data_sync[1:0],ps2_data};
@@ -152,6 +153,14 @@ module classic_keyboard #(
                         end
                     end
                 end
+            end
+            // Keep the PS/2 receiver and prefix/modifier tracking running so
+            // raw make/break bytes survive and CTRL/SHIFT cannot get stuck.
+            // Discard only native translated events and their repeat state.
+            if(native_inhibit)begin
+                irq<=0;key_ready<=0;trigger<=0;consumed<=0;active_down<=0;
+                key_code<=8'hff;queue_valid<=0;queue_down<=0;
+                queue_head<=0;queue_tail<=0;queue_count<=0;quiet_ticks<=6;
             end
         end
     end
