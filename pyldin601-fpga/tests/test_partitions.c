@@ -12,7 +12,7 @@ int main(int argc,char**argv){
  MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
  memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
- replace_page(2,"build/partitions/PARTS.ROM");replace_page(3,"build/partitions/SD.ROM");replace_page(7,"build/partitions/SHELL.ROM");memset(physical+0x1c000,255,8192);
+ replace_page(2,"build/partitions/PARTS.ROM");replace_page(3,"build/partitions/SD.ROM");replace_page(6,"build/partitions/RAMMAN.ROM");replace_page(7,"build/partitions/SHELL.ROM");
  rom=load(model_a?"build/partitions/BIOS_A.ROM":"build/partitions/BIOS.ROM",&n);memcpy(physical+ROM_BIOS,rom,n);free(rom);
  image=load(argv[1],&image_size);memcpy(config+64,image+462,32);committed=1;
  MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();watch_resets=1;

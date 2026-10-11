@@ -1,6 +1,10 @@
 ; Parse/validate the original file stored in SRAM. YM3b loop is little
 ; endian (StSound Ymload.cpp); YM5/6 numbers are big endian.
 parse_song
+    tst vtx_mode
+    beq parse_regular
+    jmp parse_vtx
+parse_regular
     jsr memory_reset
     ldx #header
     stx header_pointer
@@ -303,6 +307,8 @@ validate_next
 validate_key_checked
     tst decode_status
     bne validated
+    tst vtx_mode
+    bne validate_next
     ldaa raw_frame+1
     oraa raw_frame+3
     bita #$30
@@ -396,7 +402,7 @@ divide_next
     jmp clock_bad
 long_ymread_326
     rts
-; Convert bounded linear offset to a group/slot/window address.
+; Convert bounded linear offset to a logical-bank/window address.
 make_pointer
     ldaa offset+1
     asla
@@ -409,17 +415,8 @@ make_pointer
     lsrb
     lsrb
     aba
-    clrb
-divide_group
-    cmpa #6
-    bcs group_ready
-    suba #6
-    incb
-    bra divide_group
-group_ready
-    stab computed
-    inca
-    staa computed+1
+    staa computed
+    clr computed+1
     ldaa offset+2
     anda #31
     oraa #$c0
@@ -518,16 +515,7 @@ ym_register
     cmpa #$e0
     bcs ym_stride_ready
     suba #$20
-    inc 1,x
-    psha
-    ldaa 1,x
-    cmpa #7
-    bne ym_stride_slot
-    ldaa #1
-    staa 1,x
     inc 0,x
-ym_stride_slot
-    pula
 ym_stride_ready
     std 2,x
 ym_pointer_done
@@ -706,7 +694,7 @@ psg_finished
 ; Frame preparation stays bounded even for dense PSG logs at 1 MHz.
 compact_psg
     jsr psg_reset
-    ldd #1
+    ldd #0
     std write_pointer
     ldd #$c010
     std write_pointer+2

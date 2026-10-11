@@ -19,6 +19,8 @@ def build(unias):
     for name in ('RAMPAGE.ASM', 'RAMHOW.TXT'):
         shutil.copyfile(ROOT / 'firmware/memory' / name, out / name)
     data = assemble(unias, out, 'RAMPAGE.ASM', 'RAMPAGE.PGM')
+    allocated = assemble(unias, out, 'RAMPAGE.ASM', 'RAMALLOC.PGM', ('-D', 'ALLOCATED_TEST'))
+    (out / 'ramalloc.json').write_text(json.dumps(dict(bytes=len(allocated), sha256=hashlib.sha256(allocated).hexdigest(), pages=8, kib=64), indent=2)+'\n')
     magic, count, offset, length, entry, bss, _, _ = struct.unpack('>8H', data[:16])
     if magic != 0xa55a or offset != 16 + 2 * count or len(data) != offset + length or entry >= length:
         raise ValueError('invalid relocatable RAMPAGE PGM')

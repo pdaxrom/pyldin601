@@ -113,6 +113,12 @@ def build(unias):
     shell=shift_frame_operands(shell,'terminate',[
         ('staa\tx, 2','staa\tx, 3'),('staa\tx, 9','staa\tx, 10'),
         ('staa\tx, 8','staa\tx, 9')])
+    # Release expansion-RAM leases before disposing of the current PCB.
+    # This covers normal return, INT38, nested commands and JOB/error exits.
+    anchor='close_PCB\tproc\n'
+    start=shell.index(anchor)
+    pos=shell.index('\t\tldx\tcurrent_PCB\n',start)
+    shell=shell[:pos]+'\t\tldaa\t#3\n\t\tint\t$e5\n'+shell[pos:]
     (out/'SHELL.ASM').write_text(shell,encoding='latin1')
     shell_data=assemble(unias,out,'SHELL.ASM','SHELL.CMD')
     split=8000
@@ -150,7 +156,7 @@ shell_bytes
     end
 ''')
     built={'UNIBIOS.ROM':8192}
-    for src,name,defines in [('DIRECTSD.ASM','SD.ROM',('-D','GFXCLIP_ROM')),('SHELLROM.ASM','SHELL.ROM',()),('PARTS.ASM','PARTS.ROM',())]:
+    for src,name,defines in [('DIRECTSD.ASM','SD.ROM',('-D','GFXCLIP_ROM')),('SHELLROM.ASM','SHELL.ROM',()),('PARTS.ASM','PARTS.ROM',()),('RAMMAN.ASM','RAMMAN.ROM',())]:
         data=assemble(unias,out,src,name,defines)
         if len(data)!=8192 or sum(data)%256:raise ValueError('invalid checksummed ROM: '+name)
         built[name]=len(data)

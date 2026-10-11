@@ -86,13 +86,16 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-memory-app test-audio-app test-audio-irq test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-ram-manager test-memory-app test-audio-app test-audio-irq test-gfxmusic test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 .PHONY: test-ram-pages-ycode
 .PHONY: memory-test test-memory-app
 memory-test: | $(BUILD)
 	$(PYTHON) tools/build_memory_test.py --unias $(UNIAS)
 test-memory-app: fixtures memory-test
 	$(PYTHON) tests/run_memory_app.py --cc "$(CC)"
+.PHONY: test-ram-manager
+test-ram-manager: fixtures memory-test
+	$(PYTHON) tests/run_ram_manager.py --unias "$(UNIAS)" --cc "$(CC)"
 test-ram-pages-ycode: fixtures romdisk-extract
 	$(PYTHON) tests/run_ram_pages_ycode.py --cc "$(CC)"
 .PHONY: test-ram-pages test-ram-pages-bios
@@ -345,7 +348,7 @@ test-clip-sprites: gfx-apps fixtures
 	$(PYTHON) tests/run_clip_sprites_app.py --nvc $(NVC)
 
 .PHONY: test-ay test-ay-app
-.PHONY: audio-apps test-audio-app test-audio-irq
+.PHONY: audio-apps test-audio-app test-audio-irq test-gfxmusic test-gfxmusic-rtl
 audio-apps: | $(BUILD)
 	$(PYTHON) tools/build_audio.py --unias "$(UNIAS)"
 test-audio-app: audio-apps fixtures
@@ -353,6 +356,12 @@ test-audio-app: audio-apps fixtures
 	$(PYTHON) tests/run_audio_app.py --cc "$(CC)"
 test-audio-irq: test-audio-app
 	$(PYTHON) tests/run_audio_irq.py --unias "$(UNIAS)" --nvc "$(NVC)"
+test-gfxmusic: audio-apps fixtures
+	$(PYTHON) tests/prepare_audio.py
+	$(PYTHON) tests/prepare_gfxmusic.py
+	$(PYTHON) tests/run_gfxmusic.py --cc "$(CC)"
+test-gfxmusic-rtl: test-gfxmusic
+	$(PYTHON) tests/run_gfxmusic_rtl.py --unias "$(UNIAS)" --nvc "$(NVC)"
 test-ay: firmware
 	$(IVERILOG) -g2012 -s tb_ay8910 -o $(BUILD)/tb_ay8910 rtl/classic_ay8910.v tests/tb_ay8910.v
 	$(VVP) $(BUILD)/tb_ay8910

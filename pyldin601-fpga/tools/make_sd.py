@@ -124,9 +124,8 @@ def bundle(files, drives, boot, model=0, legacy=False):
         from build_partitions import ROOT
         bank=bytearray(files["ROM0.BIN"])
         bank[:8192]=(ROOT/"build/partitions/UNIBIOS.ROM").read_bytes()
-        for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(7,"SHELL.ROM")]:
+        for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(6,"RAMMAN.ROM"),(7,"SHELL.ROM")]:
             bank[slot*8192:(slot+1)*8192]=(ROOT/"build/partitions"/name).read_bytes()
-        bank[6*8192:7*8192]=b"\xff"*8192
         bios=(ROOT/"build/partitions"/("BIOS_A.ROM" if model else "BIOS.ROM")).read_bytes()
         payload=bytes(bank)+bios+files["FONT.BIN"]
         if len(payload)!=ROM_SIZE:raise ValueError("invalid compact ROM size")

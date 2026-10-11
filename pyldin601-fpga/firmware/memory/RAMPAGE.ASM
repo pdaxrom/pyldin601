@@ -14,6 +14,23 @@ start
     staa saved_page
     ldaa group
     staa saved_group
+    .ifdef ALLOCATED_TEST
+    ldaa #$e5
+    int $2e
+    tstb
+    bne allocator_ready
+    jmp unsupported
+allocator_ready
+    ldaa #1
+    ldab #8
+    ldx #memory_lease
+    int $e5
+    tsta
+    beq allocator_claimed
+    ldx #no_free_memory
+    jmp message_exit
+allocator_claimed
+    .endif
     ldx #intro
     int $23
     ldaa #5
@@ -105,6 +122,28 @@ announce
     ldaa #1
     staa selected_slot
 bank_loop
+    .ifdef ALLOCATED_TEST
+    ldx #memory_lease+3
+    ldab bank
+    beq allocated_bank
+allocated_cursor
+    inx
+    decb
+    bne allocated_cursor
+allocated_bank
+    ldaa 0,x
+    clrb
+allocated_group
+    cmpa #6
+    bcs allocated_slot
+    suba #6
+    incb
+    bra allocated_group
+allocated_slot
+    inca
+    staa selected_slot
+    stab selected_group
+    .endif
     ldaa selected_group
     staa group
     ldaa selected_slot
@@ -178,7 +217,11 @@ poll_key
 next_bank
     inc bank
     ldaa bank
+    .ifdef ALLOCATED_TEST
+    cmpa #8
+    .else
     cmpa #111
+    .endif
     beq next_phase
     inc selected_slot
     ldaa selected_slot
@@ -252,6 +295,11 @@ finish
     staa group
     ldaa saved_page
     staa page
+    .ifdef ALLOCATED_TEST
+    ldaa #2
+    ldx #memory_lease
+    int $e5
+    .endif
     cli
 return_to_dos
     int $38
@@ -302,11 +350,18 @@ phase db 0
 seed db 0
 expected db 0
 actual db 0
+    .ifdef ALLOCATED_TEST
+memory_lease ds 11
+no_free_memory db 'RAMALLOC: cannot allocate 8 banks.',13,10,0
+intro db 'RAMALLOC: 8 allocated banks = 64 KiB.',13,10,'ESC aborts; other banks retained.',13,10,0
+pass_msg db 'PASS: RAM allocator, 64 KiB, SWI/IRQ. IRQs=',0
+    .else
 intro db 'RAMPAGE: 111 x 8K = 888 KiB.',13,10,'Clears expansion RAM. ESC aborts.',13,10,0
+pass_msg db 'PASS: 888 KiB, SWI/IRQ. IRQs=',0
+    .endif
 write_msg db 'WRITE address pattern: ',0
 invert_msg db 'CHECK and invert:      ',0
 read_msg db 'CHECK inverted pattern:',0
-pass_msg db 'PASS: 888 KiB, SWI/IRQ. IRQs=',0
 fail_msg db 13,10,'FAIL phase=',0
 bank_msg db ' bank=',0
 addr_msg db 13,10,'address=',0

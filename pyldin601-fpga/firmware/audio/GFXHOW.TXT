@@ -1,0 +1,33 @@
+PYLDIN GFXMUSIC - HAM8 / SPRITES / AY DEMO
+
+GFXMUSIC song.YM|PSG|VTX [/L] [/A|C|S|M]
+B:GFXMUSIC B:DEMOH5.YM /L
+HG: B:HG, then E:GFXMUSIC E:LEDSTRM1.YM /L
+Use the drive letter reported by HG.
+SPACE pauses/resumes music and animation; ESC returns to UniDOS.
+ESC also cancels loading and graphics preparation.
+
+Needs HD6303, paged RAM and the current graphics v5/audio FPGA.
+Both models 601/601A need updated ROM with the INT E5 RAM manager.
+The current graphics v5/audio FPGA needs no update.
+8 MHz is recommended for preparation; playback also works at 1 MHz.
+Conventional RAM: about 28 KiB plus DOS buffers.
+Music is decoded by the native YPLAY engine into up to 888 KiB.
+Only song-sized banks are allocated; other RAM owners are retained.
+See YPLAYHOW.TXT for original YM/PSG/VTX/LH5 formats and clocks.
+
+Three transparent round sprites move across a procedural HAM8
+background. All four screen edges are clipped by the blitter.
+Only old sprite rectangles are restored; drawing is on the hidden
+frame page and FLIP waits for VBL. SPACE freezes both parts.
+Background colours reset every four pixels; horizontal sprite
+positions and opaque runs use that grid to avoid HAM colour trails.
+This restriction belongs to this demo, not the general COPY command.
+
+Graphics pages 0/1: double buffer; 2: atlas; 3: static background.
+These occupy 256 KiB and do not overlap the 888-KiB music banks.
+The demo replaces these graphics pages and its allocated music RAM.
+Song banks are released on EOF, ESC, errors and DOS termination.
+On exit: full PAL palette, INT E4, AY clock/timer and page registers
+are restored; audio is silent and UniDOS text geometry is retained.
+Build GFXMUSIC.ASM with real UniAS and -D GFXMUSIC_DEMO.

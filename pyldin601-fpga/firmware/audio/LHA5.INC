@@ -222,6 +222,10 @@ lh5_continue
 long_lha5_193
     jmp lh5_next
 lha_check_crc
+    tst vtx_mode
+    beq lha_has_crc
+    rts
+lha_has_crc
     ldx crc
     cpx expected_crc
     beq long_lha5_198

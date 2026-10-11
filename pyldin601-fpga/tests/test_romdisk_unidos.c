@@ -18,7 +18,8 @@ static int contains(const char*text){
 }
 static void prompt_wait(void){
  uint64_t deadline=virtual_cycles+15000000;
- do{until(virtual_cycles+10000);if(PC>=0xf380&&PC<=0xf3a8&&contains("A:\\>"))return;}while(virtual_cycles<deadline);
+ // Avoid sampling at a fixed phase of the 20,000-cycle PAL interrupt.
+ do{until(virtual_cycles+1009);if(PC>=0xf380&&PC<=0xf3a8&&contains("A:\\>"))return;}while(virtual_cycles<deadline);
  require(0,"command returned to DOS prompt");
 }
 static void command(const char*text){

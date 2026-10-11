@@ -18,6 +18,7 @@ from add_disk_files import add_files, root_files as fat12_files
 import make_sd as sd
 from sd_partitions import scan
 from update_boot import root_files
+from install_gfxmusic import demo_files
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,10 +28,11 @@ def sha(data):
 
 
 def audio_files():
-    files = {p.name: p.read_bytes() for p in sorted((ROOT / 'firmware/audio').iterdir())
-             if p.is_file()}
-    for name in ('YPLAY.PGM', 'DEMO.YM'):
-        files[name] = (ROOT / 'build/audio' / name).read_bytes()
+    files = demo_files()
+    for name in ('RAMMAN.ASM', 'RAMPAGE.ASM', 'RAMHOW.TXT'):
+        files[name] = (ROOT / 'firmware/memory' / name).read_bytes()
+    for name in ('RAMALLOC.PGM', 'RAMPAGE.PGM'):
+        files[name] = (ROOT / 'build/memory-test' / name).read_bytes()
     return files
 
 
@@ -72,7 +74,7 @@ def prepare(image):
                   rom_files={n: sha(files[n]) for n in ('P601.ROM', 'P601A.ROM')},
                   files={n: dict(bytes=len(d), sha256=sha(d)) for n, d in music.items()},
                   other_boot_and_b_files_preserved=True, mbr_ebr_preserved=True,
-                  fpga_update_required=True)
+                  ram_manager_rom_required=True, fpga_update_required=False)
     return [(boot.start*512, new_boot), (drive_b.start*512, new_b)], report
 
 

@@ -1,5 +1,6 @@
 """Standard register-dump fixtures and independent complete-frame oracles."""
 import json
+from itertools import groupby
 from pathlib import Path
 import struct
 import sys
@@ -52,6 +53,23 @@ def compact_psg(data):
             if op < 14:
                 pending[op] = value
     return bytes(output)
+
+
+def vtx(frames, rate=50, clock=1773400, loop=0):
+    """Standard VTX, with independently encoded constant-symbol LH5 blocks."""
+    raw = b''.join(bytes(f[r] for f in frames) for r in range(14))
+    bits = []
+    for value, run in groupby(raw):
+        count = len(list(run))
+        while count:
+            n = min(count, 65535)
+            bits.append(f'{n:016b}' + '00000' + '00000' + '000000000' + f'{value:09b}' + '0000' + '0000')
+            count -= n
+    stream = ''.join(bits)
+    stream += '0' * (-len(stream) % 8)
+    packed = int(stream, 2).to_bytes(len(stream)//8, 'big')
+    header = b'ay' + struct.pack('<BHI BHI', 0, loop, clock, rate, 2026, len(raw))
+    return header + b'Puldin test\0Native HD6303\0Fixture\0\0No conversion\0' + packed, raw
 
 
 def main():
@@ -141,9 +159,24 @@ def main():
     bad = bytearray(packed); bad[20] = 2
     bad[1] = sum(bad[2:bad[0]+2]) & 255
     add('LEVEL2.YM', bytes(bad), error='invalid/unsupported')
+    vtx_data, vtx_raw = vtx(frames)
+    add('AYTEST.VTX', vtx_data, factor=289, unpacked=vtx_raw)
+    data, raw = vtx(frames, rate=60, clock=1000000, loop=11)
+    add('AYLOOP.VTX', data, rate=60, factor=512, loop=11, unpacked=raw)
+    data, raw = vtx(melody(2100), rate=100, clock=2000000)
+    add('AYBIG.VTX', data, oracle=melody(2100), rate=100, factor=256, large=True, unpacked=raw)
+    add('VTXCUT.VTX', vtx_data[:-32], error='invalid/unsupported', unpacked=vtx_raw)
+    for name, index, value in [('VTXRATE.VTX',9,0),('VTXMODE.VTX',2,7),('VTXSIZE.VTX',12,1),('VTXLOOP.VTX',4,255)]:
+        data = bytearray(vtx_data); data[index] = value
+        add(name, bytes(data), error='invalid/unsupported', unpacked=vtx_raw)
+    add('VTXSTR.VTX', vtx_data[:16] + b'x'*255, error='invalid/unsupported', unpacked=vtx_raw)
     source = bytearray((ROOT / 'images/sd.img').read_bytes())
-    start = u32(source, 446 + 2 * 16 + 8) * 512
-    size = u32(source, 446 + 2 * 16 + 12) * 512
+    # The full positive/negative corpus outgrows the floppy-sized B:.
+    # Give only this private fixture a native-profile FAT12 volume after C:.
+    start, size = 73728 * 512, 32400 * 512
+    capacity = ((start+size+524287)//524288)*524288
+    source.extend(bytes(max(0, capacity-len(source))))
+    struct.pack_into('<II', source, 446+2*16+8, start//512, size//512)
     source[start:start+size] = blank_disk(size)
     image, _ = install(bytes(source), files, replace=True)
     (out / 'sd-test.img').write_bytes(image)

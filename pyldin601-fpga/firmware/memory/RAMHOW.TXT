@@ -1,3 +1,12 @@
+RAMALLOC.PGM - allocated expansion RAM test (MC6800 / HD6303)
+
+Run B:RAMALLOC with the current ROM containing INT E5. It allocates
+8 free banks (64 KiB), including fragmented banks, and tests write,
+invert/read, SWI and IRQ page context. PASS shows a nonzero IRQ count.
+Other owners' banks are retained. EOF, ESC or an error releases RAM.
+Repeat at 1/2/4/8 MHz and on both models, then run DIR A:/B:/C:.
+If fewer than 8 banks are free, it exits without modifying the pool.
+
 RAMPAGE.PGM - expansion RAM test (MC6800 / HD6303)
 
 Run B:RAMPAGE. Repeat at 1, 2, 4 and 8 MHz, or change frequency

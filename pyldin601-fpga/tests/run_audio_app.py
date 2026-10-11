@@ -21,13 +21,19 @@ def main():
         for name, case in cases.items():
             if args.case and name != args.case:
                 continue
-            modes = (0, 1) if name == 'LOOP.YM' else (0,)
+            modes = (0, 1) if name in ('LOOP.YM', 'AYLOOP.VTX') else (0,)
             for looping in modes:
                 subprocess.run([str(runner), str(out / 'sd-test.img'), model, name.lower(),
                                 str(out / case['oracle']), str(case['rate']), str(case['factor']),
                                 str(case['loop']), str(looping), case['error'] or '-',
                                 str(out / (name + '.raw'))], cwd=ROOT, check=True)
         if not args.case:
+            for name, mode, error in [('LH5BIG.YM', 'fragmented', '-'), ('AYBIG.VTX', 'fragmented', '-'), ('THREE.YM', 'full', 'not enough free')]:
+                case = cases[name]
+                subprocess.run([str(runner), str(out / 'sd-test.img'), model, name.lower(),
+                                str(out / case['oracle']), str(case['rate']), str(case['factor']),
+                                str(case['loop']), '0', error, str(out / (name + '.raw'))],
+                               cwd=ROOT, check=True, env=dict(os.environ, AUDIO_RAM=mode))
             case = cases['LH5BIG.YM']
             subprocess.run([str(runner), str(out / 'sd-test.img'), model, 'lh5big.ym',
                             str(out / case['oracle']), '50', '256', '0', '0', 'stopped',
