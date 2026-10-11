@@ -42,7 +42,8 @@ def run(item):
     log = case / 'result.log'
     with log.open('w') as output:
         subprocess.run([*command, '-a', str(ROOT / 'rtl/cpu6800.vhd'),
-                        str(ROOT / 'rtl/classic_keyboard.v'), str(ROOT / 'rtl/classic_memory_map.v'),
+                        str(ROOT / 'rtl/classic_keyboard.v'), str(ROOT / 'rtl/ps2_byte_receiver.v'),
+                        str(ROOT / 'rtl/classic_ps2_raw.v'), str(ROOT / 'rtl/classic_memory_map.v'),
                         str(ROOT / 'tests/tb_keyboard_bios_core.v'), str(ROOT / 'tests/tb_keyboard_bios.vhd'),
                         '-e', '-j', f'-gSPEED={speed}', 'tb_keyboard_bios', '-r', 'tb_keyboard_bios'],
                        cwd=case, stdout=output, stderr=subprocess.STDOUT, check=True)

@@ -30,7 +30,7 @@ def build(name='boot',unias=None):
         source=(ROOT/'firmware/boot.asm').read_text()
         # UniAS concatenates ORG segments. Explicit fill retains ROM offsets.
         source=source.replace('    org $fa00','    ds $fa00-*,$ff\n    org $fa00').replace('    org $fff8','    ds $fff8-*,$ff\n    org $fff8')
-        source+='\n'+(ROOT/'firmware/setup.asm').read_text()+'    ds $e000-*,$ff\n'
+        source+='\n'+(ROOT/'firmware/setup.asm').read_text()+'\n'+(ROOT/'firmware/keyboard/BOOTKEY.ASM').read_text()+'    ds $e000-*,$ff\n'
     else:source=(ROOT/'firmware/loader.asm').read_text()
     (out/(name+'.asm')).write_text(portable(source)+'    end\n')
     data=assemble(str(Path(unias).resolve()),out,name+'.asm',name+'.bin')

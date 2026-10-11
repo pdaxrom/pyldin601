@@ -13,7 +13,7 @@ proc require_scored {report preference} {
 }
 if {[catch {
     # Synplify may continue with an undefined ROM when an init file is absent.
-    foreach path {build/boot.mem rtl/font_boot.mem rtl/ps2_set2.mem rtl/keyboard_translate.mem rtl/pal_waveform.mem rtl/pal_rgb332.mem rtl/ay8910.mem rtl/ay8910_init.vh} {
+    foreach path {build/boot.mem rtl/font_boot.mem rtl/pal_waveform.mem rtl/pal_rgb332.mem rtl/ay8910.mem rtl/ay8910_init.vh} {
         if {![file exists $path] || [file size $path] == 0} {
             error "Missing generated ROM input: $path (run make firmware)"
         }

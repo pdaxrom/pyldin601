@@ -2,7 +2,7 @@
   "date": "2026-10-11",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "90ca2c45301ef4e4eac454be1c5c9523418f5e9abbdcbbb92e9bf759b249c083",
+  "sha256": "0c0ac86aa0e6e6ff44b5c2af529542ce6171778defb22c06753a667267a78de8",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -11,7 +11,7 @@
     "601A"
   ],
   "matches_physical_card_readback": false,
-  "installed_on_physical_board": false,
+  "installed_on_physical_board": true,
   "partitions": [
     {
       "number": 1,
@@ -19,11 +19,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "d4c45237935c5306c205dc245401b0adc965e147c0499bbdf2438de499242f8d",
+      "sha256": "c1e9e21e8a3b3dc72216c18909a3a98e02332be30e835b772c48e7bf6149c834",
       "files": {
         "P601.ROM": {
           "bytes": 72192,
-          "sha256": "81fca024347e4205a5629024bd50067950b73b3a8c75d9b6917cd01774b9087a"
+          "sha256": "2154e01b2ac8e4f4d9eb55221545f080bb3bb84f6e263e49079e11aaef68478e"
         },
         "LOADER.BIN": {
           "bytes": 406,
@@ -35,7 +35,7 @@
         },
         "P601A.ROM": {
           "bytes": 72192,
-          "sha256": "9a4bf94023ce937d4ba4e6749ec77d6044831f3bd3f9fc92a74321153a20d6a1"
+          "sha256": "e5c4eab7975ed2c40b188144f30990ee800707adf73a514ab4734955a4e9cf90"
         },
         "P601.SET": {
           "bytes": 16,
@@ -111,7 +111,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "c720a459db69ca706345240a5a8c316fef8fe7fecfddb034e1f826825d837da5",
+      "sha256": "f364f02a5ccdefbcb124faaa83fd1708e59b55337dab8734519ffb7abc92e7d8",
       "files": {
         "HDMUL.ASM": {
           "bytes": 2923,
@@ -366,36 +366,36 @@
           "sha256": "cee23086ac64060bab56b9ae53143dfedd694c40a96a00220d75a7d95d26cc60"
         },
         "GAMEBIOS.INC": {
-          "bytes": 2833,
-          "sha256": "18b94530d489b9debd7cb9e344319a6fbfc9c8b8c80bd07907aac745bacb3068"
+          "bytes": 2899,
+          "sha256": "5832b0b1eca61b70ff61a08ceb1d389b872c2d433666a94d909302b6a428a0c0"
         },
         "GAMESDK.ASM": {
-          "bytes": 10369,
-          "sha256": "217af1b10e4900ebe2e94aa91a00f664321d621b066c82cb87d814ef0b1b0d42"
+          "bytes": 10763,
+          "sha256": "f7f50aaf2f02509c80f9df525ef6f6c1cc345f72c1d833aaf022f45695143d44"
         },
         "GAMESDTA.INC": {
           "bytes": 387,
           "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
         },
         "GAMEHOW.TXT": {
-          "bytes": 2365,
-          "sha256": "81862658ffaefbf9ef3528d41a3c7731db84e28e034d383572f91f6407d18798"
+          "bytes": 2767,
+          "sha256": "211b1e4a6f7185db472e8873c43f8d49e6c2bb43a5d58667b83515d71d79c28b"
         },
         "ARKANOID.ASM": {
-          "bytes": 15886,
-          "sha256": "14ac3a1fc3d45c5bbc78ad95f3745c94c9d1e9252b0129315631bb3f45873ce9"
+          "bytes": 16836,
+          "sha256": "060e05f0af8019d2189d17f4539639dadd5af76a0b2553478953f4be6a158c9a"
         },
         "SDKTEST.ASM": {
           "bytes": 1864,
           "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
         },
         "ARKANOID.PGM": {
-          "bytes": 5342,
-          "sha256": "a20389fcfe820bc247ea578ef795efb980f63968fdfd970329cc42bf1e17d12e"
+          "bytes": 5559,
+          "sha256": "729ecd7fe1933114df96dc9ddfe08937913dbe7718b5be0ceb116186bc73daf8"
         },
         "SDKTEST.PGM": {
-          "bytes": 1850,
-          "sha256": "c50e65408cd3b34bc0b371be4167658b8b3816c678e504680bbd75a466305a94"
+          "bytes": 1872,
+          "sha256": "b0c6bec18ffeff7afeba472e5a390bda48967626947cb8aaadccd8606df30be2"
         },
         "ARKSONG.INC": {
           "bytes": 3976,
@@ -1633,5 +1633,18 @@
       "user_confirmed_cpu_mhz": 1,
       "physical_board_timing_measured": false
     }
+  },
+  "keyboard_interface": "rom-ps2-v2",
+  "keyboard_resident_bytes": 64,
+  "requires_paired_keyboard_fpga": true,
+  "keyboard_installation": {
+    "date_utc": "2026-10-11T16:16:50.404775+00:00",
+    "paired_roms_readback_verified": true,
+    "fpga_flash_verified": true,
+    "jed_sha256": "8e40cf2da0fc9fe6a724cbffa04d2bd6564723df61975d8c56e7309522d01ef8",
+    "all_other_physical_partitions_verified": true,
+    "user_board_confirmation_pending": false,
+    "report": "build/hardware-keyboard-rom/program-result.json",
+    "hardware_confirmed": true
   }
 }

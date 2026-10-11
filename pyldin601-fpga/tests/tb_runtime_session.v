@@ -127,7 +127,10 @@ module runtime_session_fixture(
   $fclose(fileout);
   $display("SESSION snapshot CPU=%h start=%h cursor=%h page=%h raw_busy=%b reads=%d",cpu_addr,screen_start,cursor,dut.page,dut.raw_busy,reads);
  end
- initial begin #12000000000;$fatal(1,"session timeout CPU=%h raw_busy=%b raw_owned=%b reads=%d",cpu_addr,dut.raw_busy,dut.raw_owned,reads);end
+ // Four real DIR commands at 1 MHz also include the ROM keyboard IRQ work.
+ // The 12 s limit expired during a valid SD read in the fourth command;
+ // retain all four commands and allow margin without relaxing assertions.
+ initial begin #18000000000;$fatal(1,"session timeout CPU=%h raw_busy=%b raw_owned=%b reads=%d",cpu_addr,dut.raw_busy,dut.raw_owned,reads);end
  initial begin
   #5000000;
   if(!dut.locked||!armed)$fatal(1,"context restore failed before any DIR: boot error=%b PC=%h",dut.boot_error,cpu_addr);

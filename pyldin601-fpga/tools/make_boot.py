@@ -9,7 +9,7 @@ from unias_boot import build as unias_build
 
 def build():
     binary, labels = unias_build()
-    if len(binary) != 8192 or labels['setup_end'] > 0xe000:
+    if len(binary) != 8192 or labels['boot_keyboard_end'] > 0xe000:
         raise ValueError('bootstrap ROM must fit two 4 KiB pages')
     return binary, labels
 
@@ -24,7 +24,7 @@ def main():
     args.output.write_bytes(binary)
     args.mem.write_text(''.join(f'{byte:02x}\n' for byte in binary))
     args.labels.write_text(json.dumps(labels, indent=2, sort_keys=True) + '\n')
-    print(f'Resident BIOS: {len(binary)} bytes; setup uses {labels["setup_end"] - 0xd000} bytes')
+    print(f'Resident BIOS: {len(binary)} bytes; setup and PS/2 polling use {labels["boot_keyboard_end"] - 0xd000} bytes')
 
 
 if __name__ == '__main__':

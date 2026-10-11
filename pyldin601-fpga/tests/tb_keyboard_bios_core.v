@@ -18,21 +18,27 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
  classic_memory_map map(cpu_addr,!cpu_rw,page,physical,unused);
  reg pal_pending=0,music_pending=0,music_enabled=0;
  integer cycles=0,music_counter=0;
- wire[7:0]kbd_data,kbd_status;wire keyboard_irq;
+ wire[7:0]kbd_data,kbd_status,raw_result,raw_scan;wire keyboard_irq,raw_irq,raw_valid,captured,consumed;
  reg io_latched=0;reg[15:0]io_address;reg[7:0]io_data;
  wire bus_read=cpu_vma&&cpu_rw&&(!io_latched||io_address!=cpu_addr);
  wire bus_write=cpu_vma&&!cpu_rw;
- classic_keyboard keyboard(clk,reset,psclk,psdata,!mode[0],
+ wire raw_io=cpu_addr[15:3]==13'h1cd6;
+ ps2_byte_receiver receiver(clk,reset,psclk,psdata,raw_valid,raw_scan);
+ classic_keyboard keyboard(clk,reset,captured,
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
-  kbd_data,kbd_status,keyboard_irq,1'b1,bus_read&&cpu_addr==16'he62b&&pal_pending,,,1'b0);
- assign cpu_irq=keyboard_irq||pal_pending||music_pending;
+  bus_write&&cpu_addr==16'he628,bus_write&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
+  cpu_out,kbd_data,kbd_status,keyboard_irq,consumed);
+ classic_ps2_raw raw_fifo(clk,reset,raw_valid,raw_scan,bus_read&&raw_io,bus_write&&raw_io,
+  cpu_addr[2:0],cpu_out,raw_result,1'b0,captured,consumed,raw_irq);
+ assign cpu_irq=keyboard_irq||raw_irq||pal_pending||music_pending;
  reg[7:0]byte_in;reg memory_epoch=0;
  // Explicit write epoch avoids a whole-array sensitivity subscription in
  // mixed-language simulators while retaining asynchronous memory reads.
  always @(physical or cpu_addr or memory_epoch or kbd_data or kbd_status
           or caps_off or pal_pending or speaker or mode or page or group
-          or music_enabled or music_pending)begin
+          or music_enabled or music_pending or raw_result)begin
   byte_in=physical[0]?memory[physical>>1][15:8]:memory[physical>>1][7:0];
+  if(raw_io)byte_in=raw_result;
   case(cpu_addr)
    16'he628:byte_in=kbd_data;
    16'he62a,16'he62e:byte_in=kbd_status|8'h37|(caps_off?8'h08:0);
@@ -54,6 +60,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
   end
   if(bus_write)begin
    case(cpu_addr)
+    16'he628,16'he6b0,16'he6b1,16'he6b2,16'he6b3,16'he6b4:begin end
     16'he6f0:page<=cpu_out;
     16'he6f1:group<=cpu_out;
     16'he629:mode<=cpu_out;
@@ -108,7 +115,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
    #20000000;
   end
   wait(accepted==8);#20000000;
-  if(keyboard.queue_count!=0||keyboard.data!=8'hff)$fatal(1,"keyboard did not drain");
+  if(raw_fifo.count!=0||keyboard.data!=8'hff)$fatal(1,"keyboard did not drain");
   #160000000;holding=1;
   send(8'h3e); // Hold 8; BIOS owns the initial repeat delay and rate.
   #200000000;
@@ -119,7 +126,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
   send(8'hf0);send(8'h3e);
   #100000000;released_count=accepted;
   #200000000;
-  if(accepted!=released_count||keyboard.queue_count!=0||keyboard.data!=8'hff)
+  if(accepted!=released_count||raw_fifo.count!=0||keyboard.data!=8'hff)
    $fatal(1,"autorepeat continued after release");
   if({memory[16'he180>>1][7:0],memory[16'he180>>1][15:8]}<100)
    $fatal(1,"shared 100-Hz music IRQ did not run");
@@ -141,12 +148,6 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
    last_held=cycles;
   end
   accepted=accepted+1;
- end
- always @(posedge clk)if(armed&&bus_read)begin
-  if(cpu_addr==16'he628&&kbd_data!=8'hff)
-   $display("KBD read %h qt=%0d timer=%0d/%0d/%0d fifo=%0d at %0t",kbd_data,keyboard.quiet_ticks,timer0,timer1,timer2,keyboard.queue_count,$time);
-  if(cpu_addr==16'he62b&&pal_pending)
-   $display("Timer ack qt=%0d timer=%0d/%0d/%0d at %0t",keyboard.quiet_ticks,timer0,timer1,timer2,$time);
  end
  initial begin #3000000000;$fatal(1,"BIOS keyboard timeout PC=%h accepted=%0d",cpu_addr,accepted);end
 endmodule

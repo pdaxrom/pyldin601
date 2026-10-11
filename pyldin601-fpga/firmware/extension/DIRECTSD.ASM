@@ -35,10 +35,13 @@ FILL equ $ed78
     dw services
     db $e2
     dw rawsd
+    db $e7
+    dw keyboard_gateway
     db 0
 version
-init
     rts
+init
+    jmp keyboard_init
 timer_noop
     cmpa #$ff
     beq timer_return
@@ -412,6 +415,7 @@ crc_byte
     rts
     include SERVICES.ASM
     include GFXCLIP.ASM
+    include KEYBOARD.ASM
 extension_end
     ds $da00-*,$ff
 crc_hi

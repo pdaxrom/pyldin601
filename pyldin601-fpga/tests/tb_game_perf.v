@@ -67,7 +67,7 @@ module game_perf_fixture #(parameter SPEED=0,FRAMES=12,MUSIC=1,STRESS=0)(
   ticks=ticks+1;
   if(armed)begin
    if(cpu_reset)$fatal(1,"game reset");
-   if(!dut.kbd_capture||dut.keyboard_irq||dut.keyboard.key_ready||dut.keyboard.queue_count)
+   if(!dut.kbd_capture||dut.keyboard_irq||dut.kbd_data!=8'hff)
     $fatal(1,"game lost exclusive keyboard capture or delivered native key");
    if(in_irq)irq_clocks=irq_clocks+1;
    else if(dut.gfx.state==4)flip_wait=flip_wait+1;

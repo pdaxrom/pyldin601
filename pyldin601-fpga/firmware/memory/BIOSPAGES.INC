@@ -7,6 +7,7 @@
 ; signature first so these ROMs remain safe with an older FPGA (open bus FF).
 ; INT E4 is its vector; native INT05 remains exactly the PAL system tick.
 audio_irq_dispatch
+    jsr keyboard_rom_poll
     ldaa $e691
     cmpa #$59
     bne audio_irq_native
@@ -31,8 +32,48 @@ audio_irq_native
     ldx swivec+10
     jmp paged_irq
 audio_irq_keyboard
+    tst $e62a
+    bpl audio_irq_other
     ldab swipag+4
-    jmp audio_native_irq
+    ldx swivec+18
+    jmp paged_irq
+audio_irq_other
+    ; A prefix/break raw IRQ can leave no character to feed to INT09.
+    ; Do not invoke the old generic IRQ vector for these internal events.
+    ldaa $e6b4
+    cmpa #2
+    beq audio_irq_rti
+    ldab swipag+1
+    lsrb
+    lsrb
+    lsrb
+    lsrb
+    ldx swivec+6
+    jmp paged_irq
+keyboard_rom_poll
+    ldaa $e6b4
+    cmpa #2
+    bne keyboard_poll_return
+    ldaa $efce
+    cmpa #1
+    bcs keyboard_poll_return
+    cmpa #$be
+    bcc keyboard_poll_return
+    ldaa rompage
+    psha
+    ldaa $e6f1
+    psha
+    clr $e6f1
+    ldaa #$0b
+    staa rompage
+    ldx $efce
+    jsr 0,x
+    pula
+    staa $e6f1
+    pula
+    staa rompage
+keyboard_poll_return
+    rts
 paged_irq
     ldaa rompage
     psha

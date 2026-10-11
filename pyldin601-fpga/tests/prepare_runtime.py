@@ -52,6 +52,16 @@ if args.music_irq:
     restore += ['ldx #$e100','stx $efc8','ldaa $edf2','anda #$0f','staa $edf2',
                 'ldx #0','stx $e180','ldx #$0003','stx $e692',
                 'ldx #$a980','stx $e694','ldaa #1','staa $e696','staa $e690']
+if prefix in ('keyboard', 'session'):
+    from build_partitions import bios_symbols
+    kbd=bios_symbols((root/'build/partitions/SD.ROM.LST').read_text())
+    # Explicitly reserve fixture-only idle-DOS scratch, away from its saved
+    # stack. Heap allocation is exercised by test_keyboard_rom's real boot.
+    ram[0x7000:0x7040]=bytes(64)
+    ram[0x7000:0x7003]=bytes([0x7e,kbd['KEYBOARD_PUMP']>>8,kbd['KEYBOARD_PUMP']&255])
+    ram[0x7009]=255
+    ram[0xefce:0xefd0]=bytes([0x70,0])
+    restore += ['ldaa #$ff','staa $e628','ldaa #$33','staa $e6b3']
 restore += [f"lds #${ctx['sp']-7:04x}",'rti']
 restore += ['end']
 (out/'RESTORE.ASM').write_text('\n'.join('    '+line for line in restore)+'\n')

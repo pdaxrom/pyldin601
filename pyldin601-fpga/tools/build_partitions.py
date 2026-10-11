@@ -94,6 +94,14 @@ def build(unias):
     for p in (ROOT/'firmware/partitions').glob('*'):
         if p.is_file():shutil.copyfile(p,out/p.name)
     for n in ('DIRECTSD.ASM','RAWSD.ASM','SERVICES.ASM'):shutil.copyfile(ROOT/'firmware/extension'/n,out/n)
+    from unias_boot import portable
+    from make_ps2 import table
+    keyboard=(ROOT/'firmware/keyboard/KEYBOARD.ASM').read_text()
+    (out/'KEYBOARD.ASM').write_text(portable(keyboard))
+    (out/'KEYSET2.INC').write_text(data_source(bytes(table(ROOT/'firmware/ps2_set2.csv'))))
+    translation=bytes(int(v,16) for v in (ROOT/'rtl/keyboard_translate.mem').read_text().split())
+    if len(translation)!=1024:raise ValueError('expected eight native keyboard layout tables')
+    (out/'KEYTRANSLATE.INC').write_text(data_source(translation))
     shutil.copyfile(ROOT/'firmware/gfx/GFXCLIP.ASM',out/'GFXCLIP.ASM')
     shutil.copyfile(native/'MEMORY.INC',out/'MEMORY.INC')
     for p in (ROOT/'firmware/memory').glob('*'):

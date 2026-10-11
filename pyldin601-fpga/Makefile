@@ -9,7 +9,7 @@ UNIAS ?= unias
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
-BENCHES := hg frequency_controls timer_tick audio_control memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_queue keyboard_pacing keyboard_repeat keyboard_layout keyboard_navigation keyboard_raw ps2_raw video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
+BENCHES := hg frequency_controls timer_tick audio_control memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_raw ps2_raw video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -74,6 +74,13 @@ test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	@$(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-irq.log').read_text()"
 
 .PHONY: test-keyboard-bios
+.PHONY: test-keyboard-rom
+test-keyboard-rom: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_keyboard_rom.c -o $(BUILD)/test_keyboard_rom
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_keyboard_rom $(BUILD)/test-sd.img $$model $$cpu; done; done
+	$(CC) -O2 -I$(EMUSRC) tests/test_boot_keyboard.c -o $(BUILD)/test_boot_keyboard
+	@set -e; for mode in auto save8 save-left exit save-part4 save-part-left; do $(BUILD)/test_boot_keyboard $(BUILD)/boot.bin $(BUILD)/models-sd.img $$mode; done
+	@set -e; for mode in auto save8 save-left exit save-part4 save-part-left; do BOOT_FAST_TAPS=1 $(BUILD)/test_boot_keyboard $(BUILD)/boot.bin $(BUILD)/models-sd.img $$mode; done
 test-keyboard-bios: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_keyboard_bios.c -o $(BUILD)/prepare_keyboard_bios
 	@set -e; for model in 601 601a; do $(BUILD)/prepare_keyboard_bios $(STABILITY_IMAGE) $$model; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_keyboard_bios.v tests/tb_keyboard_bios.vhd; for speed in 0 1 2 3; do UNIAS="$(UNIAS)" $(PYTHON) tests/prepare_runtime.py --prefix keyboard --speed $$speed --music-irq; $(NVC) --std=2008 --work=work:$(BUILD)/keyboard-bios-$$model --ieee-warnings=off -e -j -gSPEED=$$speed tb_keyboard_bios -r tb_keyboard_bios > $(BUILD)/keyboard-bios-$$model-$$speed.log 2>&1; cat $(BUILD)/keyboard-bios-$$model-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS' in Path('build/keyboard-bios-$$model-$$speed.log').read_text()"; done; done
@@ -86,7 +93,7 @@ test-runtime-turbo: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -a rtl/cpu6800.vhd $(RTL) tests/fast_clock.v tests/tb_runtime_irq.v tests/tb_runtime_irq.vhd
 	@set -e; for speed in 0 1 2 3; do $(NVC) --std=2008 --work=work:$(BUILD)/runtime-turbo --ieee-warnings=off -e -j -gSPEED=$$speed tb_runtime_irq -r tb_runtime_irq > $(BUILD)/runtime-turbo-$$speed.log 2>&1; cat $(BUILD)/runtime-turbo-$$speed.log; $(PYTHON) -c "from pathlib import Path; assert 'PASS actual HDL CPU/native BIOS IRQ' in Path('build/runtime-turbo-$$speed.log').read_text()"; done
 
-test: test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-ram-manager test-memory-app test-audio-app test-audio-irq test-gfxmusic test-gamebios test-gamebios-rtl test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
+test: test-keyboard-rom test-hd6303 test-python test-rtl test-ram-pages test-ram-pages-bios test-ram-pages-ycode test-ram-manager test-memory-app test-audio-app test-audio-irq test-gfxmusic test-gamebios test-gamebios-rtl test-gfx test-ham-pal test-ay test-partitions test-boot-partitions test-raw-sd test-extension-services test-storage-software test-cpu test-cpu-interrupts test-boot-lockstep test-firmware test-setup test-sd-init test-board-syntax test-handoff
 .PHONY: game-apps test-gamebios test-gamebios-rtl test-game-perf
 GAME_PERF_ARGS ?= --frames 3
 game-apps: | $(BUILD)

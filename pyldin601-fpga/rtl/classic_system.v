@@ -92,10 +92,10 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  end
  assign cpu_clk=cpu_clock;
  reg tick_pending;
- wire keyboard_irq,native_keyboard_irq,kbd_capture;
+ wire keyboard_irq,native_keyboard_irq,kbd_capture,kbd_consumed,kbd_raw_irq;
  assign keyboard_irq=native_keyboard_irq&&!kbd_capture;
  wire music_irq;
- assign cpu_irq=(tick_pending||keyboard_irq||music_irq)&&!boot_mode;
+ assign cpu_irq=(tick_pending||keyboard_irq||kbd_raw_irq||music_irq)&&!boot_mode;
  (* syn_ramstyle = "block_ram" *) reg[7:0]boot_rom[0:8191];
  reg[7:0]boot_byte;
  initial $readmemh(BOOT_FILE,boot_rom);
@@ -110,7 +110,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire audio_control_io=cpu_addr[15:4]==12'he69;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
- wire keyboard_raw_io=cpu_addr[15:2]==14'h39ac;
+ wire keyboard_raw_io=cpu_addr[15:3]==13'h1cd6;
  wire timer_io=cpu_addr==16'he62b;
  wire page_io=cpu_addr>=16'he6f0&&cpu_addr<=16'he6f3;
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he683
@@ -131,12 +131,14 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   bus_write&&cpu_addr==16'he6f1&&!boot_mode,cpu_out,cpu_addr,page,legacy_address,
   ram_page_result,mapped_address,invalid_ram_window);
  wire[7:0]kbd_data,kbd_status,kbd_raw_byte,kbd_raw_result;wire kbd_raw_valid;
- classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
-  bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,native_keyboard_irq,
-  !boot_mode,bus_read&&timer_io&&tick_pending,kbd_raw_valid,kbd_raw_byte,kbd_capture);
+  ps2_byte_receiver ps2_receiver(clk,cpu_reset,ps2clk,ps2dat,kbd_raw_valid,kbd_raw_byte);
+  classic_keyboard keyboard(clk,cpu_reset,kbd_capture,
+  bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
+  bus_write&&cpu_addr==16'he628,bus_write&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
+  cpu_out,kbd_data,kbd_status,native_keyboard_irq,kbd_consumed);
  classic_ps2_raw keyboard_raw(clk,cpu_reset,kbd_raw_valid,kbd_raw_byte,
-  bus_read&&keyboard_raw_io,bus_write&&keyboard_raw_io,cpu_addr[1:0],cpu_out,kbd_raw_result,
-  bus_write&&cpu_addr==16'he650&&cpu_out[2:0]==0,kbd_capture);
+  bus_read&&keyboard_raw_io,bus_write&&keyboard_raw_io,cpu_addr[2:0],cpu_out,kbd_raw_result,
+  bus_write&&cpu_addr==16'he650&&cpu_out[2:0]==0,kbd_capture,kbd_consumed,kbd_raw_irq);
  wire[7:0]hg_result;
  classic_hg host_link(clk,cpu_reset,bus_read&&hg_io,bus_write&&hg_io,
   cpu_addr[1:0],cpu_out,hg_result,hg_tms,hg_tck,hg_tdi,hg_tdo,hg_tdo_enable);

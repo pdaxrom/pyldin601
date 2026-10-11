@@ -59,7 +59,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
    #20000000;
   end
   wait(accepted==8);#20000000;
-  if(dut.keyboard.queue_count!=0||dut.keyboard.data!=8'hff)$fatal(1,"keyboard did not drain");
+  if(dut.keyboard_raw.count!=0||dut.keyboard.data!=8'hff)$fatal(1,"keyboard did not drain");
   #160000000;holding=1;
   send(8'h3e); // Hold 8; BIOS owns the initial repeat delay and rate.
   #200000000;
@@ -70,7 +70,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
   send(8'hf0);send(8'h3e);
   #100000000;released_count=accepted;
   #200000000;
-  if(accepted!=released_count||dut.keyboard.queue_count!=0||dut.keyboard.data!=8'hff)
+  if(accepted!=released_count||dut.keyboard_raw.count!=0||dut.keyboard.data!=8'hff)
    $fatal(1,"autorepeat continued after release");
   if({memory[16'he180>>1][7:0],memory[16'he180>>1][15:8]}<100)
    $fatal(1,"shared 100-Hz music IRQ did not run");
@@ -92,12 +92,6 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
    last_held=test_cycles;
   end
   accepted=accepted+1;
- end
- always @(posedge clk)if(armed&&dut.bus_read)begin
-  if(cpu_addr==16'he628&&dut.kbd_data!=8'hff)
-   $display("KBD read %h qt=%0d timer=%0d/%0d/%0d fifo=%0d at %0t",dut.kbd_data,dut.keyboard.quiet_ticks,timer0,timer1,timer2,dut.keyboard.queue_count,$time);
-  if(cpu_addr==16'he62b&&dut.tick_pending)
-   $display("Timer ack qt=%0d timer=%0d/%0d/%0d at %0t",dut.keyboard.quiet_ticks,timer0,timer1,timer2,$time);
  end
  initial begin #3000000000;$fatal(1,"BIOS keyboard timeout PC=%h accepted=%0d",cpu_addr,accepted);end
 endmodule

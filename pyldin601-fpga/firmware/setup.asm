@@ -45,6 +45,7 @@ setup_wait:
     staa SET_SUBTICKS
     jsr setup_countdown
 setup_wait_tick:
+    jsr boot_keyboard_poll
     ldaa $e628
     staa MENU_KEY
     cmpa #$f9
@@ -116,6 +117,7 @@ setup_menu:
     ldx #setup_missing
     jsr setup_message
 setup_read_key:
+    jsr boot_keyboard_poll
     ldaa $e628
     cmpa MENU_KEY
     lbeq setup_read_key

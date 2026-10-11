@@ -1,3 +1,39 @@
+## Программная PS/2-клавиатура, 11 октября 2026
+
+PASS `make test-keyboard-rom`: полный native boot с выделением 64 байт,
+712 переводов раскладки/навигации для каждого сочетания 601/601А ×
+MC6800/HD6303 против исходного `keyboard.c`; быстрые make/break,
+typematic, Caps Lock, Pause, capture/release и overflow. Проверяется
+сохранение CPU/CC/E6F0/E6F1 при raw и PAL IRQ.
+Первичные меню прошли шесть сценариев с настоящими Set 2 make/break,
+каждый с удержанием/отпусканием и с уже накопленным коротким make/break.
+Проверены DEL, десятисекундное ожидание, SAVE, EXIT и выбор раздела;
+результат сравнивается по настройкам, разделу и числу записей SD.
+Лог: `build/keyboard-rom-boot-fast.log`. Старый poll терял короткий
+DEL, что воспроизведено в `build/keyboard-rom-boot-fast-before.log`.
+
+PASS восемь native BIOS/HDL CPU прогонов: обе модели на 1/2/4/8 МГц,
+восемь быстрых нажатий, штатный repeat/break и музыкальный IRQ 100 Гц.
+Логи: `build/keyboard-rom-repeat-final`.
+PASS unit RTL: кадры PS/2 и parity, FIFO/wrap/overflow, level IRQ,
+программные E628/E62A, read acknowledgement, Caps Lock и capture.
+
+PASS полный `make test-rtl`: SRAM/арбитраж, SPI/SD, HG, клавиатурные
+порты/FIFO/IRQ, native/indexed PAL, 601А и transparent SRAM для обеих моделей.
+Лог: `build/keyboard-rom-rtl.log`.
+
+PASS Python, GAMEBIOS/native/RTL, сохранение RAM страниц, audio IRQ,
+первичный BIOS/setup, двенадцать SD-init сценариев и board syntax.
+PASS полный production system с реальным HDL CPU и задержками SRAM:
+601А, 1 МГц, быстрые нажатия, repeat/break и музыкальный IRQ 100 Гц.
+Лог: `build/keyboard-rom-production-final.log`.
+Аппаратная установка: Flash Verify и JTAG Chain — PASS; HG восстановлен.
+Пользователь подтвердил работу обеих моделей после проверки DEL,
+быстрого набора, repeat/break, Caps Lock/Кир-Лат, Арканоида, SPACE/ESC,
+обычного ввода после игры и полного Reset. Все частоты отдельно
+проверены в HDL; физическая проверка каждой частоты не заявляется.
+[Подробности](KEYBOARD.md).
+
 ## Прямой SD, FPGA BIOS, HAM8 и AY, 9 октября 2026
 
 PASS `make test-direct-sd test-extension-services`: по 94 вызова INT17

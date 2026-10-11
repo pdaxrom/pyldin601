@@ -1,3 +1,28 @@
+# Программная PS/2-клавиатура, 11 октября 2026
+
+Diamond 3.14 завершил synthesis, MAP, PAR, TRACE и Jedecgen:
+5180/6864 LUT, 2601/3432 slices, 2085/7209 registers, 22/26 EBR, 1/2 PLL.
+Относительно установленного raw capture: −318 LUT, −158 slices,
+−125 registers, −2 EBR. Свободны 1684 LUT, 831 slices,
+5124 registers, четыре EBR и одна PLL.
+
+Setup/hold cumulative negative slack=0, unconstrained paths=0.
+SRAM→CPU: 23,878 нс при бюджете 27 нс, запас 3,122 нс.
+Ограничение 96 МГц сохранено; минимальный запас 0,137 нс
+определяется minimum pulse width EBR. Seed 6 нарушал путь
+AY count→terminal на 0,128 нс; seed 7 проходит прежние ограничения.
+EDIF/INITVAL-аудит PAL и AY — PASS.
+
+JED SHA-256:
+`8e40cf2da0fc9fe6a724cbffa04d2bd6564723df61975d8c56e7309522d01ef8`.
+111 замороженных входов: `build/diamond/source-keyboard-rom-final-taps-seed7.tar.gz`
+и `.sha256.json`; Linux `/tmp/p601-keyboard-rom-final-taps-seed7`.
+Локальные отчёты: `build/hardware-keyboard-rom`.
+Нужны согласованные первичный BIOS и обе ROM на SD.
+[Интерфейс и тесты](KEYBOARD.md), [установка](HARDWARE.md).
+
+## История: аппаратный автоповтор
+
 # Автоповтор клавиатуры, 11 октября 2026
 
 Diamond 3.14 завершил synthesis, MAP, PAR, TRACE и Jedecgen:

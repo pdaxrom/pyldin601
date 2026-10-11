@@ -64,6 +64,7 @@ MODEL equ $e6a0
 cold_start:
     sei
     lds #$1fff
+    jsr boot_keyboard_init
     jsr ui_init
     ldaa #$ff
     staa MENU_KEY
