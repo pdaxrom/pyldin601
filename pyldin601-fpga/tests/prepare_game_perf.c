@@ -16,9 +16,10 @@ int main(int argc,char **argv){
  uint64_t deadline=virtual_cycles+1000000;
  while(PC!=app+GAME_FRAME_LOOP||i){until(virtual_cycles+1);require(virtual_cycles<deadline,"capture game loop");}
  require(page==7&&!raw_count,"game snapshot outside SWI and raw queue empty");
+ r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;
  r[app+GAME_LAUNCHED]=1;word_at(app+GAME_BALL_X,140);word_at(app+GAME_BALL_Y,140);
- if(!strcmp(argv[3],"brick")){word_at(app+GAME_BALL_X,62);word_at(app+GAME_BALL_Y,38);word_at(app+GAME_VELOCITY_Y,2);}
- if(!strcmp(argv[3],"miss")){word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,190);word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_Y,2);}
+ if(!strcmp(argv[3],"brick")){word_at(app+GAME_BALL_X,62);word_at(app+GAME_BALL_Y,38);word_at(app+GAME_VELOCITY_Y,512);}
+ if(!strcmp(argv[3],"miss")){word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,191);word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_X,0);word_at(app+GAME_VELOCITY_Y,768);}
  char path[256];snprintf(path,sizeof path,"build/game-perf/%s-%s-ram.bin",argv[2],argv[3]);save_perf(path,r,65536);
  snprintf(path,sizeof path,"build/game-perf/%s-%s-fb.bin",argv[2],argv[3]);save_perf(path,physical+0x100000,4*65536);
  snprintf(path,sizeof path,"build/game-perf/%s-%s-config.bin",argv[2],argv[3]);save_perf(path,config,96);

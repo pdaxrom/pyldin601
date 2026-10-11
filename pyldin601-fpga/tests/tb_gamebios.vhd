@@ -16,6 +16,7 @@ architecture test of tb_gamebios is
  signal palette:bytes(0 to 8191):=(others=>x"09");
  signal ay:bytes(0 to 13):=(others=>x"00");
  signal gfx:bytes(0 to 15):=(others=>x"00");
+ signal gfx_failed:std_logic:='1';
  signal clk:std_logic:='0';signal reset:std_logic:='1';signal rw,vma,irq,hd_mode:std_logic;
  signal address:std_logic_vector(15 downto 0);signal din,dout,page:std_logic_vector(7 downto 0):=x"00";
  signal group_number,paladdr:natural:=0;signal readback:boolean:=false;
@@ -42,7 +43,8 @@ begin
   elsif a>=16#e610# and a<=16#e61d# then din<=ay(a-16#e610#);
   elsif a>=16#e650# and a<=16#e65f# then
    din<=gfx(a-16#e650#);
-   if a=16#e65e# then din<=x"47";if readback then din<=palette(paladdr);end if;
+   if a=16#e650# then din(4)<=gfx_failed;
+   elsif a=16#e65e# then din<=x"47";if readback then din<=palette(paladdr);end if;
    elsif a=16#e65f# then din<=x"05";end if;
   elsif a>=16#e600# and a<=16#e6ff# then din<=x"00";
   end if;
@@ -76,13 +78,17 @@ begin
      else
       gfx(k)<=dout;
       if k=1 then
+       gfx_failed<='0';
        src:=256*to_integer(unsigned(gfx(7)))+to_integer(unsigned(gfx(6)));dst:=256*to_integer(unsigned(gfx(9)))+to_integer(unsigned(gfx(8)));w:=256*to_integer(unsigned(gfx(11)))+to_integer(unsigned(gfx(10)));h:=to_integer(unsigned(gfx(12)));
        if p=1 then assert w>0 and h>0 and dst+(h-1)*320+w<=64000 report "bad rectangle" severity failure;
         for y in 0 to h-1 loop for x in 0 to w-1 loop framebuffer(dst+y*320+x)<=gfx(3);end loop;end loop;
        elsif p=4 then framebuffer(dst)<=gfx(3);
        elsif p=5 then gfx(13)<=framebuffer(src);
+       elsif p=2 then
+        assert w>0 and h>0 and src+(h-1)*320+w<=64000 and dst+(h-1)*320+w<=64000 report "bad copy" severity failure;
+        for y in 0 to h-1 loop for x in 0 to w-1 loop framebuffer(dst+y*320+x)<=framebuffer(src+y*320+x);end loop;end loop;
        elsif p=3 then gfx(2)<=gfx(5);
-       else assert false report "unexpected command" severity failure;end if;
+       else gfx_failed<='1';end if;
       end if;
      end if;
     else ram(a)<=dout;
@@ -93,6 +99,7 @@ begin
      assert old_irq=original_irq and old_irq_page=original_page report "IRQ vector lost" severity failure;
      assert not enabled and not pending and period=960000 and divider=x"03000000" report "audio context lost" severity failure;
      assert gfx(0)=x"00" and not readback report "graphics context lost" severity failure;
+     if HD then assert gfx_failed='0' report "sticky graphics error not recovered" severity failure;end if;
      for n in palette'range loop assert palette(n)=x"09" report "palette not restored" severity failure;end loop;
      if HD then assert audio_ticks>=6 report "music IRQ not exercised" severity failure;end if;
      report "PASS actual VHDL CPU/native GAMEBIOS "&MODEL&" HD="&boolean'image(HD)&" SPEED="&natural'image(SPEED)&": palette/text/HAM8, AY frames/notes/IRQ, registers/pages and cleanup";

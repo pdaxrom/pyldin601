@@ -12,7 +12,7 @@ def build(unias='unias'):
     out = ROOT/'build/extension'
     out.mkdir(parents=True, exist_ok=True)
     assembler = shutil.which(unias) or str(Path(unias).resolve())
-    for name in ('extension.asm', 'SERVICES.ASM'):
+    for name in ('extension.asm', 'SERVICES.ASM', 'INDICATOR.ASM'):
         shutil.copyfile(ROOT/'firmware/extension'/name, out/name)
     shutil.copyfile(ROOT/'firmware/gfx/GFXCLIP.ASM', out/'GFXCLIP.ASM')
     result = subprocess.run([assembler, '-D', 'GFXCLIP_ROM', '-l', 'FPGA.LST', '-o', 'FPGA.ROM',

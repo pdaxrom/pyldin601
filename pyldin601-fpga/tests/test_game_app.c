@@ -57,7 +57,9 @@ int GAME_APP_MAIN(int argc,char**argv){
  MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();r=MC6800GetCpuRam();state=r[0xefcc]*256+r[0xefcd];pcb=r[0xec00]*256+r[0xec01];sp_before=SP;
  for(unsigned k=0;k<8192;k++)pal[k]=saved_pal[k]=(k*11+7)&63;for(unsigned k=0;k<14;k++)ay[k]=saved_ay[k]=k&15;
  front=4;old_irq=r[0xefc8]*256+r[0xefc9];old_page=r[0xedf2]>>4;native_step_hook=game_observe;flip_hook=game_frame;
- type_game();
+ // The previous process may have left disabled video with a sticky error.
+ // The SDK also has to recover on the installed older GAMEBIOS ROM.
+ gfx_failed=1;type_game();
  if(!cpu_hd){prompt_wait();require(contains("needs HD6303"),"game refuses MC6800");command("dir c:");puts("PASS ARKANOID MC6800 refusal and DOS");return 0;}
  wait_frames(4);require(raw_capture,"game holds exclusive keyboard capture");require(!r[app+GAME_LAUNCHED]&&r[app+GAME_LIVES]==3&&r[app+GAME_REMAINING]==40&&enabled,"initial game waits for launch and plays music");
  // No native key events are sent: movement must parse raw make/break, without
@@ -89,51 +91,84 @@ int GAME_APP_MAIN(int argc,char**argv){
  const unsigned char pause[]={0xe1,0x14,0x77,0xe1,0xf0,0x14,0xf0,0x77};
  for(unsigned k=0;k<sizeof pause;k++)raw_byte(pause[k]);raw_key(1,0,0x12);raw_key(1,1,0x12);wait_frames(frames+1);
  require(!r[app+GAME_SDK_HELD],"Pause/fake SHIFT ignored and modifiers release");
- // Actual moving paddle impacts: same hit point, opposite/aligned motion.
- // Expected outcomes are explicit gameplay cases, not an implementation copy.
- const struct {int incoming,move,offset,vx,vy;} bounce_cases[]={
-  { 2, 0, 0, 2,-2},{ 2,-4, 0, 0,-3},{ 2, 4, 0, 3,-1},
-  {-2, 0, 0,-2,-2},{-2, 4, 0, 0,-3},{-2,-4, 0,-3,-1},
-  { 2, 0,-24,-1,-3},{ 2, 0,24,3,-1},
-  {-2, 0,-24,-3,-1},{-2, 0,24,1,-3},
-  { 2,-4,-24,-3,-1},{-2,4,24,3,-1},
-  { 0, 0, 0, 0,-3},{ 3,-4,0,1,-3},{-3,4,0,-1,-3}
+ // Impact position selects a continuous angle; spin can reverse centre hits.
+ // Independent properties check variety, symmetry and nearly constant speed.
+ int stationary[45];unsigned distinct=0;
+ for(int offset=-22;offset<=22;offset++){
+  raw_key(1,1,0x6b);raw_key(1,1,0x74);word_at(app+GAME_PADDLE,136);
+  word_at(app+GAME_BALL_X,156+offset);word_at(app+GAME_BALL_Y,180);
+  word_at(app+GAME_VELOCITY_X,0);word_at(app+GAME_VELOCITY_Y,512);
+  r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;
+  wait_frames(frames+1);int vx=(int16_t)at(GAME_VELOCITY_X),vy=(int16_t)at(GAME_VELOCITY_Y);
+  stationary[offset+22]=vx;
+  if(offset==-22||vx!=stationary[offset+21])distinct++;
+  require(vy<=-300&&vx*vx+vy*vy>575000&&vx*vx+vy*vy<605000,"rebound stays upward with near-constant speed");
+  require(at(GAME_BALL_Y)==182,"paddle crossing snaps ball above its surface");
+ }
+ require(distinct>=40,"adjacent impact points produce many distinct angles");
+ for(unsigned k=0;k<22;k++)require(stationary[k]==-stationary[44-k],"stationary impact angles mirror around paddle centre");
+ const struct {int incoming,move,offset,vx;} bounce_cases[]={
+  {512,0,0,64},{512,-4,0,-128},{512,4,0,256},
+  {-512,0,0,-64},{-512,4,0,128},{-512,-4,0,-256},
+  {512,0,-24,-512},{512,0,24,640},
+  {-512,0,-24,-640},{-512,0,24,512},
+  {512,-4,-24,-704},{-512,4,24,704}
  };
  for(unsigned k=0;k<sizeof bounce_cases/sizeof bounce_cases[0];k++){
-  raw_key(1,1,0x6b);raw_key(1,1,0x74);
-  const int move=bounce_cases[k].move;
-  if(move)raw_key(1,0,move<0?0x6b:0x74);
-  word_at(app+GAME_PADDLE,136);
-  word_at(app+GAME_BALL_X,136+move+20+bounce_cases[k].offset-bounce_cases[k].incoming);
-  word_at(app+GAME_BALL_Y,180);word_at(app+GAME_VELOCITY_X,bounce_cases[k].incoming);word_at(app+GAME_VELOCITY_Y,2);
-  wait_frames(frames+1);
-  require((int16_t)at(GAME_VELOCITY_X)==bounce_cases[k].vx&&(int16_t)at(GAME_VELOCITY_Y)==bounce_cases[k].vy,"impact point plus stationary/opposing/aligned paddle changes angle");
-  require(at(GAME_BALL_Y)==182&&(int16_t)at(GAME_PADDLE_DELTA)==move,"rebound snaps to top, spin uses actual displacement");
+  raw_key(1,1,0x6b);raw_key(1,1,0x74);int move=bounce_cases[k].move;
+  if(move)raw_key(1,0,move<0?0x6b:0x74);word_at(app+GAME_PADDLE,136);
+  word_at(app+GAME_BALL_X,156+move+bounce_cases[k].offset-bounce_cases[k].incoming/256);
+  word_at(app+GAME_BALL_Y,180);word_at(app+GAME_VELOCITY_X,bounce_cases[k].incoming);word_at(app+GAME_VELOCITY_Y,512);
+  r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;wait_frames(frames+1);
+  require((int16_t)at(GAME_VELOCITY_X)==bounce_cases[k].vx,"stationary/opposing/aligned motion changes the same impact");
+  require((int16_t)at(GAME_PADDLE_DELTA)==move,"spin uses actual paddle displacement");
  }
- // A held direction at a clamped edge is a stationary paddle, not fake spin.
  raw_key(1,1,0x6b);raw_key(1,1,0x74);raw_key(1,0,0x6b);
- word_at(app+GAME_PADDLE,0);word_at(app+GAME_BALL_X,18);word_at(app+GAME_BALL_Y,180);word_at(app+GAME_VELOCITY_X,2);word_at(app+GAME_VELOCITY_Y,2);wait_frames(frames+1);
- require(!at(GAME_PADDLE_DELTA)&&at(GAME_VELOCITY_X)==2&&(int16_t)at(GAME_VELOCITY_Y)==-2,"clamped paddle has zero spin");
+ word_at(app+GAME_PADDLE,0);word_at(app+GAME_BALL_X,18);word_at(app+GAME_BALL_Y,180);word_at(app+GAME_VELOCITY_X,512);word_at(app+GAME_VELOCITY_Y,512);
+ r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;wait_frames(frames+1);
+ require(!at(GAME_PADDLE_DELTA)&&at(GAME_VELOCITY_X)==64,"clamped paddle has zero spin");
  raw_key(1,1,0x6b);raw_key(1,0,0x74);
- word_at(app+GAME_PADDLE,272);word_at(app+GAME_BALL_X,294);word_at(app+GAME_BALL_Y,180);word_at(app+GAME_VELOCITY_X,-2);word_at(app+GAME_VELOCITY_Y,2);wait_frames(frames+1);
- require(!at(GAME_PADDLE_DELTA)&&(int16_t)at(GAME_VELOCITY_X)==-2&&(int16_t)at(GAME_VELOCITY_Y)==-2,"right clamp also has zero spin");
- raw_key(1,1,0x74);
- for(int magnitude=1;magnitude<=3;magnitude+=2){
-  word_at(app+GAME_BALL_X,200);word_at(app+GAME_BALL_Y,20);word_at(app+GAME_VELOCITY_X,1);word_at(app+GAME_VELOCITY_Y,-magnitude);wait_frames(frames+1);
-  require(at(GAME_BALL_Y)==20&&at(GAME_VELOCITY_Y)==(unsigned)magnitude,"ceiling preserves rebound speed/angle");
+ word_at(app+GAME_PADDLE,272);word_at(app+GAME_BALL_X,294);word_at(app+GAME_BALL_Y,180);word_at(app+GAME_VELOCITY_X,-512);word_at(app+GAME_VELOCITY_Y,512);
+ r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;wait_frames(frames+1);
+ require(!at(GAME_PADDLE_DELTA)&&(int16_t)at(GAME_VELOCITY_X)==-64,"right clamp also has zero spin");raw_key(1,1,0x74);
+ for(int magnitude=256;magnitude<=768;magnitude+=512){
+  word_at(app+GAME_BALL_X,200);word_at(app+GAME_BALL_Y,20);word_at(app+GAME_VELOCITY_X,256);word_at(app+GAME_VELOCITY_Y,-magnitude);
+  r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;wait_frames(frames+1);
+  require(at(GAME_BALL_Y)==20&&at(GAME_VELOCITY_Y)==(unsigned)magnitude,"ceiling preserves fractional speed/angle");
  }
- // Select a controlled trajectory; check collisions against the known grid.
- word_at(app+GAME_BALL_X,62);word_at(app+GAME_BALL_Y,38);word_at(app+GAME_VELOCITY_X,2);word_at(app+GAME_VELOCITY_Y,2);
- wait_frames(frames+4);require(!r[app+GAME_BRICKS+1]&&r[app+GAME_REMAINING]==39&&at(GAME_SCORE)==10,"brick collision and score");
- const unsigned next_bricks[]={0,2,3,4,5,6,7,8,9};
+ word_at(app+GAME_BALL_X,140);word_at(app+GAME_BALL_Y,120);word_at(app+GAME_VELOCITY_X,384);word_at(app+GAME_VELOCITY_Y,0);
+ r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;wait_frames(frames+5);
+ require(at(GAME_BALL_X)==147&&r[app+GAME_BALL_FRACTION_X]==128,"fractional velocity accumulates without rounding drift");
+ // A ball already below the paddle cannot be caught by a horizontal overlap.
+ word_at(app+GAME_PADDLE,136);word_at(app+GAME_BALL_X,156);word_at(app+GAME_BALL_Y,185);word_at(app+GAME_VELOCITY_X,0);word_at(app+GAME_VELOCITY_Y,256);
+ wait_frames(frames+1);require(at(GAME_BALL_Y)==186&&at(GAME_VELOCITY_Y)==256,"no rebound from underneath paddle");
+ // Side and top entries reflect different axes, then exercise decimal carry.
+ word_at(app+GAME_BALL_X,58);word_at(app+GAME_BALL_Y,40);word_at(app+GAME_VELOCITY_X,512);word_at(app+GAME_VELOCITY_Y,0);
+ r[app+GAME_BALL_FRACTION_X]=r[app+GAME_BALL_FRACTION_Y]=0;wait_frames(frames+1);
+ require(!r[app+GAME_BRICKS+1]&&at(GAME_SCORE)==10&&(int16_t)at(GAME_VELOCITY_X)==-512&&!at(GAME_VELOCITY_Y),"brick side reflects horizontal velocity");
+ word_at(app+GAME_BALL_X,40);word_at(app+GAME_BALL_Y,33);word_at(app+GAME_VELOCITY_X,0);word_at(app+GAME_VELOCITY_Y,768);
+ wait_frames(frames+1);require(!r[app+GAME_BRICKS]&&at(GAME_SCORE)==20&&(int16_t)at(GAME_VELOCITY_Y)==-768,"brick top reflects vertical velocity");
+ const unsigned next_bricks[]={2,3,4,5,6,7,8,9};
  for(unsigned k=0;k<sizeof next_bricks/sizeof next_bricks[0];k++){
   unsigned id=next_bricks[k];word_at(app+GAME_BALL_X,30+(id%8)*32);word_at(app+GAME_BALL_Y,38+(id/8)*8);
-  word_at(app+GAME_VELOCITY_X,2);word_at(app+GAME_VELOCITY_Y,2);wait_frames(frames+1);
-  require(at(GAME_SCORE)==20+10*k&&r[app+GAME_REMAINING]==38-k,"each hit updates cached decimal digits");
+  word_at(app+GAME_VELOCITY_X,512);word_at(app+GAME_VELOCITY_Y,512);wait_frames(frames+1);
+  require(at(GAME_SCORE)==30+10*k&&r[app+GAME_REMAINING]==37-k,"each hit updates cached decimal digits");
  }
  require(at(GAME_SCORE)==100,"cached HUD handles 090 to 100 carry and unchanged zero");
- word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,190);word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_Y,2);
+ word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,190);word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_Y,512);
  wait_frames(frames+3);require(r[app+GAME_LIVES]==2&&!r[app+GAME_LAUNCHED],"miss loses one life and waits for launch");
+ // At higher/fractional downward speed a miss can land at y=194. The old
+ // frame recorded that off-screen 8x8 sprite; restoring it two frames later
+ // sent COPY beyond the 64000-byte framebuffer and aborted the game.
+ const unsigned miss_speed[]={768,665},miss_fraction[]={0,128};
+ for(unsigned k=0;k<2;k++){
+  r[app+GAME_LAUNCHED]=1;word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,191);
+  word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_X,0);
+  word_at(app+GAME_VELOCITY_Y,miss_speed[k]);r[app+GAME_BALL_FRACTION_Y]=miss_fraction[k];
+  wait_frames(frames+4);
+  require(r[app+GAME_LIVES]==1-k&&!r[app+GAME_LAUNCHED],"fast/fractional miss and final life survive both buffer restores");
+  require(at(GAME_BALL_Y)==182&&at(GAME_BALL_X)==292,"miss returns ball to paddle before drawing/history");
+ }
  raw_key(0,0,0x76);prompt_wait();raw_key(0,1,0x76);restored();require(SP==sp_before&&contains("returned to UniDOS"),"physical ESC restores DOS");
  app=frames=0;type_game();wait_frames(3);require(r[app+GAME_LIVES]==3&&r[app+GAME_REMAINING]==40&&!at(GAME_SCORE),"second run starts fresh");raw_key(0,0,0x76);prompt_wait();raw_key(0,1,0x76);restored();
  keyboard_raw_missing=1;app=frames=0;type_game();prompt_wait();keyboard_raw_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"older FPGA gets a clear refusal with context cleanup");

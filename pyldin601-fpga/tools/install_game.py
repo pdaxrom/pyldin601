@@ -29,7 +29,7 @@ def game_files():
     names = ('GAMEBIOS.INC', 'GAMESDK.ASM', 'GAMESDTA.INC', 'GAMEHOW.TXT',
              'ARKANOID.ASM', 'SDKTEST.ASM')
     files = {n: (ROOT / 'firmware/game' / n).read_bytes() for n in names}
-    for n in ('ARKANOID.PGM', 'SDKTEST.PGM', 'ARKSONG.INC', 'SDKWORLD.INC'):
+    for n in ('ARKANOID.PGM', 'SDKTEST.PGM', 'ARKSONG.INC', 'SDKWORLD.INC', 'BOUNCEY.INC'):
         files[n] = (ROOT / 'build/game' / n).read_bytes()
     return files
 
@@ -77,7 +77,9 @@ def prepare(image):
                   files={n: dict(bytes=len(d), sha256=sha(d)) for n, d in programs.items()},
                   other_boot_and_b_files_preserved=True, mbr_ebr_preserved=True,
                   native_rom_pages_preserved=True, gamebios_abi=1,
-                  gamebios_context_bytes=8608, fpga_update_required=True, ps2_raw_identity=0x52)
+                  gamebios_context_bytes=8608, gamebios_features=63,
+                  fpga_update_required=False, requires_ps2_capture=True,
+                  ps2_raw_identity=0x52)
     return [(boot.start*512, new_boot), (drive_b.start*512, new_b)], report
 
 

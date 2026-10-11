@@ -16,6 +16,9 @@ start
     cpx #GB_CONTEXT_BYTES
     beq *+5
     jmp fail
+    bitb #GB_FEATURE_BATCH
+    bne *+5
+    jmp fail
     ldaa $e6a0
     bita #2
     bne extended
@@ -58,6 +61,25 @@ extended
     ldaa #GB_PUTS
     ldx #text
     jsr call
+    ldaa #GB_BATCH
+    ldab #3
+    ldx #batch
+    jsr call
+    cmpb #3
+    beq *+5
+    jmp fail
+    cpx #batch
+    beq *+5
+    jmp fail
+    ldaa #GB_TARGET
+    clrb
+    jsr call
+    ldaa #GB_READPIX
+    ldx #batch_pixel
+    jsr call
+    cmpb #42
+    beq *+5
+    jmp fail
     ldaa #GB_MODE
     ldab #7
     jsr call
@@ -69,6 +91,9 @@ extended
     jmp fail
     ldaa #GB_NOTE
     ldx #note
+    jsr call
+    ldaa #GB_MODE
+    ldab #1
     jsr call
     ldaa #GB_FRAME
     ldx #music
@@ -82,6 +107,20 @@ wait_music
     jsr call
     cpx #6
     bcs wait_music
+    ldaa #GB_BATCH
+    ldab #32
+    ldx #batch_text
+    jsr call
+    ; A completed failed raw command must still be reported in the active
+    ; context, but must not prevent CLOSE restoring the video owner.
+    ldaa #$ff
+    staa $e651
+    ldaa #GB_MODE
+    ldab #1
+    int GB_INT
+    cmpa #GB_HARDWARE
+    beq *+5
+    jmp fail
     ldaa #GB_CLOSE
     jsr call
 passed
@@ -110,4 +149,82 @@ pixel dw 0,0
 text db 'OK',0
 note db 1,46,0,4,10
 music db 17,0,28,1,0,0,0,$38,3,4,5,0,0,$ff
+batch
+    db GB_TARGET,2
+    dw 0
+    db GB_RECT,0
+    dw batch_rect
+    db GB_COPY,0
+    dw batch_copy
+batch_rect dw 5,7,4
+    db 2,42
+batch_copy db 2,0,2,0
+    dw 2245,2889,4
+    db 2
+batch_pixel dw 9,9
+batch_text
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
+    db GB_PUTC,'W'
+    dw 0
     end start

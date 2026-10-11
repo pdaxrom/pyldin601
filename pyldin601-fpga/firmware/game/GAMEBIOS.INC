@@ -36,6 +36,8 @@ GB_RESERVE equ 26
 GB_STATUS equ 27
 GB_CLOCK equ 28
 GB_RAWPIX equ 29
+GB_BATCH equ 30
+GB_FEATURE_BATCH equ 32
 GB_OK equ 0
 GB_ARGUMENT equ 1
 GB_HARDWARE equ 2
@@ -87,3 +89,7 @@ GB_KEY_SHIFT equ 128
 ; CLOCK B=0 2MHz,1 1MHz,2 1773400Hz,3 1789773Hz, paused only.
 ; MODE B=0 native,1 indexed,7 HAM8; HAM8 initializes component tables.
 ; Indexed primitives/text reject HAM8; RAWPIX and COPY accept encoded bytes.
+; BATCH B=count (0..32), X=list of operation,B,pointerBE (4 bytes each).
+; Allowed: TARGET,PIXEL,RECT,LINE,COPY,SPRITE,PUTC,PUTS,CURSOR,ATTR,WINDOW,
+; SCROLL,CLEAR,RAWPIX. Stops on first error; prior operations remain applied.
+; INFO feature bit 5 announces BATCH; ABI/context size remain unchanged.

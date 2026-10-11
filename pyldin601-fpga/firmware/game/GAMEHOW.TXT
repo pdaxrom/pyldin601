@@ -11,12 +11,15 @@ B:ARKANOID
   Native keyboard IRQ, repeat and clicks are blocked during play.
   SPACE: launch ball; then pause/resume game and music
   ESC: return to UniDOS
-  Rebound angle depends on hit position and actual paddle motion.
+  Fractional ball velocity: each impact point selects a different angle.
+  Hit position controls the angle; actual paddle motion adds spin.
   Moving with the ball adds sideways speed; opposing motion reduces it.
-  A clamped paddle supplies no spin; rebound always travels upwards.
+  A clamped paddle supplies no spin; speed remains near 3 pixels/frame.
+  Side/top brick impacts reflect the correct axis; no catch from underneath.
   40 bricks, 3 lives, 10 points per brick. Start again after a game ends.
   Indexed 320x200 video, double buffering, tiles, keyed ball, AY music/SFX.
   Score/life updates copy cached digits; static labels are drawn once.
+  Lost balls return to the paddle before drawing/dirty-rectangle history.
   CPU 4 or 8 MHz is recommended for the game; ABI supports all CPU speeds.
 
 B:SDKTEST
@@ -24,6 +27,15 @@ B:SDKTEST
   Expected: PASS: SDK tiles and scrolling. Returns to UniDOS automatically.
 
 GAMEBIOS uses a separate INT E6; native UniBIOS calls are unchanged.
+INFO returns features=63; bit5 advertises BATCH (A=30): up to 32 graphic
+operations in one SWI, each entry is operation,B,pointerBE. No audio,
+palette, mode, FLIP or recursive calls in a batch. Prior operations remain
+applied on error. IRQ keeps playing music; B/X/CCR and bank are preserved.
+Text draws horizontal ink runs; all native 8x8 glyphs stay unchanged.
+ARKANOID discovers BATCH and also runs with older ABI1 ROMs.
+OPEN acknowledges a prior completed graphics error with a read-only job.
+SDK does the same on older ABI1 ROMs; framebuffer/front stay unchanged.
+Active-context faults and busy timeouts still return hardware error.
 Old graphics/text and beeper calls retain their original modes/parameters.
 New indexed text/graphics and AY services require an explicit context.
 The 8608-byte caller context includes palette backup and all private state.
@@ -40,7 +52,7 @@ sdk_input returns A=status, B=held;
 sdk_pressed contains make edges, including taps released between frames.
 
 SDK sources: GAMEBIOS.INC, GAMESDK.ASM, GAMESDTA.INC.
-ARKANOID.ASM includes the prepared register frames in ARKSONG.INC.
+ARKANOID.ASM includes register frames ARKSONG.INC and angles BOUNCEY.INC.
 SDKTEST.ASM includes the test map in SDKWORLD.INC.
 Build relocatable PGM files using the supplied UniAS cross-assembler.
 Detailed ABI, descriptors and tests: audit/GAMEBIOS.md in the repository.

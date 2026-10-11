@@ -2,7 +2,7 @@
   "date": "2026-10-11",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "0c0ac86aa0e6e6ff44b5c2af529542ce6171778defb22c06753a667267a78de8",
+  "sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -11,7 +11,7 @@
     "601A"
   ],
   "matches_physical_card_readback": false,
-  "installed_on_physical_board": true,
+  "installed_on_physical_board": false,
   "partitions": [
     {
       "number": 1,
@@ -19,11 +19,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "c1e9e21e8a3b3dc72216c18909a3a98e02332be30e835b772c48e7bf6149c834",
+      "sha256": "3feb2a020237e9962379a1d69134b00bb44eb062290f7f28a24942428a9a966f",
       "files": {
         "P601.ROM": {
           "bytes": 72192,
-          "sha256": "2154e01b2ac8e4f4d9eb55221545f080bb3bb84f6e263e49079e11aaef68478e"
+          "sha256": "28bb546565080002253f86740c559b1f63a185b07516786a19447dbcc7d14ebc"
         },
         "LOADER.BIN": {
           "bytes": 406,
@@ -35,7 +35,7 @@
         },
         "P601A.ROM": {
           "bytes": 72192,
-          "sha256": "e5c4eab7975ed2c40b188144f30990ee800707adf73a514ab4734955a4e9cf90"
+          "sha256": "62ad3548908a45e64b834773cb8b67b407b4b94e932dfad18e2182264a46ab16"
         },
         "P601.SET": {
           "bytes": 16,
@@ -111,7 +111,7 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "f364f02a5ccdefbcb124faaa83fd1708e59b55337dab8734519ffb7abc92e7d8",
+      "sha256": "479506a40943adc21a708ca7531a6da01b0eb23d9f13463272f733195ab8350b",
       "files": {
         "HDMUL.ASM": {
           "bytes": 2923,
@@ -366,36 +366,36 @@
           "sha256": "cee23086ac64060bab56b9ae53143dfedd694c40a96a00220d75a7d95d26cc60"
         },
         "GAMEBIOS.INC": {
-          "bytes": 2899,
-          "sha256": "5832b0b1eca61b70ff61a08ceb1d389b872c2d433666a94d909302b6a428a0c0"
+          "bytes": 3239,
+          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
         },
         "GAMESDK.ASM": {
-          "bytes": 10763,
-          "sha256": "f7f50aaf2f02509c80f9df525ef6f6c1cc345f72c1d833aaf022f45695143d44"
+          "bytes": 11598,
+          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
         },
         "GAMESDTA.INC": {
           "bytes": 387,
           "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
         },
         "GAMEHOW.TXT": {
-          "bytes": 2767,
-          "sha256": "211b1e4a6f7185db472e8873c43f8d49e6c2bb43a5d58667b83515d71d79c28b"
+          "bytes": 3640,
+          "sha256": "173a5b28d04da1dba58253e10ba1303fcb5d7e2ed619bade259a9a2db58ed6a8"
         },
         "ARKANOID.ASM": {
-          "bytes": 16836,
-          "sha256": "060e05f0af8019d2189d17f4539639dadd5af76a0b2553478953f4be6a158c9a"
+          "bytes": 20383,
+          "sha256": "defec818c99a1f51833d999dabf65157dfeefeb97961b2ecc73f5fda90b8826f"
         },
         "SDKTEST.ASM": {
           "bytes": 1864,
           "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
         },
         "ARKANOID.PGM": {
-          "bytes": 5559,
-          "sha256": "729ecd7fe1933114df96dc9ddfe08937913dbe7718b5be0ceb116186bc73daf8"
+          "bytes": 6184,
+          "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4"
         },
         "SDKTEST.PGM": {
-          "bytes": 1872,
-          "sha256": "b0c6bec18ffeff7afeba472e5a390bda48967626947cb8aaadccd8606df30be2"
+          "bytes": 1943,
+          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
         },
         "ARKSONG.INC": {
           "bytes": 3976,
@@ -404,6 +404,10 @@
         "SDKWORLD.INC": {
           "bytes": 284,
           "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+        },
+        "BOUNCEY.INC": {
+          "bytes": 540,
+          "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
         }
       }
     },
@@ -692,7 +696,7 @@
     "user_confirmation": {
       "date": "2026-10-10",
       "source": "user reply to hardware verification request",
-      "user_reply": "\u0434\u0430, \u043f\u0440\u043e\u0433\u043d\u0430\u043b \u0432\u0441\u0435 \u0434\u0435\u043c\u043e \u043f\u0440\u043e\u0433\u0438 \u0438 gd, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!",
+      "user_reply": "да, прогнал все демо проги и gd, работает!",
       "requested_checks": [
         "boot",
         "DIR A:/B:/C:",
@@ -816,7 +820,7 @@
     "user_confirmation": {
       "date": "2026-10-10",
       "source": "user reply to RAMPAGE hardware verification request",
-      "user_reply": "\u0433\u043e\u0442\u043e\u0432\u043e, \u0432\u0441\u0435 PASS",
+      "user_reply": "готово, все PASS",
       "requested_checks": [
         "B:RAMPAGE at 1/2/4/8 MHz",
         "nonzero IRQ counter",
@@ -1067,7 +1071,7 @@
     },
     "physical_user_confirmation": {
       "date": "2026-10-10",
-      "quote": "\u041e\u0431\u0435 \u043c\u043e\u0434\u0435\u043b\u0438, \u043c\u0443\u0437\u044b\u043a\u0430 \u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
+      "quote": "Обе модели, музыка и управление работают",
       "models": [
         "601",
         "601A"
@@ -1116,7 +1120,7 @@
       "physical_autorepeat_verified": true,
       "physical_user_confirmation": {
         "date": "2026-10-11",
-        "quote": "\u0410\u0432\u0442\u043e\u043f\u043e\u0432\u0442\u043e\u0440 \u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
+        "quote": "Автоповтор и управление работают",
         "reported_checks": [
           "keyboard autorepeat",
           "YPLAY controls"
@@ -1129,7 +1133,7 @@
     "test_report": "build/hardware-keyboard-repeat/keyboard-tests.json",
     "physical_user_confirmation": {
       "date": "2026-10-11",
-      "quote": "\u0410\u0432\u0442\u043e\u043f\u043e\u0432\u0442\u043e\u0440 \u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
+      "quote": "Автоповтор и управление работают",
       "reported_checks": [
         "keyboard autorepeat",
         "YPLAY controls"
@@ -1180,7 +1184,7 @@
     },
     "hardware_confirmation": {
       "date": "2026-10-11",
-      "quote": "\u041e\u0431\u0435 \u043c\u043e\u0434\u0435\u043b\u0438: \u0432\u0441\u0451 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+      "quote": "Обе модели: всё работает",
       "models": [
         "601",
         "601A"
@@ -1207,7 +1211,7 @@
     "available_on_hg": true,
     "hardware_confirmation": {
       "date": "2026-10-11",
-      "quote": "\u0413\u0440\u0430\u0444\u0438\u043a\u0430, \u043c\u0443\u0437\u044b\u043a\u0430, SPACE, ESC \u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u044b\u0439 \u0437\u0430\u043f\u0443\u0441\u043a \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
+      "quote": "Графика, музыка, SPACE, ESC и повторный запуск работают",
       "installation": "HG",
       "reported_checks": [
         "simultaneous HAM8 graphics and AY music",
@@ -1310,7 +1314,7 @@
     "hg_sample": "RITM4.VTX",
     "hardware_confirmation": {
       "date": "2026-10-11",
-      "quote": "\u041e\u0431\u0435 \u043c\u043e\u0434\u0435\u043b\u0438: \u0432\u0441\u0451 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
+      "quote": "Обе модели: всё работает",
       "models": [
         "601",
         "601A"
@@ -1335,28 +1339,28 @@
     "rom_page": "E",
     "context_bytes": 8608,
     "resident_bytes": 0,
-    "rom_e_used_bytes": 7377,
-    "rom_e_free_bytes": 815,
-    "requires_fpga_update": true,
+    "rom_e_used_bytes": 7593,
+    "rom_e_free_bytes": 599,
+    "requires_fpga_update": false,
     "requires_rom_update": true,
     "hardware_confirmed": true,
     "files_on_b": true,
     "build": {
       "ARKANOID": {
-        "bytes": 5559,
-        "code": 4367,
-        "bss": 9796,
-        "ram_bytes": 14163,
-        "relocations": 588,
-        "sha256": "729ecd7fe1933114df96dc9ddfe08937913dbe7718b5be0ceb116186bc73daf8"
+        "bytes": 6184,
+        "code": 4870,
+        "bss": 9829,
+        "ram_bytes": 14699,
+        "relocations": 649,
+        "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4"
       },
       "SDKTEST": {
-        "bytes": 1872,
-        "code": 1446,
+        "bytes": 1943,
+        "code": 1513,
         "bss": 8668,
-        "ram_bytes": 10114,
-        "relocations": 205,
-        "sha256": "b0c6bec18ffeff7afeba472e5a390bda48967626947cb8aaadccd8606df30be2"
+        "ram_bytes": 10181,
+        "relocations": 207,
+        "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
       }
     },
     "validation": {
@@ -1381,53 +1385,54 @@
       "raw_fifo_unit_passed": true,
       "raw_ps2_cpu_mmio_passed": true,
       "legacy_keyboard_bios_cases": 8,
-      "held_make_break_game_oracle_passed": true
+      "held_make_break_game_oracle_passed": true,
+      "game_board_confirmed_on_installed_rom": true
     },
     "physical_installation": {
       "date": "2026-10-11",
       "installed_on_physical_card": true,
-      "backup": "/Storage2/pyldin601-backups/20261011-gamebios/card-before.img",
-      "backup_sha256": "72c8612a45edf057d2fd213a410ebcb9fe150bdf65b945c2ba7a016824afa606",
+      "backup": "/Storage2/pyldin601-backups/20261011-gamebios-batch/card-before.img",
+      "backup_sha256": "525b5f902d9c8c6165d62b1df3fa4f06523ffcc8c69a550672d05ab238045fbf",
       "updated_partitions": [
         1,
         3
       ],
       "rom_files": {
-        "P601.ROM": "81fca024347e4205a5629024bd50067950b73b3a8c75d9b6917cd01774b9087a",
-        "P601A.ROM": "9a4bf94023ce937d4ba4e6749ec77d6044831f3bd3f9fc92a74321153a20d6a1"
+        "P601.ROM": "3dd7725ffffbc9808a34a70f57ae9e41023fa13c79487b8ae6c166cca5465cf8",
+        "P601A.ROM": "5cab6e867693ae264d4f363c27bb1a4d970da7e9dbad8d3e10df0e970f0839b1"
       },
       "files": {
         "GAMEBIOS.INC": {
-          "bytes": 2385,
-          "sha256": "5b475cdf2a43fffece23d10b062b28a901eb6e8a98b626ed91d6de6ec17133b4"
+          "bytes": 3239,
+          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
         },
         "GAMESDK.ASM": {
-          "bytes": 7052,
-          "sha256": "c20c21325beae4b265ce29b43bd16a1ba6f75a45e99992a3b48c9115c87a252d"
+          "bytes": 11598,
+          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
         },
         "GAMESDTA.INC": {
-          "bytes": 277,
-          "sha256": "0e705f0a9022654d8e406f7e9dd1e23ef2b7d919df4fe77ac6b6b3b9f0e81689"
+          "bytes": 387,
+          "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
         },
         "GAMEHOW.TXT": {
-          "bytes": 1485,
-          "sha256": "5ed84d3aa133a56d26f63dffb5cb66376dc2bf1288242a1c2d7ff268f844a10c"
+          "bytes": 3640,
+          "sha256": "173a5b28d04da1dba58253e10ba1303fcb5d7e2ed619bade259a9a2db58ed6a8"
         },
         "ARKANOID.ASM": {
-          "bytes": 12268,
-          "sha256": "555ed388b5503ad23e3490dc41442c9c6481c7606eb00b21e4259d615c39c12f"
+          "bytes": 20383,
+          "sha256": "defec818c99a1f51833d999dabf65157dfeefeb97961b2ecc73f5fda90b8826f"
         },
         "SDKTEST.ASM": {
           "bytes": 1864,
           "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
         },
         "ARKANOID.PGM": {
-          "bytes": 4435,
-          "sha256": "c8a167fcbc177c45f4f4734b63570078cb3e79e2fe34b0d61567e380951f0ce6"
+          "bytes": 6184,
+          "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4"
         },
         "SDKTEST.PGM": {
-          "bytes": 1472,
-          "sha256": "6b55f85d7f4b137e58c7e0f5f2e2ef9df4493f06a3f5673827069ed2920f5f17"
+          "bytes": 1943,
+          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
         },
         "ARKSONG.INC": {
           "bytes": 3976,
@@ -1436,6 +1441,10 @@
         "SDKWORLD.INC": {
           "bytes": 284,
           "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+        },
+        "BOUNCEY.INC": {
+          "bytes": 540,
+          "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
         }
       },
       "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
@@ -1462,18 +1471,20 @@
       "verified_partition_tables": 13,
       "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
       "fpga_reflashed": false,
-      "report": "build/gamebios/card-installed.json",
+      "report": "build/hardware-gamebios-batch/card-installed.json",
       "user_board_confirmation_pending": false,
-      "user_board_confirmation": {
-        "date": "2026-10-11",
-        "models": [
-          "601",
-          "601A"
-        ],
-        "sdk_test": "PASS",
-        "game_audio_controls_esc_relaunch_dir": true,
-        "input_issue": "Paddle movement depended on native repeat"
-      }
+      "hardware_confirmed": true,
+      "user_confirmed_models": [
+        "601",
+        "601A"
+      ],
+      "user_confirmed_checks": [
+        "SDKTEST PASS",
+        "ball losses through game over",
+        "ESC",
+        "relaunch without Reset",
+        "DIR A:/B:/C:"
+      ]
     },
     "initial_board_validation": {
       "date": "2026-10-11",
@@ -1632,6 +1643,152 @@
       "user_report": "Improved at 1 MHz; native BIOS clicks and one generic error reported",
       "user_confirmed_cpu_mhz": 1,
       "physical_board_timing_measured": false
+    },
+    "features": 63,
+    "rebound_update": {
+      "date": "2026-10-11",
+      "q8_8_velocity": true,
+      "pixel_impact_angles": true,
+      "actual_paddle_spin": true,
+      "brick_collision_axis": true,
+      "paddle_crossing_only": true,
+      "batch_copy": true,
+      "older_gamebios_fallback_tested": true,
+      "all_224_native_glyphs_verified": true,
+      "native_models": [
+        "601",
+        "601A"
+      ],
+      "rtl_abi_cpu_mhz": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "hg_installed": true,
+      "physical_sd_updated": true,
+      "physical_board_feedback_pending": false,
+      "miss_boundary_fixed": true,
+      "miss_native_models": [
+        "601",
+        "601A"
+      ],
+      "miss_older_gamebios_tested": true,
+      "user_rebound_report": "Varied angles, losses through game over, ESC and relaunch without Reset confirmed; no crashes.",
+      "sticky_graphics_error_recovery": true,
+      "readonly_recovery": true,
+      "active_errors_still_reported": true,
+      "sdk_recovery_on_installed_roms_tested": true,
+      "rtl_sticky_error_cleanup_runs": 10,
+      "user_report": "Installed ROM and B: applications confirmed on both 601 and 601A: SDKTEST, game, losses, ESC, relaunch and disk access work. Separate disk-indicator position issue reported in 601A 80-column text.",
+      "hardware_confirmed": true,
+      "user_confirmed_checks": [
+        "losses through game over",
+        "ESC",
+        "relaunch without Reset",
+        "no crashes"
+      ],
+      "user_confirmed_cpu_model_unspecified": true,
+      "hg_pgm_sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4",
+      "new_rom_board_confirmation_pending": false,
+      "physical_b_programs_updated": true,
+      "user_confirmed_models": [
+        "601",
+        "601A"
+      ]
+    },
+    "initial_rom_hardware_confirmed": true,
+    "initial_physical_installation": {
+      "date": "2026-10-11",
+      "installed_on_physical_card": true,
+      "backup": "/Storage2/pyldin601-backups/20261011-gamebios/card-before.img",
+      "backup_sha256": "72c8612a45edf057d2fd213a410ebcb9fe150bdf65b945c2ba7a016824afa606",
+      "updated_partitions": [
+        1,
+        3
+      ],
+      "rom_files": {
+        "P601.ROM": "81fca024347e4205a5629024bd50067950b73b3a8c75d9b6917cd01774b9087a",
+        "P601A.ROM": "9a4bf94023ce937d4ba4e6749ec77d6044831f3bd3f9fc92a74321153a20d6a1"
+      },
+      "files": {
+        "GAMEBIOS.INC": {
+          "bytes": 2385,
+          "sha256": "5b475cdf2a43fffece23d10b062b28a901eb6e8a98b626ed91d6de6ec17133b4"
+        },
+        "GAMESDK.ASM": {
+          "bytes": 7052,
+          "sha256": "c20c21325beae4b265ce29b43bd16a1ba6f75a45e99992a3b48c9115c87a252d"
+        },
+        "GAMESDTA.INC": {
+          "bytes": 277,
+          "sha256": "0e705f0a9022654d8e406f7e9dd1e23ef2b7d919df4fe77ac6b6b3b9f0e81689"
+        },
+        "GAMEHOW.TXT": {
+          "bytes": 1485,
+          "sha256": "5ed84d3aa133a56d26f63dffb5cb66376dc2bf1288242a1c2d7ff268f844a10c"
+        },
+        "ARKANOID.ASM": {
+          "bytes": 12268,
+          "sha256": "555ed388b5503ad23e3490dc41442c9c6481c7606eb00b21e4259d615c39c12f"
+        },
+        "SDKTEST.ASM": {
+          "bytes": 1864,
+          "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
+        },
+        "ARKANOID.PGM": {
+          "bytes": 4435,
+          "sha256": "c8a167fcbc177c45f4f4734b63570078cb3e79e2fe34b0d61567e380951f0ce6"
+        },
+        "SDKTEST.PGM": {
+          "bytes": 1472,
+          "sha256": "6b55f85d7f4b137e58c7e0f5f2e2ef9df4493f06a3f5673827069ed2920f5f17"
+        },
+        "ARKSONG.INC": {
+          "bytes": 3976,
+          "sha256": "b79ee36a32c55f452f379c8d48bf9c0e1f608c09147f71a49f4f15f76b63f218"
+        },
+        "SDKWORLD.INC": {
+          "bytes": 284,
+          "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+        }
+      },
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "settings_preserved": true,
+      "current_b_files_preserved": true,
+      "native_rom_pages_preserved": true,
+      "other_partitions_preserved": true,
+      "preserved_partition_numbers": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "mbr_ebr_preserved": true,
+      "verified_partition_tables": 13,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+      "fpga_reflashed": false,
+      "report": "build/gamebios/card-installed.json",
+      "user_board_confirmation_pending": false,
+      "user_board_confirmation": {
+        "date": "2026-10-11",
+        "models": [
+          "601",
+          "601A"
+        ],
+        "sdk_test": "PASS",
+        "game_audio_controls_esc_relaunch_dir": true,
+        "input_issue": "Paddle movement depended on native repeat"
+      }
     }
   },
   "keyboard_interface": "rom-ps2-v2",
@@ -1646,5 +1803,88 @@
     "user_board_confirmation_pending": false,
     "report": "build/hardware-keyboard-rom/program-result.json",
     "hardware_confirmed": true
+  },
+  "sd_indicator_update": {
+    "date": "2026-10-11",
+    "rom_files": {
+      "P601.ROM": "28bb546565080002253f86740c559b1f63a185b07516786a19447dbcc7d14ebc",
+      "P601A.ROM": "62ad3548908a45e64b834773cb8b67b407b4b94e932dfad18e2182264a46ab16"
+    },
+    "fpgabios_sha256": "cf81c645cac83af1b866e875d025d8fe26ad600d89d055c004d9e8da598a2cd8",
+    "status_line_offsets": {
+      "601": 81,
+      "601A": 159
+    },
+    "models": [
+      "601",
+      "601A"
+    ],
+    "cpu_modes": [
+      "MC6800",
+      "HD6303"
+    ],
+    "601A_text_columns": [
+      40,
+      80
+    ],
+    "raw_sd_variants_passed": 8,
+    "partition_variants_passed": 8,
+    "extension_services_variants_passed": 4,
+    "only_rom_page_b_changed": true,
+    "all_other_image_bytes_preserved": true,
+    "fpga_update_required": false,
+    "physical_card_pending": false,
+    "hardware_confirmed": true,
+    "hardware_confirmation_pending": false,
+    "physical_installation": {
+      "date": "2026-10-11",
+      "installed_on_physical_card": true,
+      "backup": "/Storage2/pyldin601-backups/20261011-sd-indicator/card-before.img",
+      "backup_sha256": "93aa44f8f4e163d9db912ec4261917e0060b401729fb061b7597574dd48f59b5",
+      "updated_partitions": [
+        1
+      ],
+      "rom_files": {
+        "P601.ROM": "28bb546565080002253f86740c559b1f63a185b07516786a19447dbcc7d14ebc",
+        "P601A.ROM": "62ad3548908a45e64b834773cb8b67b407b4b94e932dfad18e2182264a46ab16"
+      },
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "settings_preserved": true,
+      "other_boot_files_preserved": true,
+      "preserved_partition_numbers": [
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "verified_partition_tables": 13,
+      "only_rom_page_b_changed": true,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+      "fpga_reflashed": false,
+      "report": "build/hardware-sd-indicator/card-installed.json",
+      "hardware_confirmed": true
+    },
+    "user_confirmation": {
+      "date": "2026-10-11",
+      "model": "601A",
+      "text_columns": 80,
+      "checks": [
+        "DIR A:/B:",
+        "file copy",
+        "indicator in final status-line character on the right",
+        "indicator clears after operation"
+      ],
+      "user_reply": "да, сейчас нормально"
+    }
   }
 }

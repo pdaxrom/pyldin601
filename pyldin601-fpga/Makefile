@@ -334,6 +334,10 @@ gfx-apps: | $(BUILD)
 test-gfx: firmware
 	$(IVERILOG) -g2012 -s tb_gfx -o $(BUILD)/tb_gfx $(RTL) tests/fast_clock.v tests/pal_viewport_reference.v tests/tb_gfx.v
 	$(VVP) $(BUILD)/tb_gfx
+.PHONY: test-gfx-recovery
+test-gfx-recovery: firmware
+	$(IVERILOG) -g2012 -s tb_gfx -Ptb_gfx.RECOVERY_ONLY=1 -o $(BUILD)/tb_gfx_recovery $(RTL) tests/fast_clock.v tests/pal_viewport_reference.v tests/tb_gfx.v
+	$(VVP) $(BUILD)/tb_gfx_recovery
 test-gfx-app: gfx-apps
 	$(PYTHON) tests/run_gfx_app.py --nvc "$(NVC)"
 

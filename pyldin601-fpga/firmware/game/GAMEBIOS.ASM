@@ -56,7 +56,7 @@ game_gateway
 game_info
     ldaa #GB_ABI
     staa $06
-    ldab #31
+    ldab #63
     stab $05
     ldx #GB_CONTEXT_BYTES
     stx $07
@@ -64,7 +64,7 @@ game_info
 game_dispatch
     tsta
     beq game_info
-    cmpa #30
+    cmpa #31
     bcs *+5
     jmp game_direct_argument
     psha
@@ -177,7 +177,90 @@ game_functions
     dw game_copy,game_sprite,game_putc,game_puts,game_cursor,game_attr
     dw game_window,game_scroll,game_clear,game_note,game_frame,game_rate
     dw game_play,game_stop,game_ayreg,game_reserve,game_status,game_clock
-    dw game_rawpixel
+    dw game_rawpixel,game_batch
+; Execute a bounded graphics list under the existing foreground lock. The
+; musical IRQ remains enabled. Save outer arguments even on partial failure.
+game_batch
+    ldx G_STATE
+    ldab G_INB,x
+    cmpb #32
+    bls *+5
+    jmp game_argument
+    tstb
+    bne *+5
+    jmp game_ok
+    stab G_BATCHLEFT,x
+    clra
+    asld
+    asld
+    jsr game_buffer
+    bcc *+5
+    jmp game_argument
+    stx $07
+    ldx G_STATE
+    ldd G_PARM,x
+    psha
+    pshb
+    ldab G_INB,x
+    pshb
+    ldd $07
+    std G_BATCHPTR,x
+game_batch_next
+    ldx G_STATE
+    ldx G_BATCHPTR,x
+    ldaa 0,x
+    cmpa #GB_TARGET
+    beq game_batch_allowed
+    cmpa #GB_PIXEL
+    beq game_batch_allowed
+    cmpa #GB_RAWPIX
+    beq game_batch_allowed
+    cmpa #GB_RECT
+    bcs game_batch_bad
+    cmpa #GB_CLEAR
+    bhi game_batch_bad
+game_batch_allowed
+    psha
+    ldd 2,x
+    psha
+    pshb
+    ldab 1,x
+    inx
+    inx
+    inx
+    inx
+    stx $07
+    ldx G_STATE
+    stab G_INB,x
+    pulb
+    pula
+    std G_PARM,x
+    ldd $07
+    std G_BATCHPTR,x
+    pulb
+    aslb
+    ldx #game_functions
+    abx
+    ldx 0,x
+    jsr 0,x
+    tsta
+    bne game_batch_restore
+    ldx G_STATE
+    dec G_BATCHLEFT,x
+    bne game_batch_next
+    bra game_batch_restore
+game_batch_bad
+    ldaa #GB_ARGUMENT
+game_batch_restore
+    ldx G_STATE
+    staa G_BATCHOP,x
+    pulb
+    stab G_INB,x
+    pulb
+    pula
+    std G_PARM,x
+    ldaa G_BATCHOP,x
+    rts
 game_ok
     clra
     rts
@@ -279,6 +362,14 @@ game_open_flags
     bita #$81
     beq *+5
     jmp game_busy
+    ; OPEN may follow a process whose completed DMA command failed. A
+    ; read-only command acknowledges that sticky error without changing
+    ; the framebuffer or front page. Active-context errors remain strict.
+    jsr game_recover
+    tsta
+    beq *+3
+    rts
+    ldx G_STATE
 game_open_audio
     ldaa G_FLAGS,x
     bita #GB_AUDIO
@@ -464,7 +555,9 @@ game_close_video
     jsr game_video
     bcs game_close_result
     clr G_GFX
-    jsr game_wait
+    ; A completed failed job must not prevent palette/front restoration.
+    ; A still-busy engine is a real timeout and remains an error.
+    jsr game_wait_idle
     ldx G_STATE
     tsta
     beq game_close_palette
@@ -560,6 +653,29 @@ game_wait_done
     jmp game_hardware
     clra
     rts
+game_wait_idle
+    ldx #0
+game_idle_loop
+    ldaa G_GFX
+    bpl game_idle_done
+    dex
+    bne game_idle_loop
+    jmp game_hardware
+game_idle_done
+    clra
+    rts
+game_recover
+    ldaa G_GFX
+    bita #$10
+    bne *+5
+    jmp game_ok
+    ldaa $e652
+    staa $e654
+    clr $e656
+    clr $e657
+    ldaa #5
+    staa $e651
+    jmp game_wait
 game_mode
     jsr game_video
     bcc *+5
@@ -591,7 +707,7 @@ game_target
     jsr game_video
     bcc *+5
     jmp game_unsupported
-    ldab $05
+    ldab G_INB,x
     cmpb #15
     bls *+5
     jmp game_argument

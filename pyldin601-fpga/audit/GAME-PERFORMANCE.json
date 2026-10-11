@@ -1803,5 +1803,637 @@
     "frames_per_case": 20,
     "native_keyboard_irq_suppressed": true,
     "reported_prior_failure_reproduced": false
+  },
+  "rebound_batch_stage": {
+    "date": "2026-10-11",
+    "build": {
+      "ARKANOID": {
+        "bytes": 6184,
+        "code": 4870,
+        "bss": 9829,
+        "ram_bytes": 14699,
+        "relocations": 649,
+        "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4"
+      },
+      "SDKTEST": {
+        "bytes": 1943,
+        "code": 1513,
+        "bss": 8668,
+        "ram_bytes": 10181,
+        "relocations": 207,
+        "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+      }
+    },
+    "rom_files": {
+      "P601.ROM": "3dd7725ffffbc9808a34a70f57ae9e41023fa13c79487b8ae6c166cca5465cf8",
+      "P601A.ROM": "5cab6e867693ae264d4f363c27bb1a4d970da7e9dbad8d3e10df0e970f0839b1"
+    },
+    "abi": 1,
+    "context_bytes": 8608,
+    "rom_e_used_bytes": 7593,
+    "rom_e_free_bytes": 599,
+    "pre_miss_and_recovery_fix": {
+      "measurement": "production HDL; counts normalized to 24 MHz",
+      "pgm_sha256": "d33d573178b800d7b8d03de5b7976a7b24f7b95aab0d73666a492e869789a9e7",
+      "results": [
+        {
+          "model": "601",
+          "scenario": "steady",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 20.512,
+          "max_frame_ms": 21.536,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 516864,
+              "app": 25128,
+              "bios": 125100,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 3737,
+              "flip_wait": 213859,
+              "irq": 29280,
+              "other": 116232,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 480000,
+              "app": 25128,
+              "bios": 125004,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 4217,
+              "flip_wait": 176611,
+              "irq": 29280,
+              "other": 116232,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 480000,
+              "app": 25128,
+              "bios": 125031,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 4958,
+              "flip_wait": 175843,
+              "irq": 29280,
+              "other": 116232,
+              "requests": 1
+            }
+          ]
+        },
+        {
+          "model": "601",
+          "scenario": "brick",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 27.336,
+          "max_frame_ms": 42.01,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 1008240,
+              "app": 67320,
+              "bios": 263391,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 9302,
+              "flip_wait": 350659,
+              "irq": 81504,
+              "other": 232536,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 480168,
+              "app": 28056,
+              "bios": 161700,
+              "input": 1464,
+              "refill": 3552,
+              "blit_wait": 5105,
+              "flip_wait": 114331,
+              "irq": 40752,
+              "other": 125208,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 479784,
+              "app": 24960,
+              "bios": 125004,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 5225,
+              "flip_wait": 164083,
+              "irq": 40752,
+              "other": 116232,
+              "requests": 1
+            }
+          ]
+        },
+        {
+          "model": "601",
+          "scenario": "miss",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 74.00366666666666,
+          "max_frame_ms": 162.015,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 3888360,
+              "app": 62520,
+              "bios": 2817362,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 68763,
+              "flip_wait": 262219,
+              "irq": 326016,
+              "other": 347952,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 959856,
+              "app": 26688,
+              "bios": 382533,
+              "input": 1464,
+              "refill": 12480,
+              "blit_wait": 5192,
+              "flip_wait": 253147,
+              "irq": 81504,
+              "other": 196848,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 480048,
+              "app": 22944,
+              "bios": 161745,
+              "input": 1464,
+              "refill": 3552,
+              "blit_wait": 5300,
+              "flip_wait": 119083,
+              "irq": 40752,
+              "other": 125208,
+              "requests": 1
+            }
+          ]
+        },
+        {
+          "model": "601a",
+          "scenario": "steady",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 20.512,
+          "max_frame_ms": 21.536,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 516864,
+              "app": 25128,
+              "bios": 125100,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 3737,
+              "flip_wait": 213859,
+              "irq": 29280,
+              "other": 116232,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 480000,
+              "app": 25128,
+              "bios": 125004,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 4217,
+              "flip_wait": 176611,
+              "irq": 29280,
+              "other": 116232,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 480000,
+              "app": 25128,
+              "bios": 125031,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 4958,
+              "flip_wait": 175843,
+              "irq": 29280,
+              "other": 116232,
+              "requests": 1
+            }
+          ]
+        },
+        {
+          "model": "601a",
+          "scenario": "brick",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 27.336,
+          "max_frame_ms": 42.01,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 1008240,
+              "app": 67320,
+              "bios": 263391,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 9302,
+              "flip_wait": 350659,
+              "irq": 81504,
+              "other": 232536,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 480168,
+              "app": 28056,
+              "bios": 161700,
+              "input": 1464,
+              "refill": 3552,
+              "blit_wait": 5105,
+              "flip_wait": 114331,
+              "irq": 40752,
+              "other": 125208,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 479784,
+              "app": 24960,
+              "bios": 125004,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 5225,
+              "flip_wait": 164083,
+              "irq": 40752,
+              "other": 116232,
+              "requests": 1
+            }
+          ]
+        },
+        {
+          "model": "601a",
+          "scenario": "miss",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 74.00366666666666,
+          "max_frame_ms": 162.015,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 3888360,
+              "app": 62520,
+              "bios": 2817362,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 68763,
+              "flip_wait": 262219,
+              "irq": 326016,
+              "other": 347952,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 959856,
+              "app": 26688,
+              "bios": 382533,
+              "input": 1464,
+              "refill": 12480,
+              "blit_wait": 5192,
+              "flip_wait": 253147,
+              "irq": 81504,
+              "other": 196848,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 480048,
+              "app": 22944,
+              "bios": 161745,
+              "input": 1464,
+              "refill": 3552,
+              "blit_wait": 5300,
+              "flip_wait": 119083,
+              "irq": 40752,
+              "other": 125208,
+              "requests": 1
+            }
+          ]
+        }
+      ]
+    },
+    "final_miss": {
+      "measurement": "production HDL; counts normalized to 24 MHz",
+      "pgm_sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4",
+      "results": [
+        {
+          "model": "601",
+          "scenario": "miss",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 52.401599999999995,
+          "max_frame_ms": 162.01,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 3888240,
+              "app": 63936,
+              "bios": 2817446,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 70095,
+              "flip_wait": 259267,
+              "irq": 326016,
+              "other": 347952,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 959856,
+              "app": 26688,
+              "bios": 382305,
+              "input": 1464,
+              "refill": 12480,
+              "blit_wait": 5300,
+              "flip_wait": 253267,
+              "irq": 81504,
+              "other": 196848,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 480048,
+              "app": 22944,
+              "bios": 161748,
+              "input": 1464,
+              "refill": 3552,
+              "blit_wait": 4025,
+              "flip_wait": 120355,
+              "irq": 40752,
+              "other": 125208,
+              "requests": 1
+            },
+            {
+              "frame": 3,
+              "ticks": 480216,
+              "app": 22320,
+              "bios": 125148,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 3713,
+              "flip_wait": 168523,
+              "irq": 40752,
+              "other": 116232,
+              "requests": 1
+            },
+            {
+              "frame": 4,
+              "ticks": 479832,
+              "app": 22320,
+              "bios": 124524,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 3017,
+              "flip_wait": 169459,
+              "irq": 40752,
+              "other": 116232,
+              "requests": 1
+            }
+          ]
+        },
+        {
+          "model": "601a",
+          "scenario": "miss",
+          "cpu_mhz": 1,
+          "music": true,
+          "stress_input": false,
+          "mean_frame_ms": 52.401599999999995,
+          "max_frame_ms": 162.01,
+          "rows": [
+            {
+              "frame": 0,
+              "ticks": 3888240,
+              "app": 63936,
+              "bios": 2817446,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 70095,
+              "flip_wait": 259267,
+              "irq": 326016,
+              "other": 347952,
+              "requests": 1
+            },
+            {
+              "frame": 1,
+              "ticks": 959856,
+              "app": 26688,
+              "bios": 382305,
+              "input": 1464,
+              "refill": 12480,
+              "blit_wait": 5300,
+              "flip_wait": 253267,
+              "irq": 81504,
+              "other": 196848,
+              "requests": 1
+            },
+            {
+              "frame": 2,
+              "ticks": 480048,
+              "app": 22944,
+              "bios": 161748,
+              "input": 1464,
+              "refill": 3552,
+              "blit_wait": 4025,
+              "flip_wait": 120355,
+              "irq": 40752,
+              "other": 125208,
+              "requests": 1
+            },
+            {
+              "frame": 3,
+              "ticks": 480216,
+              "app": 22320,
+              "bios": 125148,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 3713,
+              "flip_wait": 168523,
+              "irq": 40752,
+              "other": 116232,
+              "requests": 1
+            },
+            {
+              "frame": 4,
+              "ticks": 479832,
+              "app": 22320,
+              "bios": 124524,
+              "input": 1464,
+              "refill": 2064,
+              "blit_wait": 3017,
+              "flip_wait": 169459,
+              "irq": 40752,
+              "other": 116232,
+              "requests": 1
+            }
+          ]
+        }
+      ]
+    },
+    "final_frames_per_case": 5,
+    "final_miss_initial_y": 191,
+    "final_miss_initial_vy_q8_8": 768,
+    "cpu_mhz_measured": [
+      1
+    ],
+    "models": [
+      "601",
+      "601A"
+    ],
+    "music_irq_hz": 50,
+    "no_api_errors_video_underrun_timer_overrun_hold": true,
+    "text_native_model": {
+      "glyphs": 224,
+      "baseline_601_cycles": 2047827,
+      "baseline_jobs": 3484,
+      "new_601_cycles": 1391673,
+      "new_601a_cycles": 1388877,
+      "new_jobs": 2295,
+      "pixels_match_native_font": true,
+      "measurement": "native CPU/MMIO model"
+    },
+    "physical_game_confirmed": true,
+    "physical_model_cpu_unspecified": true,
+    "physical_board_timing_measured": false,
+    "new_rom_physical_card_pending": false,
+    "new_rom_board_confirmation_pending": false,
+    "physical_installation": {
+      "date": "2026-10-11",
+      "installed_on_physical_card": true,
+      "backup": "/Storage2/pyldin601-backups/20261011-gamebios-batch/card-before.img",
+      "backup_sha256": "525b5f902d9c8c6165d62b1df3fa4f06523ffcc8c69a550672d05ab238045fbf",
+      "updated_partitions": [
+        1,
+        3
+      ],
+      "rom_files": {
+        "P601.ROM": "3dd7725ffffbc9808a34a70f57ae9e41023fa13c79487b8ae6c166cca5465cf8",
+        "P601A.ROM": "5cab6e867693ae264d4f363c27bb1a4d970da7e9dbad8d3e10df0e970f0839b1"
+      },
+      "files": {
+        "GAMEBIOS.INC": {
+          "bytes": 3239,
+          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
+        },
+        "GAMESDK.ASM": {
+          "bytes": 11598,
+          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
+        },
+        "GAMESDTA.INC": {
+          "bytes": 387,
+          "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
+        },
+        "GAMEHOW.TXT": {
+          "bytes": 3640,
+          "sha256": "173a5b28d04da1dba58253e10ba1303fcb5d7e2ed619bade259a9a2db58ed6a8"
+        },
+        "ARKANOID.ASM": {
+          "bytes": 20383,
+          "sha256": "defec818c99a1f51833d999dabf65157dfeefeb97961b2ecc73f5fda90b8826f"
+        },
+        "SDKTEST.ASM": {
+          "bytes": 1864,
+          "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
+        },
+        "ARKANOID.PGM": {
+          "bytes": 6184,
+          "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4"
+        },
+        "SDKTEST.PGM": {
+          "bytes": 1943,
+          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+        },
+        "ARKSONG.INC": {
+          "bytes": 3976,
+          "sha256": "b79ee36a32c55f452f379c8d48bf9c0e1f608c09147f71a49f4f15f76b63f218"
+        },
+        "SDKWORLD.INC": {
+          "bytes": 284,
+          "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+        },
+        "BOUNCEY.INC": {
+          "bytes": 540,
+          "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
+        }
+      },
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "settings_preserved": true,
+      "current_b_files_preserved": true,
+      "native_rom_pages_preserved": true,
+      "other_partitions_preserved": true,
+      "preserved_partition_numbers": [
+        2,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "mbr_ebr_preserved": true,
+      "verified_partition_tables": 13,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+      "fpga_reflashed": false,
+      "report": "build/hardware-gamebios-batch/card-installed.json",
+      "user_board_confirmation_pending": false,
+      "hardware_confirmed": true,
+      "user_confirmed_models": [
+        "601",
+        "601A"
+      ],
+      "user_confirmed_checks": [
+        "SDKTEST PASS",
+        "ball losses through game over",
+        "ESC",
+        "relaunch without Reset",
+        "DIR A:/B:/C:"
+      ]
+    },
+    "new_rom_physical_confirmation": {
+      "passed": true,
+      "models": [
+        "601",
+        "601A"
+      ],
+      "checks": [
+        "SDKTEST PASS",
+        "ball losses through game over",
+        "ESC",
+        "relaunch without Reset",
+        "DIR A:/B:/C:"
+      ]
+    }
   }
 }

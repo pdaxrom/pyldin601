@@ -571,10 +571,7 @@ finish
     ldaa STATUS
     staa SWIA
     rts
-indicator
-    ldx SYS_LINE
-    staa 81,x
-    rts
+    include INDICATOR.ASM
 ; CHS -> partition-relative 16-bit LBA, then bounded 32-bit physical LBA.
 address
     clr STATUS

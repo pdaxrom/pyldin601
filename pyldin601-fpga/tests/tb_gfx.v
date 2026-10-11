@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // Full machine memory path with SRAM-10 delay, board skew, video, ROM lock,
 // electronic disk and cycle-by-cycle speed changes. 24/96 MHz PLL ratio.
-module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELAY=6,WE_RISE=WE_DELAY,WE_FALL=WE_DELAY,FAST_OFFSET=0);
+module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELAY=6,WE_RISE=WE_DELAY,WE_FALL=WE_DELAY,FAST_OFFSET=0,RECOVERY_ONLY=0);
  reg clk=0;always #20.832 clk=~clk;
  reg fast=0;initial begin #(FAST_OFFSET);forever #5.208 fast=~fast;end
  reg button=1;
@@ -108,6 +108,18 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
   for(i=0;i<64;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
   if(!dut.locked)$fatal(1,"fixture lock failed");armed=1;
   get(16'he65e,8'h47);get(16'he65f,5);
+  if(RECOVERY_ONLY)begin
+   for(s=0;s<4;s=s+1)begin
+    if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s);end
+    i=writes;
+    configure(3,0,62080,62080,8,8,0);command(2,1);
+    put(16'he650,0);get(16'he650,8'h10);
+    configure(0,0,0,0,1,1,0);command(5,0);
+    get(16'he650,0);get(16'he652,0);get(16'he65d,8'ha5);
+    if(writes!=i)$fatal(1,"bad COPY/recovery wrote SRAM");
+   end
+   $display("PASS GFX recovery 1/2/4/8 MHz: offscreen COPY, sticky error across disable, read-only ACK, unchanged SRAM/front, no HOLD");$finish;
+  end
   for(s=0;s<4;s=s+1)begin
    if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s);end
    // Unaligned byte fill, multi-row pitch and both ends of the page.
@@ -149,6 +161,12 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
    configure(2,15,0,0,0,1,0);command(1,1);
    configure(2,15,0,0,321,1,0);command(1,1);
    configure(2,15,0,0,1,201,0);command(1,1);
+   // The actual FPGA retains a failed command across mode disable. The
+   // SDK/GAMEBIOS recovery uses a safe READ, changing no framebuffer byte.
+   put(16'he650,0);get(16'he650,8'h10);
+   configure(0,0,0,0,1,1,0);
+   i=writes;command(5,0);get(16'he650,0);
+   if(writes!=i)$fatal(1,"read-only error recovery wrote SRAM");
    // Independent ramp reference, every pixel in both PAL fields at each speed.
    for(i=0;i<64000;i=i+2)memory[(21'h100000+i)>>1]=(((i/320+i%320+1)&255)<<8)|((i/320+i%320)&255);
    // Start from a field boundary; enabling mid-line intentionally blanks

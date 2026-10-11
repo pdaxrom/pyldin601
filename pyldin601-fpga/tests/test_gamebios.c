@@ -13,7 +13,7 @@ static unsigned char gfx[16],pal[8192],saved_pal[8192],ay[16],saved_ay[16];
 static unsigned paladdr,readback,front,enabled,pending,overrun,envelopes,jobs;
 static uint32_t period=960000,period_shadow=960000,divider=0x03000000,divider_shadow=0x03000000;
 static uint64_t audio_last,audio_count,gfx_ready;
-static unsigned fault_busy,fault_audio,fault_divider;
+static unsigned fault_busy,fault_audio,fault_divider,gfx_failed;
 static unsigned char raw_bytes[64];
 static unsigned raw_head,raw_count,raw_overflow,keyboard_raw_missing,raw_capture,keyboard_capture_missing;
 static void raw_byte(unsigned char b){if(raw_count<64)raw_bytes[(raw_head+raw_count++)&63]=b;else raw_overflow=1;}
@@ -31,7 +31,7 @@ static void observe(void){if(r){unsigned vector=r[0xefcc]*256+r[0xefcd];if(vecto
 static int hg_read_byte(uint16_t a,unsigned char*out){
  if(a>=0xe6b0&&a<=0xe6b3){*out=0xff;if(!keyboard_raw_missing)switch(a&3){case 0:*out='R';break;case 1:*out=(raw_count!=0)|((raw_count==64)<<5)|(raw_overflow<<7)|(raw_capture<<6);break;case 2:if(raw_count){*out=raw_bytes[raw_head++&63];raw_count--;}break;case 3:*out=raw_count;}return 1;}
  if(a>=0xe650&&a<=0xe65f){unsigned p=a&15;
-  *out=p==0?gfx[0]|((fault_busy||virtual_cycles<gfx_ready)?128:0):p==2?front:p==14?(readback?pal[paladdr]:'G'):p==15?5:gfx[p];return 1;}
+  *out=p==0?gfx[0]|(gfx_failed?16:0)|((fault_busy||virtual_cycles<gfx_ready)?128:0):p==2?front:p==14?(readback?pal[paladdr]:'G'):p==15?5:gfx[p];return 1;}
  if(a>=0xe610&&a<=0xe61f){*out=ay[a&15];return 1;}
  if(a>=0xe690&&a<=0xe69f){unsigned p=a&15;audio_update();*out=0;
   if(p==0)*out=enabled|(pending<<7)|(overrun<<6)|(fault_divider<<5);
@@ -60,6 +60,10 @@ static int hg_write_byte(uint16_t a,unsigned char d){
  if(p==15){readback=d&1;if(d&2)paladdr=(paladdr+1)&8191;return 1;}
  require(!fault_busy&&virtual_cycles>=gfx_ready,"graphics parameters written only while idle");gfx[p]=d;
  if(p!=1)return 1;jobs++;
+ // Production failed is sticky across mode writes, and clears only when
+ // the engine accepts its next command. An invalid command touches no RAM.
+ gfx_failed=0;
+ if(d<1||d>6){gfx_failed=1;gfx_ready=virtual_cycles+7;return 1;}
  unsigned sp=gfx[4],dp=gfx[5],src=gfx[6]+256*gfx[7],dst=gfx[8]+256*gfx[9],w=gfx[10]+256*gfx[11],height=gfx[12];
  require(sp<16&&dp<16,"framebuffer page bounds");
  unsigned char*s=physical+0x100000+sp*65536,*t=physical+0x100000+dp*65536;
@@ -129,6 +133,15 @@ static void gfx_test(void){
  r[0x7400]=3;r[0x7401]=4;r[0x7402]=5;r[0x7403]=3;call(17,0,0x7400,0);
  r[0x7400]=27;r[0x7401]=6;call(16,0,0x7400,0);call(19,0,0,0);call(13,'A',0,0);
  for(unsigned y=0;y<8;y++)for(unsigned x=0;x<8;x++)require(fb[(32+y)*320+24+x]==((physical[0x10000+6144+'A'*8+y]&(128>>x))?27:6),"native font pixels in framebuffer");
+ uint64_t glyph_cycles=0;unsigned glyph_jobs=0;
+ for(unsigned ch=32;ch<256;ch++){
+  r[0x7400]=3;r[0x7401]=4;call(15,0,0x7400,0);
+  uint64_t before=virtual_cycles;unsigned jb=jobs;call(13,ch,0,0);
+  glyph_cycles+=virtual_cycles-before;glyph_jobs+=jobs-jb;
+  for(unsigned y=0;y<8;y++)for(unsigned x=0;x<8;x++)
+   require(fb[(32+y)*320+24+x]==((physical[0x10000+6144+ch*8+y]&(128>>x))?27:6),"all printable native glyphs preserve foreground/background");
+ }
+ printf("GLYPHS %s: 224 characters, %llu CPU cycles, %u graphics jobs\n",model_a?"601A":"601",(unsigned long long)glyph_cycles,glyph_jobs);fflush(stdout);
  for(unsigned y=32;y<56;y++)for(unsigned x=24;x<64;x++)fb[y*320+x]=y;
  call(18,1,0,0);for(unsigned y=32;y<56;y++)for(unsigned x=24;x<64;x++)require(fb[y*320+x]==(y<48?y+8:6),"text scroll copies eight pixel rows and clears bottom");
  call(18,3,0,0);for(unsigned y=32;y<56;y++)for(unsigned x=24;x<64;x++)require(fb[y*320+x]==6,"whole-window scroll clears");
@@ -163,6 +176,26 @@ static void audio_test(void){
  for(unsigned n=0;n<2;n++){uint32_t t=n?24000000:240000;word_at(0x7400,t>>16);word_at(0x7402,t);call(22,0,0x7400,0);require(period==t,"rate limits accepted");}
  word_at(0x7400,0);word_at(0x7402,0);call(22,0,0x7400,1);
 }
+static void batch_entry(unsigned n,unsigned op,unsigned b,unsigned ptr){unsigned p=0x7800+4*n;r[p]=op;r[p+1]=b;word_at(p+2,ptr);}
+static void batch_test(void){
+ call(3,1,0,0);call(30,0,0xffff,0);call(30,33,0x7800,1);call(30,2,0xbdfc,1);call(30,1,0xffff,1);
+ word_at(0x7600,5);word_at(0x7602,7);word_at(0x7604,4);r[0x7606]=2;r[0x7607]=99;
+ r[0x7610]=2;r[0x7611]=0;r[0x7612]=1;r[0x7613]=2;word_at(0x7614,7*320+5);word_at(0x7616,10*320+9);word_at(0x7618,4);r[0x761a]=2;
+ batch_entry(0,4,1,0);batch_entry(1,9,0,0x7600);batch_entry(2,11,0,0x7610);call(30,3,0x7800,0);
+ for(unsigned y=0;y<2;y++)for(unsigned x=0;x<4;x++)require(physical[0x110000+(7+y)*320+5+x]==99&&physical[0x120000+(10+y)*320+9+x]==99,"batch target/rectangle/nested COPY execute in order");
+ const unsigned forbidden[]={0,1,2,3,5,6,8,20,21,24,30,255};unsigned jb=jobs;
+ for(unsigned k=0;k<sizeof forbidden/sizeof*forbidden;k++){batch_entry(0,forbidden[k],0,0x7600);call(30,1,0x7800,1);}require(jobs==jb,"non-graphics and recursive batch operations are refused");
+ word_at(0x7620,15);word_at(0x7622,17);r[0x7624]=43;
+ batch_entry(0,7,0,0x7620);batch_entry(1,30,0,0);batch_entry(2,9,0,0x7600);jb=jobs;call(30,3,0x7800,1);
+ require(jobs==jb+1&&physical[0x110000+17*320+15]==43,"batch stops on first error and retains prior completed work");
+ batch_entry(0,9,0,0x7600);fault_busy=1;call(30,1,0x7800,2);fault_busy=0;
+ // Long text batch crosses many musical IRQs. Foreground scratch must not
+ // alias the IRQ's note/queue pointers; preserve B/X/CCR/page on return.
+ word_at(0x7400,14);word_at(0x7402,0xa600);call(22,0,0x7400,0);
+ memset(r+0x7400,0,14);r[0x7407]=0x38;r[0x7408]=4;r[0x740d]=255;call(21,0,0x7400,0);call(23,1,0,0);
+ unsigned ticks=r[state+24]*256+r[state+25];for(unsigned k=0;k<32;k++)batch_entry(k,13,'W',0);
+ call(30,32,0x7800,0);require(r[state+24]*256+r[state+25]>ticks,"musical IRQ continues during a full batch");call(24,0,0,0);
+}
 #ifndef GAMEBIOS_MAIN
 #define GAMEBIOS_MAIN main
 #endif
@@ -173,17 +206,26 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  memcpy(config,rom,HEADER_BYTES);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);image=load(argv[1],&image_size);committed=1;
  MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();r=MC6800GetCpuRam();
  state=r[0xefcc]*256+r[0xefcd];pcb=r[0xec00]*256+r[0xec01];sp_before=SP;require(state>=0xc000,"GAMEBIOS inactive in ROM without a heap allocation");
- native_step_hook=observe;watch_resets=1;call(0,0,0,1);require(result_b==31&&result_x==8608,"discoverable ABI/features/context size");
+ native_step_hook=observe;watch_resets=1;call(0,0,0,1);require(result_b==63&&result_x==8608,"discoverable ABI/features/context size");
  if(!cpu_hd){call(1,0,0x5000,3);command("dir c:");printf("PASS GAMEBIOS %s/MC6800 discovery, ISA refusal and native DOS\n",argv[2]);return 0;}
  front=4;for(unsigned k=0;k<8192;k++)pal[k]=saved_pal[k]=(k*17+k/32+5)&63;
  for(unsigned k=0;k<14;k++)ay[k]=saved_ay[k]=(k*5+11)&255;
  old_irq=r[0xefc8]*256+r[0xefc9];old_page=r[0xedf2]>>4;
- call(2,0,0,4);call(30,0,0,1);call(1,0,0xffff,1);
+ call(2,0,0,4);call(31,0,0,1);call(1,0,0xffff,1);
  word_at(0x5000,8608);r[0x5002]=1;r[0x5003]=3;fault_busy=1;call(1,0,0x5000,5);fault_busy=0;fault_audio=1;call(1,0,0x5000,2);fault_audio=0;
  open_context(3);require(!memcmp(r+0x5020,saved_pal,8192),"complete palette backup");call(1,0,0x5000,5);
  word_at(0xec00,pcb+1);call(3,1,0,6);word_at(0xec00,pcb);
  r[state+3]=1;call(3,1,0,5);require(r[state+3]==1,"nested lock retained");r[state+3]=0;
- gfx_test();audio_test();call(2,0,0,0);restored();
+ gfx_test();audio_test();batch_test();call(2,0,0,0);restored();
+ // A failed raw job must not poison cleanup or the next video owner.
+ open_context(3);call(3,1,0,0);
+ hg_write_byte(0xe651,0xff);until(virtual_cycles+10);require(gfx_failed,"hardware command error latched");
+ call(3,1,0,2);require(gfx_failed,"MODE reports an active-context fault rather than hiding it");
+ call(2,0,0,0);restored();require(!gfx_failed,"CLOSE restores front and clears prior completed fault");
+ hg_write_byte(0xe651,0xff);until(virtual_cycles+10);
+ require(gfx_failed&&!gfx[0],"disabled mode retains hardware error as on board");
+ open_context(3);require(!gfx_failed&&front==4,"OPEN acknowledges prior fault with a read-only command");
+ call(3,1,0,0);call(2,0,0,0);restored();
  open_context(3);call(3,1,0,0);call(2,0,0,0);restored();
  // Real PGM deliberately omits CLOSE. Native INT38 must reclaim it.
  command("b:gameleak");restored();require(SP==sp_before,"INT38 cleanup balances stack");

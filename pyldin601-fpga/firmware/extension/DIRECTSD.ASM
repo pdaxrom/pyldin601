@@ -54,10 +54,7 @@ address_bad
     staa STATUS
     rts
     include RAWSD.ASM
-indicator
-    ldx SYS_LINE
-    staa 81,x
-    rts
+    include INDICATOR.ASM
 ; Ready polling is bounded even with a missing card or stalled byte shifter.
 spi
     staa SPI_DATA

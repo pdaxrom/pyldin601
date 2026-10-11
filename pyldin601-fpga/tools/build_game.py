@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import shutil
@@ -27,6 +28,8 @@ def build(unias):
                              0, 0x3c, 5, 3, 0, 0, 0, 255))
     (out / 'ARKSONG.INC').write_text(data_source(frames))
     (out / 'SDKWORLD.INC').write_text(data_source(bytes(range(64))))
+    (out / 'BOUNCEY.INC').write_text(''.join(
+        f'    dw {-round(math.sqrt(768**2-vx**2))}\n' for vx in range(0,705,16)))
     result = {}
     for name in ('ARKANOID', 'SDKTEST'):
         data = assemble(unias, out, name + '.ASM', name + '.PGM')

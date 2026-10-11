@@ -67,6 +67,11 @@ G_SX equ 108
 G_SY equ 110
 G_INB equ 112
 G_STRING equ 114
+; BATCH excludes palette operations, so its state may share palette scratch.
+; Bytes 116..119 belong to the audio IRQ and must never be foreground scratch.
+G_BATCHPTR equ G_GAIN
+G_BATCHLEFT equ G_PHASE
+G_BATCHOP equ G_RGB
 G_NOTES equ 120
 G_SHADOW equ 144
 G_QUEUE equ 160

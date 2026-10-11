@@ -9,6 +9,12 @@ parser.add_argument('--unias',default=os.environ.get('UNIAS','unias'))
 parser.add_argument('--music-irq',action='store_true')
 args=parser.parse_args()
 prefix=args.prefix
+if prefix == 'session':
+    # The listing changes when files on the image change. Always regenerate
+    # the HDL oracle alongside the native snapshot instead of reusing .mem.
+    screen=(root/'build/session-screen.bin').read_bytes()
+    assert len(screen)==1000
+    (root/'build/session-screen.mem').write_text(''.join(f'{v:02x}\n' for v in screen))
 sys.path.insert(0,str(root/'tools'))
 from build_partitions import assemble
 ctx=json.loads((root/f'build/{prefix}-context.json').read_text())

@@ -33,8 +33,50 @@ sdk_present
     staa 2,x
     ldaa sdk_flags
     staa 3,x
+    ; Older ABI1 ROMs leave a completed graphics error latched on CLOSE.
+    ; Recover only idle, disabled video before claiming it. READ at offset
+    ; zero acknowledges the prior error without changing memory/front.
+    jsr sdk_video_recover
+    tsta
+    beq *+3
+    rts
     ldaa #GB_OPEN
     int GB_INT
+    rts
+sdk_video_recover
+    pshx
+    pshb
+    ldaa sdk_flags
+    bita #GB_VIDEO
+    beq sdk_recover_ok
+    ldaa $e650
+    bita #$81
+    bne sdk_recover_ok
+    bita #$10
+    beq sdk_recover_ok
+    ldaa $e652
+    staa $e654
+    clr $e656
+    clr $e657
+    ldaa #5
+    staa $e651
+    ldx #0
+sdk_recover_wait
+    ldaa $e650
+    bpl sdk_recover_done
+    dex
+    bne sdk_recover_wait
+sdk_recover_bad
+    ldaa #GB_HARDWARE
+    bra sdk_recover_return
+sdk_recover_done
+    bita #$30
+    bne sdk_recover_bad
+sdk_recover_ok
+    clra
+sdk_recover_return
+    pulb
+    pulx
     rts
 sdk_missing
     pulb

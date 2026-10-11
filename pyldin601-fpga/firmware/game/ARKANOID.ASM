@@ -8,6 +8,12 @@ start
     ldx #need_gamebios
     jmp message_exit
 started
+    ldaa #GB_INFO
+    int GB_INT
+    clr batch_available
+    bitb #GB_FEATURE_BATCH
+    beq drain_keys
+    inc batch_available
     ; Remove launch-command characters once, before exclusive raw capture.
 drain_keys
     int $10
@@ -395,20 +401,35 @@ reset_ball
     std ball_x
     ldd #182
     std ball_y
-    ldd #2
+    clr ball_fraction_x
+    clr ball_fraction_y
+    ldd #384
     std velocity_x
-    ldd #-2
+    ldd #-665
     std velocity_y
     rts
 move_ball
     ldd ball_x
-    addd velocity_x
+    std previous_x
+    ldd ball_y
+    std previous_y
+    ; Signed Q8.8 velocity, with a separate fraction for each 9-bit position.
+    ldd velocity_x
+    addb ball_fraction_x
+    stab ball_fraction_x
+    adca #0
+    tab
+    clra
+    tstb
+    bpl *+3
+    deca
+    addd ball_x
     std ball_x
     subd #2
-    ble ball_left
+    blt ball_left
     ldd ball_x
     subd #310
-    bge ball_right
+    bgt ball_right
     bra ball_vertical
 ball_left
     ldd #2
@@ -418,17 +439,27 @@ ball_right
     ldd #310
     std ball_x
 ball_reverse_x
+    clr ball_fraction_x
     ldd #0
     subd velocity_x
     std velocity_x
 ball_vertical
-    ldd ball_y
-    addd velocity_y
+    ldd velocity_y
+    addb ball_fraction_y
+    stab ball_fraction_y
+    adca #0
+    tab
+    clra
+    tstb
+    bpl *+3
+    deca
+    addd ball_y
     std ball_y
     subd #20
-    bgt ball_bricks
+    bge ball_bricks
     ldd #20
     std ball_y
+    clr ball_fraction_y
     ldd #0
     subd velocity_y
     std velocity_y
@@ -436,9 +467,11 @@ ball_bricks
     ldd ball_y
     addd #4
     subd #40
-    bcs ball_paddle
+    bcc *+5
+    jmp ball_paddle
     subd #40
-    bcc ball_paddle
+    bcs *+5
+    jmp ball_paddle
     addd #40
     lsrd
     lsrd
@@ -447,9 +480,11 @@ ball_bricks
     ldd ball_x
     addd #4
     subd #32
-    bcs ball_paddle
+    bcc *+5
+    jmp ball_paddle
     subd #256
-    bcc ball_paddle
+    bcs *+5
+    jmp ball_paddle
     addd #256
     lsrd
     lsrd
@@ -465,11 +500,55 @@ ball_bricks
     addd #bricks
     xgdx
     tst 0,x
-    beq ball_paddle
+    bne *+5
+    jmp ball_paddle
     clr 0,x
+    ; A side entry reflects X; a top/bottom entry reflects Y. Restore that
+    ; coordinate to the last position outside the brick to prevent re-entry.
+    clra
+    ldab brick_row
+    asld
+    asld
+    asld
+    addd #40
+    std work_offset
+    ldd previous_y
+    addd #4
+    subd work_offset
+    bcs brick_vertical
+    subd #8
+    bcc brick_vertical
+    clra
+    ldab brick_column
+    asld
+    asld
+    asld
+    asld
+    asld
+    addd #32
+    std work_offset
+    ldd previous_x
+    addd #4
+    subd work_offset
+    bcs brick_horizontal
+    subd #32
+    bcs brick_vertical
+brick_horizontal
+    ldd previous_x
+    std ball_x
+    clr ball_fraction_x
+    ldd #0
+    subd velocity_x
+    std velocity_x
+    bra brick_scored
+brick_vertical
+    ldd previous_y
+    std ball_y
+    clr ball_fraction_y
     ldd #0
     subd velocity_y
     std velocity_y
+brick_scored
     dec remaining
     ldd score
     addd #10
@@ -490,6 +569,9 @@ ball_paddle
     bmi ball_done
     ldd velocity_y
     bmi ball_done
+    ldd previous_y
+    subd #182
+    bgt ball_miss_check
     ldd ball_x
     addd #8
     subd paddle
@@ -500,6 +582,7 @@ ball_paddle
     ble ball_miss_check
     ldd #182
     std ball_y
+    clr ball_fraction_y
     jsr paddle_bounce
     ldaa #49
     ldab #3
@@ -521,39 +604,76 @@ ball_miss_check
     ldx #lose_text
 ball_message
     jsr centre_message
+    ; A missed ball may have reached y=193/194 in this step. Do not draw or
+    ; record that position: restoring its 8x8 dirty rectangle would exceed
+    ; the framebuffer on the next visit to this display buffer.
+    jsr reset_ball
 ball_done
     rts
-; Incoming direction, hit position and actual paddle motion shape the rebound.
-; Ball centre relative to paddle centre is -27..27 on overlapping sprites.
-; Seven 8-pixel zones add -3..3 to VX; half the paddle displacement adds spin.
-; Bound VX to -3..3 and choose VY for nearly constant speed, always upwards.
+; Hit position sets the angle; incoming motion is a small bias, paddle motion
+; adds spin. Q8.8 avoids rounding all impacts into seven integer trajectories.
+; Limit VX to 2.75 px/frame and derive VY for a speed near 3 px/frame.
 paddle_bounce
+    ldd velocity_x
+    std velocity_before
     ldd ball_x
     subd paddle
-    addd #8
-    lsrd
-    lsrd
-    lsrd
-    subd #3
-    addd velocity_x
+    subd #20
+    subd #24
+    ble bounce_hit_left
+    ldd #24
+    bra bounce_hit_scale
+bounce_hit_left
+    addd #24
+    subd #-24
+    bge bounce_hit_in_range
+    ldd #-24
+    bra bounce_hit_scale
+bounce_hit_in_range
+    subd #24
+bounce_hit_scale
+    asld
+    asld
+    asld
     std work_offset
-    ldd paddle_delta
+    asld
+    addd work_offset
+    std work_offset
+    ldd velocity_x
+    tsta
+    bpl bounce_incoming
+    addd #7
+bounce_incoming
+    asra
+    rorb
+    asra
+    rorb
     asra
     rorb
     addd work_offset
     std work_offset
-    subd #3
+    ldd paddle_delta
+    asld
+    asld
+    asld
+    asld
+    std bounce_spin
+    asld
+    addd bounce_spin
+    addd work_offset
+    std work_offset
+    subd #704
     bgt bounce_right
     ldd work_offset
-    subd #-3
+    subd #-704
     blt bounce_left
     ldd work_offset
     bra bounce_store
 bounce_right
-    ldd #3
+    ldd #704
     bra bounce_store
 bounce_left
-    ldd #-3
+    ldd #-704
 bounce_store
     std velocity_x
     tsta
@@ -561,14 +681,37 @@ bounce_store
     ldd #0
     subd velocity_x
 bounce_magnitude
+    subd #64
+    bcc bounce_speed
+    ; Avoid a permanently vertical orbit, retaining the rebound's sign.
+    ldd velocity_x
+    bne bounce_min_sign
+    ldd velocity_before
+bounce_min_sign
+    tsta
+    bmi bounce_min_left
+    ldd #64
+    bra bounce_min_store
+bounce_min_left
+    ldd #-64
+bounce_min_store
+    std velocity_x
+    ldd #64
+    bra bounce_speed_index
+bounce_speed
+    addd #64
+bounce_speed_index
+    addd #8
+    lsrd
+    lsrd
+    lsrd
+    lsrd
+    asld
     ldx #bounce_y
     abx
-    ldab 0,x
-    ldaa #$ff
+    ldd 0,x
     std velocity_y
     rts
-bounce_y
-    db -3,-3,-2,-1
 remove_brick
     clra
     ldab brick_column
@@ -603,6 +746,9 @@ rectangle
     jmp api
 ; Copy same rectangle from static background to the current hidden page.
 restore_rectangle
+    bsr prepare_restore
+    bra copy_background
+prepare_restore
     ldaa #64
     ldab rect_desc+3
     mul
@@ -619,6 +765,7 @@ restore_rectangle
     staa blit_desc+10
     ldaa hidden
     staa blit_desc+3
+    rts
 copy_background
     ldaa #2
     staa blit_desc
@@ -629,16 +776,39 @@ copy_background
     ldaa #GB_COPY
     jmp api
 refresh_rectangle
-    ; Preserve current hidden selector; update both histories after a change.
-    ldaa hidden
-    psha
-    clr hidden
-    jsr restore_rectangle
-    inc hidden
-    jsr restore_rectangle
-    pula
-    staa hidden
-    rts
+    ; Both display buffers receive the same background change in one SWI.
+    jsr prepare_restore
+    ldaa #2
+    staa blit_desc
+    clr blit_desc+1
+    ldaa #3
+    staa blit_desc+2
+    ldx #blit_desc
+    ldab #11
+refresh_clone
+    ldaa 0,x
+    staa copy_zero-blit_desc,x
+    staa copy_one-blit_desc,x
+    inx
+    decb
+    bne refresh_clone
+    clr copy_zero+3
+    ldaa #1
+    staa copy_one+3
+    tst batch_available
+    bne refresh_packed
+    ; ABI1 ROMs without BATCH still run the same game through ordinary COPY.
+    ldaa #GB_COPY
+    ldx #copy_zero
+    jsr api
+    ldaa #GB_COPY
+    ldx #copy_one
+    jmp api
+refresh_packed
+    ldab #2
+    ldx #refresh_batch
+    ldaa #GB_BATCH
+    jmp api
 hud
     ; Three decimal digits, maximum score 400.
     ldd score
@@ -910,6 +1080,11 @@ win_text db 'ALL BRICKS!    ESC: EXIT ',0
 lose_text db 'GAME OVER      ESC: EXIT ',0
 need_gamebios db 'ARKANOID needs HD6303 and GAMEBIOS ABI 1.',13,10,0
 need_input db 'ARKANOID needs raw PS/2 capture FPGA.',13,10,0
+refresh_batch
+    db GB_COPY,0
+    dw copy_zero
+    db GB_COPY,0
+    dw copy_one
 error_text db 'ARKANOID: GAMEBIOS operation failed.',13,10,'OP='
 error_op db '00 STATUS='
 error_status db '00 RAW='
@@ -919,6 +1094,9 @@ error_audio db '00',13,10,0
 done_text db 'ARKANOID: returned to UniDOS.',13,10,0
 song
     include ARKSONG.INC
+bounce_y
+    ; Upward component for |VX|=0..704, step 16 in signed Q8.8.
+    include BOUNCEY.INC
 bss_start
 last_operation ds 1
 failure_status ds 1
@@ -931,6 +1109,8 @@ pal_desc ds 4
 note_desc ds 5
 rect_desc ds 8
 blit_desc ds 11
+copy_zero ds 11
+copy_one ds 11
 work_count ds 2
 work_offset ds 2
 message_pointer ds 2
@@ -942,6 +1122,7 @@ score ds 2
 paused ds 1
 launched ds 1
 hidden ds 1
+batch_available ds 1
 valid ds 2
 song_index ds 1
 music_needed ds 1
@@ -955,6 +1136,12 @@ ball_x ds 2
 ball_y ds 2
 velocity_x ds 2
 velocity_y ds 2
+ball_fraction_x ds 1
+ball_fraction_y ds 1
+previous_x ds 2
+previous_y ds 2
+velocity_before ds 2
+bounce_spin ds 2
 history ds 16
 bricks ds 40
 world ds 1000

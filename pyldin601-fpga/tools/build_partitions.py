@@ -93,7 +93,7 @@ def build(unias):
     native=ROOT.parent/'native-src'
     for p in (ROOT/'firmware/partitions').glob('*'):
         if p.is_file():shutil.copyfile(p,out/p.name)
-    for n in ('DIRECTSD.ASM','RAWSD.ASM','SERVICES.ASM'):shutil.copyfile(ROOT/'firmware/extension'/n,out/n)
+    for n in ('DIRECTSD.ASM','RAWSD.ASM','SERVICES.ASM','INDICATOR.ASM'):shutil.copyfile(ROOT/'firmware/extension'/n,out/n)
     from unias_boot import portable
     from make_ps2 import table
     keyboard=(ROOT/'firmware/keyboard/KEYBOARD.ASM').read_text()

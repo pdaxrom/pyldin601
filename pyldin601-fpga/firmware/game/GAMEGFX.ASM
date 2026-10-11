@@ -638,11 +638,19 @@ game_character
     ldaa G_BG,x
     staa G_COLOUR,x
     jsr game_offset
+    ldd G_SOURCE,x
+    std G_ROW,x
     jsr game_fill
     tsta
     beq *+3
     rts
     ldx G_STATE
+    ldaa G_FG,x
+    cmpa G_BG,x
+    beq game_glyph_advance
+    staa G_COLOUR,x
+    ldaa #1
+    staa G_H,x
     clr G_GR,x
 game_glyph_row
     ldx G_STATE
@@ -655,35 +663,41 @@ game_glyph_row
     ldd $07
     std G_FONT,x
     clr G_GC,x
-game_glyph_pixel
-    ldx G_STATE
+game_glyph_scan
+    tst G_BITS,x
+    bpl game_glyph_skip
+    clra
+    ldab G_GC,x
+    addd G_ROW,x
+    std G_SOURCE,x
+    ldd #0
+    std G_W,x
+game_glyph_run
+    inc G_W+1,x
+    inc G_GC,x
     asl G_BITS,x
-    bcc game_glyph_skip
-    ldaa G_FG,x
-    staa G_COLOUR,x
-    jsr game_dot
+    bmi game_glyph_run
+    jsr game_fill
     tsta
     beq *+3
     rts
     ldx G_STATE
+    bra game_glyph_next
 game_glyph_skip
-    ldd G_X,x
-    addd #1
-    std G_X,x
+    asl G_BITS,x
     inc G_GC,x
+game_glyph_next
     ldaa G_GC,x
     cmpa #8
-    bne game_glyph_pixel
-    ldd G_X,x
-    subd #8
-    std G_X,x
-    ldd G_Y,x
-    addd #1
-    std G_Y,x
+    bne game_glyph_scan
+    ldd G_ROW,x
+    addd #320
+    std G_ROW,x
     inc G_GR,x
     ldaa G_GR,x
     cmpa #8
     bne game_glyph_row
+game_glyph_advance
     inc G_CX,x
     ldaa G_CX,x
     suba G_LEFT,x
