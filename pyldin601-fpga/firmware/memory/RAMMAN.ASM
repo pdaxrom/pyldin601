@@ -26,6 +26,10 @@ RM_BANKS equ 112
     jmp ram_version
     db $e5
     dw ram_gateway
+    .ifdef WITH_GAMEBIOS
+    db $e6
+    dw game_gateway
+    .endif
     db 0
 ram_version
     rts
@@ -59,6 +63,9 @@ ram_init_clear
     staa 6,x
     int $2c
 ram_init_done
+    .ifdef WITH_GAMEBIOS
+    jsr game_initialize
+    .endif
     rts
 ram_gateway
     jmp ram_dispatch
@@ -482,6 +489,10 @@ ram_free_next
     pulb
     rts
 ram_end
+    .ifdef WITH_GAMEBIOS
+    include GAMEBIOS.ASM
+    .endif
+ram_image_end
     checksum
     ds $e000-*,$ff
     end

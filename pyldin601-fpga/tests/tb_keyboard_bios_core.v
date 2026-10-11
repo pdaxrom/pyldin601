@@ -24,7 +24,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
  wire bus_write=cpu_vma&&!cpu_rw;
  classic_keyboard keyboard(clk,reset,psclk,psdata,!mode[0],
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
-  kbd_data,kbd_status,keyboard_irq,1'b1,bus_read&&cpu_addr==16'he62b&&pal_pending);
+  kbd_data,kbd_status,keyboard_irq,1'b1,bus_read&&cpu_addr==16'he62b&&pal_pending,,);
  assign cpu_irq=keyboard_irq||pal_pending||music_pending;
  reg[7:0]byte_in;reg memory_epoch=0;
  // Explicit write epoch avoids a whole-array sensitivity subscription in

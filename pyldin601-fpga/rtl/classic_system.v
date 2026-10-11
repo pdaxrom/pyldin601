@@ -109,13 +109,14 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire audio_control_io=cpu_addr[15:4]==12'he69;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
+ wire keyboard_raw_io=cpu_addr[15:2]==14'h39ac;
  wire timer_io=cpu_addr==16'he62b;
  wire page_io=cpu_addr>=16'he6f0&&cpu_addr<=16'he6f3;
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he683
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
  wire[20:0]legacy_address,mapped_address;wire ignored_io,invalid_ram_window;
- wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||audio_control_io||crtc_io||keyboard_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||audio_control_io||crtc_io||keyboard_io||keyboard_raw_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
  wire[7:0]ay_result;wire ay_audio;
  wire[7:0]audio_control_result;wire divider_update,divider_seen;wire[31:0]divider_value;
  reg[7:0]page,mode;reg caps_off,speaker;
@@ -128,10 +129,12 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  classic_ram_pages ram_pages(clk,cpu_reset,!boot_mode,
   bus_write&&cpu_addr==16'he6f1&&!boot_mode,cpu_out,cpu_addr,page,legacy_address,
   ram_page_result,mapped_address,invalid_ram_window);
- wire[7:0]kbd_data,kbd_status;
+ wire[7:0]kbd_data,kbd_status,kbd_raw_byte,kbd_raw_result;wire kbd_raw_valid;
  classic_keyboard keyboard(clk,cpu_reset,ps2clk,ps2dat,!mode[0],
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),kbd_data,kbd_status,keyboard_irq,
-  !boot_mode,bus_read&&timer_io&&tick_pending);
+  !boot_mode,bus_read&&timer_io&&tick_pending,kbd_raw_valid,kbd_raw_byte);
+ classic_ps2_raw keyboard_raw(clk,cpu_reset,kbd_raw_valid,kbd_raw_byte,
+  bus_read&&keyboard_raw_io,bus_write&&keyboard_raw_io,cpu_addr[1:0],cpu_out,kbd_raw_result);
  wire[7:0]hg_result;
  classic_hg host_link(clk,cpu_reset,bus_read&&hg_io,bus_write&&hg_io,
   cpu_addr[1:0],cpu_out,hg_result,hg_tms,hg_tck,hg_tdi,hg_tdo,hg_tdo_enable);
@@ -227,6 +230,8 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   else if(gfx_io)peripheral_data=cpu_addr[3:0]==14&&palette_read_mode?{2'b0,palette_result}:gfx_result;
   else if(crtc_io)peripheral_data=video_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);
+  // Raw DATA consumes only its own FIFO, never the native keyboard IRQ.
+  else if(keyboard_raw_io)peripheral_data=kbd_raw_result;
   else if(timer_io)peripheral_data=8'h37|(tick_pending?8'h80:0)|(speaker?8'h08:0);
   else if(page_io)peripheral_data=cpu_addr==16'he6f0 ? page:ram_page_result;
   // UniBIOS reads DRB before modifying video or LAT/CYR bits.

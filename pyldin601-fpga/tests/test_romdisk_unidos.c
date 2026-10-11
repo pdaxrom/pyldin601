@@ -18,8 +18,11 @@ static int contains(const char*text){
 }
 static void prompt_wait(void){
  uint64_t deadline=virtual_cycles+15000000;
+ // Sample the same instruction after INT11 has popped its temporary A.
+ // A range over the whole keyboard loop can report SP with one extra byte,
+ // depending on instruction/PAL phase, despite a balanced DOS return.
  // Avoid sampling at a fixed phase of the 20,000-cycle PAL interrupt.
- do{until(virtual_cycles+1009);if(PC>=0xf380&&PC<=0xf3a8&&contains("A:\\>"))return;}while(virtual_cycles<deadline);
+ do{until(virtual_cycles+1009);if(PC==(model_a?0xf397:0xf39d)&&contains("A:\\>"))return;}while(virtual_cycles<deadline);
  require(0,"command returned to DOS prompt");
 }
 static void command(const char*text){

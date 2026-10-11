@@ -10,7 +10,9 @@ module classic_keyboard #(
     output wire [7:0] data,
     output wire [7:0] status,
     output reg irq,
-    input wire runtime_mode,timer_ack
+    input wire runtime_mode,timer_ack,
+    output wire raw_valid,
+    output wire [7:0] raw_byte
 );
     reg [2:0] clock_sync,data_sync;
     reg [7:0] filter;
@@ -47,6 +49,9 @@ module classic_keyboard #(
     // Two synchronous ROM stages. A complete PS/2 frame is held throughout
     // the pipeline, including its E0/F0 state; FIFO/BIOS pacing is unchanged.
     wire shift=shift_l||shift_r,ctrl=ctrl_l||ctrl_r;
+    // Tap validated frames before prefixes, translation and native pacing.
+    assign raw_valid=received;
+    assign raw_byte=scan;
     // Both Windows keys act as the classic LAT/CYR key (FB in every table).
     // Preserve their E0 identity for make/break and typematic suppression.
     wire [7:0] pc_scan=extended&&(scan==8'h1f||scan==8'h27)?8'h46:set2_byte;

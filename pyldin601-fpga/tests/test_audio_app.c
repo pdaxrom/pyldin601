@@ -260,6 +260,7 @@ int main(int argc,char **argv){
  require(!memcmp(preserved,physical+0x10000,sizeof preserved),"ROM/BIOS/font unchanged");
  require(!memcmp(held_banks,r+manager_state+112,111),"every app exit releases only its own banks");
  if(held_count==3)require(!memcmp(held_data,physical+0x22000,8192)&&!memcmp(held_data+8192,physical+0x26000,8192),"foreign song data unchanged");
+ if(SP!=sp_before||(r[0xefc8]<<8|r[0xefc9])!=original_irq)fprintf(stderr,"exit SP=%04x/%04x IRQ=%04x/%04x\n",SP,sp_before,r[0xefc8]<<8|r[0xefc9],original_irq);
  require(SP==sp_before&&(r[0xefc8]<<8|r[0xefc9])==original_irq,"timer and stack preserved on every exit path");
  require((r[0xee0a]<<8|r[0xee0b])==system_timer,"PAL system timer vector unchanged");
  require(music_enabled==original_enabled&&!music_pending&&chip_divider==original_divider&&music_period==original_period,"music timer and clock restored on exit");

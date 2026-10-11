@@ -98,6 +98,20 @@ def build(unias):
     shutil.copyfile(native/'MEMORY.INC',out/'MEMORY.INC')
     for p in (ROOT/'firmware/memory').glob('*'):
         if p.is_file():shutil.copyfile(p,out/p.name)
+    for p in (ROOT/'firmware/game').glob('*'):
+        if p.is_file():shutil.copyfile(p,out/p.name)
+    shutil.copyfile(ROOT/'firmware/gfx/PALCOEF.ASM',out/'PALCOEF.ASM')
+    from make_sd import rom_files
+    font=rom_files(ROOT.parent/'native')['ROM0.BIN'][6144:8192]
+    (out/'GAMEFONT.INC').write_text(data_source(font))
+    import math
+    periods=bytearray()
+    for clock in (2000000,1000000,1773400,1789773):
+        for note in range(72):
+            frequency=440*2**((note+24-69)/12)
+            period=max(1,min(4095,math.floor(clock/(16*frequency)+0.5)))
+            periods+=period.to_bytes(2,'big')
+    (out/'GAMENOTES.INC').write_text(data_source(periods))
     monitor_frame(unias,out,ROOT.parent/'native')
     shell=(native/'UNIDOS.ASM').read_text(encoding='latin1')
     shell=shell.replace('\t\tclr\tfdcslct\n\t\tinc\tfdcslct\n','')
@@ -118,7 +132,7 @@ def build(unias):
     anchor='close_PCB\tproc\n'
     start=shell.index(anchor)
     pos=shell.index('\t\tldx\tcurrent_PCB\n',start)
-    shell=shell[:pos]+'\t\tldaa\t#3\n\t\tint\t$e5\n'+shell[pos:]
+    shell=shell[:pos]+'\t\tldaa\t#2\n\t\tint\t$e6\n\t\tldaa\t#3\n\t\tint\t$e5\n'+shell[pos:]
     (out/'SHELL.ASM').write_text(shell,encoding='latin1')
     shell_data=assemble(unias,out,'SHELL.ASM','SHELL.CMD')
     split=8000
@@ -156,7 +170,7 @@ shell_bytes
     end
 ''')
     built={'UNIBIOS.ROM':8192}
-    for src,name,defines in [('DIRECTSD.ASM','SD.ROM',('-D','GFXCLIP_ROM')),('SHELLROM.ASM','SHELL.ROM',()),('PARTS.ASM','PARTS.ROM',()),('RAMMAN.ASM','RAMMAN.ROM',())]:
+    for src,name,defines in [('DIRECTSD.ASM','SD.ROM',('-D','GFXCLIP_ROM')),('SHELLROM.ASM','SHELL.ROM',()),('PARTS.ASM','PARTS.ROM',()),('RAMMAN.ASM','RAMMAN.ROM',('-D','WITH_GAMEBIOS'))]:
         data=assemble(unias,out,src,name,defines)
         if len(data)!=8192 or sum(data)%256:raise ValueError('invalid checksummed ROM: '+name)
         built[name]=len(data)
@@ -188,7 +202,11 @@ shell_bytes
             if name in updated and updated[name]!=address:
                 raise ValueError(f'native BIOS address moved: {model} {name}')
         built[model+'.ROM']=len(data)
-    (out/'manifest.json').write_text(json.dumps(dict(assembler=unias,roms=built,shell_bytes=len(shell_data)),indent=2)+'\n')
+    game_symbols=bios_symbols((out/'RAMMAN.ROM.LST').read_text())
+    used=game_symbols['RAM_IMAGE_END']-0xc000+1
+    game=dict(abi=game_symbols['GB_ABI'],context_bytes=game_symbols['GB_CONTEXT_BYTES'],
+              resident_bytes=0,rom_e_used_bytes=used,rom_e_free_bytes=8192-used)
+    (out/'manifest.json').write_text(json.dumps(dict(assembler=unias,roms=built,shell_bytes=len(shell_data),gamebios=game),indent=2)+'\n')
     print('UniAS partition ROMs built: '+', '.join(built))
 
 if __name__=='__main__':

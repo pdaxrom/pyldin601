@@ -19,6 +19,7 @@
     <Source name="rtl/classic_keyboard.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>
+    <Source name="rtl/classic_ps2_raw.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_memory_map.v" type="Verilog" type_short="Verilog">
       <Options />
     </Source>

@@ -1,0 +1,41 @@
+GAMEBIOS ABI 1 / HD6303 SDK
+
+Install the matching P601.ROM and P601A.ROM on the boot partition.
+GAMEBIOS ROM calls retain their existing FPGA compatibility.
+This ARKANOID version requires the FPGA PS/2 raw FIFO at E6B0-E6B3.
+Select HD6303 EXTENSION Y in BIOS. Both 601 and 601A are supported.
+
+B:ARKANOID
+  LEFT/RIGHT or A/D: paddle, 4 pixels per frame while held; release stops.
+  Independent of UniBIOS debounce and PS/2 typematic.
+  SPACE: launch ball; then pause/resume game and music
+  ESC: return to UniDOS
+  Rebound angle depends on hit position and actual paddle motion.
+  Moving with the ball adds sideways speed; opposing motion reduces it.
+  A clamped paddle supplies no spin; rebound always travels upwards.
+  40 bricks, 3 lives, 10 points per brick. Start again after a game ends.
+  Indexed 320x200 video, double buffering, tiles, keyed ball, AY music/SFX.
+  CPU 4 or 8 MHz is recommended for the game; ABI supports all CPU speeds.
+
+B:SDKTEST
+  Draws a map window and scrolls all four directions using the blitter.
+  Expected: PASS: SDK tiles and scrolling. Returns to UniDOS automatically.
+
+GAMEBIOS uses a separate INT E6; native UniBIOS calls are unchanged.
+Old graphics/text and beeper calls retain their original modes/parameters.
+New indexed text/graphics and AY services require an explicit context.
+The 8608-byte caller context includes palette backup and all private state.
+Closing or terminating its owning process restores video, palette and AY.
+GAMEBIOS consumes no extra conventional RAM during normal system startup.
+
+Raw PS/2: E6B0 identity R; E6B1 status (bit0 data, bit5 full, bit7 overflow);
+E6B2 read/pop; E6B3 count (0..64), write bit0 flush / bit1 clear overflow.
+Native translated keyboard queue and IRQ remain independent.
+sdk_input_reset clears raw history. sdk_input returns A=status, B=held;
+sdk_pressed contains make edges, including taps released between frames.
+
+SDK sources: GAMEBIOS.INC, GAMESDK.ASM, GAMESDTA.INC.
+ARKANOID.ASM includes the prepared register frames in ARKSONG.INC.
+SDKTEST.ASM includes the test map in SDKWORLD.INC.
+Build relocatable PGM files using the supplied UniAS cross-assembler.
+Detailed ABI, descriptors and tests: audit/GAMEBIOS.md in the repository.

@@ -6,7 +6,7 @@
 |---|---|---|
 | A | 14000–15FFF | SDPARTS, INT E1; остаток командного интерпретатора |
 | B | 16000–17FFF | FPGABIOS, INT E2 и E0 |
-| E | 1C000–1DFFF | RAMBANKS, INT E5 — выделение и освобождение банков |
+| E | 1C000–1DFFF | RAMBANKS INT E5, GAMEBIOS INT E6 — графика/текст/AY |
 | F | 1E000–1FFFF | UniShell, INT E3; основная часть UniDOS |
 | BIOS | 20000–20FFF | BIOS 601 либо 601A |
 | FONT | 21000–217FF | Шрифт |
@@ -68,8 +68,10 @@ MBR, состояния и visited EBR. REFRESH временно выделяе�
 
 ## INT E0: графика и звук
 
-Интерфейс сохранён: A=0 версия/features, 1 видеорежим, 2 FLIP, 3 блиттер,
-4 кадр AY, 5 выключить расширенную графику, 6 прозрачный спрайт с обрезкой.
+Интерфейс сохранён: A=0 версия/features, 1 видеорежим (B=0 выключает
+расширенную графику), 2 FLIP, 3 блиттер, 4 прозрачный спрайт с обрезкой,
+5 кадр AY, 6 выключить AY. Номера соответствуют
+`firmware/extension/SERVICES.ASM`.
 Дескрипторы и ограничения описаны в
 [GRAPHICS.md](GRAPHICS.md), [SPRITE-CLIPPING.md](SPRITE-CLIPPING.md) и
 [AY.md](AY.md). HAM8 остаётся режимом 7; HAM6 отсутствует.

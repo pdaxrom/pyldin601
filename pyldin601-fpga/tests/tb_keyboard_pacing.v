@@ -3,7 +3,7 @@ module tb_keyboard_pacing;
  reg clk=0;always #5 clk=~clk;
  reg reset=1,psclk=1,psdata=1,rd=0,tick=0,runtime=1;
  wire[7:0]data,status;wire irq;
- classic_keyboard dut(clk,reset,psclk,psdata,1'b0,rd,1'b0,data,status,irq,runtime,tick);
+ classic_keyboard dut(clk,reset,psclk,psdata,1'b0,rd,1'b0,data,status,irq,runtime,tick,,);
  task send;input[7:0]b;reg[10:0]frame;integer n;
   begin
    frame={1'b1,~^b,b,1'b0};
