@@ -2,7 +2,7 @@
   "date": "2026-10-12",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+  "sha256": "a20001cd872af62c08a72cab4659725b204e762d02e1e967e673f4fec83bd430",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -19,11 +19,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "b88650c38811514455037909768e444893e0173b380928c36cb30193bbd312bc",
+      "sha256": "b48d1317a7f5a3ea00a1984824028085a56f9acc9b101c3aebd0e5bfcd715c32",
       "files": {
         "P601.ROM": {
           "bytes": 72192,
-          "sha256": "960f1ae6a4ca617f00f89274f860f422da853243e3b0597c21082f0f0bf3fef4"
+          "sha256": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463"
         },
         "LOADER.BIN": {
           "bytes": 406,
@@ -35,7 +35,7 @@
         },
         "P601A.ROM": {
           "bytes": 72192,
-          "sha256": "91620abb660963002ffdba0697b92fed2205a3075518d74746cd306e24493bad"
+          "sha256": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
         },
         "P601.SET": {
           "bytes": 16,
@@ -2015,7 +2015,7 @@
           "601A"
         ],
         "bootstrap_font_size_equal": true,
-        "user_reply": "да, теперь нормально - размер одинаков",
+        "user_reply": "\u0434\u0430, \u0442\u0435\u043f\u0435\u0440\u044c \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e - \u0440\u0430\u0437\u043c\u0435\u0440 \u043e\u0434\u0438\u043d\u0430\u043a\u043e\u0432",
         "native_80_column_transition_explicitly_confirmed": false
       }
     },
@@ -2027,8 +2027,291 @@
         "601A"
       ],
       "bootstrap_font_size_equal": true,
-      "user_reply": "да, теперь нормально - размер одинаков",
+      "user_reply": "\u0434\u0430, \u0442\u0435\u043f\u0435\u0440\u044c \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e - \u0440\u0430\u0437\u043c\u0435\u0440 \u043e\u0434\u0438\u043d\u0430\u043a\u043e\u0432",
       "native_80_column_transition_explicitly_confirmed": false
     }
+  },
+  "unishell_compression": {
+    "date": "2026-10-12",
+    "codec": {
+      "codec": "uniload-lz16",
+      "unpacked_bytes": 10001,
+      "packed_bytes": 7540,
+      "source_sha256": "f1de277d2d8a6cdd19fee02730a975f71eeb24f00c24b5abe0f81b89b5f7b141",
+      "packed_sha256": "e9016ec9f0fcef9a781bd3c9aa8cf22ef9554c0c0aff4de1f191f237a4d51378",
+      "roundtrip_verified": true,
+      "tokens": {
+        "literal": 4130,
+        "short": 1084,
+        "long": 505,
+        "extended": 39
+      }
+    },
+    "rom_space": {
+      "codec": "uniload-lz16",
+      "unpacked_bytes": 10001,
+      "packed_bytes": 7540,
+      "rom_f_used_bytes": 7755,
+      "rom_f_free_bytes": 437
+    },
+    "parts_space": {
+      "before_used_bytes": 6958,
+      "after_used_bytes": 4909,
+      "freed_bytes": 2049,
+      "free_bytes": 3283
+    },
+    "rom_files": {
+      "P601.ROM": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463",
+      "P601A.ROM": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
+    },
+    "ready_image_sha256": "a20001cd872af62c08a72cab4659725b204e762d02e1e967e673f4fec83bd430",
+    "previous_image_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "changed_rom_pages": [
+      "A",
+      "F"
+    ],
+    "other_rom_pages_bios_font_preserved": true,
+    "other_boot_files_settings_preserved": true,
+    "all_other_image_partitions_preserved": true,
+    "clean_source_build_verified": true,
+    "clean_build_outputs": 11,
+    "tests": [
+      "131 streams, MC6800/HD6303, initial IRQ masks 0/1, complete flags/low RAM/SP/output bounds",
+      "601/601A and both ISAs: native INT E3, complete shell output, DIR, warm Reset, timer IRQs",
+      "five firmware-data tests including truncated/invalid streams and page overflow",
+      "bootstrap, active/explicit/fallback partitions, FAT12 mounting and raw SD regressions"
+    ],
+    "fpga_update_required": false,
+    "physical_card_pending": false,
+    "hardware_confirmation_pending": false,
+    "codec_test_streams": 131,
+    "codec_cpu_irq_runs": 524,
+    "page_a_freed_bytes": 2049,
+    "installed_on_physical_card": true,
+    "physical_installation": {
+      "changes": [
+        {
+          "partition": 1,
+          "start": 1048576,
+          "bytes": 16777216,
+          "file": "boot-new.bin",
+          "before_sha256": "5b1b38d8053c8a1074e67311ddc66865ec73d5ab2973cf561e7f43966f3d3f1f",
+          "after_sha256": "83c1dc4704859a5a8b5f63217fc869456a2be1a61c286164f8faa32de366aea0"
+        }
+      ],
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "rom_files": {
+        "P601.ROM": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463",
+        "P601A.ROM": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
+      },
+      "other_boot_files_preserved": true,
+      "mbr_ebr_preserved": true,
+      "native_xbios_y_pages_preserved": true,
+      "system_bios_font_preserved": true,
+      "changed_rom_pages": [
+        "A",
+        "F"
+      ],
+      "unishell_compression": "uniload-lz16",
+      "unibios_version": "3.02",
+      "source_built_roms": true,
+      "fpga_update_required": false,
+      "device": "/dev/sdf",
+      "card_bytes": 7988051968,
+      "backup": "/Storage2/pyldin601-backups/20261012-unishell/card-before.img",
+      "backup_sha256": "7d1dc0554cdce319411d804e8b438d6cf408ce754037f3bfc4acaaeadc779efb",
+      "preserved_partitions": [
+        {
+          "number": 2,
+          "start": 17825792,
+          "bytes": 737280,
+          "sha256": "6bd3dfd13fa1e6ad279c787cfc3499a05927e06376dc515ef1d05c875f66abff"
+        },
+        {
+          "number": 3,
+          "start": 18874368,
+          "bytes": 1474560,
+          "sha256": "d746ff825259d55cf440c1534a23b13ef689a370ad8d2417c9a2ce1e8a6f41db"
+        },
+        {
+          "number": 5,
+          "start": 22020096,
+          "bytes": 819200,
+          "sha256": "f597efd480bd5978ab9645b3b890d5a9a96beafcd26030d157544958593e58cd"
+        },
+        {
+          "number": 6,
+          "start": 24117248,
+          "bytes": 819200,
+          "sha256": "38679b571f3131fbd1240359cdd02eab25bfa54bc950fec59178951bd0e1640a"
+        },
+        {
+          "number": 7,
+          "start": 26214400,
+          "bytes": 256512,
+          "sha256": "d14f91e44a834770f77b624f18b578cbfa59b1534b311e12e206bf638ebfe26c"
+        },
+        {
+          "number": 8,
+          "start": 28311552,
+          "bytes": 256512,
+          "sha256": "7bbbc6c2ac51f6b26696e2baf242855a05895a939a2ae808e4f5dd0b845b4298"
+        },
+        {
+          "number": 9,
+          "start": 30408704,
+          "bytes": 1177600,
+          "sha256": "82c42609674e6a0fee230f21bb6b3c72079a3d8f99e5c5deea782d7d61327964"
+        },
+        {
+          "number": 10,
+          "start": 33554432,
+          "bytes": 1301504,
+          "sha256": "669383d1dd44dd58da342415757b1c7a3019276524e85de9eb93c72e4a104e30"
+        },
+        {
+          "number": 11,
+          "start": 36700160,
+          "bytes": 1301504,
+          "sha256": "41481e885d1026289dc96bae4b804afa7e71b9d1252771917e6f22b626be1114"
+        },
+        {
+          "number": 12,
+          "start": 39845888,
+          "bytes": 1301504,
+          "sha256": "34e349ca0acea3e1c1037d70cc8ed5c2c3b402a6e27c20e4cbd0c6f06b950712"
+        },
+        {
+          "number": 13,
+          "start": 42991616,
+          "bytes": 1301504,
+          "sha256": "ede904ec7fcb108455bf90e9713cf5f77defcf97275980bd2c98cd667b152b58"
+        },
+        {
+          "number": 14,
+          "start": 46137344,
+          "bytes": 5242880,
+          "sha256": "f14680c85ae4cd84e9e624457acb1f585451c447483b0b2ae959fcebb32ff09c"
+        },
+        {
+          "number": 15,
+          "start": 52428800,
+          "bytes": 10485760,
+          "sha256": "831cf44fcbc440ef8c7fd9a6073831273b43619131d1764b1359429a0662920d"
+        },
+        {
+          "number": 16,
+          "start": 63963136,
+          "bytes": 16588800,
+          "sha256": "9c6a4a092d82d292952c304c15264cfbbcab944feda75e2721bae5cac1e70592"
+        }
+      ],
+      "tables": [
+        {
+          "start": 0,
+          "bytes": 512,
+          "sha256": "52baba7eafd925867c4dd4f6e3bffa92f82ad932f7dd172107e23726d6db764f"
+        },
+        {
+          "start": 20971520,
+          "bytes": 512,
+          "sha256": "46f21b15056db5985142a2bfa7b95af17c378d9e1fbf23eec04337819bfae1ac"
+        },
+        {
+          "start": 23068672,
+          "bytes": 512,
+          "sha256": "1f7ba5323913fa94eace2fb8029be958bd64f996686eff076f3fb1a1339baac1"
+        },
+        {
+          "start": 25165824,
+          "bytes": 512,
+          "sha256": "450d5fbe29d1aad12cafc9f2440e9adb076c9b72ee2bebf1caa54334d58274b5"
+        },
+        {
+          "start": 27262976,
+          "bytes": 512,
+          "sha256": "270b4b2abafb0701f84955d2eddb3cfbc6bb2e7ef78330e0065ef726388efe9f"
+        },
+        {
+          "start": 29360128,
+          "bytes": 512,
+          "sha256": "d3a7c9533b66a2f168515c85c224263d5497bea19f75bbffe514a8b398531459"
+        },
+        {
+          "start": 32505856,
+          "bytes": 512,
+          "sha256": "fefd09374fa3ad385ed4491546f6a92c143965c252679bf551f992c0e16b2f83"
+        },
+        {
+          "start": 35651584,
+          "bytes": 512,
+          "sha256": "ea1b02dda9ebab328bef63104e836a8873b8d8f3af9c3525093de31775dcb178"
+        },
+        {
+          "start": 38797312,
+          "bytes": 512,
+          "sha256": "6111133e9278964af8c0842fd4ecdbdc75109ddc592a1829089dab1921c5acc4"
+        },
+        {
+          "start": 41943040,
+          "bytes": 512,
+          "sha256": "5a634900386db8329afd955227f0a0759584aed04f25531e64acb3155ce6ae46"
+        },
+        {
+          "start": 45088768,
+          "bytes": 512,
+          "sha256": "6a36be318ab0f000661fab70a067e499c1366905a3980148be4edb47d2b35e84"
+        },
+        {
+          "start": 51380224,
+          "bytes": 512,
+          "sha256": "d83edbc085ad1151e6687fcdaedef6f2a0a5ff4b5a2eae56f4645123563a4baf"
+        },
+        {
+          "start": 62914560,
+          "bytes": 512,
+          "sha256": "74e7e8234efd99e67d8be9a75c269dc17272c4fd441f78dbb73f17aca82d549d"
+        }
+      ],
+      "installed_on_physical_card": true,
+      "hardware_confirmed": true,
+      "settings_preserved": true,
+      "current_b_files_preserved": true,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+      "user_board_confirmation": {
+        "date": "2026-10-12",
+        "models": [
+          "601",
+          "601A"
+        ],
+        "boot_confirmed": true,
+        "dir_drives_confirmed": [
+          "A",
+          "B",
+          "C"
+        ],
+        "warm_reset_confirmed": true,
+        "no_screen_garbage_or_hangs": true,
+        "user_reply": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442"
+      }
+    },
+    "hardware_confirmed": true,
+    "user_board_confirmation": {
+      "date": "2026-10-12",
+      "models": [
+        "601",
+        "601A"
+      ],
+      "boot_confirmed": true,
+      "dir_drives_confirmed": [
+        "A",
+        "B",
+        "C"
+      ],
+      "warm_reset_confirmed": true,
+      "no_screen_garbage_or_hangs": true,
+      "user_reply": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442"
+    },
+    "game_apps_unchanged_from_previous_commit": true
   }
 }

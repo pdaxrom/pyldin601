@@ -36,6 +36,111 @@ static void include_bytes(FILE *f,const unsigned char *p,size_t size) {
     }
 }
 
+/* Original Uniload LZ stream: 16 LSB-first control bits, an 8-KiB window,
+ * short 2..5-byte matches and long 3..255-byte matches. The original decoder
+ * refills the control word immediately after bit 16, before token payload.
+ * Dynamic programming minimizes token bit cost over the remaining input. */
+#define SHELL_MAX_BYTES 16000u
+struct shell_input { const unsigned char *data; size_t size,at; unsigned flags,bits; };
+static unsigned shell_byte(struct shell_input *s) {
+    if(s->at>=s->size) fail("truncated packed shell");
+    return s->data[s->at++];
+}
+static void shell_flags(struct shell_input *s) {
+    s->flags=shell_byte(s);s->flags|=shell_byte(s)<<8;s->bits=16;
+}
+static unsigned shell_bit(struct shell_input *s) {
+    unsigned bit=s->flags&1;s->flags>>=1;
+    if(!--s->bits) shell_flags(s);
+    return bit;
+}
+static size_t shell_decode(const unsigned char *data,size_t size,
+                           unsigned char *out,size_t capacity,size_t *consumed) {
+    struct shell_input s={data,size,0,0,0};size_t n=0;shell_flags(&s);
+    for(;;) {
+        if(shell_bit(&s)) {
+            if(n==capacity) fail("unpacked shell overflow");
+            out[n++]=(unsigned char)shell_byte(&s);continue;
+        }
+        unsigned length,distance;
+        if(!shell_bit(&s)) {
+            length=shell_bit(&s)<<1;length|=shell_bit(&s);length+=2;
+            distance=256-shell_byte(&s);
+        } else {
+            unsigned low=shell_byte(&s),high=shell_byte(&s);
+            distance=8192-((high>>3)<<8|low);length=high&7;
+            if(length) length+=2;
+            else {length=shell_byte(&s);if(!length) break;}
+        }
+        if(distance>n||length>capacity-n) fail("invalid packed shell reference");
+        for(unsigned j=0;j<length;j++,n++) out[n]=out[n-distance];
+    }
+    *consumed=s.at;return n;
+}
+struct shell_output { unsigned char *data;size_t size,capacity,group;unsigned bit; };
+static void shell_put(struct shell_output *s,unsigned byte) {
+    if(s->size==s->capacity) fail("packed shell overflow");
+    s->data[s->size++]=(unsigned char)byte;
+}
+static void shell_group(struct shell_output *s) {
+    s->group=s->size;shell_put(s,0);shell_put(s,0);s->bit=0;
+}
+static void shell_put_bit(struct shell_output *s,unsigned bit) {
+    s->data[s->group+s->bit/8]|=(unsigned char)(bit<<(s->bit%8));
+    if(++s->bit==16) shell_group(s);
+}
+struct shell_choice { unsigned length,distance,type; };
+struct shell_stats { unsigned literal,short_match,long_match,extended_match; };
+static size_t shell_encode(const unsigned char *in,size_t n,
+                           unsigned char *out,size_t capacity,struct shell_stats *stats) {
+    unsigned *cost=calloc(n+1,sizeof *cost);
+    struct shell_choice *choices=calloc(n+1,sizeof *choices);
+    if(!cost||!choices) fail("shell encoder allocation");
+    for(size_t p=n;p--;) {
+        unsigned best=9+cost[p+1];struct shell_choice choice={1,0,0};
+        unsigned short_len=0,short_dist=0,long_len=0,long_dist=0;
+        unsigned window=p<8192?(unsigned)p:8192;
+        unsigned limit=n-p<255?(unsigned)(n-p):255;
+        for(unsigned distance=1;distance<=window;distance++) {
+            if(limit<2||in[p]!=in[p-distance]||in[p+1]!=in[p+1-distance]) continue;
+            unsigned length=2;
+            while(length<limit&&in[p+length]==in[p+length-distance]) length++;
+            if(distance<=256&&length>short_len) {short_len=length;short_dist=distance;}
+            if(length>=3&&length>long_len) {long_len=length;long_dist=distance;}
+            if(long_len==limit&&short_len>=(limit<5?limit:5)) break;
+        }
+        for(unsigned length=2;length<=short_len&&length<=5;length++) {
+            unsigned c=12+cost[p+length];
+            if(c<best) {best=c;choice=(struct shell_choice){length,short_dist,1};}
+        }
+        for(unsigned length=3;length<=long_len;length++) {
+            unsigned c=(length<=9?18:26)+cost[p+length];
+            if(c<best) {best=c;choice=(struct shell_choice){length,long_dist,2};}
+        }
+        cost[p]=best;choices[p]=choice;
+    }
+    struct shell_output s={out,0,capacity,0,0};shell_group(&s);
+    for(size_t p=0;p<n;) {
+        struct shell_choice c=choices[p];
+        if(!c.type) {shell_put_bit(&s,1);shell_put(&s,in[p]);stats->literal++;}
+        else if(c.type==1) {
+            shell_put_bit(&s,0);shell_put_bit(&s,0);
+            shell_put_bit(&s,(c.length-2)>>1);shell_put_bit(&s,(c.length-2)&1);
+            shell_put(&s,0u-c.distance);stats->short_match++;
+        } else {
+            shell_put_bit(&s,0);shell_put_bit(&s,1);
+            unsigned offset=(0u-c.distance)&8191;
+            shell_put(&s,offset);shell_put(&s,(offset>>8)<<3|(c.length<=9?c.length-2:0));
+            if(c.length>=10) {shell_put(&s,c.length);stats->extended_match++;}
+            else stats->long_match++;
+        }
+        p+=c.length;
+    }
+    shell_put_bit(&s,0);shell_put_bit(&s,1);
+    shell_put(&s,0);shell_put(&s,0);shell_put(&s,0);
+    free(cost);free(choices);return s.size;
+}
+
 /* SHA-256 is used only to describe build outputs; it does not alter them. */
 static uint32_t rotate(uint32_t x,unsigned n) { return x>>n|x<<(32-n); }
 static void sha256(const unsigned char *data,size_t size,char result[65]) {
@@ -67,6 +172,30 @@ static void sha256(const unsigned char *data,size_t size,char result[65]) {
         h[0]+=a;h[1]+=b;h[2]+=c;h[3]+=d;h[4]+=e;h[5]+=f;h[6]+=g;h[7]+=v;
     }
     free(p); for(unsigned i=0;i<8;i++) sprintf(result+8*i,"%08x",h[i]);
+}
+
+static void shell_pack(const char *input,const char *packed,const char *include,const char *metadata) {
+    size_t size;unsigned char *data=read_file(input,&size);
+    if(!size||size>SHELL_MAX_BYTES) fail("shell input extent");
+    size_t capacity=2*size+32;
+    unsigned char *encoded=malloc(capacity),*decoded=malloc(size);
+    if(!encoded||!decoded) fail("shell buffer allocation");
+    struct shell_stats stats={0,0,0,0};
+    size_t length=shell_encode(data,size,encoded,capacity,&stats),consumed;
+    if(length>=8192) fail("packed shell cannot fit a ROM page");
+    if(shell_decode(encoded,length,decoded,size,&consumed)!=size||consumed!=length||memcmp(data,decoded,size))
+        fail("packed shell verification");
+    char source_hash[65],packed_hash[65];sha256(data,size,source_hash);sha256(encoded,length,packed_hash);
+    write_file(packed,encoded,length);
+    FILE *f=open_file(include,"w");
+    fputs("; Generated data from UniAS SHELL.CMD by firmware-data; source: firmware/bios/UNIDOS.ASM.\n",f);
+    fprintf(f,"SH_UNPACKED_BYTES equ %zu\nSH_PACKED_BYTES equ %zu\n",size,length);
+    include_bytes(f,encoded,length);if(fclose(f)) fail("packed shell include write");
+    f=open_file(metadata,"w");
+    fprintf(f,"{\"codec\":\"uniload-lz16\",\"unpacked_bytes\":%zu,\"packed_bytes\":%zu,\"source_sha256\":\"%s\",\"packed_sha256\":\"%s\",\"roundtrip_verified\":true,\"tokens\":{\"literal\":%u,\"short\":%u,\"long\":%u,\"extended\":%u}}\n",
+        size,length,source_hash,packed_hash,stats.literal,stats.short_match,stats.long_match,stats.extended_match);
+    if(fclose(f)) fail("packed shell metadata write");
+    free(data);free(encoded);free(decoded);
 }
 
 struct symbol { char name[128]; unsigned value; };
@@ -137,10 +266,14 @@ static void rom_index(const char *dir,const char *output) {
         fprintf(f,"%s\"%s\":%zu",i?",":"",names[i],n);
     }
     snprintf(path,sizeof path,"%s/SHELL.CMD",dir); size_t n; unsigned char *d=read_file(path,&n); free(d);
+    snprintf(path,sizeof path,"%s/SHELL.ROM.LST",dir);read_symbols(path);
+    unsigned packed=symbol_value("SH_PACKED_BYTES"),shell_used=symbol_value("SHELL_END")-0xc000+1;
+    if(symbol_value("SH_UNPACKED_BYTES")!=n||shell_used>8192) fail("packed shell layout");
+    fprintf(f,"},\"shell_bytes\":%zu,\"unishell\":{\"codec\":\"uniload-lz16\",\"unpacked_bytes\":%zu,\"packed_bytes\":%u,\"rom_f_used_bytes\":%u,\"rom_f_free_bytes\":%u}",n,n,packed,shell_used,8192-shell_used);
     snprintf(path,sizeof path,"%s/RAMMAN.ROM.LST",dir); read_symbols(path);
     unsigned used=symbol_value("RAM_IMAGE_END")-0xc000+1;
     if(used>8192) fail("ROM E overflow");
-    fprintf(f,"},\"shell_bytes\":%zu,\"gamebios\":{\"abi\":%u,\"context_bytes\":%u,\"resident_bytes\":0,\"rom_e_used_bytes\":%u,\"rom_e_free_bytes\":%u}}\n",n,symbol_value("GB_ABI"),symbol_value("GB_CONTEXT_BYTES"),used,8192-used);
+    fprintf(f,",\"gamebios\":{\"abi\":%u,\"context_bytes\":%u,\"resident_bytes\":0,\"rom_e_used_bytes\":%u,\"rom_e_free_bytes\":%u}}\n",symbol_value("GB_ABI"),symbol_value("GB_CONTEXT_BYTES"),used,8192-used);
     if(fclose(f)) fail("ROM manifest write");
 }
 static void app_index(int argc,char **argv) {
@@ -213,10 +346,12 @@ int main(int argc,char **argv) {
     if(!strcmp(argv[1],"ps2")&&(argc==4||argc==5)){ps2(argv[2],argv[3],argc==5?argv[4]:NULL);return 0;}
     if(!strcmp(argv[1],"pal")&&argc==4){pal(argv[2],argv[3]);return 0;}
     if(!strcmp(argv[1],"ay")&&argc==4){ay(argv[2],argv[3]);return 0;}
-    if(!strcmp(argv[1],"shell")&&argc==5) {
-        size_t size;unsigned char *d=read_file(argv[2],&size);if(size<8000||size>16000)fail("shell split extent");
-        FILE *f=open_file(argv[3],"w");include_bytes(f,d,8000);if(fclose(f))fail("shell head write");
-        f=open_file(argv[4],"w");fprintf(f,"SHELL_SPLIT equ 8000\nSHELL_LENGTH equ %zu\nshell_tail\n",size);include_bytes(f,d+8000,size-8000);if(fclose(f))fail("shell tail write");free(d);return 0;
+    if(!strcmp(argv[1],"shell")&&argc==6) {shell_pack(argv[2],argv[3],argv[4],argv[5]);return 0;}
+    if(!strcmp(argv[1],"shell-unpack")&&argc==4) {
+        size_t n,consumed;unsigned char *d=read_file(argv[2],&n),out[SHELL_MAX_BYTES];
+        size_t length=shell_decode(d,n,out,sizeof out,&consumed);
+        if(consumed!=n) fail("trailing packed shell bytes");
+        write_file(argv[3],out,length);free(d);return 0;
     }
     if(argc<4)fail("invalid arguments");
     size_t size;unsigned char *d=read_file(argv[2],&size);

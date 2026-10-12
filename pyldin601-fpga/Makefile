@@ -35,6 +35,12 @@ test-boot-console: test-firmware
 	$(IVERILOG) -g2012 -s tb_boot_console -o $(BUILD)/tb_boot_console $(RTL) tests/tb_boot_console.v
 	$(VVP) $(BUILD)/tb_boot_console
 .PHONY: test-setup
+.PHONY: test-shell
+test-shell: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_shell_codec.c -o $(BUILD)/test_shell_codec -lm
+	$(BUILD)/test_shell_codec
+	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_shell_rom.c -o $(BUILD)/test_shell_rom
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_shell_rom $$model $$cpu; done; done
 test-setup: fixtures
 	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(PYTHON) tests/run_setup.py

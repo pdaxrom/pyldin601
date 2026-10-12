@@ -1,6 +1,7 @@
 """UniAS PGM packaging must preserve code/relocations and reject invalid tails."""
 import hashlib
 import json
+import random
 from pathlib import Path
 import struct
 import subprocess
@@ -12,6 +13,38 @@ TOOL=ROOT/'build/firmware-data'
 
 
 class FirmwareDataTests(unittest.TestCase):
+    def test_shell_roundtrip_and_malformed_streams(self):
+        raw=(ROOT/'build/partitions/SHELL.CMD').read_bytes()
+        packed=(ROOT/'build/partitions/SHELL.PACKED').read_bytes()
+        info=json.loads((ROOT/'build/partitions/shell-pack.json').read_text())
+        self.assertEqual(info['source_sha256'],hashlib.sha256(raw).hexdigest())
+        self.assertEqual(info['packed_sha256'],hashlib.sha256(packed).hexdigest())
+        with tempfile.TemporaryDirectory() as folder:
+            folder=Path(folder);source=folder/'packed';output=folder/'raw'
+            source.write_bytes(packed)
+            subprocess.run([str(TOOL),'shell-unpack',str(source),str(output)],check=True)
+            self.assertEqual(output.read_bytes(),raw)
+            output.unlink()
+            invalid=[packed[:n] for n in (0,1,2,5,len(packed)//2,len(packed)-1)]
+            invalid += [packed+b'\x00',b'\x02\x00\xff\xff',b'\x00\x00\xff']
+            for data in invalid:
+                source.write_bytes(data)
+                result=subprocess.run([str(TOOL),'shell-unpack',str(source),str(output)],capture_output=True)
+                self.assertNotEqual(result.returncode,0,result.stdout)
+                self.assertFalse(output.exists())
+
+    def test_shell_pack_rejects_page_overflow_before_writing(self):
+        rng=random.Random(6303)
+        with tempfile.TemporaryDirectory() as folder:
+            folder=Path(folder);source=folder/'input'
+            outputs=[folder/name for name in ('packed','include','info')]
+            for data in (b'',bytes(16001),bytes(rng.randrange(256) for _ in range(10000))):
+                source.write_bytes(data)
+                result=subprocess.run([str(TOOL),'shell',str(source),*(str(p) for p in outputs)],capture_output=True)
+                self.assertNotEqual(result.returncode,0,result.stdout)
+                self.assertEqual(source.read_bytes(),data)
+                self.assertTrue(all(not p.exists() for p in outputs))
+
     def run_pgm(self, data, trim, succeeds):
         with tempfile.TemporaryDirectory() as folder:
             folder=Path(folder)

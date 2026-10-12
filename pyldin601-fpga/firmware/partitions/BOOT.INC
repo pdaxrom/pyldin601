@@ -94,29 +94,8 @@ boot_mount_next
     bra boot_mount_loop
 boot_shell
     int $2c
-    ; First part of the command interpreter is copied by the separate F page.
+    ; Page F restores the complete command interpreter from its packed stream.
     int $e3
-    ldx #shell_tail
-    stx PP
-    ldx #$1000+SHELL_SPLIT
-    stx PT
-    ldx #SHELL_LENGTH-SHELL_SPLIT
-    stx P0
-boot_shell_copy
-    ldx PP
-    ldaa 0,x
-    inx
-    stx PP
-    ldx PT
-    staa 0,x
-    inx
-    stx PT
-    ldx P0
-    dex
-    stx P0
-    cpx #0
-    bne boot_shell_copy
     jsr $1000
     clra
     rts
-    include SHELLTAIL.INC

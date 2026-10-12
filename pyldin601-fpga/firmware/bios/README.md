@@ -8,7 +8,7 @@
 | BIOS.ASM | build/partitions/BIOS.ROM, 4096 байт | Системный BIOS 601 |
 | BIOS_A.ASM | build/partitions/BIOS_A.ROM, 4096 байт | Системный BIOS 601А |
 | UNIDOS.ASM | build/partitions/SHELL.CMD | Исправленная оболочка UniDOS |
-| UNISHELL.ASM | build/partitions/SHELL.ROM, 8192 байта | Первая часть оболочки в странице F |
+| UNISHELL.ASM | build/partitions/SHELL.ROM, 8192 байта | Вся сжатая оболочка и декомпрессор в странице F |
 | UNIBIOS.ASM | build/partitions/UNIBIOS.ROM, 8192 байта | UniBIOS 3.02: страница 8, монитор и шрифт |
 | MEMORY.INC | — | Адреса штатных регистров/переменных |
 | FONT.INC | — | Исходная таблица 256 символов, 2048 байт |
@@ -42,7 +42,11 @@ make -f firmware/Makefile roms UNIAS=/path/to/unias
 ```
 
 Все исполняемые инструкции собирает UniAS. C-инструмент `firmware-data`
-делит уже собранный SHELL.CMD на две области данных для страниц ПЗУ,
-проверяет размеры/контрольные суммы и создаёт отчёт. Он не изменяет код
-BIOS или UniDOS. Результаты остаются в игнорируемой директории `build`.
+сжимает уже собранный SHELL.CMD в формате оригинального Uniload,
+проверяет побайтную распаковку, размеры/контрольные суммы и создаёт отчёт.
+SHELLPACK.INC — производные данные из UNIDOS.ASM; код декомпрессора
+полностью находится в UNISHELL.ASM. INT E3 восстанавливает всю оболочку
+в RAM 1000–3710, затем загрузчик страницы A запускает её. Хвоста оболочки
+в странице A больше нет. Результаты остаются в игнорируемой директории `build`.
+[Формат, размеры и проверки UniShell](../../audit/UNISHELL-COMPRESSION.md).
 [Аудит сборки](../../audit/FIRMWARE-SOURCES.md).

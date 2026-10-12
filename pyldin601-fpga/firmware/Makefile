@@ -24,7 +24,7 @@ roms: $(BUILD)/firmware-data
 	cp firmware/bios/UNIDOS.ASM $(BUILD)/partitions/SHELL.ASM
 	cp firmware/bios/UNISHELL.ASM $(BUILD)/partitions/SHELLROM.ASM
 	cd $(BUILD)/partitions && sh $(RUN) SHELL.CMD.log "$(UNIAS_PATH)" -l SHELL.CMD.LST -o SHELL.CMD SHELL.ASM
-	$(DATA) shell $(BUILD)/partitions/SHELL.CMD $(BUILD)/partitions/SHELLHEAD.INC $(BUILD)/partitions/SHELLTAIL.INC
+	$(DATA) shell $(BUILD)/partitions/SHELL.CMD $(BUILD)/partitions/SHELL.PACKED $(BUILD)/partitions/SHELLPACK.INC $(BUILD)/partitions/shell-pack.json
 	cd $(BUILD)/partitions && sh $(RUN) UNIBIOS.ROM.log "$(UNIAS_PATH)" -l UNIBIOS.ROM.LST -o UNIBIOS.ROM UNIBIOS.ASM
 	cd $(BUILD)/partitions && sh $(RUN) SHELL.ROM.log "$(UNIAS_PATH)" -l SHELL.ROM.LST -o SHELL.ROM SHELLROM.ASM
 	cd $(BUILD)/partitions && sh $(RUN) SD.ROM.log "$(UNIAS_PATH)" -D GFXCLIP_ROM -l SD.ROM.LST -o SD.ROM DIRECTSD.ASM
@@ -34,6 +34,8 @@ roms: $(BUILD)/firmware-data
 	cd $(BUILD)/partitions && sh $(RUN) BIOS_A.ROM.log "$(UNIAS_PATH)" -l BIOS_A.ROM.LST -o BIOS_A.ROM BIOS_A.ASM
 	$(DATA) rom-index $(BUILD)/partitions $(BUILD)/partitions/manifest.json
 	$(DATA) labels $(BUILD)/partitions/UNIBIOS.ROM.LST $(BUILD)/partitions/unibios_labels.h UB
+	$(DATA) labels $(BUILD)/partitions/SHELL.ROM.LST $(BUILD)/partitions/shell_labels.h SH
+	rm -f $(BUILD)/partitions/SHELLHEAD.INC $(BUILD)/partitions/SHELLTAIL.INC
 
 bootstrap: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/bootstrap
