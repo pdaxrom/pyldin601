@@ -1,14 +1,15 @@
 `timescale 1ns/1ps
 // Independent command decoder, DDS counter and floating matrix coefficients.
 // Includes variable pixel lengths, both V signs, line restart and native return.
-module tb_pal_ham #(parameter FAST_OFFSET=0, parameter FULL=1);
+module tb_pal_ham #(parameter FAST_OFFSET=0, parameter FULL=1,parameter LAYER=0);
  reg clk=0;always #20.832 clk=~clk;
  reg fast=0;initial begin #(FAST_OFFSET);forever #5.208 fast=~fast;end
  reg reset=1,wr=0,sync=0,burst=0,alternate=0,extended=0;
  reg[3:0]address=0;reg[7:0]data=0,code=0;
+ reg[17:0]direct_rgb=0;
  wire[5:0]dac,result;wire read_mode;
  classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'd0,dac,
-  extended,code,wr,address,data,read_mode,result,fast);
+  extended,code,wr,address,data,read_mode,result,fast,direct_rgb);
  reg[5:0]components[0:6143],indexed[0:8191],legacy[0:1023];
  reg[31:0]phase=0;integer format=0,r=0,g=0,b=0,p,c,v,want,previous=0,previous2=0;
  integer checks=0,ham8_colours=0;reg checking=0;
@@ -32,6 +33,7 @@ module tb_pal_ham #(parameter FAST_OFFSET=0, parameter FULL=1);
   else begin
    p=phase[31:27];if(alternate)p=(15-p)&31;
    if(!extended)begin r=0;g=0;b=0;end
+   else if(format==7)begin r=direct_rgb[17:12];g=direct_rgb[11:6];b=direct_rgb[5:0];end
    else if(format!=0)begin
     c=code>>6;
     v=code&63;
@@ -44,7 +46,7 @@ module tb_pal_ham #(parameter FAST_OFFSET=0, parameter FULL=1);
    end
    want=sync?0:burst?legacy[512+p]:!extended?15:format==0?indexed[code*32+p]:
     15+contribution(0,r,p)+contribution(1,g,p)+contribution(2,b,p);
-   if(wr&&address==0)format=(data>>1)&3;
+   if(wr&&address==0)format=(data>>1)&7;
    phase=phase+32'd793426981;
    #1;if(checking&&dac!==previous2)$fatal(1,"HAM mismatch offset=%f format=%d code=%h RGB=%d/%d/%d phase=%d DAC=%d expected=%d",FAST_OFFSET,format,code,r,g,b,p,dac,previous2);
    previous2=previous;previous=want;if(checking)checks++;
@@ -63,6 +65,18 @@ module tb_pal_ham #(parameter FAST_OFFSET=0, parameter FULL=1);
   for(integer a=0;a<6144;a++)begin repeat(2)@(negedge clk);if(result!==components[a])$fatal(1,"HAM table readback %d",a);put(15,3);end
   put(15,0);
   checking=1;
+  if(LAYER)begin
+   put(0,15);extended=1;
+   for(integer sign=0;sign<2;sign++)begin
+    alternate=sign;
+    for(integer colour=0;colour<262144;colour++)begin
+     direct_rgb=colour;code=(colour*19)&255;repeat(3+(colour%2))@(negedge clk);ham8_colours++;
+    end
+    burst=1;repeat(13)@(negedge clk);burst=0;sync=1;repeat(11)@(negedge clk);sync=0;
+    extended=0;repeat(7)@(negedge clk);extended=1;
+   end
+   $display("PASS layered HAM8 PAL offset=%f: all 262144 RGB666 colours, both V signs, %d exact independent DAC samples, sync/burst/blanking",FAST_OFFSET,checks);$finish;
+  end
   for(integer f=0;f<1;f++)begin
    put(0,7);extended=1;
    limit=64;step=FULL?1:7;scale=64;

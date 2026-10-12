@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // Full machine memory path with SRAM-10 delay, board skew, video, ROM lock,
 // electronic disk and cycle-by-cycle speed changes. 24/96 MHz PLL ratio.
-module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELAY=6,WE_RISE=WE_DELAY,WE_FALL=WE_DELAY,FAST_OFFSET=0,RECOVERY_ONLY=0);
+module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELAY=6,WE_RISE=WE_DELAY,WE_FALL=WE_DELAY,FAST_OFFSET=0,RECOVERY_ONLY=0,LAYER_ONLY=0);
  reg clk=0;always #20.832 clk=~clk;
  reg fast=0;initial begin #(FAST_OFFSET);forever #5.208 fast=~fast;end
  reg button=1;
@@ -89,11 +89,27 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
   if(dut.runtime_memory.active)$fatal(1,"GFX overlapped active slot");
  end
  wire[9:0]rx;wire[8:0]ry;wire rv,rf;
+ reg[7:0]original_codes[0:63999];reg[17:0]original_rgb[0:63999];reg layer_check=0;
+ function[7:0]foreground;input integer x,y,page;
+ begin
+  foreground=original_codes[y*320+x];
+  if(page==0&&!(x>=72&&x<248&&y>=16&&y<184)&&((x/8+y/8)%3==0))foreground=0;
+  if(x>=32+(y%32)&&x<40+(y%32)&&y>=24&&y<112)foreground=48;
+  if(x>=160&&x<169&&y>=120&&y<131)foreground=63;
+ end endfunction
+ function[17:0]layer_colour;input integer x,y,page;reg[7:0]code;
+ begin
+  code=foreground(x,y,page);
+  layer_colour=code<64?{{3{code[5:4]}},{3{code[3:2]}},{3{code[1:0]}}}:original_rgb[y*320+x];
+ end endfunction
  pal_viewport_reference #(.LATENCY(2)) refview(.clk(clk),.reset(cpu_reset),.model_a(1'b0),.extended(dut.gfx_enabled),.colour(1'b0),.rows(8'd25),.x(rx),.y(ry),.valid(rv),.first(rf));
  always @(posedge clk)begin
   #1;
   if(armed&&dut.gfx_enabled&&rv)begin
-   if(dut.video.rgb_pixel!==((ry+rx)&255))
+   if(layer_check)begin
+    if(dut.video.rgb666_pipe!==layer_colour(rx,ry,dut.gfx.front_page))
+     $fatal(1,"lossless HAM8 overlay y=%d x=%d front=%d got=%h expected=%h",ry,rx,dut.gfx.front_page,dut.video.rgb666_pipe,layer_colour(rx,ry,dut.gfx.front_page));
+   end else if(dut.video.rgb_pixel!==((ry+rx)&255))
     $fatal(1,"RGB332 raster y=%d x=%d got=%h",ry,rx,dut.video.rgb_pixel);
    if(rf)checks++;
   end
@@ -107,7 +123,31 @@ module tb_gfx #(parameter ADDR_DELAY=10,DATA_DELAY=14.5,CONTROL_DELAY=10,WE_DELA
 
   for(i=0;i<64;i=i+1)put(16'he6a3,header[i]);put(16'he6a0,8'ha5);
   if(!dut.locked)$fatal(1,"fixture lock failed");armed=1;
-  get(16'he65e,8'h47);get(16'he65f,5);
+  get(16'he65e,8'h47);get(16'he65f,6);
+  if(LAYER_ONLY)begin
+   $readmemh("build/layer/LENA-code.mem",original_codes);
+   $readmemh("build/layer/LENA-rgb.mem",original_rgb);
+   for(i=0;i<64000;i=i+2)begin
+    memory[(21'h180000+i)>>1]={original_codes[i+1],original_codes[i]};
+    memory[(21'h100000+i)>>1]={foreground((i+1)%320,(i+1)/320,0),foreground(i%320,i/320,0)};
+    memory[(21'h110000+i)>>1]={foreground((i+1)%320,(i+1)/320,1),foreground(i%320,i/320,1)};
+   end
+   layer_check=1;
+   for(s=0;s<4;s=s+1)begin
+    if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s);end
+    put(16'he654,8);@(dut.gfx_vblank);put(16'he650,15);checks=0;
+    // Page 8 remains latched while regular descriptors use other pages.
+    configure(0,3,0,0,320,200,8'h6d);put(16'he651,1);
+    while(checks<128000)begin put(16'h2401,8'ha3);get(16'h2401,8'ha3);end
+    wait(!dut.gfx.busy);
+    if(dut.gfx.underrun||dut.gfx.background_page!=8)$fatal(1,"layered HAM8 deadline/source latch at MHz=%d",1<<s);
+    put(16'he655,1);command(3,0);checks=0;
+    while(checks<64000)begin put(16'h2401,8'hd7);get(16'h2401,8'hd7);end
+    put(16'he650,0);put(16'he655,0);command(3,0);
+   end
+   for(i=0;i<64000;i++)expect_byte(21'h180000+i,original_codes[i]);
+   $display("PASS lossless HAM8 layers: original LENA, masks/actors/seams, 1/2/4/8 MHz, both front pages, 768000 RGB666 pixels, SRAM-10 concurrent CPU/blitter, no HOLD/underrun");$finish;
+  end
   if(RECOVERY_ONLY)begin
    for(s=0;s<4;s=s+1)begin
     if(s!=0)begin button=0;repeat(12)@(negedge clk);button=1;wait(dut.speed==s);end

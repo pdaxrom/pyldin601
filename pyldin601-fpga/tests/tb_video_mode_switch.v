@@ -11,10 +11,10 @@ module tb_video_mode_switch;
  wire[5:0]tv,base_tv;wire[20:0]ma,base_ma;
  reg palette_write=0;reg[3:0]palette_register=0;reg[7:0]palette_data=0;
  classic_video #(.GFX(1)) dut(clk,reset,1'b0,wr,address,data,,mode,
-  1'b0,11'd0,8'd0,request,ma,1'b1,done,8'hff,tv,tick,model_a,extended,8'hff,,,,,,palette_write,palette_register,palette_data,,,fast);
+  1'b0,11'd0,8'd0,request,ma,1'b1,done,8'hff,tv,tick,model_a,extended,8'hff,,,,,,palette_write,palette_register,palette_data,,,fast,18'd0);
  // Native console stays running while the DUT enters/leaves graphics.
  classic_video #(.GFX(1)) base(clk,reset,1'b0,wr,address,data,,8'h01,
-  1'b0,11'd0,8'd0,base_request,base_ma,1'b1,base_done,8'hff,base_tv,,model_a,1'b0,8'hff,,,,,,1'b0,4'd0,8'd0,,,fast);
+  1'b0,11'd0,8'd0,base_request,base_ma,1'b1,base_done,8'hff,base_tv,,model_a,1'b0,8'hff,,,,,,1'b0,4'd0,8'd0,,,fast,18'd0);
  wire[9:0]rx;wire[8:0]ry;wire rv,rf,rs,rb;
  pal_viewport_reference reference(.clk(clk),.reset(reset),.model_a(model_a),
   .extended(extended),.colour(1'b1),.rows(rows),.x(rx),.y(ry),

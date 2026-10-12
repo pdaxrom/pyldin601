@@ -12,9 +12,11 @@
     },
     "build/partitions/RAMMAN.ROM": {
       "bytes": 8192,
-      "sha256": "d46526fcfd28946c305b7884afe37d1ee94c35dc7564de51e2cb19800c25230c",
+      "sha256": "d09ce125e8fcf66d13e36452c6e30433dca9f36b7d7f9320de657f1bfdd6098a",
       "identical_to_previous": false,
-      "clean_source_build_identical": true
+      "clean_source_build_identical": true,
+      "previous_sha256": "d46526fcfd28946c305b7884afe37d1ee94c35dc7564de51e2cb19800c25230c",
+      "ham8_keeps_graphics": true
     },
     "build/partitions/BIOS_A.ROM": {
       "bytes": 4096,
@@ -61,8 +63,14 @@
       "clean_source_build_identical": true
     },
     "build/game/ARKANOID.PGM": {
-      "bytes": 6184,
-      "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4",
+      "bytes": 14803,
+      "sha256": "d38bd617c94e2cf0b9952d8ead52e2432679bdff65e105b670c0d0579ecad0d6",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/game/XONIX.PGM": {
+      "bytes": 15477,
+      "sha256": "298055deff0f2465895a85f17edf664279c1f5c7fde48be1aef9d7186b696a3a",
       "identical_to_previous": true,
       "clean_source_build_identical": true
     },
@@ -245,8 +253,8 @@
     "source_rewriting": false,
     "binary_code_includes_without_source": false,
     "python_required_for_firmware": false,
-    "before_sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
-    "after_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "before_sha256": "8d8883e1e645d5260dcfde1f1c9d857ed4b07e8a3d1e6931aa19c78c7654513a",
+    "after_sha256": "5028473b47607f10e839d7397ac4ee61f3b9ac107990be7c590a9e435443fc8f",
     "changed_partitions": [
       1
     ],
@@ -258,7 +266,7 @@
     "tests": [
       "601/601A, MC6800/HD6303: monitor, IRQ/NMI/SWI",
       "keyboard, native SD/partitions, RAMMAN, GAMEBIOS",
-      "native Y code, GD after HG, existing SDKTEST and Arkanoid"
+      "native Y code, GD after HG, games and durable records"
     ],
     "physical_installation": {
       "date": "2026-10-12",
@@ -305,8 +313,7 @@
         "user_reply": "\u0434\u0430, \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u044e\u0442\u0441\u044f \u043e\u0431\u0430",
         "additional_checks_explicitly_confirmed": false
       }
-    },
-    "game_apps_unchanged_from_previous_commit": true
+    }
   },
   "source_font_bytes": 2048,
   "source_font_sha256": "220f64844e2721898e9270ca1791bc0a71f1ff363e51c868fc9d77926710c944",
@@ -315,10 +322,11 @@
   "clean_build": {
     "python_available": false,
     "preexisting_build_files": false,
-    "outputs_checked": 29
+    "outputs_checked": 30
   },
   "checks": {
     "production_build_without_python": "PASS",
+    "clean_build_30_outputs": "PASS",
     "public_bios_addresses": "PASS",
     "keyboard_rom_both_models": "PASS",
     "native_sd_partition_models_and_modes": "PASS",
@@ -327,16 +335,13 @@
     "ram_manager_and_gamebios": "PASS",
     "native_y_compiler_interpreter_current_b_and_720k_baseline": "PASS",
     "gd_after_hg_models_and_modes": "PASS",
+    "both_arcade_games_native_files_records_music": "PASS",
     "audio_ym_vtx_lh5_both_models": "PASS",
     "sram_full_native_and_delayed_hdl_fault_detection": "PASS",
     "hdl_handoff_warm_reset": "PASS",
-    "ready_image_only_boot_partition_changed": "PASS",
-    "clean_build_29_outputs": "PASS",
-    "existing_game_programs_byte_identical": "PASS",
-    "host_tests_34_firmware_scope": "PASS",
-    "existing_sdk_and_arkanoid_both_models": "PASS"
+    "host_tests_35_after_ready_image_update": "PASS",
+    "ready_image_only_boot_partition_changed": "PASS"
   },
-  "game_updates_committed": false,
   "unishell_compression": {
     "date": "2026-10-12",
     "codec": {
@@ -370,8 +375,8 @@
       "P601.ROM": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463",
       "P601A.ROM": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
     },
-    "ready_image_sha256": "a20001cd872af62c08a72cab4659725b204e762d02e1e967e673f4fec83bd430",
-    "previous_image_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "ready_image_sha256": "5ca62a969aa4c2edbab226b6c1ef9428adb89d6e280a0bb0d02af22e3ad766ae",
+    "previous_image_sha256": "5028473b47607f10e839d7397ac4ee61f3b9ac107990be7c590a9e435443fc8f",
     "changed_rom_pages": [
       "A",
       "F"
@@ -617,7 +622,6 @@
       "warm_reset_confirmed": true,
       "no_screen_garbage_or_hangs": true,
       "user_reply": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442"
-    },
-    "game_apps_unchanged_from_previous_commit": true
+    }
   }
 }

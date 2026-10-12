@@ -1,0 +1,406 @@
+{
+  "measurement": "production HDL; counts normalized to 24 MHz",
+  "pgm_sha256": "d38bd617c94e2cf0b9952d8ead52e2432679bdff65e105b670c0d0579ecad0d6",
+  "results": [
+    {
+      "model": "601",
+      "scenario": "steady",
+      "cpu_mhz": 1,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 20.507,
+      "max_frame_ms": 21.533,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 516792,
+          "app": 88080,
+          "bios": 125100,
+          "input": 1464,
+          "refill": 96,
+          "blit_wait": 5297,
+          "flip_wait": 151243,
+          "irq": 29280,
+          "other": 116232,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 479856,
+          "app": 88680,
+          "bios": 124674,
+          "input": 11160,
+          "refill": 96,
+          "blit_wait": 4043,
+          "flip_wait": 105691,
+          "irq": 29280,
+          "other": 116232,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 479856,
+          "app": 88680,
+          "bios": 125097,
+          "input": 11160,
+          "refill": 96,
+          "blit_wait": 3860,
+          "flip_wait": 105451,
+          "irq": 29280,
+          "other": 116232,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601",
+      "scenario": "steady",
+      "cpu_mhz": 8,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 20.064041666666665,
+      "max_frame_ms": 20.191625,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 484599,
+          "app": 11010,
+          "bios": 15654,
+          "input": 183,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 436651,
+          "irq": 3660,
+          "other": 14529,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 479982,
+          "app": 11085,
+          "bios": 15636,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 430765,
+          "irq": 3660,
+          "other": 14529,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 480030,
+          "app": 11085,
+          "bios": 15666,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 430783,
+          "irq": 3660,
+          "other": 14529,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601",
+      "scenario": "miss",
+      "cpu_mhz": 1,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 87.33666666666666,
+      "max_frame_ms": 162.003,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 3888072,
+          "app": 138432,
+          "bios": 2818453,
+          "input": 1464,
+          "refill": 96,
+          "blit_wait": 62104,
+          "flip_wait": 193291,
+          "irq": 326016,
+          "other": 348216,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 1440000,
+          "app": 505392,
+          "bios": 382113,
+          "input": 49944,
+          "refill": 96,
+          "blit_wait": 3380,
+          "flip_wait": 162187,
+          "irq": 122256,
+          "other": 214632,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 960168,
+          "app": 205848,
+          "bios": 198492,
+          "input": 20856,
+          "refill": 96,
+          "blit_wait": 4217,
+          "flip_wait": 297187,
+          "irq": 81504,
+          "other": 151968,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601",
+      "scenario": "miss",
+      "cpu_mhz": 8,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 20.083791666666666,
+      "max_frame_ms": 20.250625,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 486015,
+          "app": 17304,
+          "bios": 351377,
+          "input": 183,
+          "refill": 12,
+          "blit_wait": 66483,
+          "flip_wait": 17629,
+          "irq": 5094,
+          "other": 27933,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 480009,
+          "app": 10734,
+          "bios": 15645,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 429700,
+          "irq": 5094,
+          "other": 14529,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 480009,
+          "app": 10734,
+          "bios": 15654,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 429691,
+          "irq": 5094,
+          "other": 14529,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601a",
+      "scenario": "steady",
+      "cpu_mhz": 1,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 20.507,
+      "max_frame_ms": 21.533,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 516792,
+          "app": 88080,
+          "bios": 125100,
+          "input": 1464,
+          "refill": 96,
+          "blit_wait": 5297,
+          "flip_wait": 151243,
+          "irq": 29280,
+          "other": 116232,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 479856,
+          "app": 88680,
+          "bios": 124674,
+          "input": 11160,
+          "refill": 96,
+          "blit_wait": 4043,
+          "flip_wait": 105691,
+          "irq": 29280,
+          "other": 116232,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 479856,
+          "app": 88680,
+          "bios": 125097,
+          "input": 11160,
+          "refill": 96,
+          "blit_wait": 3860,
+          "flip_wait": 105451,
+          "irq": 29280,
+          "other": 116232,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601a",
+      "scenario": "steady",
+      "cpu_mhz": 8,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 20.064041666666665,
+      "max_frame_ms": 20.191625,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 484599,
+          "app": 11010,
+          "bios": 15654,
+          "input": 183,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 436651,
+          "irq": 3660,
+          "other": 14529,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 479982,
+          "app": 11085,
+          "bios": 15636,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 430765,
+          "irq": 3660,
+          "other": 14529,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 480030,
+          "app": 11085,
+          "bios": 15666,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 430783,
+          "irq": 3660,
+          "other": 14529,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601a",
+      "scenario": "miss",
+      "cpu_mhz": 1,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 87.33666666666666,
+      "max_frame_ms": 162.003,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 3888072,
+          "app": 138432,
+          "bios": 2818453,
+          "input": 1464,
+          "refill": 96,
+          "blit_wait": 62104,
+          "flip_wait": 193291,
+          "irq": 326016,
+          "other": 348216,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 1440000,
+          "app": 505392,
+          "bios": 382113,
+          "input": 49944,
+          "refill": 96,
+          "blit_wait": 3380,
+          "flip_wait": 162187,
+          "irq": 122256,
+          "other": 214632,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 960168,
+          "app": 205848,
+          "bios": 198492,
+          "input": 20856,
+          "refill": 96,
+          "blit_wait": 4217,
+          "flip_wait": 297187,
+          "irq": 81504,
+          "other": 151968,
+          "requests": 1
+        }
+      ]
+    },
+    {
+      "model": "601a",
+      "scenario": "miss",
+      "cpu_mhz": 8,
+      "music": true,
+      "stress_input": true,
+      "mean_frame_ms": 20.083791666666666,
+      "max_frame_ms": 20.250625,
+      "rows": [
+        {
+          "frame": 0,
+          "ticks": 486015,
+          "app": 17304,
+          "bios": 351377,
+          "input": 183,
+          "refill": 12,
+          "blit_wait": 66483,
+          "flip_wait": 17629,
+          "irq": 5094,
+          "other": 27933,
+          "requests": 1
+        },
+        {
+          "frame": 1,
+          "ticks": 480009,
+          "app": 10734,
+          "bios": 15645,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 429700,
+          "irq": 5094,
+          "other": 14529,
+          "requests": 1
+        },
+        {
+          "frame": 2,
+          "ticks": 480009,
+          "app": 10734,
+          "bios": 15654,
+          "input": 1395,
+          "refill": 12,
+          "blit_wait": 2900,
+          "flip_wait": 429691,
+          "irq": 5094,
+          "other": 14529,
+          "requests": 1
+        }
+      ]
+    }
+  ]
+}

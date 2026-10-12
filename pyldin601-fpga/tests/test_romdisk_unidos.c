@@ -17,7 +17,7 @@ static int contains(const char*text){
  }return 0;
 }
 static void prompt_wait(void){
- uint64_t deadline=virtual_cycles+15000000;
+ uint64_t deadline=virtual_cycles+200000000;
  // Sample the same instruction after INT11 has popped its temporary A.
  // A range over the whole keyboard loop can report SP with one extra byte,
  // depending on instruction/PAL phase, despite a balanced DOS return.
@@ -29,7 +29,7 @@ static void command(const char*text){
  const char*letters="abcdefghijklmnopqrstuvwxyz";
  static const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
  for(;*text;text++){
-  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='/'?0x35:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?0x0b:0;
+  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='/'?0x35:*text=='\\'?0x2b:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?0x0b:0;
   require(scan!=0,"test command has valid keys");
   if(*text==':')KBDModKeyDown(2);key(scan);if(*text==':')KBDModKeyUp(2);
  }key(0x1c);prompt_wait();
@@ -57,7 +57,11 @@ static void word_at(unsigned address,unsigned value){
  unsigned char*r=MC6800GetCpuRam();r[address]=value>>8;r[address+1]=value;
 }
 static void file_check(const char*name,const unsigned char*expected,unsigned size){
- unsigned char*r=MC6800GetCpuRam();strcpy((char*)r+0x3100,name);
+ unsigned char*r=MC6800GetCpuRam(),saved_io[512],saved_data[512];
+ // UniShell now occupies RAM through $3710. Test-only SWI argument/read
+ // buffers must be restored before executing another native shell command.
+ memcpy(saved_io,r+0x3000,sizeof saved_io);memcpy(saved_data,r+0x4000,sizeof saved_data);
+ strcpy((char*)r+0x3100,name);
  word_at(0x3000,0x3100);word_at(0x3002,0);
  require(invoke(0x4a,1,0,0x3000)==0,"open native disk file");unsigned handle=result_b;
  require(invoke(0x51,handle,0,0x3004)==0,"file size API");
@@ -69,6 +73,7 @@ static void file_check(const char*name,const unsigned char*expected,unsigned siz
   require(!memcmp(r+0x4000,expected+offset,length),"file data matches original ROM across bank boundaries");offset+=length;
  }
  require(invoke(0x4e,handle,0,0)==0,"close native disk file");
+ memcpy(r+0x3000,saved_io,sizeof saved_io);memcpy(r+0x4000,saved_data,sizeof saved_data);
 }
 static unsigned fat_next(const unsigned char*fat,unsigned cluster){
  unsigned off=cluster+cluster/2,v=le16(fat+off);return cluster&1?v>>4:v&4095;

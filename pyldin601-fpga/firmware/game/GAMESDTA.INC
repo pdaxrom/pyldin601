@@ -17,4 +17,16 @@ sdk_pressed ds 1
 sdk_limit ds 1
 sdk_key_mask ds 1
 sdk_keys ds 14
+    .ifdef GAME_MUSIC
+; Load-time LH5 scratch overlaps the later 8608-byte GAMEBIOS context.
+; Real labels (not EQU aliases) are required for UniAS PGM relocation.
+sdk_context
+mus_dictionary ds 8192
+mus_c_lengths ds 510
+mus_pt_lengths ds 19
+mus_c_tree ds 1126
+mus_pt_tree ds 144
+mus_next_symbol ds 34
+    .else
 sdk_context ds GB_CONTEXT_BYTES
+    .endif

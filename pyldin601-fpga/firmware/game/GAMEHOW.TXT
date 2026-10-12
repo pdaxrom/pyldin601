@@ -1,8 +1,9 @@
-GAMEBIOS ABI 1 / HD6303 SDK
+PYLDIN ARCADE / GAMEBIOS ABI 1 / HD6303 SDK
 
-Install the matching P601.ROM and P601A.ROM on the boot partition.
-GAMEBIOS ROM calls retain their existing FPGA compatibility.
-This ARKANOID requires raw PS/2 FIFO with exclusive capture at E6B0-E6B3.
+Uses GAMEBIOS ABI1 ROM and the raw PS/2 capture FPGA.
+The updated ROM keeps graphics enabled while preparing HAM8 palettes.
+Install this ROM with the games to avoid a native-screen flash in XONIX.
+XONIX also requires graphics FPGA revision 6 (layered HAM8).
 Select HD6303 EXTENSION Y in BIOS. Both 601 and 601A are supported.
 
 B:ARKANOID
@@ -10,17 +11,74 @@ B:ARKANOID
   Independent of UniBIOS debounce and PS/2 typematic.
   Native keyboard IRQ, repeat and clicks are blocked during play.
   SPACE: launch ball; then pause/resume game and music
-  ESC: return to UniDOS
+  ESC: finish game and show high scores
   Fractional ball velocity: each impact point selects a different angle.
   Hit position controls the angle; actual paddle motion adds spin.
   Moving with the ball adds sideways speed; opposing motion reduces it.
   A clamped paddle supplies no spin; speed remains near 3 pixels/frame.
   Side/top brick impacts reflect the correct axis; no catch from underneath.
-  40 bricks, 3 lives, 10 points per brick. Start again after a game ends.
+  Levels alternate solid and checkerboard brick layouts; 3 initial lives.
+  10 points per brick. Green pickup: extra life; orange pickup: 50 points.
   Indexed 320x200 video, double buffering, tiles, keyed ball, AY music/SFX.
   Score/life updates copy cached digits; static labels are drawn once.
   Lost balls return to the paddle before drawing/dirty-rectangle history.
   CPU 4 or 8 MHz is recommended for the game; ABI supports all CPU speeds.
+
+B:XONIX
+  LEFT/RIGHT/UP/DOWN or A/D/W/S: move while held
+  Leave safe land, draw a cut across water and return to land to claim it.
+  Claimed territory reveals LENA.IFF, a native 320x200 HAM8 ILBM image.
+  Original HAM8 bytes/colours are preserved, including under hidden water.
+  RGB222 foreground actors and borders do not alter the image's HAM history.
+  Two enemies remain in water. An enemy touching a live cut or retracing
+  your cut costs a life. Claim about 75 percent to advance to the next level.
+  SPACE: pause/resume game and music; ESC: finish and show high scores.
+  3 initial lives, 10 points per claimed cell. HD6303 4/8 MHz recommended.
+  Backgrounds and the empty board are cached before the first score table.
+  A graphical loading bar shows progress; ESC cancels loading.
+  Music starts in the table and continues through starting a new round.
+  New rounds/level changes perform no disk reads or HAM palette generation.
+
+XONIX.CFG
+  Optional text file next to XONIX.PGM. One relative image path per line:
+    LENA.IFF
+    PICTURES\LEVEL02.IFF
+    LEVEL03.IFF
+  Levels follow this order; after the last entry start again from the first.
+  A new game starts with the first image. Missing/empty CFG uses LENA.IFF.
+  Up to 10 HAM8 ILBM images, 320x200, fixed RGB222 CMAP (HVIEW profile).
+  Lines may contain 63 characters; CFG size is limited to 4096 bytes.
+  Blank lines, surrounding spaces, #/; comments and CRLF/LF are accepted.
+  Restart XONIX after editing the list. Invalid CFG or an unreadable image
+  returns safely to UniDOS; a truncated list is never silently accepted.
+  Installation preserves an existing XONIX.CFG and both score generations.
+
+HIGH SCORES (both games)
+  Graphical 320x200 table before play and after completion or ESC.
+  Ten ranked names/scores; last score and disk-save status on screen.
+  Name entry, editing and disk errors also stay in graphics.
+  Music continues in the table and name-entry screen.
+  SPACE/ENTER: start/restart; ESC on the table: return to UniDOS.
+  A qualifying score asks for a name, maximum 12 characters.
+  Backspace edits; ENTER accepts; an empty name becomes PLAYER.
+  Tables are written next to the launched PGM, even from another drive.
+  Keep assets in that same directory; the games never change DOS directory.
+  ARKANOID: ARKSCORE.DAT / ARKSCORE.BAK
+  XONIX: XONSCORE.DAT / XONSCORE.BAK
+  Two alternating checked generations retain the last valid disk table.
+  Full/read-only media: report failure and retain the score in memory.
+  Installation preserves existing record files.
+  One GAMEBIOS context stays open through intro, play, records and restart.
+  Page 5 holds menus; game atlases and HAM8 background stay intact.
+  Native character input is enabled only for menus/name entry; gameplay
+  keeps exclusive raw input. Native video returns only on final exit.
+
+MUSIC / ASSETS
+  ARKANOID loads WARHAWK.YM; XONIX loads LEDSTRM1.YM and LENA.IFF.
+  Original YM/LH5 files are decoded on HD6303 into leased expansion RAM.
+  No disk access or decompression occurs in the music IRQ.
+  Missing music shows a graphical warning and allows play without it.
+  See MUSIC.TXT for credits and audit/ARCADE.md for implementation/tests.
 
 B:SDKTEST
   Draws a map window and scrolls all four directions using the blitter.
@@ -52,7 +110,14 @@ sdk_input returns A=status, B=held;
 sdk_pressed contains make edges, including taps released between frames.
 
 SDK sources: GAMEBIOS.INC, GAMESDK.ASM, GAMESDTA.INC.
-ARKANOID.ASM includes register frames ARKSONG.INC and angles BOUNCEY.INC.
+ARKANOID.ASM includes angles BOUNCEY.INC.
+Both games include HIGHSCR.ASM and the native GAMEMUS/MUSAPI decoder.
+XONIX includes XCFG.ASM and HIMAGE.ASM for lossless HAM8 ILBM decoding.
+Images use SRAM pages 8,6,7,9..15; page 4 caches the empty-board template.
+Layered video: select E654=<image page>, then E650=15 to latch the source.
+Later COPY source writes do not change this latched background page.
+Foreground palette bytes (00..3F) draw RGB222; modifier bytes reveal the
+original background colour at that pixel. E650=1/7/0 leave layered mode.
 SDKTEST.ASM includes the test map in SDKWORLD.INC.
 Build relocatable PGM files using the supplied UniAS cross-assembler.
 Detailed ABI, descriptors and tests: audit/GAMEBIOS.md in the repository.

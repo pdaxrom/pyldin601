@@ -10,7 +10,7 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
     input wire extended,input wire[7:0] rgb332,
     input wire palette_write,input wire[3:0]palette_register,input wire[7:0]palette_data,
     output wire palette_read_mode,output wire[5:0]palette_result,
-    input wire fast
+    input wire fast,input wire[17:0]rgb666
 );
     // round(2^32 * 4433618.75 / 24000000), frequency error +0.002286 Hz.
     reg [31:0] phase;
@@ -29,7 +29,7 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
         reg[12:0]palette_address;
         reg read_mode;
         reg[5:0]read_value;
-        reg ham_mode;
+        reg ham_mode,layer_mode;
         reg[5:0]ham_r,ham_g,ham_b;
         reg[4:0]picture_phase;
         reg[7:0]picture_index;
@@ -43,12 +43,16 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
         wire[5:0]base_b={3{rgb332[1:0]}};
         always @(posedge clk)begin
             if(reset)begin
-                ham_mode<=0;ham_r<=0;ham_g<=0;ham_b<=0;
+                ham_mode<=0;layer_mode<=0;ham_r<=0;ham_g<=0;ham_b<=0;
                 picture_phase<=0;picture_index<=0;sample_token<=0;
             end else begin
                 picture_phase<=carrier_phase;picture_index<=rgb332;sample_token<=!sample_token;
-                if(palette_write&&palette_register==0)ham_mode<=palette_data[2:1]==3;
+                if(palette_write&&palette_register==0)begin
+                    ham_mode<=palette_data[2:1]==3;
+                    layer_mode<=palette_data[3]&&palette_data[2:1]==3;
+                end
                 if(!extended)begin ham_r<=0;ham_g<=0;ham_b<=0;end
+                else if(layer_mode)begin ham_r<=rgb666[17:12];ham_g<=rgb666[11:6];ham_b<=rgb666[5:0];end
                 else case(control)
                     0:begin ham_r<=base_r;ham_g<=base_g;ham_b<=base_b;end
                     1:ham_b<=component;

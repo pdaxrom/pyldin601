@@ -57,6 +57,9 @@ config
         source += [f'ldaa #{reg}', 'staa $e600', f'ldaa #{value}', 'staa $e601']
     source += [f"ldaa #{ctx['front']}", 'staa $e655', 'ldaa #3', 'staa $e651',
                'ldaa $e650', 'bmi *-3', 'ldaa #1', 'staa $e650',
+               f"ldd #${ctx['divider'] >> 16:04x}", 'std $e69b',
+               f"ldd #${ctx['divider'] & 65535:04x}", 'std $e69d',
+               'ldaa #1', 'staa $e69f',
                f"ldd #${ctx['period'] >> 16:04x}", 'std $e692',
                f"ldd #${ctx['period'] & 65535:04x}", 'std $e694',
                'ldaa #1', 'staa $e696', 'ldaa #7', 'staa $e6b3']
@@ -71,8 +74,11 @@ config
     assert len(trampoline) < 512
     ram[0xe000:0xe000+len(trampoline)] = trampoline
     rom = (ROOT / ('build/rom-a.reference' if model == '601a' else 'build/rom.reference')).read_bytes()[512:]
-    physical = ram + rom + base.with_name(base.name + '-fb.bin').read_bytes()
-    assert len(physical) == 199680 * 2
+    physical = bytearray(2*1024*1024)
+    physical[:65536] = ram
+    physical[0x10000:0x10000+len(rom)] = rom
+    physical[0x22000:0x100000] = base.with_name(base.name + '-pages.bin').read_bytes()
+    physical[0x100000:0x140000] = base.with_name(base.name + '-fb.bin').read_bytes()
     (out / 'sram.mem').write_text(''.join(f'{physical[k+1]:02x}{physical[k]:02x}\n' for k in range(0, len(physical), 2)))
     game = bios_symbols((ROOT / 'build/game/ARKANOID.PGM.LST').read_text())
     rom_labels = bios_symbols((ROOT / 'build/partitions/RAMMAN.ROM.LST').read_text())
@@ -106,7 +112,7 @@ def main():
     subprocess.run([a.cc, '-O2', '-I../pyldin601/src', 'tests/prepare_game_perf.c', '-o', str(out/'prepare')], cwd=ROOT, check=True)
     subprocess.run([sys.executable, 'tests/prepare_boot_lockstep.py'], cwd=ROOT, check=True)
     image, _ = install((ROOT/'images/sd.img').read_bytes(),
-                       {'ARKANOID.PGM': (ROOT/'build/game/ARKANOID.PGM').read_bytes()}, replace=True)
+                       {n: (ROOT/'build/game'/n).read_bytes() for n in ('ARKANOID.PGM','WARHAWK.YM')}, replace=True)
     (out/'sd-test.img').write_bytes(image)
     results = []
     for model in a.models:

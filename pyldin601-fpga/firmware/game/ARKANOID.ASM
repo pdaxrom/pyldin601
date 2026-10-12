@@ -1,6 +1,26 @@
-; Puldin HD6303 GAMEBIOS example: tiles, dirty buffers, AY music + effects.
+; Pyldin HD6303 GAMEBIOS example: tiles, dirty buffers, AY music + effects.
     include GAMEBIOS.INC
+hs_id equ 1
 start
+    ; UniDOS reserves PGM BSS without clearing reused conventional memory.
+    ldx #bss_start
+game_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne game_zero_bss
+    ldaa $e6a0
+    bita #2
+    bne game_cpu_ready
+    ldx #need_gamebios
+    jmp message_exit
+game_cpu_ready
+    jsr hs_init
+game_prepare
+    ldx #music_name
+    jsr hs_asset_path
+    jsr mus_load
+    ; LH5 scratch overlaps the context: finish loading before opening video.
     ldab #GB_VIDEO+GB_AUDIO
     jsr sdk_open
     tsta
@@ -12,8 +32,22 @@ started
     int GB_INT
     clr batch_available
     bitb #GB_FEATURE_BATCH
-    beq drain_keys
+    beq game_scores
     inc batch_available
+game_scores
+    jsr hs_show
+    tstb
+    beq game_begin
+    jmp exit_native
+game_begin
+    ldaa #1
+    staa level
+    ldaa #3
+    staa lives
+    clr score
+    clr score+1
+round_begin
+    clr hs_ui_active
     ; Remove launch-command characters once, before exclusive raw capture.
 drain_keys
     int $10
@@ -142,6 +176,7 @@ world_clear
     subd #1
     std work_count
     bne world_clear
+    clr remaining
     clr brick_row
 brick_map_row
     clr brick_column
@@ -153,9 +188,22 @@ brick_map_column
     adca #0
     addd #bricks
     xgdx
+    ldaa level
+    anda #3
+    beq level_tile
+    cmpa #1
+    beq level_tile
+    ldaa brick_column
+    adda brick_row
+    anda #1
+    beq level_tile
+    clr 0,x
+    bra level_map_next
+level_tile
     ldaa brick_row
     inca
     staa 0,x
+    inc remaining
     ldaa #40
     ldab brick_row
     addb #5
@@ -174,6 +222,7 @@ brick_map_column
     staa 1,x
     staa 2,x
     staa 3,x
+level_map_next
     inc brick_column
     ldaa brick_column
     cmpa #8
@@ -189,18 +238,20 @@ brick_map_column
     tsta
     beq *+5
     jmp failed
-    ldaa #40
-    staa remaining
-    ldaa #3
-    staa lives
-    clr score
-    clr score+1
+    clr round_ended
+    clr bonus_active
     clr paused
     clr launched
     clr hidden
     clr valid
     clr valid+1
-    clr song_index
+    ldx #bonus_history
+    ldab #8
+clear_bonus_history
+    clr 0,x
+    inx
+    decb
+    bne clear_bonus_history
     clr hud_initialized
     ldd #136
     std paddle
@@ -223,10 +274,7 @@ brick_map_column
     ldaa #GB_FLIP
     clrb
     jsr api
-    jsr fill_music
-    ldaa #GB_PLAY
-    ldab #1
-    jsr api
+    jsr mus_start
 frame_loop
 sample_keys
     ldaa #$fe
@@ -265,9 +313,11 @@ space_key
     tst launched
     bne pause_key
     tst lives
-    beq keys_done
+    bne *+5
+    jmp keys_done
     tst remaining
-    beq keys_done
+    bne *+5
+    jmp keys_done
     inc launched
     jsr erase_message
     bra keys_done
@@ -302,6 +352,7 @@ paddle_done
     subd paddle_delta
     std paddle_delta
     jsr fill_music
+    jsr update_bonus
     tst launched
     beq follow_paddle
     jsr move_ball
@@ -351,6 +402,49 @@ frame_draw
     staa rect_desc+6
     jsr restore_rectangle
 frame_new
+    ldab hidden
+    aslb
+    aslb
+    ldx #bonus_history
+    abx
+    ldd 2,x
+    beq bonus_old_clear
+    std rect_desc+2
+    ldd 0,x
+    std rect_desc
+    ldd #8
+    std rect_desc+4
+    ldaa #8
+    staa rect_desc+6
+    jsr restore_rectangle
+bonus_old_clear
+    ldab hidden
+    aslb
+    aslb
+    ldx #bonus_history
+    abx
+    clr 2,x
+    clr 3,x
+    tst bonus_active
+    beq bonus_drawn
+    ldd bonus_x
+    std 0,x
+    std rect_desc
+    ldd bonus_y
+    std 2,x
+    std rect_desc+2
+    ldd #8
+    std rect_desc+4
+    ldaa #8
+    staa rect_desc+6
+    ldaa #4
+    ldab bonus_active
+    cmpb #2
+    bne *+4
+    ldaa #2
+    staa rect_desc+7
+    jsr rectangle
+bonus_drawn
     ldd ball_x
     std sprite_desc
     ldd ball_y
@@ -391,7 +485,27 @@ frame_new
     ldaa #GB_FLIP
     ldab hidden
     jsr api
+    tst round_ended
+    beq *+5
+    jmp end_party
+    tst remaining
+    bne *+5
+    jmp next_level
     jmp frame_loop
+next_level
+    inc level
+    ldaa level
+    cmpa #10
+    bcs level_ready
+    ldaa #1
+    staa level
+level_ready
+    jmp round_begin
+end_party
+    ldd score
+    std hs_score
+    jsr hs_record
+    jmp game_scores
 frame_idle
     ; Keep keyboard responsive while audio is paused.
     jmp frame_loop
@@ -552,7 +666,10 @@ brick_scored
     dec remaining
     ldd score
     addd #10
+    bcc *+5
+    ldd #$ffff
     std score
+    jsr drop_bonus
     jsr remove_brick
     ldaa #61
     ldab #5
@@ -601,6 +718,7 @@ ball_miss_check
     ldx #launch_text
     tst lives
     bne ball_message
+    inc round_ended
     ldx #lose_text
 ball_message
     jsr centre_message
@@ -712,6 +830,75 @@ bounce_speed_index
     ldd 0,x
     std velocity_y
     rts
+drop_bonus
+    tst bonus_active
+    bne bonus_done
+    ldaa remaining
+    anda #7
+    bne bonus_done
+    clra
+    ldab brick_column
+    asld
+    asld
+    asld
+    asld
+    asld
+    addd #44
+    std bonus_x
+    clra
+    ldab brick_row
+    asld
+    asld
+    asld
+    addd #40
+    std bonus_y
+    ldaa remaining
+    lsra
+    lsra
+    lsra
+    anda #1
+    inca
+    staa bonus_active
+bonus_done
+    rts
+update_bonus
+    tst bonus_active
+    beq bonus_done
+    ldd bonus_y
+    addd #2
+    std bonus_y
+    subd #184
+    bcs bonus_done
+    ldd bonus_x
+    addd #8
+    subd paddle
+    ble bonus_lost
+    ldd paddle
+    addd #48
+    subd bonus_x
+    ble bonus_lost
+    ldaa bonus_active
+    cmpa #2
+    beq bonus_points
+    ldaa lives
+    cmpa #9
+    bcc bonus_lost
+    inc lives
+    bra bonus_awarded
+bonus_points
+    ldd score
+    addd #50
+    bcc *+5
+    ldd #$ffff
+    std score
+bonus_awarded
+    jsr hud
+    ldaa #72
+    ldab #8
+    jsr effect
+bonus_lost
+    clr bonus_active
+    rts
 remove_brick
     clra
     ldab brick_column
@@ -810,31 +997,17 @@ refresh_packed
     ldaa #GB_BATCH
     jmp api
 hud
-    ; Three decimal digits, maximum score 400.
     ldd score
-    std work_count
-    ldab #'0'
-hundreds_loop
-    ldd work_count
-    subd #100
-    bcs hundreds_done
-    std work_count
-    inc score_text
-    bra hundreds_loop
-hundreds_done
-    ldd work_count
-    subd #10
-    bcs tens_done
-    std work_count
-    inc score_text+1
-    bra hundreds_done
-tens_done
-    ldab work_count+1
-    addb #'0'
-    stab score_text+2
+    jsr hs_decimal
+    ldd hs_number
+    std score_text
+    ldd hs_number+2
+    std score_text+2
+    ldaa hs_number+4
+    staa score_text+4
     ldaa lives
     adda #'0'
-    staa score_text+10
+    staa score_text+12
     tst hud_initialized
     bne hud_update
     inc hud_initialized
@@ -855,10 +1028,12 @@ tens_done
     jsr api
     ldd score_text
     std hud_previous
-    ldaa score_text+2
-    staa hud_previous+2
-    ldaa score_text+10
-    staa hud_previous+3
+    ldd score_text+2
+    std hud_previous+2
+    ldaa score_text+4
+    staa hud_previous+4
+    ldaa score_text+12
+    staa hud_previous+5
     clr rect_desc
     clr rect_desc+1
     clr rect_desc+2
@@ -923,7 +1098,7 @@ hud_digit_loop
 hud_digit_next
     inc hud_index
     ldaa hud_index
-    cmpa #4
+    cmpa #6
     beq hud_done
     jmp hud_digit_loop
 hud_done
@@ -931,8 +1106,8 @@ hud_done
     staa score_text
     staa score_text+1
     rts
-hud_offsets db 0,1,2,10
-hud_columns dw 200,208,216,280
+hud_offsets db 0,1,2,3,4,12
+hud_columns dw 200,208,216,224,232,296
 centre_message
     stx message_pointer
     ldaa #GB_TARGET
@@ -976,29 +1151,8 @@ effect
     ldaa #GB_NOTE
     jmp api
 fill_music
-    ldaa #GB_STATUS
-    jsr api
-    ; IRQ only removes frames: one queue snapshot safely bounds this refill.
-    negb
-    addb #16
-    stab music_needed
-    beq music_done
-music_refill
-    ldaa #14
-    ldab song_index
-    mul
-    addd #song
-    xgdx
-    ldaa #GB_FRAME
-    jsr api
-    inc song_index
-    ldaa song_index
-    anda #63
-    staa song_index
-    dec music_needed
-    bne music_refill
-music_done
-    rts
+    jmp mus_fill
+
 api
     staa last_operation
     int GB_INT
@@ -1052,13 +1206,29 @@ error_nibble
     adda #7
     rts
 exit_game
+    ldd score
+    std hs_score
+    jsr hs_record
+    jmp game_scores
+exit_native
     jsr sdk_close
+    jsr mus_release
     ldx #done_text
 message_exit
+    jsr hs_unhook
     int $23
     clra
     int $38
+hs_failure
+    psha
+    ldaa hs_ui_operation
+    staa last_operation
+    pula
+    jmp failed
     include GAMESDK.ASM
+    include HIGHSCR.ASM
+    include MUSAPI.ASM
+    include GAMEMUS.ASM
 colours
     db 0,0,0,224,50,45,255,150,35,250,220,60,70,200,90
     db 70,120,240,80,220,230,255,255,255
@@ -1073,8 +1243,12 @@ hud_cursor db 1,1
 digit_cursor db 10,0
 digit_text db '0123456789',0
 message_cursor db 9,13
-hud_text db 'PULDIN  ARKANOID  SCORE ',0
-score_text db '000 LIFE: 3',0
+hud_text db 'PYLDIN  ARKANOID  SCORE ',0
+score_text db '00000 LIFE: 3',0
+hs_title db 'PYLDIN ARKANOID',0
+hs_primary_name db 'ARKSCORE.DAT',0
+hs_backup_name db 'ARKSCORE.BAK',0
+music_name db 'WARHAWK.YM',0
 launch_text db 'SPACE: LAUNCH   ESC: EXIT',0
 win_text db 'ALL BRICKS!    ESC: EXIT ',0
 lose_text db 'GAME OVER      ESC: EXIT ',0
@@ -1092,8 +1266,6 @@ error_raw db '00',13,10,'GFX='
 error_gfx db '00 AY='
 error_audio db '00',13,10,0
 done_text db 'ARKANOID: returned to UniDOS.',13,10,0
-song
-    include ARKSONG.INC
 bounce_y
     ; Upward component for |VX|=0..704, step 16 in signed Q8.8.
     include BOUNCEY.INC
@@ -1124,11 +1296,9 @@ launched ds 1
 hidden ds 1
 batch_available ds 1
 valid ds 2
-song_index ds 1
-music_needed ds 1
 hud_initialized ds 1
 hud_index ds 1
-hud_previous ds 4
+hud_previous ds 6
 held_keys ds 1
 paddle ds 2
 paddle_delta ds 2
@@ -1143,8 +1313,15 @@ previous_y ds 2
 velocity_before ds 2
 bounce_spin ds 2
 history ds 16
+level ds 1
+round_ended ds 1
+bonus_active ds 1
+bonus_x ds 2
+bonus_y ds 2
+bonus_history ds 8
 bricks ds 40
 world ds 1000
+    include HISDATA.INC
     include GAMESDTA.INC
 bss_end
     end start

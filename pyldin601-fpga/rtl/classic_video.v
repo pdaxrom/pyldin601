@@ -24,7 +24,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     output wire[8:0]gfx_pixel_x,output wire gfx_pixel_bank,
     input wire palette_write,input wire[3:0]palette_register,input wire[7:0]palette_data,
     output wire palette_read_mode,output wire[5:0]palette_result,
-    input wire fast
+    input wire fast,input wire[17:0]gfx_rgb
 );
     reg [7:0] registers[0:15];reg[7:0] register_index;
     wire extended=GFX&&gfx_enable;
@@ -113,6 +113,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     wire [6:0] column1=x1>>3;
     wire [6:0] character_column1=text40?{column1[6:1],1'b1}:column1;
     reg [7:0] video_byte,attribute,rgb_pipe;
+    reg[17:0]rgb666_pipe;
     // Keep the carry until applying the classic display's wrap. A 16-bit
     // addition alone would select base RAM after scrolling past screen RAM.
     // Match mc6845.c: text advances FFFE -> F000; graphics skips cell FFF8.
@@ -199,7 +200,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     classic_pal_encoder #(.GFX(GFX)) encoder(clk,reset,
         sync_pipe[1],burst_pipe[1],alternate_pipe[1],pixel_colour,tvout,
         extended&&h_pipe[1]&&v_pipe[1],rgb_pixel,
-        palette_write,palette_register,palette_data,palette_read_mode,palette_result,fast);
+        palette_write,palette_register,palette_data,palette_read_mode,palette_result,fast,rgb666_pipe);
     reg[1:0] dma_state;
     reg[6:0] dma_column;reg dma_bank;
     assign mem_request=dma_state==1;
@@ -232,7 +233,7 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
         if(font_write)font[font_address]<=font_data;
         font_pixels<=font[{font_character[6:0],font_character[7],y1[2:0]}];
         video_byte<=column1[0]?cache_data[15:8]:cache_data[7:0];
-        attribute<=cache_data[7:0];rgb_pipe<=gfx_pixel;
+        attribute<=cache_data[7:0];rgb_pipe<=gfx_pixel;rgb666_pipe<=gfx_rgb;
         if(reset)begin
             x1<=0;logical_x<=0;y1<=0;pixel_y<=0;
             h_pipe<=0;v_pipe<=0;sync_pipe<=3;burst_pipe<=0;alternate_pipe<=0;

@@ -14,6 +14,7 @@ static unsigned paladdr,readback,front,enabled,pending,overrun,envelopes,jobs;
 static uint32_t period=960000,period_shadow=960000,divider=0x03000000,divider_shadow=0x03000000;
 static uint64_t audio_last,audio_count,gfx_ready;
 static unsigned fault_busy,fault_audio,fault_divider,gfx_failed;
+static unsigned gfx_revision=6;
 static unsigned char raw_bytes[64];
 static unsigned raw_head,raw_count,raw_overflow,keyboard_raw_missing,raw_capture,keyboard_capture_missing;
 static void raw_byte(unsigned char b){if(raw_count<64)raw_bytes[(raw_head+raw_count++)&63]=b;else raw_overflow=1;}
@@ -29,9 +30,13 @@ static void audio_update(void){
 }
 static void observe(void){if(r){unsigned vector=r[0xefcc]*256+r[0xefcd];if(vector>=0x100&&vector+384<=0xbe00)state=vector;}audio_update();if(!i&&pending)MC6800SetInterrupt(1);}
 static int hg_read_byte(uint16_t a,unsigned char*out){
+#ifdef ARCADE_HG
+ if(hg_transport_read(a,out))return 1;
+#endif
+
  if(a>=0xe6b0&&a<=0xe6b3){*out=0xff;if(!keyboard_raw_missing)switch(a&3){case 0:*out='R';break;case 1:*out=(raw_count!=0)|((raw_count==64)<<5)|(raw_overflow<<7)|(raw_capture<<6);break;case 2:if(raw_count){*out=raw_bytes[raw_head++&63];raw_count--;}break;case 3:*out=raw_count;}return 1;}
  if(a>=0xe650&&a<=0xe65f){unsigned p=a&15;
-  *out=p==0?gfx[0]|(gfx_failed?16:0)|((fault_busy||virtual_cycles<gfx_ready)?128:0):p==2?front:p==14?(readback?pal[paladdr]:'G'):p==15?5:gfx[p];return 1;}
+  *out=p==0?gfx[0]|(gfx_failed?16:0)|((fault_busy||virtual_cycles<gfx_ready)?128:0):p==2?front:p==14?(readback?pal[paladdr]:'G'):p==15?gfx_revision:gfx[p];return 1;}
  if(a>=0xe610&&a<=0xe61f){*out=ay[a&15];return 1;}
  if(a>=0xe690&&a<=0xe69f){unsigned p=a&15;audio_update();*out=0;
   if(p==0)*out=enabled|(pending<<7)|(overrun<<6)|(fault_divider<<5);
@@ -41,6 +46,10 @@ static int hg_read_byte(uint16_t a,unsigned char*out){
  return 0;
 }
 static int hg_write_byte(uint16_t a,unsigned char d){
+#ifdef ARCADE_HG
+ if(hg_transport_write(a,d))return 1;
+#endif
+
  if(a>=0xe6b0&&a<=0xe6b3){if(a==0xe6b3&&!keyboard_raw_missing){if(d&1)raw_head=raw_count=0;if(d&2)raw_overflow=0;if(d&4&&!keyboard_capture_missing)raw_capture=1;if(d&8)raw_capture=0;}return 1;}
  if(a>=0xe690&&a<=0xe69f){unsigned p=a&15;audio_update();
   if(!p){enabled=d&1;if(d&2)pending=overrun=0;if(!(d&1)||(d&4))audio_count=pending=overrun=0;}
@@ -53,7 +62,7 @@ static int hg_write_byte(uint16_t a,unsigned char d){
  if(a>=0xe610&&a<=0xe61f){ay[a&15]=d;if(a==0xe61d)envelopes++;return 1;}
  if(a<0xe650||a>0xe65f)return 0;
  unsigned p=a&15;
- if(!p){gfx[0]=d&7;if(!(d&7))raw_capture=0;return 1;}
+ if(!p){gfx[0]=d&15;if(!(d&7))raw_capture=0;return 1;}
  if(p==2){paladdr=(paladdr&0x1f00)|d;return 1;}
  if(p==13){paladdr=((d&31)<<8)|(paladdr&255);return 1;}
  if(p==14){pal[paladdr]=d&63;paladdr=(paladdr+1)&8191;return 1;}

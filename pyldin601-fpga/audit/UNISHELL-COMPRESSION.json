@@ -31,8 +31,8 @@
     "P601.ROM": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463",
     "P601A.ROM": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
   },
-  "ready_image_sha256": "a20001cd872af62c08a72cab4659725b204e762d02e1e967e673f4fec83bd430",
-  "previous_image_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+  "ready_image_sha256": "5ca62a969aa4c2edbab226b6c1ef9428adb89d6e280a0bb0d02af22e3ad766ae",
+  "previous_image_sha256": "5028473b47607f10e839d7397ac4ee61f3b9ac107990be7c590a9e435443fc8f",
   "changed_rom_pages": [
     "A",
     "F"
@@ -259,7 +259,7 @@
       ],
       "warm_reset_confirmed": true,
       "no_screen_garbage_or_hangs": true,
-      "user_reply": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442"
+      "user_reply": "да, работают"
     }
   },
   "hardware_confirmed": true,
@@ -277,7 +277,6 @@
     ],
     "warm_reset_confirmed": true,
     "no_screen_garbage_or_hangs": true,
-    "user_reply": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442"
-  },
-  "game_apps_unchanged_from_previous_commit": true
+    "user_reply": "да, работают"
+  }
 }

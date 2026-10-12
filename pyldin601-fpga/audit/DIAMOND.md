@@ -1,4 +1,28 @@
-# Программная PS/2-клавиатура, 11 октября 2026
+# Наложение HAM8, 12 октября 2026
+
+Diamond 3.14 завершил synthesis, MAP, PAR, TRACE и Jedecgen:
+5323/6864 LUT, 2672/3432 slices, 2159/7209 registers, 23/26 EBR, 1/2 PLL.
+Относительно установленной общей boot-консоли: +155 LUT, +77 slices,
++74 registers, +1 EBR. Свободны 1541 LUT, 760 slices, 5050 registers,
+три EBR и одна PLL. PAR seed 7; LPF и SRAM-бюджеты не изменены.
+Setup/hold cumulative negative slack=0, unconstrained paths=0;
+все строгие SRAM/CPU/96-МГц предпочтения scored и PASS.
+EDIF/INITVAL PAL и AY — PASS.
+
+JED SHA-256:
+`26a094cfafac98e1392bc4b24f24b391876fa0d8bb30e6ffc765998095b6bb13`.
+138 замороженных входов: `build/diamond/source-ham8-layer.tar.gz`
+и `.sha256.json`; Linux `/tmp/p601-ham8-layer`.
+Локальные отчёты: `build/hardware-ham8-layer`.
+Flash Verify ID и Erase,Program,Verify прошли; HG восстановлен.
+На SD уже имеется подходящий GAMEBIOS; ROM для этого этапа не менялся.
+768000 составных RGB666 пикселей прошли независимый эталон при
+1/2/4/8 МГц, CPU/блиттере и модели SRAM-10. Полный RGB666 PAL прошёл
+при двух фазах fast clock. Пользователь подтвердил на плате отсутствие
+полос, Xonix и HVIEW: «Полос нет, игра и HVIEW работают».
+[Интерфейс](HAM.md), [полный протокол](HAM-LAYERS.json).
+
+## История: программная PS/2-клавиатура, 11 октября 2026
 
 Diamond 3.14 завершил synthesis, MAP, PAR, TRACE и Jedecgen:
 5180/6864 LUT, 2601/3432 slices, 2085/7209 registers, 22/26 EBR, 1/2 PLL.

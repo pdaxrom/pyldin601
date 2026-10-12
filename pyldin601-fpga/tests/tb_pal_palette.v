@@ -8,7 +8,7 @@ module tb_pal_palette;
  reg[3:0]address=0;reg[7:0]data=0,index=0;
  wire[5:0]dac,result;wire read_mode;
  classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'd0,dac,
-  extended,index,wr,address,data,read_mode,result,fast);
+  extended,index,wr,address,data,read_mode,result,fast,18'd0);
  reg[5:0]custom[0:8191],legacy[0:1023];
  reg[31:0]phase=0;reg[5:0]previous=0,previous2=0,want;integer p,checks=0;reg checking=0;
  always @(posedge clk)begin

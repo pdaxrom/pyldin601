@@ -3,15 +3,16 @@
 #include "test_gamebios.c"
 #include "../build/game/arkanoid_labels.h"
 #include "../build/game/sdktest_labels.h"
-static unsigned app,frames,hits,irq_started,max_irq;
+static unsigned app,frames,hits,irq_started,max_irq,ui_state;
 static unsigned at(unsigned offset){return r[app+offset]*256+r[app+offset+1];}
 static void game_frame(unsigned dp){
- if(!gfx[0]||dp>1||!app||!r[app+GAME_VALID+dp])return;
+ if(!gfx[0]||dp>1||!app||r[app+GAME_HS_UI_ACTIVE]||!r[app+GAME_VALID+dp])return;
  unsigned x=at(GAME_BALL_X),y=at(GAME_BALL_Y),p=at(GAME_PADDLE);
  require(x+8<=320&&y+8<=200&&p<=272,"game sprite coordinates");
  unsigned char *bg=physical+0x130000,*fb=physical+0x100000+dp*65536;
  for(unsigned row=0;row<200;row++)for(unsigned col=0;col<320;col++){
   unsigned expected=bg[row*320+col];
+  if(r[app+GAME_BONUS_ACTIVE]&&col>=at(GAME_BONUS_X)&&col<at(GAME_BONUS_X)+8&&row>=at(GAME_BONUS_Y)&&row<at(GAME_BONUS_Y)+8)expected=r[app+GAME_BONUS_ACTIVE]==2?2:4;
   if(col>=x&&col<x+8&&row>=y&&row<y+8){unsigned sx=col-x,sy=row-y;if((sy>=2&&sy<6)||(sx>=2&&sx<6))expected=7;}
   if(row>=190&&row<195&&col>=p&&col<p+48)expected=6;
   if(fb[row*320+col]!=expected){fprintf(stderr,"frame %u p%u x%u y%u got%u expected%u ball%u,%u paddle%u\n",frames,dp,col,row,fb[row*320+col],expected,x,y,p);require(0,"full framebuffer has no trails");}
@@ -23,18 +24,25 @@ static void game_frame(unsigned dp){
  }
  require(alive==r[app+GAME_REMAINING],"brick count matches tile map");frames++;
  // HUD is checked against the native font, independently of cached glyphs.
- char hud[48];snprintf(hud,sizeof hud,"PULDIN  ARKANOID  SCORE %03u LIFE: %u",at(GAME_SCORE),r[app+GAME_LIVES]);
+ char hud[48];snprintf(hud,sizeof hud,"PYLDIN  ARKANOID  SCORE %05u LIFE: %u",at(GAME_SCORE),r[app+GAME_LIVES]);
  for(unsigned dy=0;dy<8;dy++)for(unsigned col=0;col<320;col++){
   unsigned ch=col/8,bit=col&7,expected=0;
   if(ch>=1&&ch<=strlen(hud))expected=(physical[0x10000+6144+(unsigned char)hud[ch-1]*8+dy]&(128>>bit))?7:0;
   if(bg[(8+dy)*320+col]!=expected){fprintf(stderr,"HUD frame%u score%u life%u x%u y%u got%u expected%u\n",frames,at(GAME_SCORE),r[app+GAME_LIVES],col,dy,bg[(8+dy)*320+col],expected);require(0,"HUD score/life and static labels match native font");}
  }
 }
+#ifndef GAME_UI_TIMEOUT
+#define GAME_UI_TIMEOUT 200000000
+#endif
+static void wait_ui(unsigned target){uint64_t d=virtual_cycles+GAME_UI_TIMEOUT;while(ui_state!=target&&virtual_cycles<d)until(virtual_cycles+1009);require(ui_state==target,"graphical score/name screen reached");}
+static void finish_ui(void){ui_state=0;raw_key(0,0,0x76);raw_key(0,1,0x76);uint64_t d=virtual_cycles+15000000;while(!ui_state&&virtual_cycles<d)until(virtual_cycles+1009);require(ui_state,"game returns to record UI");if(ui_state==2){ui_state=0;key(0x1c);wait_ui(1);}ui_state=0;key(0x01);prompt_wait();}
 static void type_game(void){key(0x30);KBDModKeyDown(2);key(0x27);KBDModKeyUp(2);
- const unsigned scans[]={0x1e,0x13,0x25,0x1e,0x31,0x18,0x17,0x20};for(unsigned k=0;k<8;k++)key(scans[k]);key(0x1c);}
-static void wait_frames(unsigned n){uint64_t deadline=virtual_cycles+10000000;while(frames<n&&virtual_cycles<deadline)until(virtual_cycles+1000);require(frames>=n,"game renders frames");}
+ const unsigned scans[]={0x1e,0x13,0x25,0x1e,0x31,0x18,0x17,0x20};for(unsigned k=0;k<8;k++)key(scans[k]);ui_state=0;key(0x1c);if(cpu_hd){wait_ui(1);ui_state=0;key(0x39);if(keyboard_raw_missing||keyboard_capture_missing){uint64_t d=virtual_cycles+200000000;while((PC!=(model_a?0xf397:0xf39d)||!contains("needs raw PS/2 capture FPGA"))&&virtual_cycles<d)until(virtual_cycles+1009);}}}
+static void wait_frames(unsigned n){uint64_t deadline=virtual_cycles+200000000;while(frames<n&&virtual_cycles<deadline)until(virtual_cycles+1000);if(frames<n)fprintf(stderr,"app=%04x PCoff=%04x frames=%u ui=%u mus=%u lease=%u kind=%u state=%04x\n",app,PC-app,frames,ui_state,r[app+GAME_MUS_LOADED],r[app+GAME_MUS_MEMORY_LEASE+2],r[app+GAME_MUS_KIND],state);require(frames>=n,"game renders frames");}
 static void game_observe(void){
- observe();unsigned context=r[state+6]*256+r[state+7];if(!app&&context>=GAME_SDK_CONTEXT+0x100&&context<0xbe00&&r[state+4]*256+r[state+5]!=pcb&&r[state+4]*256+r[state+5]!=0)app=context-GAME_SDK_CONTEXT;
+ observe();
+ if(app&&PC==app+GAME_HS_WAIT)ui_state=1;if(app&&PC==app+GAME_HS_NAME_KEY)ui_state=2;
+ if(!app&&PC<0xc000&&r[PC]==0x3f&&r[PC+1]==0xe6&&A==1&&X>=GAME_SDK_CONTEXT+0x100&&X<0xbe00&&r[X]==(8608>>8)&&r[X+1]==(8608&255)&&r[X+2]==1)app=X-GAME_SDK_CONTEXT;
 }
 static unsigned sdk_frames;
 static void sdk_frame(unsigned dp){
@@ -162,15 +170,15 @@ int GAME_APP_MAIN(int argc,char**argv){
  // sent COPY beyond the 64000-byte framebuffer and aborted the game.
  const unsigned miss_speed[]={768,665},miss_fraction[]={0,128};
  for(unsigned k=0;k<2;k++){
-  r[app+GAME_LAUNCHED]=1;word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,191);
+  r[app+GAME_LIVES]=3;r[app+GAME_LAUNCHED]=1;word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,191);
   word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_X,0);
   word_at(app+GAME_VELOCITY_Y,miss_speed[k]);r[app+GAME_BALL_FRACTION_Y]=miss_fraction[k];
   wait_frames(frames+4);
-  require(r[app+GAME_LIVES]==1-k&&!r[app+GAME_LAUNCHED],"fast/fractional miss and final life survive both buffer restores");
+  require(r[app+GAME_LIVES]==2&&!r[app+GAME_LAUNCHED],"fast/fractional miss and final life survive both buffer restores");
   require(at(GAME_BALL_Y)==182&&at(GAME_BALL_X)==292,"miss returns ball to paddle before drawing/history");
  }
- raw_key(0,0,0x76);prompt_wait();raw_key(0,1,0x76);restored();require(SP==sp_before&&contains("returned to UniDOS"),"physical ESC restores DOS");
- app=frames=0;type_game();wait_frames(3);require(r[app+GAME_LIVES]==3&&r[app+GAME_REMAINING]==40&&!at(GAME_SCORE),"second run starts fresh");raw_key(0,0,0x76);prompt_wait();raw_key(0,1,0x76);restored();
+ finish_ui();restored();require(SP==sp_before&&contains("returned to UniDOS"),"physical ESC restores DOS");
+ app=frames=0;type_game();wait_frames(3);require(r[app+GAME_LIVES]==3&&r[app+GAME_REMAINING]==40&&!at(GAME_SCORE),"second run starts fresh");finish_ui();restored();
  keyboard_raw_missing=1;app=frames=0;type_game();prompt_wait();keyboard_raw_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"older FPGA gets a clear refusal with context cleanup");
  keyboard_capture_missing=1;app=frames=0;type_game();prompt_wait();keyboard_capture_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"old raw FIFO without capture is refused");
  app=frames=0;type_game();wait_frames(3);for(unsigned k=0;k<65;k++)raw_byte(0x1c);prompt_wait();restored();require(!raw_count&&!raw_overflow,"raw overflow flushes safely and restores DOS");require(contains("OP=FE STATUS=02 RAW=40"),"failure identifies raw overflow and capture before cleanup");

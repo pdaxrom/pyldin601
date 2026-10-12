@@ -1,0 +1,24 @@
+PYLDIN ARCADE MUSIC
+
+Original YM files; no host-side conversion or repacking.
+Both are YM5 register streams in LHA/LH5 containers, 2 MHz PSG, 50 Hz.
+HD6303 decompresses them into expansion RAM before play. GAMEBIOS IRQ
+consumes queued register frames; disk I/O and LH5 run outside the IRQ.
+
+WARHAWK.YM - Arkanoid, 11733 frames (about 3:55), 5385 compressed bytes.
+Original file metadata: Warhawk / David Whittaker /
+Generated with PaCifiST v0.48. Metadata is retained as supplied.
+Archive/reference: https://www.lynn3686.com/gamemusic.html
+Player disassembly: https://www.lynn3686.com/musicrip.html
+SHA256: bba2dc9e827193f6d3a3bef3d549f83fb4cbd4075e9e4c098767f49c7716db09
+
+LEDSTRM1.YM - Xonix, 8120 frames (about 2:42), 3252 compressed bytes.
+Original metadata: LED Storm #1. / Tim Follin. / Converted by MCM.
+Original YM archive:
+https://files.scene.org/view/demos/artists/michael_lynn/pp26src2.zip
+Archive path: music/LEDSTRM1.YM.
+
+These game recordings retain their original authorship and rights.
+All files needed by a game must be beside its PGM. Replacing a song with
+another supported YM/LH5 under the same name is possible; RAM is leased
+through INT E5. The decoder accepts the same formats as YPLAY.

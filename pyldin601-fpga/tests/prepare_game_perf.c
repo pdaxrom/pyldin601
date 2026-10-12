@@ -22,9 +22,10 @@ int main(int argc,char **argv){
  if(!strcmp(argv[3],"miss")){word_at(app+GAME_BALL_X,2);word_at(app+GAME_BALL_Y,191);word_at(app+GAME_PADDLE,272);word_at(app+GAME_VELOCITY_X,0);word_at(app+GAME_VELOCITY_Y,768);}
  char path[256];snprintf(path,sizeof path,"build/game-perf/%s-%s-ram.bin",argv[2],argv[3]);save_perf(path,r,65536);
  snprintf(path,sizeof path,"build/game-perf/%s-%s-fb.bin",argv[2],argv[3]);save_perf(path,physical+0x100000,4*65536);
+ snprintf(path,sizeof path,"build/game-perf/%s-%s-pages.bin",argv[2],argv[3]);save_perf(path,physical+0x22000,0xde000);
  snprintf(path,sizeof path,"build/game-perf/%s-%s-config.bin",argv[2],argv[3]);save_perf(path,config,96);
  snprintf(path,sizeof path,"build/game-perf/%s-%s-context.json",argv[2],argv[3]);FILE *f=fopen(path,"w");require(f!=NULL,"open context");
- fprintf(f,"{\"pc\":%u,\"sp\":%u,\"a\":%u,\"b\":%u,\"x\":%u,\"cc\":%u,\"page\":%u,\"mode\":%u,\"app\":%u,\"front\":%u,\"period\":%u,\"crtc\":[",PC,SP,A,B,X,0xc0|h*32|i*16|n*8|z*4|v*2|c,page,r[0xe629],app,front,period);
+ fprintf(f,"{\"pc\":%u,\"sp\":%u,\"a\":%u,\"b\":%u,\"x\":%u,\"cc\":%u,\"page\":%u,\"mode\":%u,\"app\":%u,\"front\":%u,\"period\":%u,\"divider\":%u,\"crtc\":[",PC,SP,A,B,X,0xc0|h*32|i*16|n*8|z*4|v*2|c,page,r[0xe629],app,front,period,divider);
  for(unsigned k=0;k<16;k++)fprintf(f,"%s%u",k?",":"",crtc[k]);fprintf(f,"]}\n");require(!fclose(f),"close context");
  printf("Prepared ARKANOID %s/%s PC=%04x app=%04x\n",argv[2],argv[3],PC,app);return 0;
 }

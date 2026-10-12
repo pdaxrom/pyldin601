@@ -2,7 +2,7 @@
   "date": "2026-10-12",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "a20001cd872af62c08a72cab4659725b204e762d02e1e967e673f4fec83bd430",
+  "sha256": "a2e88bf3e2eab09f6a0f60833c7c57bc2a0eab52418067a3f9480c02240dab0b",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -19,11 +19,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "b48d1317a7f5a3ea00a1984824028085a56f9acc9b101c3aebd0e5bfcd715c32",
+      "sha256": "3f19301e05f248e9dcd177b52bed5f930483109c9424cc0e12c9a9c7f13d80bc",
       "files": {
         "P601.ROM": {
           "bytes": 72192,
-          "sha256": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463"
+          "sha256": "5adc1ed30c5a3f7f5c183ce6e51b665fdc4b22204fdd681c5d718008cb3d9e3d"
         },
         "LOADER.BIN": {
           "bytes": 406,
@@ -35,7 +35,7 @@
         },
         "P601A.ROM": {
           "bytes": 72192,
-          "sha256": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
+          "sha256": "a8498b396ef330350471f02304f510e624a1d2ea2b1059ad319557d5e8be35fa"
         },
         "P601.SET": {
           "bytes": 16,
@@ -111,8 +111,136 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "479506a40943adc21a708ca7531a6da01b0eb23d9f13463272f733195ab8350b",
+      "sha256": "8bae7080b7a8244d81e0ee2e8ca170c9f92849be1260cb2eb7569640e2d59f61",
       "files": {
+        "ARKANOID.ASM": {
+          "bytes": 23221,
+          "sha256": "674ba5420fc665d1c49a6c5ee231407bf193151a89e0c252253692db1efbfd46"
+        },
+        "ARKANOID.PGM": {
+          "bytes": 15598,
+          "sha256": "338eb1b35abd10bb373db9233ef62b755337dd0890fbaf5bebdd85d324565996"
+        },
+        "ARKSONG.INC": {
+          "bytes": 3976,
+          "sha256": "b79ee36a32c55f452f379c8d48bf9c0e1f608c09147f71a49f4f15f76b63f218"
+        },
+        "AY.ASM": {
+          "bytes": 2040,
+          "sha256": "083c7063db8db41e7b61ae061f499280dffb3a92ab9692c2dbce4dbfbfd093c5"
+        },
+        "AY.PGM": {
+          "bytes": 424,
+          "sha256": "cbc7b293f138842f15c6cab6cccbd68b56fda323c5654d1b5f9f817034d23c76"
+        },
+        "AYHOWTO.TXT": {
+          "bytes": 935,
+          "sha256": "2c162b8e5090526e6d520b16520c25911cbe51f43d94c858a34f07e80d80ff3d"
+        },
+        "BOUNCEY.INC": {
+          "bytes": 540,
+          "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
+        },
+        "CLIPHOW.TXT": {
+          "bytes": 1968,
+          "sha256": "8ca3f20534b01c6f2e5d181274e068a1518e040de4ab20906bb64d215835c454"
+        },
+        "CLIPSPR.ASM": {
+          "bytes": 8699,
+          "sha256": "52ec35ee9fd4d8ef8beab5568ec1b2064d548a27c2cb7dccac980b2fc5db315d"
+        },
+        "CLIPSPR.PGM": {
+          "bytes": 1863,
+          "sha256": "3522a56559d91a025a4b95438bf249a420016a4cbb4fb07ddeba8435d5c5766f"
+        },
+        "CRCTABLE.INC": {
+          "bytes": 1838,
+          "sha256": "3306780490540ac09b46a5630a8b297771f574adab36927949e5c9a0205b0bf2"
+        },
+        "DEMO.ASM": {
+          "bytes": 3326,
+          "sha256": "df17c60560b949476266f6ae625f98bafd4f267691bf474b992d2df2283f43dc"
+        },
+        "DEMO.YM": {
+          "bytes": 5254,
+          "sha256": "cf7da8db17f1d5f83b21fbcb10483589f16a7fbb69e7d532da7558b091999aee"
+        },
+        "DEMOGFX.INC": {
+          "bytes": 13234,
+          "sha256": "91b0ae18e02afd79e885e4d3227693b275b9cd4d8a798da812df96926ccf9460"
+        },
+        "DEMOH5.YM": {
+          "bytes": 201,
+          "sha256": "d67ff4e5c91449a5aea8652d33ca6985a4a3d91d3392452a2d1b77e648e9ad68"
+        },
+        "FRACTAL.PCX": {
+          "bytes": 13571,
+          "sha256": "c827a7ebb58621526cf6630b95e593329d692d72e9cf46f00a4040bdbb30f2cc"
+        },
+        "FULL.PCX": {
+          "bytes": 80895,
+          "sha256": "7fd7915f596a7605050adbd62cb45ba11ea8aa49af912ce72f82b4d8d9de1c59"
+        },
+        "GAMEBIOS.INC": {
+          "bytes": 3239,
+          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
+        },
+        "GAMEHOW.TXT": {
+          "bytes": 7480,
+          "sha256": "3c4b08cb04f5cbdbc039ccc600ced9c5c31fcb5e1379bc7bc540c2e267567f50"
+        },
+        "GAMEMUS.ASM": {
+          "bytes": 41910,
+          "sha256": "67453d7111c153dc1102fb3917a2f087436b1aa66fbacebddae11a2fe049a089"
+        },
+        "GAMESDK.ASM": {
+          "bytes": 11598,
+          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
+        },
+        "GAMESDTA.INC": {
+          "bytes": 709,
+          "sha256": "61b55d6da0826b3300f5661c26ce2440193b35836091ff38672bcb19d1af8899"
+        },
+        "GFX.ASM": {
+          "bytes": 3431,
+          "sha256": "51faf099bee6031d9611744e4c7bf5ba5d72bd0b36301b146211a32ef8eec885"
+        },
+        "GFX.PGM": {
+          "bytes": 553,
+          "sha256": "880bf6b2d351de3b92b45345934cf38845f56b34fc4eb821def67eeef098e77a"
+        },
+        "GFXCLIP.ASM": {
+          "bytes": 3355,
+          "sha256": "cdd8229aec7bf7115fcda14f67ab320526df2907c65310948a2b74716d054a2f"
+        },
+        "GFXHOW.TXT": {
+          "bytes": 1749,
+          "sha256": "991161b8a0e2c9585f191aee1ac048d0c636308e70dca0fd31e4a9b33a221c30"
+        },
+        "GFXHOWTO.TXT": {
+          "bytes": 492,
+          "sha256": "cded57ad4daa9cf474f7dd1e90de86d6af7099dbc26a6625a4901acbebea228b"
+        },
+        "GFXMUSIC.ASM": {
+          "bytes": 227,
+          "sha256": "4d984967c131e94529a92e26e70e9e1337802634e70c7821570926cb4e32b738"
+        },
+        "GFXMUSIC.PGM": {
+          "bytes": 11307,
+          "sha256": "77bda81d6adb010cd6996d644519b540aeb30dee0e29b09a0766de7c4c3d9032"
+        },
+        "HAM.ASM": {
+          "bytes": 5972,
+          "sha256": "a5b7f471dbb067b45ec901c36b47b80cff64a787682ae2209f3a107171148174"
+        },
+        "HAM.PGM": {
+          "bytes": 1070,
+          "sha256": "8997c5d0459e18371e4cda1369ffa761e6550525fd4134fe06c9ea7a0f532aea"
+        },
+        "HAMHOWTO.TXT": {
+          "bytes": 1807,
+          "sha256": "af873cc013afb60b20f76561d09bce4ce63c1dba23a395252cd13699604ac70a"
+        },
         "HDMUL.ASM": {
           "bytes": 2923,
           "sha256": "74589b6f13c785b3c1d5e8fe4bf3efe8c68d7997f27c438255430e16b898c37f"
@@ -137,149 +265,57 @@
           "bytes": 25638,
           "sha256": "a892601cb5c7f306600897124a8c4020b703556fa83d03f7c0c54fcee100ec45"
         },
-        "README.TXT": {
-          "bytes": 1315,
-          "sha256": "8ad0695c0905012fa559d5a2a0f2035e10603b83363eba657b0d62acc9865d3c"
+        "HG.ASM": {
+          "bytes": 14334,
+          "sha256": "a4df849f8d90b44b0dd1306857aabf13f2abd8026d13b129281274ef40a627bf"
         },
         "HG.PGM": {
           "bytes": 2536,
           "sha256": "1d0a4cb07ca660bbb3e153af2d9191e3bbc76bb7094c58b6eda8ff763b8ba3e6"
         },
-        "HGTIME.PGM": {
-          "bytes": 1436,
-          "sha256": "0937971cdee8ad7851d7562c0c660d66c25361f766c23330c8a8b8d0a90ea37b"
-        },
-        "HG.ASM": {
-          "bytes": 14334,
-          "sha256": "a4df849f8d90b44b0dd1306857aabf13f2abd8026d13b129281274ef40a627bf"
-        },
         "HGHOWTO.TXT": {
           "bytes": 1968,
           "sha256": "cfd99e6fd8f7af776ad3c5ec789675cf78cb5674e846d3a6bf3c687ef56e33f6"
         },
-        "GFX.PGM": {
-          "bytes": 553,
-          "sha256": "880bf6b2d351de3b92b45345934cf38845f56b34fc4eb821def67eeef098e77a"
+        "HGTIME.PGM": {
+          "bytes": 1436,
+          "sha256": "0937971cdee8ad7851d7562c0c660d66c25361f766c23330c8a8b8d0a90ea37b"
         },
-        "GFX.ASM": {
-          "bytes": 3431,
-          "sha256": "51faf099bee6031d9611744e4c7bf5ba5d72bd0b36301b146211a32ef8eec885"
+        "HIGHSCR.ASM": {
+          "bytes": 14790,
+          "sha256": "caeedd7f12491e4ad3d151508986e4a34696e86fb8f7260d594b2cdd478f825f"
         },
-        "GFXHOWTO.TXT": {
-          "bytes": 492,
-          "sha256": "cded57ad4daa9cf474f7dd1e90de86d6af7099dbc26a6625a4901acbebea228b"
+        "HIMAGE.ASM": {
+          "bytes": 10719,
+          "sha256": "123172a7f64d7a99a840f47257d628e891b84ffe0a037d16760d2fdf74d038af"
         },
-        "VIEW.PGM": {
-          "bytes": 3750,
-          "sha256": "ac63e0f95eab545ca0d46d2bc2fc72db9e796bc3ee756974548614e2d08e6dc7"
+        "HIMDATA.INC": {
+          "bytes": 516,
+          "sha256": "99267d87011b193db8ce7a53ee835db3472133495d25ba283407e654c7f2d423"
         },
-        "VIEW.ASM": {
-          "bytes": 13646,
-          "sha256": "761c1f6362c11d0a251ae0d62c0d53d89ce2232f3f30e54e0aa06510c873717d"
-        },
-        "VIEWHOW.TXT": {
-          "bytes": 1074,
-          "sha256": "333c639ea479bdb632d342d707c0eb32bfaea79aab208c5e576374b8704f6eab"
-        },
-        "FULL.PCX": {
-          "bytes": 80895,
-          "sha256": "7fd7915f596a7605050adbd62cb45ba11ea8aa49af912ce72f82b4d8d9de1c59"
-        },
-        "ODD.PCX": {
-          "bytes": 1023,
-          "sha256": "7d10b6faaa059a9b0c1170f93a2d0b0774c604f4dc0b1359c0e97746538e5893"
-        },
-        "RUNS.PCX": {
-          "bytes": 4897,
-          "sha256": "dd9677fedc581739f853b11fe7df9ef5d62b5b1df44ed9588ce27f6a44f93083"
-        },
-        "FRACTAL.PCX": {
-          "bytes": 13571,
-          "sha256": "c827a7ebb58621526cf6630b95e593329d692d72e9cf46f00a4040bdbb30f2cc"
-        },
-        "AY.ASM": {
-          "bytes": 2040,
-          "sha256": "083c7063db8db41e7b61ae061f499280dffb3a92ab9692c2dbce4dbfbfd093c5"
-        },
-        "SPRITES.PGM": {
-          "bytes": 1354,
-          "sha256": "40b61a34ad40b4abcedc6f206c9e84bd1860ff47cb92c4c60160000ffc193583"
-        },
-        "SPRITES.ASM": {
-          "bytes": 8127,
-          "sha256": "67ed15c8509c64bd48729a4de2431d74d9ad0de650ec7dd7fdf7665f097076d2"
-        },
-        "SPRHOWTO.TXT": {
-          "bytes": 1335,
-          "sha256": "e2c665357198acba4a2b1e3b9ce5ec27ab1451e2ae95f5cbed2fedd5d2e32611"
-        },
-        "HAM.PGM": {
-          "bytes": 1070,
-          "sha256": "8997c5d0459e18371e4cda1369ffa761e6550525fd4134fe06c9ea7a0f532aea"
-        },
-        "HAM.ASM": {
-          "bytes": 5972,
-          "sha256": "a5b7f471dbb067b45ec901c36b47b80cff64a787682ae2209f3a107171148174"
-        },
-        "CLIPSPR.PGM": {
-          "bytes": 1863,
-          "sha256": "3522a56559d91a025a4b95438bf249a420016a4cbb4fb07ddeba8435d5c5766f"
-        },
-        "CLIPSPR.ASM": {
-          "bytes": 8699,
-          "sha256": "52ec35ee9fd4d8ef8beab5568ec1b2064d548a27c2cb7dccac980b2fc5db315d"
-        },
-        "AYHOWTO.TXT": {
-          "bytes": 935,
-          "sha256": "2c162b8e5090526e6d520b16520c25911cbe51f43d94c858a34f07e80d80ff3d"
-        },
-        "AY.PGM": {
-          "bytes": 424,
-          "sha256": "cbc7b293f138842f15c6cab6cccbd68b56fda323c5654d1b5f9f817034d23c76"
-        },
-        "CRCTABLE.INC": {
-          "bytes": 1838,
-          "sha256": "3306780490540ac09b46a5630a8b297771f574adab36927949e5c9a0205b0bf2"
-        },
-        "HAMHOWTO.TXT": {
-          "bytes": 1807,
-          "sha256": "af873cc013afb60b20f76561d09bce4ce63c1dba23a395252cd13699604ac70a"
-        },
-        "CLIPHOW.TXT": {
-          "bytes": 1968,
-          "sha256": "8ca3f20534b01c6f2e5d181274e068a1518e040de4ab20906bb64d215835c454"
-        },
-        "DEMO.ASM": {
-          "bytes": 3326,
-          "sha256": "df17c60560b949476266f6ae625f98bafd4f267691bf474b992d2df2283f43dc"
-        },
-        "HVIEW.PGM": {
-          "bytes": 3355,
-          "sha256": "009226005ef85a7c077f4daac507d8b8f7541ce29597577b61275c7e3fc185bb"
+        "HISDATA.INC": {
+          "bytes": 812,
+          "sha256": "89b036e3310ba71fb0a7d199d0b1f7c6d04b734d37e826dc51a7b28fc24e8b1e"
         },
         "HVIEW.ASM": {
           "bytes": 14462,
           "sha256": "a0b09a6009cc38a226fd03050aebf40f3467a54fdc92295f10d232d3400ddca0"
         },
+        "HVIEW.PGM": {
+          "bytes": 3355,
+          "sha256": "009226005ef85a7c077f4daac507d8b8f7541ce29597577b61275c7e3fc185bb"
+        },
         "HVIEWHOW.TXT": {
           "bytes": 562,
           "sha256": "af1bda701575de2824b5f3a729a6c948ee1fc61d94a883109b08ebde86d2b03f"
         },
+        "LEDSTRM1.YM": {
+          "bytes": 3252,
+          "sha256": "3aa2a8c1660635946355c94a83bc340eb292d3a4c140433f2c0a464d1018a41f"
+        },
         "LENA.IFF": {
           "bytes": 49290,
           "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
-        },
-        "DEMOH5.YM": {
-          "bytes": 201,
-          "sha256": "d67ff4e5c91449a5aea8652d33ca6985a4a3d91d3392452a2d1b77e648e9ad68"
-        },
-        "GFXHOW.TXT": {
-          "bytes": 1749,
-          "sha256": "991161b8a0e2c9585f191aee1ac048d0c636308e70dca0fd31e4a9b33a221c30"
-        },
-        "GFXMUSIC.ASM": {
-          "bytes": 227,
-          "sha256": "4d984967c131e94529a92e26e70e9e1337802634e70c7821570926cb4e32b738"
         },
         "LHA5.INC": {
           "bytes": 12536,
@@ -293,9 +329,113 @@
           "bytes": 607,
           "sha256": "ae509fbcf0d57be465f39c069ded68d6f929b5c455bfec3eb7e3fd06bd01154d"
         },
+        "MUSAPI.ASM": {
+          "bytes": 3478,
+          "sha256": "f970b18f30bc9b5efdf372d1f4f6c645c33c37d8f462cfc49edb7aef5b416fc0"
+        },
+        "MUSDATA.INC": {
+          "bytes": 2067,
+          "sha256": "6f8ce09b4e5a410ed9c72ce0d0fca574c785d14ee70afb87cef8483d3e8f92ee"
+        },
+        "MUSIC.TXT": {
+          "bytes": 1209,
+          "sha256": "f6ab24d35a84f2a97fb4cb8821ae4419c08762d471e0085b9caf785ea423d477"
+        },
+        "ODD.PCX": {
+          "bytes": 1023,
+          "sha256": "7d10b6faaa059a9b0c1170f93a2d0b0774c604f4dc0b1359c0e97746538e5893"
+        },
+        "PALCOEF.ASM": {
+          "bytes": 806,
+          "sha256": "2e52377f7c000c7e9a29e340639a0f0f2c23c170052be3b2441695ba39dd33a1"
+        },
+        "RAMALLOC.PGM": {
+          "bytes": 1412,
+          "sha256": "c08136f185c31de6698f0746fe878e13ff5cbefeef1c24de849b89e978ee2e81"
+        },
+        "RAMHOW.TXT": {
+          "bytes": 1311,
+          "sha256": "695c62bb04c2eb25d69b67a823f00d42dc92d3fbf31205496f1164bdfccebde9"
+        },
+        "RAMMAN.ASM": {
+          "bytes": 8547,
+          "sha256": "bb865632385388a4d568e36d16e7fefaec55ad89b6a59e3f95361858a78759a2"
+        },
+        "RAMPAGE.ASM": {
+          "bytes": 6903,
+          "sha256": "cd223d8a766a18b32c4d4be84e02f7658933a07c618a6f4985e41dc888c0adb7"
+        },
+        "RAMPAGE.PGM": {
+          "bytes": 1257,
+          "sha256": "cee23086ac64060bab56b9ae53143dfedd694c40a96a00220d75a7d95d26cc60"
+        },
+        "README.TXT": {
+          "bytes": 1315,
+          "sha256": "8ad0695c0905012fa559d5a2a0f2035e10603b83363eba657b0d62acc9865d3c"
+        },
+        "RUNS.PCX": {
+          "bytes": 4897,
+          "sha256": "dd9677fedc581739f853b11fe7df9ef5d62b5b1df44ed9588ce27f6a44f93083"
+        },
+        "SDKTEST.ASM": {
+          "bytes": 1864,
+          "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
+        },
+        "SDKTEST.PGM": {
+          "bytes": 1943,
+          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+        },
+        "SDKWORLD.INC": {
+          "bytes": 284,
+          "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+        },
+        "SPRHOWTO.TXT": {
+          "bytes": 1335,
+          "sha256": "e2c665357198acba4a2b1e3b9ce5ec27ab1451e2ae95f5cbed2fedd5d2e32611"
+        },
+        "SPRITES.ASM": {
+          "bytes": 8127,
+          "sha256": "67ed15c8509c64bd48729a4de2431d74d9ad0de650ec7dd7fdf7665f097076d2"
+        },
+        "SPRITES.PGM": {
+          "bytes": 1354,
+          "sha256": "40b61a34ad40b4abcedc6f206c9e84bd1860ff47cb92c4c60160000ffc193583"
+        },
+        "VIEW.ASM": {
+          "bytes": 13646,
+          "sha256": "761c1f6362c11d0a251ae0d62c0d53d89ce2232f3f30e54e0aa06510c873717d"
+        },
+        "VIEW.PGM": {
+          "bytes": 3750,
+          "sha256": "ac63e0f95eab545ca0d46d2bc2fc72db9e796bc3ee756974548614e2d08e6dc7"
+        },
+        "VIEWHOW.TXT": {
+          "bytes": 1074,
+          "sha256": "333c639ea479bdb632d342d707c0eb32bfaea79aab208c5e576374b8704f6eab"
+        },
         "VTX.INC": {
           "bytes": 1966,
           "sha256": "73087f20fd61901492e122c11570bda75e9dbc403e6fe408cf43780a9fa66637"
+        },
+        "WARHAWK.YM": {
+          "bytes": 5385,
+          "sha256": "bba2dc9e827193f6d3a3bef3d549f83fb4cbd4075e9e4c098767f49c7716db09"
+        },
+        "XCFG.ASM": {
+          "bytes": 2984,
+          "sha256": "5deefdadfbd4874d8f5a811345a0c6ae44a01c8abd9b42509d101d470442ea71"
+        },
+        "XONIX.ASM": {
+          "bytes": 21037,
+          "sha256": "900c66d4205d882c39566e130cf03956b8b139922068f60a775ca81d90017444"
+        },
+        "XONIX.CFG": {
+          "bytes": 159,
+          "sha256": "f65d5fafe8cd629606ce986edecf33b35d8a01fe73cf7029b9e9fe0e18a6db4d"
+        },
+        "XONIX.PGM": {
+          "bytes": 17240,
+          "sha256": "8791ee929504218b9170f2ad21aa8ca5779cedd704b0e872273c15ba867ccbc2"
         },
         "YMDATA.INC": {
           "bytes": 2211,
@@ -317,97 +457,13 @@
           "bytes": 141,
           "sha256": "25e6154e1fdf588f0a7698ce4f4042cda00890630eff7a2320fb346f4ed67399"
         },
-        "YPLAYHOW.TXT": {
-          "bytes": 2188,
-          "sha256": "1c8b283c00802ce9a096a487c284618a74bed23a26248bdac005ab86d5b1a12e"
-        },
-        "GFXMUSIC.PGM": {
-          "bytes": 11307,
-          "sha256": "77bda81d6adb010cd6996d644519b540aeb30dee0e29b09a0766de7c4c3d9032"
-        },
         "YPLAY.PGM": {
           "bytes": 8915,
           "sha256": "1e600da27ea7213edf8a62cbf688fac7a8ebd4547e7a39fe1f8f6d38cb0e3057"
         },
-        "DEMO.YM": {
-          "bytes": 5254,
-          "sha256": "cf7da8db17f1d5f83b21fbcb10483589f16a7fbb69e7d532da7558b091999aee"
-        },
-        "DEMOGFX.INC": {
-          "bytes": 13234,
-          "sha256": "91b0ae18e02afd79e885e4d3227693b275b9cd4d8a798da812df96926ccf9460"
-        },
-        "PALCOEF.ASM": {
-          "bytes": 806,
-          "sha256": "2e52377f7c000c7e9a29e340639a0f0f2c23c170052be3b2441695ba39dd33a1"
-        },
-        "GFXCLIP.ASM": {
-          "bytes": 3355,
-          "sha256": "cdd8229aec7bf7115fcda14f67ab320526df2907c65310948a2b74716d054a2f"
-        },
-        "RAMMAN.ASM": {
-          "bytes": 8547,
-          "sha256": "bb865632385388a4d568e36d16e7fefaec55ad89b6a59e3f95361858a78759a2"
-        },
-        "RAMPAGE.ASM": {
-          "bytes": 6903,
-          "sha256": "cd223d8a766a18b32c4d4be84e02f7658933a07c618a6f4985e41dc888c0adb7"
-        },
-        "RAMHOW.TXT": {
-          "bytes": 1311,
-          "sha256": "695c62bb04c2eb25d69b67a823f00d42dc92d3fbf31205496f1164bdfccebde9"
-        },
-        "RAMALLOC.PGM": {
-          "bytes": 1412,
-          "sha256": "c08136f185c31de6698f0746fe878e13ff5cbefeef1c24de849b89e978ee2e81"
-        },
-        "RAMPAGE.PGM": {
-          "bytes": 1257,
-          "sha256": "cee23086ac64060bab56b9ae53143dfedd694c40a96a00220d75a7d95d26cc60"
-        },
-        "GAMEBIOS.INC": {
-          "bytes": 3239,
-          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
-        },
-        "GAMESDK.ASM": {
-          "bytes": 11598,
-          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
-        },
-        "GAMESDTA.INC": {
-          "bytes": 387,
-          "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
-        },
-        "GAMEHOW.TXT": {
-          "bytes": 3640,
-          "sha256": "173a5b28d04da1dba58253e10ba1303fcb5d7e2ed619bade259a9a2db58ed6a8"
-        },
-        "ARKANOID.ASM": {
-          "bytes": 20383,
-          "sha256": "defec818c99a1f51833d999dabf65157dfeefeb97961b2ecc73f5fda90b8826f"
-        },
-        "SDKTEST.ASM": {
-          "bytes": 1864,
-          "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
-        },
-        "ARKANOID.PGM": {
-          "bytes": 6184,
-          "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4"
-        },
-        "SDKTEST.PGM": {
-          "bytes": 1943,
-          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
-        },
-        "ARKSONG.INC": {
-          "bytes": 3976,
-          "sha256": "b79ee36a32c55f452f379c8d48bf9c0e1f608c09147f71a49f4f15f76b63f218"
-        },
-        "SDKWORLD.INC": {
-          "bytes": 284,
-          "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
-        },
-        "BOUNCEY.INC": {
-          "bytes": 540,
-          "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
+        "YPLAYHOW.TXT": {
+          "bytes": 2188,
+          "sha256": "1c8b283c00802ce9a096a487c284618a74bed23a26248bdac005ab86d5b1a12e"
         }
       }
     },
@@ -841,7 +897,7 @@
       "all_models_and_isa_verified": false
     }
   },
-  "fpga_jed_sha256": "665c2e2107e26461d8840d4542f91530ed8bfde004b4cbd62a04c939f4b9e024",
+  "fpga_jed_sha256": "26a094cfafac98e1392bc4b24f24b391876fa0d8bb30e6ffc765998095b6bb13",
   "audio_installation": {
     "changes": [
       {
@@ -1339,8 +1395,8 @@
     "rom_page": "E",
     "context_bytes": 8608,
     "resident_bytes": 0,
-    "rom_e_used_bytes": 7593,
-    "rom_e_free_bytes": 599,
+    "rom_e_used_bytes": 7590,
+    "rom_e_free_bytes": 602,
     "requires_fpga_update": false,
     "requires_rom_update": true,
     "hardware_confirmed": true,
@@ -1789,7 +1845,10 @@
         "game_audio_controls_esc_relaunch_dir": true,
         "input_issue": "Paddle movement depended on native repeat"
       }
-    }
+    },
+    "ham8_keeps_graphics": true,
+    "ham8_transition_rom_installed": true,
+    "ham8_transition_hardware_confirmed": false
   },
   "keyboard_interface": "rom-ps2-v2",
   "keyboard_resident_bytes": 64,
@@ -1887,6 +1946,520 @@
       "user_reply": "\u0434\u0430, \u0441\u0435\u0439\u0447\u0430\u0441 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e"
     }
   },
+  "arcade": {
+    "drive": "B",
+    "start_lba": 36864,
+    "sectors": 2880,
+    "input_sha256": "8f58a089da14a5939a89871b68d4145f2309ed7e21e89359099d8c7ce90c10e0",
+    "output_sha256": "a2e88bf3e2eab09f6a0f60833c7c57bc2a0eab52418067a3f9480c02240dab0b",
+    "mbr_and_other_partitions_preserved": true,
+    "files": {
+      "GAMEBIOS.INC": {
+        "bytes": 3239,
+        "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
+      },
+      "GAMESDK.ASM": {
+        "bytes": 11598,
+        "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
+      },
+      "GAMESDTA.INC": {
+        "bytes": 709,
+        "sha256": "61b55d6da0826b3300f5661c26ce2440193b35836091ff38672bcb19d1af8899"
+      },
+      "GAMEHOW.TXT": {
+        "bytes": 7480,
+        "sha256": "3c4b08cb04f5cbdbc039ccc600ced9c5c31fcb5e1379bc7bc540c2e267567f50"
+      },
+      "ARKANOID.ASM": {
+        "bytes": 23221,
+        "sha256": "674ba5420fc665d1c49a6c5ee231407bf193151a89e0c252253692db1efbfd46"
+      },
+      "SDKTEST.ASM": {
+        "bytes": 1864,
+        "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
+      },
+      "XONIX.ASM": {
+        "bytes": 21037,
+        "sha256": "900c66d4205d882c39566e130cf03956b8b139922068f60a775ca81d90017444"
+      },
+      "HIGHSCR.ASM": {
+        "bytes": 14790,
+        "sha256": "caeedd7f12491e4ad3d151508986e4a34696e86fb8f7260d594b2cdd478f825f"
+      },
+      "HISDATA.INC": {
+        "bytes": 812,
+        "sha256": "89b036e3310ba71fb0a7d199d0b1f7c6d04b734d37e826dc51a7b28fc24e8b1e"
+      },
+      "GAMEMUS.ASM": {
+        "bytes": 41910,
+        "sha256": "67453d7111c153dc1102fb3917a2f087436b1aa66fbacebddae11a2fe049a089"
+      },
+      "MUSAPI.ASM": {
+        "bytes": 3478,
+        "sha256": "f970b18f30bc9b5efdf372d1f4f6c645c33c37d8f462cfc49edb7aef5b416fc0"
+      },
+      "MUSDATA.INC": {
+        "bytes": 2067,
+        "sha256": "6f8ce09b4e5a410ed9c72ce0d0fca574c785d14ee70afb87cef8483d3e8f92ee"
+      },
+      "HIMAGE.ASM": {
+        "bytes": 10719,
+        "sha256": "123172a7f64d7a99a840f47257d628e891b84ffe0a037d16760d2fdf74d038af"
+      },
+      "HIMDATA.INC": {
+        "bytes": 516,
+        "sha256": "99267d87011b193db8ce7a53ee835db3472133495d25ba283407e654c7f2d423"
+      },
+      "XCFG.ASM": {
+        "bytes": 2984,
+        "sha256": "5deefdadfbd4874d8f5a811345a0c6ae44a01c8abd9b42509d101d470442ea71"
+      },
+      "XONIX.CFG": {
+        "bytes": 159,
+        "sha256": "f65d5fafe8cd629606ce986edecf33b35d8a01fe73cf7029b9e9fe0e18a6db4d"
+      },
+      "MUSIC.TXT": {
+        "bytes": 1209,
+        "sha256": "f6ab24d35a84f2a97fb4cb8821ae4419c08762d471e0085b9caf785ea423d477"
+      },
+      "WARHAWK.YM": {
+        "bytes": 5385,
+        "sha256": "bba2dc9e827193f6d3a3bef3d549f83fb4cbd4075e9e4c098767f49c7716db09"
+      },
+      "LEDSTRM1.YM": {
+        "bytes": 3252,
+        "sha256": "3aa2a8c1660635946355c94a83bc340eb292d3a4c140433f2c0a464d1018a41f"
+      },
+      "LENA.IFF": {
+        "bytes": 49290,
+        "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
+      },
+      "ARKANOID.PGM": {
+        "bytes": 15598,
+        "sha256": "338eb1b35abd10bb373db9233ef62b755337dd0890fbaf5bebdd85d324565996"
+      },
+      "SDKTEST.PGM": {
+        "bytes": 1943,
+        "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+      },
+      "XONIX.PGM": {
+        "bytes": 17240,
+        "sha256": "8791ee929504218b9170f2ad21aa8ca5779cedd704b0e872273c15ba867ccbc2"
+      },
+      "SDKWORLD.INC": {
+        "bytes": 284,
+        "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+      },
+      "BOUNCEY.INC": {
+        "bytes": 540,
+        "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
+      }
+    },
+    "fpga_update_required": true,
+    "rom_update_required": false,
+    "date": "2026-10-12",
+    "before_sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
+    "after_sha256": "2a4c5760760d89b7a0db8312fac5fe512a7ded7ae3a9493ae46c3c15e6206590",
+    "image_bytes": 37748736,
+    "models_tested": [
+      "601",
+      "601A"
+    ],
+    "native_arcade": true,
+    "physical_card_updated": true,
+    "hardware_confirmation_pending": true,
+    "hg_installed": true,
+    "tests": [
+      "native PGM, all frames, last lives/restart",
+      "native YM/LH5 complete independent oracle",
+      "names/edit/12-char limit/65535",
+      "records, two generations, nested game directory",
+      "write protection/full FAT12",
+      "stack, banks, palette/AY/IRQ/raw restore and DIR",
+      "native IFF/ByteRun1 and all 64000 independent HAM8 cells",
+      "native HG.PGM, real C host volume, durable score files/reload",
+      "production HDL: 601/601A, 1/8 MHz, music and make/break, steady/miss",
+      "complete 64000-byte score/name UI oracle",
+      "no native-mode writes or INT22/23 during graphics",
+      "restart within the same live context; optional music warning in graphics"
+    ],
+    "programs": {
+      "ARKANOID": {
+        "bytes": 15598,
+        "code": 11454,
+        "bss": 13262,
+        "ram_bytes": 24716,
+        "relocations": 2064,
+        "sha256": "338eb1b35abd10bb373db9233ef62b755337dd0890fbaf5bebdd85d324565996"
+      },
+      "XONIX": {
+        "bytes": 16291,
+        "code": 11821,
+        "bss": 16196,
+        "ram_bytes": 28017,
+        "relocations": 2227,
+        "sha256": "3e7bc814ec0577bc49000c1876d010a9dbb28290cb33f8a258ffc1d654c36ce0"
+      },
+      "SDKTEST": {
+        "bytes": 1943,
+        "code": 1513,
+        "bss": 8668,
+        "ram_bytes": 10181,
+        "relocations": 207,
+        "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+      }
+    },
+    "performance_report": "../audit/ARCADE-PERFORMANCE.json",
+    "graphical_scores": true,
+    "graphical_name_entry": true,
+    "native_mode_only_on_exit": true,
+    "ui_frame_page": 5,
+    "ui_palette": [
+      240,
+      241,
+      242,
+      243,
+      244,
+      245
+    ],
+    "branding": "PYLDIN",
+    "changed_partitions": [
+      1,
+      3
+    ],
+    "rom_page_changed": "E",
+    "current_directory_and_records_preserved": true,
+    "physical_installation": {
+      "changes": [
+        {
+          "partition": 1,
+          "start": 1048576,
+          "bytes": 16777216,
+          "file": "boot-new.bin",
+          "before_sha256": "83c1dc4704859a5a8b5f63217fc869456a2be1a61c286164f8faa32de366aea0",
+          "after_sha256": "e58cfde9343e37325f01039af8c5a4f346fbf1118d3f6d2c46b60869332d805a"
+        },
+        {
+          "partition": 3,
+          "start": 18874368,
+          "bytes": 1474560,
+          "file": "b-new.bin",
+          "before_sha256": "d746ff825259d55cf440c1534a23b13ef689a370ad8d2417c9a2ce1e8a6f41db",
+          "after_sha256": "66a1d08ad7e99ed45914d1bc0163ed9f749d88845d1ec2b5391fd797c62d0583"
+        }
+      ],
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "rom_files": {
+        "P601.ROM": "5adc1ed30c5a3f7f5c183ce6e51b665fdc4b22204fdd681c5d718008cb3d9e3d",
+        "P601A.ROM": "a8498b396ef330350471f02304f510e624a1d2ea2b1059ad319557d5e8be35fa"
+      },
+      "files": {
+        "ARKANOID.ASM": {
+          "bytes": 23221,
+          "sha256": "674ba5420fc665d1c49a6c5ee231407bf193151a89e0c252253692db1efbfd46"
+        },
+        "ARKANOID.PGM": {
+          "bytes": 15598,
+          "sha256": "338eb1b35abd10bb373db9233ef62b755337dd0890fbaf5bebdd85d324565996"
+        },
+        "BOUNCEY.INC": {
+          "bytes": 540,
+          "sha256": "ce5689e51e04ccbef7b4fbefcb187f542ff30d53c5ff7002718582e9a346d81b"
+        },
+        "GAMEBIOS.INC": {
+          "bytes": 3239,
+          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
+        },
+        "GAMEHOW.TXT": {
+          "bytes": 5921,
+          "sha256": "08f5933e6929c87e0f2f79268ac0a960b2e2a52ceb51e82e868fecda03b583ad"
+        },
+        "GAMEMUS.ASM": {
+          "bytes": 41910,
+          "sha256": "67453d7111c153dc1102fb3917a2f087436b1aa66fbacebddae11a2fe049a089"
+        },
+        "GAMESDK.ASM": {
+          "bytes": 11598,
+          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
+        },
+        "GAMESDTA.INC": {
+          "bytes": 709,
+          "sha256": "61b55d6da0826b3300f5661c26ce2440193b35836091ff38672bcb19d1af8899"
+        },
+        "HIGHSCR.ASM": {
+          "bytes": 14790,
+          "sha256": "caeedd7f12491e4ad3d151508986e4a34696e86fb8f7260d594b2cdd478f825f"
+        },
+        "HIMAGE.ASM": {
+          "bytes": 13927,
+          "sha256": "ebb2fe9079927f542c30688e72187b4d003ad13b2043049241d5b6124c2a922e"
+        },
+        "HIMDATA.INC": {
+          "bytes": 993,
+          "sha256": "704a2fb593a09c4ace1b6af3ca123627ab5f0e6ca5be9adc4a85530c7ff02704"
+        },
+        "HISDATA.INC": {
+          "bytes": 812,
+          "sha256": "89b036e3310ba71fb0a7d199d0b1f7c6d04b734d37e826dc51a7b28fc24e8b1e"
+        },
+        "LEDSTRM1.YM": {
+          "bytes": 3252,
+          "sha256": "3aa2a8c1660635946355c94a83bc340eb292d3a4c140433f2c0a464d1018a41f"
+        },
+        "LENA.IFF": {
+          "bytes": 49290,
+          "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
+        },
+        "MUSAPI.ASM": {
+          "bytes": 3478,
+          "sha256": "f970b18f30bc9b5efdf372d1f4f6c645c33c37d8f462cfc49edb7aef5b416fc0"
+        },
+        "MUSDATA.INC": {
+          "bytes": 2067,
+          "sha256": "6f8ce09b4e5a410ed9c72ce0d0fca574c785d14ee70afb87cef8483d3e8f92ee"
+        },
+        "MUSIC.TXT": {
+          "bytes": 1209,
+          "sha256": "f6ab24d35a84f2a97fb4cb8821ae4419c08762d471e0085b9caf785ea423d477"
+        },
+        "SDKTEST.ASM": {
+          "bytes": 1864,
+          "sha256": "67fc8aba84276df365b54b05dd41e14319860a8d871113043a67bac5f4aa439a"
+        },
+        "SDKTEST.PGM": {
+          "bytes": 1943,
+          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+        },
+        "SDKWORLD.INC": {
+          "bytes": 284,
+          "sha256": "96055491d5347fdfdf7e16c14253b3153163f8aa81527f9933259f9de688f0ba"
+        },
+        "WARHAWK.YM": {
+          "bytes": 5385,
+          "sha256": "bba2dc9e827193f6d3a3bef3d549f83fb4cbd4075e9e4c098767f49c7716db09"
+        },
+        "XONIX.ASM": {
+          "bytes": 16250,
+          "sha256": "02202a00af9318b35976ca7a2ce9a787f360506bcc653dce20d6d52ffdbb181d"
+        },
+        "XONIX.PGM": {
+          "bytes": 16291,
+          "sha256": "3e7bc814ec0577bc49000c1876d010a9dbb28290cb33f8a258ffc1d654c36ce0"
+        }
+      },
+      "other_boot_and_b_files_preserved": true,
+      "score_files_preserved": true,
+      "mbr_ebr_preserved": true,
+      "changed_rom_pages": [
+        "E"
+      ],
+      "system_bios_font_preserved": true,
+      "source_built_roms": true,
+      "fpga_update_required": false,
+      "graphical_scores": true,
+      "graphical_names": true,
+      "ham8_keeps_graphics": true,
+      "branding": "PYLDIN",
+      "device": "/dev/sdf",
+      "card_bytes": 7988051968,
+      "backup": "/Storage2/pyldin601-backups/20261012-game-score-ui/card-before.img",
+      "backup_sha256": "5becbc51f960352c2b50f18acb447f8c3adfc0b203a5296cbe72032fa1c1d844",
+      "preserved_partitions": [
+        {
+          "number": 2,
+          "start": 17825792,
+          "bytes": 737280,
+          "sha256": "6bd3dfd13fa1e6ad279c787cfc3499a05927e06376dc515ef1d05c875f66abff"
+        },
+        {
+          "number": 5,
+          "start": 22020096,
+          "bytes": 819200,
+          "sha256": "f597efd480bd5978ab9645b3b890d5a9a96beafcd26030d157544958593e58cd"
+        },
+        {
+          "number": 6,
+          "start": 24117248,
+          "bytes": 819200,
+          "sha256": "38679b571f3131fbd1240359cdd02eab25bfa54bc950fec59178951bd0e1640a"
+        },
+        {
+          "number": 7,
+          "start": 26214400,
+          "bytes": 256512,
+          "sha256": "d14f91e44a834770f77b624f18b578cbfa59b1534b311e12e206bf638ebfe26c"
+        },
+        {
+          "number": 8,
+          "start": 28311552,
+          "bytes": 256512,
+          "sha256": "7bbbc6c2ac51f6b26696e2baf242855a05895a939a2ae808e4f5dd0b845b4298"
+        },
+        {
+          "number": 9,
+          "start": 30408704,
+          "bytes": 1177600,
+          "sha256": "82c42609674e6a0fee230f21bb6b3c72079a3d8f99e5c5deea782d7d61327964"
+        },
+        {
+          "number": 10,
+          "start": 33554432,
+          "bytes": 1301504,
+          "sha256": "669383d1dd44dd58da342415757b1c7a3019276524e85de9eb93c72e4a104e30"
+        },
+        {
+          "number": 11,
+          "start": 36700160,
+          "bytes": 1301504,
+          "sha256": "41481e885d1026289dc96bae4b804afa7e71b9d1252771917e6f22b626be1114"
+        },
+        {
+          "number": 12,
+          "start": 39845888,
+          "bytes": 1301504,
+          "sha256": "34e349ca0acea3e1c1037d70cc8ed5c2c3b402a6e27c20e4cbd0c6f06b950712"
+        },
+        {
+          "number": 13,
+          "start": 42991616,
+          "bytes": 1301504,
+          "sha256": "ede904ec7fcb108455bf90e9713cf5f77defcf97275980bd2c98cd667b152b58"
+        },
+        {
+          "number": 14,
+          "start": 46137344,
+          "bytes": 5242880,
+          "sha256": "f14680c85ae4cd84e9e624457acb1f585451c447483b0b2ae959fcebb32ff09c"
+        },
+        {
+          "number": 15,
+          "start": 52428800,
+          "bytes": 10485760,
+          "sha256": "831cf44fcbc440ef8c7fd9a6073831273b43619131d1764b1359429a0662920d"
+        },
+        {
+          "number": 16,
+          "start": 63963136,
+          "bytes": 16588800,
+          "sha256": "9c6a4a092d82d292952c304c15264cfbbcab944feda75e2721bae5cac1e70592"
+        }
+      ],
+      "tables": [
+        {
+          "start": 0,
+          "bytes": 512,
+          "sha256": "52baba7eafd925867c4dd4f6e3bffa92f82ad932f7dd172107e23726d6db764f"
+        },
+        {
+          "start": 20971520,
+          "bytes": 512,
+          "sha256": "46f21b15056db5985142a2bfa7b95af17c378d9e1fbf23eec04337819bfae1ac"
+        },
+        {
+          "start": 23068672,
+          "bytes": 512,
+          "sha256": "1f7ba5323913fa94eace2fb8029be958bd64f996686eff076f3fb1a1339baac1"
+        },
+        {
+          "start": 25165824,
+          "bytes": 512,
+          "sha256": "450d5fbe29d1aad12cafc9f2440e9adb076c9b72ee2bebf1caa54334d58274b5"
+        },
+        {
+          "start": 27262976,
+          "bytes": 512,
+          "sha256": "270b4b2abafb0701f84955d2eddb3cfbc6bb2e7ef78330e0065ef726388efe9f"
+        },
+        {
+          "start": 29360128,
+          "bytes": 512,
+          "sha256": "d3a7c9533b66a2f168515c85c224263d5497bea19f75bbffe514a8b398531459"
+        },
+        {
+          "start": 32505856,
+          "bytes": 512,
+          "sha256": "fefd09374fa3ad385ed4491546f6a92c143965c252679bf551f992c0e16b2f83"
+        },
+        {
+          "start": 35651584,
+          "bytes": 512,
+          "sha256": "ea1b02dda9ebab328bef63104e836a8873b8d8f3af9c3525093de31775dcb178"
+        },
+        {
+          "start": 38797312,
+          "bytes": 512,
+          "sha256": "6111133e9278964af8c0842fd4ecdbdc75109ddc592a1829089dab1921c5acc4"
+        },
+        {
+          "start": 41943040,
+          "bytes": 512,
+          "sha256": "5a634900386db8329afd955227f0a0759584aed04f25531e64acb3155ce6ae46"
+        },
+        {
+          "start": 45088768,
+          "bytes": 512,
+          "sha256": "6a36be318ab0f000661fab70a067e499c1366905a3980148be4edb47d2b35e84"
+        },
+        {
+          "start": 51380224,
+          "bytes": 512,
+          "sha256": "d83edbc085ad1151e6687fcdaedef6f2a0a5ff4b5a2eae56f4645123563a4baf"
+        },
+        {
+          "start": 62914560,
+          "bytes": 512,
+          "sha256": "74e7e8234efd99e67d8be9a75c269dc17272c4fd441f78dbb73f17aca82d549d"
+        }
+      ],
+      "installed_on_physical_card": true,
+      "hardware_confirmed": false,
+      "settings_preserved": true,
+      "current_b_files_preserved": true,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs"
+    },
+    "fpga_min_graphics_revision": 6,
+    "graphical_ui_hardware_confirmed": true,
+    "layered_ham8": {
+      "graphics_revision": 6,
+      "ham_source_preserved": true,
+      "image_apps_updated": true,
+      "physical_sd_apps_updated": false,
+      "hg_installed": true,
+      "board_confirmation_pending": false,
+      "fpga_report": "../audit/HAM-LAYERS.json",
+      "user_confirmation": {
+        "date": "2026-10-12",
+        "reply": "\u041f\u043e\u043b\u043e\u0441 \u043d\u0435\u0442, \u0438\u0433\u0440\u0430 \u0438 HVIEW \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
+        "xonix_stripes_absent": true,
+        "xonix_gameplay_and_ui_esc_restart_verified": true,
+        "hview_verified": true,
+        "tested_source": "HG",
+        "models_not_separately_stated": true
+      }
+    },
+    "existing_xonix_config_preserved": false,
+    "background_configuration": {
+      "name": "XONIX.CFG",
+      "relative_to": "PGM directory",
+      "max_entries": 10,
+      "cyclic_levels": true,
+      "preloaded_before_score_table": true,
+      "music_starts_after_preload": true,
+      "no_io_or_palette_build_on_start": true,
+      "physical_sd_apps_updated": false,
+      "hg_installed": true,
+      "board_confirmation_pending": false,
+      "report": "../audit/XONIX-START.json",
+      "user_confirmation": {
+        "date": "2026-10-12",
+        "reply": "\u0421\u0442\u0430\u0440\u0442 \u0431\u044b\u0441\u0442\u0440\u044b\u0439, \u043c\u0443\u0437\u044b\u043a\u0430 \u043d\u0435 \u043f\u0440\u0435\u0440\u044b\u0432\u0430\u0435\u0442\u0441\u044f",
+        "fast_start_confirmed": true,
+        "music_continues_on_start": true,
+        "tested_source": "HG",
+        "models_not_separately_stated": true
+      }
+    }
+  },
   "firmware_sources": {
     "date": "2026-10-12",
     "unibios_version": "3.02",
@@ -1895,8 +2468,8 @@
     "source_rewriting": false,
     "binary_code_includes_without_source": false,
     "python_required_for_firmware": false,
-    "before_sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
-    "after_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "before_sha256": "8d8883e1e645d5260dcfde1f1c9d857ed4b07e8a3d1e6931aa19c78c7654513a",
+    "after_sha256": "5028473b47607f10e839d7397ac4ee61f3b9ac107990be7c590a9e435443fc8f",
     "changed_partitions": [
       1
     ],
@@ -1908,7 +2481,7 @@
     "tests": [
       "601/601A, MC6800/HD6303: monitor, IRQ/NMI/SWI",
       "keyboard, native SD/partitions, RAMMAN, GAMEBIOS",
-      "native Y code, GD after HG, existing SDKTEST and Arkanoid"
+      "native Y code, GD after HG, games and durable records"
     ],
     "physical_installation": {
       "date": "2026-10-12",
@@ -1955,8 +2528,7 @@
         "user_reply": "\u0434\u0430, \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u044e\u0442\u0441\u044f \u043e\u0431\u0430",
         "additional_checks_explicitly_confirmed": false
       }
-    },
-    "game_apps_unchanged_from_previous_commit": true
+    }
   },
   "bootstrap_console": {
     "jed_sha256": "ee67ff2f85f82dd1460d63f3905d06699d751f7a4f05acdd2186782742cffa95",
@@ -2064,8 +2636,8 @@
       "P601.ROM": "6b921e037ebfe541f5e51f428a3c8fdff75ae677126abacb72821cbf072da463",
       "P601A.ROM": "a582082b2b0d9cea11d4d5f5c5626e3e5615be613a17d5de60afdf71de3d398f"
     },
-    "ready_image_sha256": "a20001cd872af62c08a72cab4659725b204e762d02e1e967e673f4fec83bd430",
-    "previous_image_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "ready_image_sha256": "5ca62a969aa4c2edbab226b6c1ef9428adb89d6e280a0bb0d02af22e3ad766ae",
+    "previous_image_sha256": "5028473b47607f10e839d7397ac4ee61f3b9ac107990be7c590a9e435443fc8f",
     "changed_rom_pages": [
       "A",
       "F"
@@ -2311,7 +2883,6 @@
       "warm_reset_confirmed": true,
       "no_screen_garbage_or_hangs": true,
       "user_reply": "\u0434\u0430, \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442"
-    },
-    "game_apps_unchanged_from_previous_commit": true
+    }
   }
 }

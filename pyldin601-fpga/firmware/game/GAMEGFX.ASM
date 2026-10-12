@@ -818,7 +818,8 @@ game_palette_added
     clra
     rts
 game_components
-    clr G_GFX
+    ; Palette writes do not require native video. Keep the current graphical
+    ; display active while preparing HAM8, including score-screen transitions.
     clr $e652
     clr $e65d
     clr $e65f

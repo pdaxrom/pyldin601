@@ -20,16 +20,16 @@ module game_perf_fixture #(parameter SPEED=0,FRAMES=12,MUSIC=1,STRESS=0)(
  .hg_tms(1'b1),.hg_tck(1'b1),.hg_tdi(1'b1),.hg_tdo(),.hg_tdo_enable(),
  .seg_led_h(),.seg_led_l(),.led_rgb(),.txd(),.mss(),.msck(),.mosi(),.tvout(),.audio(),
  .SRAM_ADDR(sa),.SRAM_DATA(sd),.SRAM_CE(ce),.SRAM_OE(oe),.SRAM_WE(we),.SRAM_UB(ub),.SRAM_LB(lb));
- // Compact backing store: native RAM+ROM and the four game framebuffer pages.
- reg[15:0]memory[0:199679];reg epoch=0;reg[15:0]read_word;
- function integer index;input[19:0]a;begin index=a>=20'h80000 ? 20'h10c00+a-20'h80000 : a;end endfunction
+ // Native RAM/ROM, leased paged music RAM and game framebuffer pages.
+ reg[15:0]memory[0:1048575];reg epoch=0;reg[15:0]read_word;
+ function integer index;input[19:0]a;begin index=a;end endfunction
  wire[19:0]pa;wire pc,po,pw,pl,pu;wire[15:0]pd;
  assign #10 pa=sa;assign #10 pc=ce;assign #10 po=oe;assign #6 pw=we;
  assign #10 pl=lb;assign #10 pu=ub;assign #15 pd=sd;
  always @(pc or po or pw or pa or epoch)read_word=!pc&&!po&&pw?memory[index(pa)]:16'bz;
  assign #18 sd=read_word;
  always @(posedge pw)if(!pc)begin
-  if(index(pa)<0||index(pa)>199679)$fatal(1,"unmapped SRAM %h",pa);
+  if(index(pa)<0||index(pa)>1048575)$fatal(1,"unmapped SRAM %h",pa);
   if(!pl)memory[index(pa)][7:0]=pd[7:0];if(!pu)memory[index(pa)][15:8]=pd[15:8];epoch<=!epoch;
  end
  function[7:0]ram;input[15:0]a;begin ram=a[0]?memory[a>>1][15:8]:memory[a>>1][7:0];end endfunction
