@@ -66,7 +66,7 @@ static void setup_keys(unsigned a,unsigned hd,unsigned save){
 }
 static int screen_is(unsigned address,const char*text){
  unsigned char*r=MC6800GetCpuRam();
- for(unsigned n=0;text[n];n++)if(r[address+n*(model_a?2:1)+model_a]!=(unsigned char)text[n])return 0;
+ for(unsigned n=0;text[n];n++)if(r[address+n]!=(unsigned char)text[n])return 0;
  return 1;
 }
 static uint16_t le16(const unsigned char*p){return p[0]|p[1]<<8;}
@@ -76,7 +76,7 @@ static void screen_dump(const char*path){FILE*f=fopen(path,"wb");if(!f||fwrite(M
 static void sd_command(void){
  unsigned op=cmd[0]&63;uint32_t arg=(uint32_t)cmd[1]<<24|(uint32_t)cmd[2]<<16|cmd[3]<<8|cmd[4];
  if(!committed&&!screen_checked){
-  if(video_mode||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[10]!=0x20||crtc[12]!=4||crtc[13]
+  if(video_mode||crtc[1]!=40||crtc[6]!=24||crtc[10]!=0x20||crtc[12]!=4||crtc[13]
    ||!screen_is(0x400,model_a?"PYLDIN-601A SYSTEM INITIALIZATION":"PYLDIN-601 SYSTEM INITIALIZATION")
    ||!screen_is(0x450,"STEP 01: INITIALIZING SD")){
    fprintf(stderr,"boot text screen not initialized before SD\n");exit(1);
@@ -287,7 +287,7 @@ int SuperIoWriteByte(word a,byte d){
  if(a>=0xe6a0&&a<=0xe6af&&!committed){unsigned p=a&15;
   if(p==1){
    if(d>=1&&d<=12)seen_stages|=1u<<d;
-   if(d==7){if(!screen_is(0x4a0,"BLOCK 01/01")){fprintf(stderr,"ROM block progress failed\n");exit(1);}screen_dump("build/boot-status-screen.bin");}
+   if(d==7){if(!screen_is(0x4a0,"BLOCK 01/01")){fprintf(stderr,"ROM block progress failed\n");exit(1);}screen_dump("build/boot-status-screen.bin");screen_dump(model_a?"build/boot-console-a.bin":"build/boot-console-601.bin");}
    if(d==12){
     if(sram_fault)physical[0x11234]^=0x80;
    }
@@ -360,7 +360,7 @@ int main(int argc,char**argv){
  if(argc>3&&!strcmp(argv[3],"exit")&&(model_a||cpu_hd||boot_speed||sd_writes)){fprintf(stderr,"EXIT did not discard changes\n");return 1;}
  if(reject){
   char message[40];snprintf(message,sizeof(message),"BOOT ERROR AT STEP %02X",MC6800GetCpuRam()[0x18a]);
-  if(committed||debug!=0xee||crtc[1]!=(model_a?80:40)||crtc[6]!=(model_a?12:24)||crtc[12]!=4
+  if(committed||debug!=0xee||crtc[1]!=40||crtc[6]!=24||crtc[12]!=4
    ||!screen_is(0x4f0,message)
    ||!screen_is(0x590,"PRESS RESET TO RETRY")){
    fprintf(stderr,"bad ROM accepted/stalled or missing text error pc=%04x error=%u\n",PC,error);return 1;

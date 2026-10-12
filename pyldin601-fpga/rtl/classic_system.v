@@ -163,6 +163,9 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   miso,msck,mosi,byte_busy,byte_done,byte_rx);
  assign mss=raw_cs;
  wire video_request,video_accept,video_done,video_tick;wire[20:0]video_address;wire[7:0]video_result;
+ // ROM selection is retained during bootstrap; its console always uses 601.
+ // The selected model takes over when handoff releases the native BIOS reset.
+ wire video_model_a=!boot_mode&&model_a;
  wire font_write=boot_accept&&boot_write&&boot_address>=21'h21000&&boot_address<21'h21800;
  wire gfx_enabled,gfx_line_request,gfx_vblank,gfx_pixel_bank;wire[7:0]gfx_line_y,gfx_pixel,gfx_result;
  wire[8:0]gfx_pixel_x;wire gfx_request,gfx_write,gfx_word,gfx_ready,gfx_done;
@@ -173,7 +176,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   gfx_request,gfx_write,gfx_word,gfx_address,gfx_data,gfx_ready,gfx_done,gfx_memory_result);
  classic_video #(.GFX(1)) video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
   video_result,mode,font_write,boot_address[10:0],boot_data,
-  video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,model_a,
+  video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,video_model_a,
   gfx_enabled,gfx_pixel,gfx_line_request,gfx_vblank,gfx_line_y,gfx_pixel_x,gfx_pixel_bank,
   bus_write&&gfx_io,cpu_addr[3:0],cpu_out,palette_read_mode,palette_result,clk_fast);
  // One optimized physical SRAM sequencer for bootstrap, CPU and video.

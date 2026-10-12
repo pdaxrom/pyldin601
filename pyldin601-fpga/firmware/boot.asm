@@ -991,10 +991,8 @@ crc16_lo
     ; The last handoff clear erases it just before the classic BIOS starts.
     org $fc00
 ui_init
-    ldaa B_MODEL
-    anda #1
-    asla
-    oraa #1
+    ; Bootstrap always renders the 601 console, independently of selected ROM.
+    ldaa #1
     staa $e629
     clr B_UI_STAGE
     ldx #$400
@@ -1014,18 +1012,6 @@ ui_crtc_write
     incb
     cmpb #16
     bne ui_crtc_write
-    ldaa B_MODEL
-    bita #1
-    beq ui_geometry_done
-    ldaa #1
-    staa $e600
-    ldaa #80
-    staa $e601
-    ldaa #6
-    staa $e600
-    ldaa #12
-    staa $e601
-ui_geometry_done
     ldx #$400
     stx B_UI_DEST
     ldx #ui_title
@@ -1117,15 +1103,6 @@ ui_clear_line
 ui_clear_char
     staa 0,x
     inx
-    psha
-    ldaa B_MODEL
-    bita #1
-    beq ui_clear_601
-    ldaa #' '
-    staa 0,x
-    inx
-ui_clear_601
-    pula
     decb
     bne ui_clear_char
     rts
@@ -1141,14 +1118,6 @@ ui_string_done
     rts
 ui_putc
     ldx B_UI_DEST
-    psha
-    ldaa B_MODEL
-    bita #1
-    beq ui_putc_601
-    clr 0,x
-    inx
-ui_putc_601
-    pula
     stab 0,x
     inx
     stx B_UI_DEST

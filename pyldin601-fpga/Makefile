@@ -29,6 +29,11 @@ test-cpu-interrupts: fixtures
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-interrupts --ieee-warnings=off -a $(BUILD)/cpu6800_lockstep.vhd $(BUILD)/cpu-interrupts-labels.vhd tests/tb_cpu_interrupts.vhd
 	$(PYTHON) tests/run_cpu_interrupts.py --nvc $(NVC)
 .PHONY: test-mixed-clock
+.PHONY: test-boot-console
+test-boot-console: test-firmware
+	$(PYTHON) tests/prepare_boot_console.py
+	$(IVERILOG) -g2012 -s tb_boot_console -o $(BUILD)/tb_boot_console $(RTL) tests/tb_boot_console.v
+	$(VVP) $(BUILD)/tb_boot_console
 .PHONY: test-setup
 test-setup: fixtures
 	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
