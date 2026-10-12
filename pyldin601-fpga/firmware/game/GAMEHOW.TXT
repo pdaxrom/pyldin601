@@ -78,7 +78,7 @@ MUSIC / ASSETS
   Original YM/LH5 files are decoded on HD6303 into leased expansion RAM.
   No disk access or decompression occurs in the music IRQ.
   Missing music shows a graphical warning and allows play without it.
-  See MUSIC.TXT for credits and audit/ARCADE.md for implementation/tests.
+  See MUSIC.TXT for credits and docs/ARCADE.md for implementation/tests.
 
 B:SDKTEST
   Draws a map window and scrolls all four directions using the blitter.
@@ -120,7 +120,7 @@ Foreground palette bytes (00..3F) draw RGB222; modifier bytes reveal the
 original background colour at that pixel. E650=1/7/0 leave layered mode.
 SDKTEST.ASM includes the test map in SDKWORLD.INC.
 Build relocatable PGM files using the supplied UniAS cross-assembler.
-Detailed ABI, descriptors and tests: audit/GAMEBIOS.md in the repository.
-CPU/frame timing: audit/GAME-PERFORMANCE.md (production HDL simulation).
+Detailed ABI, descriptors and tests: docs/GAMEBIOS.md in the repository.
+CPU/frame timing: docs/BUILD.md (production HDL simulation).
 An error prints OP/STATUS/RAW/GFX/AY in hex before returning to DOS.
 OP FE is raw input, FC is SDK map; other OP values are INT E6 functions.

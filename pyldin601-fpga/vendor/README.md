@@ -15,8 +15,8 @@ no diagnostic CPU control or UART recorder is included. Differential tests
 add register observation ports only to a simulation copy. The original authorship remains.
 The differential reference is the existing project's MC6800/HD6303 C core.
 HD6303 flags, SLP and undefined opcode TRAP also use the original Hitachi
-data sheet; scope and results are in [HD6303.md](../audit/HD6303.md).
+data sheet; scope and results are in [HD6303.md](../docs/CPU.md).
 The tests establish covered behavior, not exhaustive instruction/interrupt
 compatibility. Results and reference limitations are documented in
-[CPU-CONFORMANCE.md](../audit/CPU-CONFORMANCE.md). See the parent
+[CPU-CONFORMANCE.md](../docs/BUILD.md). See the parent
 repository license for its C core and ROM assets.
