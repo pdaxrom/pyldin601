@@ -6,7 +6,7 @@ from ham8_format import form, chunks, decode
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root/'tools'))
 import add_disk_files
-import make_pal
+import pal_reference
 
 
 def prepare():
@@ -49,7 +49,7 @@ def prepare():
     cases['WRAP']=form(headers)+b'JUNK\xff\xff\xff\xff';cases['WRAP']=cases['WRAP'][:4]+struct.pack('>I',len(cases['WRAP'])-8)+cases['WRAP'][8:]
     cases['ODDPAD']=form(headers)+b'JUNK\0\0\0\x01x';cases['ODDPAD']=cases['ODDPAD'][:4]+struct.pack('>I',len(cases['ODDPAD'])-8)+cases['ODDPAD'][8:]
     for name,data in cases.items():(work/f'{name}.IFF').write_bytes(data)
-    (work/'components.bin').write_bytes(bytes(make_pal.ham_samples()))
+    (work/'components.bin').write_bytes(bytes(pal_reference.ham_samples()))
     image,info=add_disk_files.install((root/'images/sd.img').read_bytes(),{'HVIEW.PGM':(root/'build/gfx/HVIEW.PGM').read_bytes(),**{k+'.IFF':v for k,v in cases.items()}},replace=True)
     (work/'sd.img').write_bytes(image)
     print(f'Prepared {len(cases)} IFF cases: raw/ByteRun1/NOP/odd unknown chunks/32-bit size and malformed headers/palette/RLE')

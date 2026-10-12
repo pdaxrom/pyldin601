@@ -7,9 +7,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'tools'))
-import make_pal
+import pal_reference
 
-generated = list(make_pal.palette_coefficients())
+generated = list(pal_reference.palette_coefficients())
 encoded = [int(n, 16) for n in re.findall(r'\$([0-9a-f]{2})', (ROOT/'firmware/gfx/PALCOEF.ASM').read_text())]
 actual = [n if n < 128 else n-256 for n in encoded]
 assert actual == generated and len(actual) == 96

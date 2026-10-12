@@ -6,13 +6,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'tools'))
-import make_pal
+import pal_reference
 
 
 def prepare():
     work = ROOT/'build/ham'
     work.mkdir(parents=True, exist_ok=True)
-    samples = bytes(make_pal.ham_samples())
+    samples = bytes(pal_reference.ham_samples())
     (work/'components.bin').write_bytes(samples)
     (work/'components.mem').write_text(''.join(f'{n:02x}\n' for n in samples))
     return samples
@@ -20,7 +20,7 @@ def prepare():
 
 class HAMTables(unittest.TestCase):
     def test_complete_component_cube_and_pal_bound(self):
-        table = bytes(make_pal.ham_samples())
+        table = bytes(pal_reference.ham_samples())
         self.assertEqual(len(table), 6144)
         self.assertLessEqual(max(table), 63)
         worst = 0

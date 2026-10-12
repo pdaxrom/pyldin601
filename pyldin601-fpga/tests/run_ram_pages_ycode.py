@@ -8,6 +8,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from add_disk_files import add_files, root_files
+from make_sd import blank_disk
 from migrate_sd import prepare
 
 
@@ -47,7 +48,16 @@ def main():
             assert bfiles['YPAGES.PGM'].startswith(b'\xc0\xde')
             assert bfiles['YRESULT.TXT'] == b'Y PAGE SUM 220\r\n'
             baseline = out / f'baseline-{model}-{cpu}.img'
-            subprocess.run([str(runners[True]), str(compiled), model, cpu, str(baseline)],
+            # The historical FDC/BIOS baseline is a 720-KiB floppy, not the
+            # modern 1.44-MiB SD B: packed with large game/music assets.
+            # Keep the exact compiled Y bytes, independently of cluster placement.
+            legacy_image = bytearray(result)
+            legacy_b = add_files(blank_disk(720*1024, spt=9),
+                                 {'YPAGES.PGM': bfiles['YPAGES.PGM']})
+            legacy_image[bstart*512:(bstart+bcount)*512] = legacy_b+bytes(bcount*512-len(legacy_b))
+            legacy_input = out/f'original-input-{model}-{cpu}.img'
+            legacy_input.write_bytes(legacy_image)
+            subprocess.run([str(runners[True]), str(legacy_input), model, cpu, str(baseline)],
                            cwd=ROOT, check=True)
             original_files = root_files(baseline.read_bytes()[bstart * 512:(bstart + bcount) * 512])
             assert original_files['YRESULT.TXT'] == b'Y PAGE SUM 220\r\n'

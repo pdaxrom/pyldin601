@@ -1,58 +1,58 @@
 ; Resident HD6303 boot BIOS. All SD/FAT work runs on the CPU.
 ; SPI ABI matches current HD6303 machine, relocated to E660-E664.
-SPI_DATA equ $e661
-SPI_CTL equ $e662
-SPI_DIV equ $e663
-DEBUG equ $e6a1
-SIZE equ $100
-REM equ $104
-NAME equ $108
-PART equ $114
-PLEN equ $118
-FATBASE equ $11c
-ROOTBASE equ $120
-DATABASE equ $124
-LBA equ $128
-ARG equ $12c
-TEMP equ $130
-CLUSTER equ $134
-SPC equ $136
-SECI equ $137
-BUFP equ $138
-BLEFT equ $13a
-ROOTLEFT equ $13c
-ENTRY equ $13e
-MATCH equ $140
-SAVEX equ $142
-COMMAND equ $144
-CHECK equ $145
-RESPONSE equ $146
-SDMODE equ $147
-RETRY equ $148
-COUNT equ $14a
-CRC16 equ $14c
-VOLUME equ $174
-VEND equ $178
-CLIMIT equ $17c
-CRCPTR equ $180
-SECTOR equ $800
-PARTITIONS equ $150
-PTR equ $80
-LEFT equ $82
-UI_X equ $184
-UI_TEXT equ $186
-UI_DEST equ $188
-UI_STAGE equ $18a
-UI_BLOCK equ $18b
-UI_TOTAL equ $18c
-VERIFY_BLOCKS equ $18d
-MENU_TICKS equ $18e
-MENU_KEY equ $190
-SD_INIT_TICKS equ $192
-SD_INIT_PHASE equ $193
-SD_ERROR_VALUE equ $194
-SD_ERROR_IO equ $195
-MODEL equ $e6a0
+B_SPI_DATA equ $e661
+B_SPI_CTL equ $e662
+B_SPI_DIV equ $e663
+B_DEBUG equ $e6a1
+B_SIZE equ $100
+B_REM equ $104
+B_NAME equ $108
+B_PART equ $114
+B_PLEN equ $118
+B_FATBASE equ $11c
+B_ROOTBASE equ $120
+B_DATABASE equ $124
+B_LBA equ $128
+B_ARG equ $12c
+B_TEMP equ $130
+B_CLUSTER equ $134
+B_SPC equ $136
+B_SECI equ $137
+B_BUFP equ $138
+B_BLEFT equ $13a
+B_ROOTLEFT equ $13c
+B_ENTRY equ $13e
+B_MATCH equ $140
+B_SAVEX equ $142
+B_COMMAND equ $144
+B_CHECK equ $145
+B_RESPONSE equ $146
+B_SDMODE equ $147
+B_RETRY equ $148
+B_COUNT equ $14a
+B_CRC16 equ $14c
+B_VOLUME equ $174
+B_VEND equ $178
+B_CLIMIT equ $17c
+B_CRCPTR equ $180
+B_SECTOR equ $800
+B_PARTITIONS equ $150
+B_PTR equ $80
+B_LEFT equ $82
+B_UI_X equ $184
+B_UI_TEXT equ $186
+B_UI_DEST equ $188
+B_UI_STAGE equ $18a
+B_UI_BLOCK equ $18b
+B_UI_TOTAL equ $18c
+B_VERIFY_BLOCKS equ $18d
+B_MENU_TICKS equ $18e
+B_MENU_KEY equ $190
+B_SD_INIT_TICKS equ $192
+B_SD_INIT_PHASE equ $193
+B_SD_ERROR_VALUE equ $194
+B_SD_ERROR_IO equ $195
+B_MODEL equ $e6a0
     org $f000
     jmp cold_start
     jmp file_open
@@ -61,15 +61,15 @@ MODEL equ $e6a0
     jmp handoff
     jmp ui_status
     jmp ui_progress
-cold_start:
+cold_start
     sei
     lds #$1fff
     jsr boot_keyboard_init
     jsr ui_init
     ldaa #$ff
-    staa MENU_KEY
-    clr SET_SAVING
-    clr SET_LOADING
+    staa B_MENU_KEY
+    clr B_SET_SAVING
+    clr B_SET_LOADING
     ldaa #1
     jsr ui_status
     jsr sd_init
@@ -81,747 +81,837 @@ cold_start:
     jsr ui_status
     ldx #loader_name
     jsr file_open
-    ldaa SIZE+2
-    oraa SIZE+3
-    lbne failed
-    ldaa SIZE+1
+    ldaa B_SIZE+2
+    oraa B_SIZE+3
+    beq long_branch_1
+    jmp failed
+long_branch_1
+    ldaa B_SIZE+1
     cmpa #$10
-    lbcc failed
-    staa LEFT
-    ldaa SIZE
-    staa LEFT+1
-    oraa LEFT
-    lbeq failed
+    bcs long_branch_2
+    jmp failed
+long_branch_2
+    staa B_LEFT
+    ldaa B_SIZE
+    staa B_LEFT+1
+    oraa B_LEFT
+    bne long_branch_3
+    jmp failed
+long_branch_3
     ldx #$2000
-    stx PTR
-copy_loader:
+    stx B_PTR
+copy_loader
     jsr file_byte
-    ldx PTR
+    ldx B_PTR
     staa 0,x
     inx
-    stx PTR
-    ldx LEFT
+    stx B_PTR
+    ldx B_LEFT
     dex
-    stx LEFT
+    stx B_LEFT
     bne copy_loader
     jmp $2000
-failed:
-    staa SD_ERROR_VALUE
-    ldaa SPI_CTL
-    staa SD_ERROR_IO
-    tst SET_SAVING
-    lbne setup_save_failed
-    tst SET_LOADING
-    lbne settings_load_failed
+failed
+    staa B_SD_ERROR_VALUE
+    ldaa B_SPI_CTL
+    staa B_SD_ERROR_IO
+    tst B_SET_SAVING
+    beq long_branch_4
+    jmp setup_save_failed
+long_branch_4
+    tst B_SET_LOADING
+    beq long_branch_5
+    jmp settings_load_failed
+long_branch_5
     ; A stopped bootstrap must leave the card deselected for the next reset.
     ldaa #$23
-    staa SPI_CTL
+    staa B_SPI_CTL
     jsr ui_error
     ldaa #$ee
-    staa DEBUG
-failed_stop:
+    staa B_DEBUG
+failed_stop
     bra failed_stop
 ; A=outgoing byte, A=incoming byte. X/B preserved; bounded READY polling.
-spi:
-    staa SPI_DATA
+spi
+    staa B_SPI_DATA
     pshb
     ldab #0
-spi_wait:
-    ldaa SPI_CTL
+spi_wait
+    ldaa B_SPI_CTL
     bmi spi_ready
     decb
     bne spi_wait
     jmp failed
-spi_ready:
+spi_ready
     pulb
-    ldaa SPI_DATA
+    ldaa B_SPI_DATA
     rts
-spi_read:
+spi_read
     ldaa #$ff
     jmp spi
-release:
+release
     ldaa #$23
-    staa SPI_CTL
+    staa B_SPI_CTL
     jmp spi_read
-; COMMAND, ARG little-endian, CHECK. Return first R1 in A, CS remains selected.
-command:
+; B_COMMAND, B_ARG little-endian, B_CHECK. Return first R1 in A, CS remains selected.
+command
     jsr command_try
     tsta
-    lbmi failed
+    bpl long_branch_6
+    jmp failed
+long_branch_6
     rts
 ; Initialization may retry a silent card. Other callers require a valid R1.
-command_try:
+command_try
     jsr release
     ldaa #$21
-    staa SPI_CTL
+    staa B_SPI_CTL
     jsr spi_read
-    ldaa COMMAND
+    ldaa B_COMMAND
     jsr spi
-    ldaa ARG+3
+    ldaa B_ARG+3
     jsr spi
-    ldaa ARG+2
+    ldaa B_ARG+2
     jsr spi
-    ldaa ARG+1
+    ldaa B_ARG+1
     jsr spi
-    ldaa ARG
+    ldaa B_ARG
     jsr spi
-    ldaa CHECK
+    ldaa B_CHECK
     jsr spi
     ldab #32
-command_poll:
+command_poll
     jsr spi_read
     bpl command_ready
     decb
     bne command_poll
     ldaa #$ff
-command_ready:
-    staa RESPONSE
+command_ready
+    staa B_RESPONSE
     rts
-clear_arg:
-    clr ARG
-    clr ARG+1
-    clr ARG+2
-    clr ARG+3
+clear_arg
+    clr B_ARG
+    clr B_ARG+1
+    clr B_ARG+2
+    clr B_ARG+3
     ldaa #1
-    staa CHECK
+    staa B_CHECK
     rts
 ; sd_init and its timed retries reside in the boot-only D000 ROM extension.
-; Read one sector at LBA into SECTOR; X/B clobbered. SDHC or SDSC addressing.
-read_sector:
-    ldaa LBA+0
-    staa ARG+0
-    ldaa LBA+1
-    staa ARG+1
-    ldaa LBA+2
-    staa ARG+2
-    ldaa LBA+3
-    staa ARG+3
-    ldaa SDMODE
+; Read one sector at B_LBA into B_SECTOR; X/B clobbered. SDHC or SDSC addressing.
+read_sector
+    ldaa B_LBA+0
+    staa B_ARG+0
+    ldaa B_LBA+1
+    staa B_ARG+1
+    ldaa B_LBA+2
+    staa B_ARG+2
+    ldaa B_LBA+3
+    staa B_ARG+3
+    ldaa B_SDMODE
     bne read_addressed
-    ldaa ARG+3
+    ldaa B_ARG+3
     bne read_overflow
-    ldaa ARG+2
+    ldaa B_ARG+2
     bmi read_overflow
     ldab #9
-read_shift:
-    asl ARG
-    rol ARG+1
-    rol ARG+2
-    rol ARG+3
+read_shift
+    asl B_ARG
+    rol B_ARG+1
+    rol B_ARG+2
+    rol B_ARG+3
     decb
     bne read_shift
-read_addressed:
+read_addressed
     ldaa #$51
-    staa COMMAND
+    staa B_COMMAND
     ldaa #1
-    staa CHECK
+    staa B_CHECK
     jsr command
-    lbne failed
+    beq long_branch_7
+    jmp failed
+long_branch_7
     ldx #$ffff
-    stx COUNT
-read_token:
+    stx B_COUNT
+read_token
     jsr spi_read
     cmpa #$fe
     beq read_data_start
     cmpa #$ff
-    lbne failed
-    ldx COUNT
-    dex
-    stx COUNT
-    bne read_token
-read_overflow:
+    beq long_branch_8
     jmp failed
-read_data_start:
-    clr CRC16
-    clr CRC16+1
-    ldx #SECTOR
-    stx SAVEX
-    ldx #512
-    stx COUNT
-read_data:
-    jsr spi_read
-    ldx SAVEX
-    staa 0,x
-    eora CRC16
-    staa CRCPTR+1
-    ldaa #crc16_hi/256
-    staa CRCPTR
-    ldx CRCPTR
-    ldaa 0,x
-    eora CRC16+1
-    staa CRC16
-    ldaa #crc16_lo/256
-    staa CRCPTR
-    ldx CRCPTR
-    ldaa 0,x
-    staa CRC16+1
-    ldx SAVEX
-    inx
-    stx SAVEX
-    ldx COUNT
+long_branch_8
+    ldx B_COUNT
     dex
-    stx COUNT
+    stx B_COUNT
+    bne read_token
+read_overflow
+    jmp failed
+read_data_start
+    clr B_CRC16
+    clr B_CRC16+1
+    ldx #B_SECTOR
+    stx B_SAVEX
+    ldx #512
+    stx B_COUNT
+read_data
+    jsr spi_read
+    ldx B_SAVEX
+    staa 0,x
+    eora B_CRC16
+    staa B_CRCPTR+1
+    ldaa #crc16_hi/256
+    staa B_CRCPTR
+    ldx B_CRCPTR
+    ldaa 0,x
+    eora B_CRC16+1
+    staa B_CRC16
+    ldaa #crc16_lo/256
+    staa B_CRCPTR
+    ldx B_CRCPTR
+    ldaa 0,x
+    staa B_CRC16+1
+    ldx B_SAVEX
+    inx
+    stx B_SAVEX
+    ldx B_COUNT
+    dex
+    stx B_COUNT
     bne read_data
     jsr spi_read
-    cmpa CRC16
-    lbne failed
+    cmpa B_CRC16
+    beq long_branch_9
+    jmp failed
+long_branch_9
     jsr spi_read
-    cmpa CRC16+1
-    lbne failed
+    cmpa B_CRC16+1
+    beq long_branch_10
+    jmp failed
+long_branch_10
     jsr release
     rts
-; LBA += little-endian dword at X, preserving X. Overflow is rejected.
-add_lba:
-    ldaa LBA
+; B_LBA += little-endian dword at X, preserving X. Overflow is rejected.
+add_lba
+    ldaa B_LBA
     adda 0,x
-    staa LBA
-    ldaa LBA+1
+    staa B_LBA
+    ldaa B_LBA+1
     adca 1,x
-    staa LBA+1
-    ldaa LBA+2
+    staa B_LBA+1
+    ldaa B_LBA+2
     adca 2,x
-    staa LBA+2
-    ldaa LBA+3
+    staa B_LBA+2
+    ldaa B_LBA+3
     adca 3,x
-    staa LBA+3
-    lbcs failed
+    staa B_LBA+3
+    bcc long_branch_11
+    jmp failed
+long_branch_11
     rts
-increment_lba:
-    inc LBA
+increment_lba
+    inc B_LBA
     bne increment_done
-    inc LBA+1
+    inc B_LBA+1
     bne increment_done
-    inc LBA+2
+    inc B_LBA+2
     bne increment_done
-    inc LBA+3
-    lbeq failed
-increment_done:
+    inc B_LBA+3
+    bne long_branch_12
+    jmp failed
+long_branch_12
+increment_done
     rts
-mount:
-    clr LBA
-    clr LBA+1
-    clr LBA+2
-    clr LBA+3
+mount
+    clr B_LBA
+    clr B_LBA+1
+    clr B_LBA+2
+    clr B_LBA+3
     jsr read_sector
     jsr signature
-    ldaa SECTOR+450
+    ldaa B_SECTOR+450
     cmpa #6
     beq mount_type_ok
     cmpa #$0e
-    lbne failed
-mount_type_ok:
-    ldaa SECTOR+454+0
-    staa PART+0
-    ldaa SECTOR+454+1
-    staa PART+1
-    ldaa SECTOR+454+2
-    staa PART+2
-    ldaa SECTOR+454+3
-    staa PART+3
-    ldaa SECTOR+458+0
-    staa PLEN+0
-    ldaa SECTOR+458+1
-    staa PLEN+1
-    ldaa SECTOR+458+2
-    staa PLEN+2
-    ldaa SECTOR+458+3
-    staa PLEN+3
+    beq long_branch_13
+    jmp failed
+long_branch_13
+mount_type_ok
+    ldaa B_SECTOR+454+0
+    staa B_PART+0
+    ldaa B_SECTOR+454+1
+    staa B_PART+1
+    ldaa B_SECTOR+454+2
+    staa B_PART+2
+    ldaa B_SECTOR+454+3
+    staa B_PART+3
+    ldaa B_SECTOR+458+0
+    staa B_PLEN+0
+    ldaa B_SECTOR+458+1
+    staa B_PLEN+1
+    ldaa B_SECTOR+458+2
+    staa B_PLEN+2
+    ldaa B_SECTOR+458+3
+    staa B_PLEN+3
     ; Save complete MBR entries for physical A/B bounds used by RAM loader.
-    ldx #SECTOR+462
-    stx ENTRY
-    ldx #PARTITIONS
-    stx MATCH
+    ldx #B_SECTOR+462
+    stx B_ENTRY
+    ldx #B_PARTITIONS
+    stx B_MATCH
     ldab #32
-mount_save_partitions:
-    ldx ENTRY
+mount_save_partitions
+    ldx B_ENTRY
     ldaa 0,x
     inx
-    stx ENTRY
-    ldx MATCH
+    stx B_ENTRY
+    ldx B_MATCH
     staa 0,x
     inx
-    stx MATCH
+    stx B_MATCH
     decb
     bne mount_save_partitions
-    ldaa PART+0
-    staa LBA+0
-    ldaa PART+1
-    staa LBA+1
-    ldaa PART+2
-    staa LBA+2
-    ldaa PART+3
-    staa LBA+3
+    ldaa B_PART+0
+    staa B_LBA+0
+    ldaa B_PART+1
+    staa B_LBA+1
+    ldaa B_PART+2
+    staa B_LBA+2
+    ldaa B_PART+3
+    staa B_LBA+3
     jsr read_sector
     jsr signature
-    ldaa SECTOR+11
-    lbne failed
-    ldaa SECTOR+12
+    ldaa B_SECTOR+11
+    beq long_branch_14
+    jmp failed
+long_branch_14
+    ldaa B_SECTOR+12
     cmpa #2
-    lbne failed
-    ldaa SECTOR+23
-    ldab SECTOR+22
-    std SET_FATSIZE
-    ldaa SECTOR+16
-    staa SET_FATCOPIES
-    ldaa SECTOR+13
-    lbeq failed
-    staa SPC
+    beq long_branch_15
+    jmp failed
+long_branch_15
+    ldaa B_SECTOR+23
+    ldab B_SECTOR+22
+    std B_SET_FATSIZE
+    ldaa B_SECTOR+16
+    staa B_SET_FATCOPIES
+    ldaa B_SECTOR+13
+    bne long_branch_16
+    jmp failed
+long_branch_16
+    staa B_SPC
     suba #1
-    anda SPC
-    lbne failed
-    ldaa SPC
+    anda B_SPC
+    beq long_branch_17
+    jmp failed
+long_branch_17
+    ldaa B_SPC
     bmi mount_bad_spc
     bra mount_spc_ok
-mount_bad_spc:
+mount_bad_spc
     cmpa #$80
-    lbne failed
-mount_spc_ok:
-    ldaa SECTOR+17
-    ldab SECTOR+18
-    staa ROOTLEFT+1
-    stab ROOTLEFT
-    oraa ROOTLEFT
-    lbeq failed
-    ldaa SECTOR+14
-    staa TEMP
-    ldaa SECTOR+15
-    staa TEMP+1
-    clr TEMP+2
-    clr TEMP+3
-    oraa TEMP
-    lbeq failed
-    ldaa PART+0
-    staa LBA+0
-    ldaa PART+1
-    staa LBA+1
-    ldaa PART+2
-    staa LBA+2
-    ldaa PART+3
-    staa LBA+3
-    ldx #TEMP
+    beq long_branch_18
+    jmp failed
+long_branch_18
+mount_spc_ok
+    ldaa B_SECTOR+17
+    ldab B_SECTOR+18
+    staa B_ROOTLEFT+1
+    stab B_ROOTLEFT
+    oraa B_ROOTLEFT
+    bne long_branch_19
+    jmp failed
+long_branch_19
+    ldaa B_SECTOR+14
+    staa B_TEMP
+    ldaa B_SECTOR+15
+    staa B_TEMP+1
+    clr B_TEMP+2
+    clr B_TEMP+3
+    oraa B_TEMP
+    bne long_branch_20
+    jmp failed
+long_branch_20
+    ldaa B_PART+0
+    staa B_LBA+0
+    ldaa B_PART+1
+    staa B_LBA+1
+    ldaa B_PART+2
+    staa B_LBA+2
+    ldaa B_PART+3
+    staa B_LBA+3
+    ldx #B_TEMP
     jsr add_lba
-    ldaa LBA+0
-    staa FATBASE+0
-    ldaa LBA+1
-    staa FATBASE+1
-    ldaa LBA+2
-    staa FATBASE+2
-    ldaa LBA+3
-    staa FATBASE+3
-    ldaa SECTOR+22
-    staa TEMP
-    ldaa SECTOR+23
-    staa TEMP+1
-    oraa TEMP
-    lbeq failed
-    ldab SECTOR+16
-    lbeq failed
-mount_fats:
-    ldx #TEMP
+    ldaa B_LBA+0
+    staa B_FATBASE+0
+    ldaa B_LBA+1
+    staa B_FATBASE+1
+    ldaa B_LBA+2
+    staa B_FATBASE+2
+    ldaa B_LBA+3
+    staa B_FATBASE+3
+    ldaa B_SECTOR+22
+    staa B_TEMP
+    ldaa B_SECTOR+23
+    staa B_TEMP+1
+    oraa B_TEMP
+    bne long_branch_21
+    jmp failed
+long_branch_21
+    ldab B_SECTOR+16
+    bne long_branch_22
+    jmp failed
+long_branch_22
+mount_fats
+    ldx #B_TEMP
     jsr add_lba
     decb
     bne mount_fats
-    ldaa LBA+0
-    staa ROOTBASE+0
-    ldaa LBA+1
-    staa ROOTBASE+1
-    ldaa LBA+2
-    staa ROOTBASE+2
-    ldaa LBA+3
-    staa ROOTBASE+3
+    ldaa B_LBA+0
+    staa B_ROOTBASE+0
+    ldaa B_LBA+1
+    staa B_ROOTBASE+1
+    ldaa B_LBA+2
+    staa B_ROOTBASE+2
+    ldaa B_LBA+3
+    staa B_ROOTBASE+3
     ; ceil(root_entries/16) sectors, then first data sector.
-    ldaa ROOTLEFT+1
+    ldaa B_ROOTLEFT+1
     adda #15
-    staa TEMP
-    ldaa ROOTLEFT
+    staa B_TEMP
+    ldaa B_ROOTLEFT
     adca #0
-    staa TEMP+1
-    clr TEMP+2
-    rol TEMP+2
+    staa B_TEMP+1
+    clr B_TEMP+2
+    rol B_TEMP+2
     ldab #4
-mount_root_shift:
-    lsr TEMP+2
-    ror TEMP+1
-    ror TEMP
+mount_root_shift
+    lsr B_TEMP+2
+    ror B_TEMP+1
+    ror B_TEMP
     decb
     bne mount_root_shift
-    ldx #TEMP
+    ldx #B_TEMP
     jsr add_lba
-    ldaa LBA+0
-    staa DATABASE+0
-    ldaa LBA+1
-    staa DATABASE+1
-    ldaa LBA+2
-    staa DATABASE+2
-    ldaa LBA+3
-    staa DATABASE+3
+    ldaa B_LBA+0
+    staa B_DATABASE+0
+    ldaa B_LBA+1
+    staa B_DATABASE+1
+    ldaa B_LBA+2
+    staa B_DATABASE+2
+    ldaa B_LBA+3
+    staa B_DATABASE+3
     ; Validate FAT16 allocation bounds before trusting directory cluster numbers.
-    ldaa SECTOR+19
-    staa VOLUME
-    ldaa SECTOR+20
-    staa VOLUME+1
-    clr VOLUME+2
-    clr VOLUME+3
-    oraa VOLUME
+    ldaa B_SECTOR+19
+    staa B_VOLUME
+    ldaa B_SECTOR+20
+    staa B_VOLUME+1
+    clr B_VOLUME+2
+    clr B_VOLUME+3
+    oraa B_VOLUME
     bne volume_loaded
-    ldaa SECTOR+32+0
-    staa VOLUME+0
-    ldaa SECTOR+32+1
-    staa VOLUME+1
-    ldaa SECTOR+32+2
-    staa VOLUME+2
-    ldaa SECTOR+32+3
-    staa VOLUME+3
-volume_loaded:
-    ldaa VOLUME+3
-    cmpa PLEN+3
-    lbhi failed
+    ldaa B_SECTOR+32+0
+    staa B_VOLUME+0
+    ldaa B_SECTOR+32+1
+    staa B_VOLUME+1
+    ldaa B_SECTOR+32+2
+    staa B_VOLUME+2
+    ldaa B_SECTOR+32+3
+    staa B_VOLUME+3
+volume_loaded
+    ldaa B_VOLUME+3
+    cmpa B_PLEN+3
+    bls long_branch_23
+    jmp failed
+long_branch_23
     bcs volume_fits
-    ldaa VOLUME+2
-    cmpa PLEN+2
-    lbhi failed
+    ldaa B_VOLUME+2
+    cmpa B_PLEN+2
+    bls long_branch_24
+    jmp failed
+long_branch_24
     bcs volume_fits
-    ldaa VOLUME+1
-    cmpa PLEN+1
-    lbhi failed
+    ldaa B_VOLUME+1
+    cmpa B_PLEN+1
+    bls long_branch_25
+    jmp failed
+long_branch_25
     bcs volume_fits
-    ldaa VOLUME+0
-    cmpa PLEN+0
-    lbhi failed
+    ldaa B_VOLUME+0
+    cmpa B_PLEN+0
+    bls long_branch_26
+    jmp failed
+long_branch_26
     bcs volume_fits
-volume_fits:
-    ldaa PART+0
-    staa LBA+0
-    ldaa PART+1
-    staa LBA+1
-    ldaa PART+2
-    staa LBA+2
-    ldaa PART+3
-    staa LBA+3
-    ldx #VOLUME
+volume_fits
+    ldaa B_PART+0
+    staa B_LBA+0
+    ldaa B_PART+1
+    staa B_LBA+1
+    ldaa B_PART+2
+    staa B_LBA+2
+    ldaa B_PART+3
+    staa B_LBA+3
+    ldx #B_VOLUME
     jsr add_lba
-    ldaa LBA+0
-    staa VEND+0
-    ldaa LBA+1
-    staa VEND+1
-    ldaa LBA+2
-    staa VEND+2
-    ldaa LBA+3
-    staa VEND+3
-    ldaa VEND+0
-    suba DATABASE+0
-    staa TEMP+0
-    ldaa VEND+1
-    sbca DATABASE+1
-    staa TEMP+1
-    ldaa VEND+2
-    sbca DATABASE+2
-    staa TEMP+2
-    ldaa VEND+3
-    sbca DATABASE+3
-    staa TEMP+3
-    lbcs failed
-    ldab SPC
-volume_cluster_shift:
+    ldaa B_LBA+0
+    staa B_VEND+0
+    ldaa B_LBA+1
+    staa B_VEND+1
+    ldaa B_LBA+2
+    staa B_VEND+2
+    ldaa B_LBA+3
+    staa B_VEND+3
+    ldaa B_VEND+0
+    suba B_DATABASE+0
+    staa B_TEMP+0
+    ldaa B_VEND+1
+    sbca B_DATABASE+1
+    staa B_TEMP+1
+    ldaa B_VEND+2
+    sbca B_DATABASE+2
+    staa B_TEMP+2
+    ldaa B_VEND+3
+    sbca B_DATABASE+3
+    staa B_TEMP+3
+    bcc long_branch_27
+    jmp failed
+long_branch_27
+    ldab B_SPC
+volume_cluster_shift
     lsrb
     beq volume_clusters
-    lsr TEMP+3
-    ror TEMP+2
-    ror TEMP+1
-    ror TEMP
+    lsr B_TEMP+3
+    ror B_TEMP+2
+    ror B_TEMP+1
+    ror B_TEMP
     bra volume_cluster_shift
-volume_clusters:
-    ldaa TEMP+3
-    oraa TEMP+2
-    lbne failed
-    ldaa TEMP+1
+volume_clusters
+    ldaa B_TEMP+3
+    oraa B_TEMP+2
+    beq long_branch_28
+    jmp failed
+long_branch_28
+    ldaa B_TEMP+1
     cmpa #$0f
-    lbcs failed
+    bcc long_branch_29
+    jmp failed
+long_branch_29
     bne cluster_min_ok
-    ldaa TEMP
+    ldaa B_TEMP
     cmpa #$f5
-    lbcs failed
-cluster_min_ok:
-    ldaa TEMP+1
+    bcc long_branch_30
+    jmp failed
+long_branch_30
+cluster_min_ok
+    ldaa B_TEMP+1
     cmpa #$ff
     bne cluster_max_ok
-    ldaa TEMP
+    ldaa B_TEMP
     cmpa #$f5
-    lbcc failed
-cluster_max_ok:
-    ldaa TEMP
+    bcs long_branch_31
+    jmp failed
+long_branch_31
+cluster_max_ok
+    ldaa B_TEMP
     adda #2
-    staa CLIMIT
-    ldaa TEMP+1
+    staa B_CLIMIT
+    ldaa B_TEMP+1
     adca #0
-    staa CLIMIT+1
+    staa B_CLIMIT+1
     ; FAT16 capacity = sectors-per-FAT * 256 entries.
-    ldaa SECTOR+23
+    ldaa B_SECTOR+23
     bne fat_capacity_ok
-    ldaa CLIMIT+1
-    cmpa SECTOR+22
-    lbhi failed
+    ldaa B_CLIMIT+1
+    cmpa B_SECTOR+22
+    bls long_branch_32
+    jmp failed
+long_branch_32
     bcs fat_capacity_ok
-    ldaa CLIMIT
-    lbne failed
-fat_capacity_ok:
+    ldaa B_CLIMIT
+    beq long_branch_33
+    jmp failed
+long_branch_33
+fat_capacity_ok
     rts
-signature:
-    ldaa SECTOR+510
+signature
+    ldaa B_SECTOR+510
     cmpa #$55
-    lbne failed
-    ldaa SECTOR+511
+    beq long_branch_34
+    jmp failed
+long_branch_34
+    ldaa B_SECTOR+511
     cmpa #$aa
-    lbne failed
+    beq long_branch_35
+    jmp failed
+long_branch_35
     rts
-; X points to 11-byte uppercase 8.3 filename. SIZE returned little endian in RAM.
-file_open:
+; X points to 11-byte uppercase 8.3 filename. B_SIZE returned little endian in RAM.
+file_open
     jsr file_find
-    lbcs failed
+    bcc long_branch_36
+    jmp failed
+long_branch_36
     jmp open_found
-; Optional root lookup: carry means absent; otherwise X/LBA identify the entry.
-file_find:
-    stx MATCH
-    ldx #NAME
-    stx ENTRY
+; Optional root lookup: carry means absent; otherwise X/B_LBA identify the entry.
+file_find
+    stx B_MATCH
+    ldx #B_NAME
+    stx B_ENTRY
     ldab #11
-open_name:
-    ldx MATCH
+open_name
+    ldx B_MATCH
     ldaa 0,x
     inx
-    stx MATCH
-    ldx ENTRY
+    stx B_MATCH
+    ldx B_ENTRY
     staa 0,x
     inx
-    stx ENTRY
+    stx B_ENTRY
     decb
     bne open_name
-    ldaa ROOTBASE+0
-    staa LBA+0
-    ldaa ROOTBASE+1
-    staa LBA+1
-    ldaa ROOTBASE+2
-    staa LBA+2
-    ldaa ROOTBASE+3
-    staa LBA+3
+    ldaa B_ROOTBASE+0
+    staa B_LBA+0
+    ldaa B_ROOTBASE+1
+    staa B_LBA+1
+    ldaa B_ROOTBASE+2
+    staa B_LBA+2
+    ldaa B_ROOTBASE+3
+    staa B_LBA+3
     ; Root size copied from mounted BPB is retained separately.
     jsr read_sector
-    ldx #SECTOR
-    stx ENTRY
-open_entry:
-    ldx ENTRY
+    ldx #B_SECTOR
+    stx B_ENTRY
+open_entry
+    ldx B_ENTRY
     ldaa 0,x
-    lbeq open_absent
+    bne long_branch_37
+    jmp open_absent
+long_branch_37
     cmpa #$e5
     beq open_next
     ldaa 11,x
     bita #$18
     bne open_next
-    stx SAVEX
-    ldx #NAME
-    stx MATCH
+    stx B_SAVEX
+    ldx #B_NAME
+    stx B_MATCH
     ldab #11
-open_compare:
-    ldx MATCH
+open_compare
+    ldx B_MATCH
     ldaa 0,x
     inx
-    stx MATCH
-    ldx SAVEX
+    stx B_MATCH
+    ldx B_SAVEX
     cmpa 0,x
     bne open_next
     inx
-    stx SAVEX
+    stx B_SAVEX
     decb
     bne open_compare
-    ldx ENTRY
+    ldx B_ENTRY
     clc
     rts
-open_found:
+open_found
     ldaa 20,x
     oraa 21,x
-    lbne failed
+    beq long_branch_38
+    jmp failed
+long_branch_38
     ldaa 26,x
-    staa CLUSTER+1
+    staa B_CLUSTER+1
     ldaa 27,x
-    staa CLUSTER
+    staa B_CLUSTER
     ldaa 28,x
-    staa SIZE+0
-    staa REM+0
+    staa B_SIZE+0
+    staa B_REM+0
     ldaa 29,x
-    staa SIZE+1
-    staa REM+1
+    staa B_SIZE+1
+    staa B_REM+1
     ldaa 30,x
-    staa SIZE+2
-    staa REM+2
+    staa B_SIZE+2
+    staa B_REM+2
     ldaa 31,x
-    staa SIZE+3
-    staa REM+3
-    clr SECI
+    staa B_SIZE+3
+    staa B_REM+3
+    clr B_SECI
     jsr cluster_lba
     jsr read_sector
     jsr buffer_reset
     rts
-open_next:
-    ldx ENTRY
+open_next
+    ldx B_ENTRY
     ; advance to next 32-byte root entry; only 16 entries in one sector.
     ldab #32
-open_advance:
+open_advance
     inx
     decb
     bne open_advance
-    stx ENTRY
-    cpx #SECTOR+512
-    lbne open_entry
+    stx B_ENTRY
+    cpx #B_SECTOR+512
+    beq long_branch_39
+    jmp open_entry
+long_branch_39
     jsr increment_lba
     ; Root cannot cross into data region.
-    ldaa LBA+3
-    cmpa DATABASE+3
+    ldaa B_LBA+3
+    cmpa B_DATABASE+3
     bne open_more
-    ldaa LBA+2
-    cmpa DATABASE+2
+    ldaa B_LBA+2
+    cmpa B_DATABASE+2
     bne open_more
-    ldaa LBA+1
-    cmpa DATABASE+1
+    ldaa B_LBA+1
+    cmpa B_DATABASE+1
     bne open_more
-    ldaa LBA
-    cmpa DATABASE
-    lbeq open_absent
-open_more:
+    ldaa B_LBA
+    cmpa B_DATABASE
+    bne long_branch_40
+    jmp open_absent
+long_branch_40
+open_more
     jsr read_sector
-    ldx #SECTOR
-    stx ENTRY
-    lbra open_entry
-open_absent:
+    ldx #B_SECTOR
+    stx B_ENTRY
+    jmp open_entry
+open_absent
     sec
     rts
-buffer_reset:
-    ldx #SECTOR
-    stx BUFP
+buffer_reset
+    ldx #B_SECTOR
+    stx B_BUFP
     ldx #512
-    stx BLEFT
+    stx B_BLEFT
     rts
-; Compute DATABASE+(cluster-2)*SPC+SECI into LBA.
-cluster_lba:
-    ldaa CLUSTER
-    cmpa CLIMIT+1
-    lbhi failed
+; Compute B_DATABASE+(cluster-2)*B_SPC+B_SECI into B_LBA.
+cluster_lba
+    ldaa B_CLUSTER
+    cmpa B_CLIMIT+1
+    bls long_branch_42
+    jmp failed
+long_branch_42
     bcs cluster_in_bounds
-    ldaa CLUSTER+1
-    cmpa CLIMIT
-    lbcc failed
-cluster_in_bounds:
-    ldaa CLUSTER
+    ldaa B_CLUSTER+1
+    cmpa B_CLIMIT
+    bcs long_branch_43
+    jmp failed
+long_branch_43
+cluster_in_bounds
+    ldaa B_CLUSTER
     cmpa #$ff
-    lbcc failed
-    ldaa CLUSTER+1
+    bcs long_branch_44
+    jmp failed
+long_branch_44
+    ldaa B_CLUSTER+1
     suba #2
-    staa TEMP
-    ldaa CLUSTER
+    staa B_TEMP
+    ldaa B_CLUSTER
     sbca #0
-    lbcs failed
-    staa TEMP+1
-    clr TEMP+2
-    clr TEMP+3
-    ldab SPC
-cluster_multiply:
+    bcc long_branch_45
+    jmp failed
+long_branch_45
+    staa B_TEMP+1
+    clr B_TEMP+2
+    clr B_TEMP+3
+    ldab B_SPC
+cluster_multiply
     lsrb
     beq cluster_multiplied
-    asl TEMP
-    rol TEMP+1
-    rol TEMP+2
-    rol TEMP+3
+    asl B_TEMP
+    rol B_TEMP+1
+    rol B_TEMP+2
+    rol B_TEMP+3
     bra cluster_multiply
-cluster_multiplied:
-    ldaa DATABASE+0
-    staa LBA+0
-    ldaa DATABASE+1
-    staa LBA+1
-    ldaa DATABASE+2
-    staa LBA+2
-    ldaa DATABASE+3
-    staa LBA+3
-    ldx #TEMP
+cluster_multiplied
+    ldaa B_DATABASE+0
+    staa B_LBA+0
+    ldaa B_DATABASE+1
+    staa B_LBA+1
+    ldaa B_DATABASE+2
+    staa B_LBA+2
+    ldaa B_DATABASE+3
+    staa B_LBA+3
+    ldx #B_TEMP
     jsr add_lba
-    ldaa SECI
-    staa TEMP
-    clr TEMP+1
-    clr TEMP+2
-    clr TEMP+3
-    ldx #TEMP
+    ldaa B_SECI
+    staa B_TEMP
+    clr B_TEMP+1
+    clr B_TEMP+2
+    clr B_TEMP+3
+    ldx #B_TEMP
     jsr add_lba
     rts
-file_byte:
-    ldaa REM
-    oraa REM+1
-    oraa REM+2
-    oraa REM+3
-    lbeq failed
-    ldx BLEFT
+file_byte
+    ldaa B_REM
+    oraa B_REM+1
+    oraa B_REM+2
+    oraa B_REM+3
+    bne long_branch_46
+    jmp failed
+long_branch_46
+    ldx B_BLEFT
     bne get_buffered
-    inc SECI
-    ldaa SECI
-    cmpa SPC
+    inc B_SECI
+    ldaa B_SECI
+    cmpa B_SPC
     bcs get_sector
-    ; Read FAT16 next-cluster entry; FAT sector = FATBASE+cluster high byte.
-    ldaa FATBASE+0
-    staa LBA+0
-    ldaa FATBASE+1
-    staa LBA+1
-    ldaa FATBASE+2
-    staa LBA+2
-    ldaa FATBASE+3
-    staa LBA+3
-    ldaa CLUSTER
-    staa TEMP
-    clr TEMP+1
-    clr TEMP+2
-    clr TEMP+3
-    ldx #TEMP
+    ; Read FAT16 next-cluster entry; FAT sector = B_FATBASE+cluster high byte.
+    ldaa B_FATBASE+0
+    staa B_LBA+0
+    ldaa B_FATBASE+1
+    staa B_LBA+1
+    ldaa B_FATBASE+2
+    staa B_LBA+2
+    ldaa B_FATBASE+3
+    staa B_LBA+3
+    ldaa B_CLUSTER
+    staa B_TEMP
+    clr B_TEMP+1
+    clr B_TEMP+2
+    clr B_TEMP+3
+    ldx #B_TEMP
     jsr add_lba
     jsr read_sector
-    ldx #SECTOR
-    ldab CLUSTER+1
-get_fat_offset:
+    ldx #B_SECTOR
+    ldab B_CLUSTER+1
+get_fat_offset
     tstb
     beq get_fat_entry
     inx
     inx
     decb
     bra get_fat_offset
-get_fat_entry:
+get_fat_entry
     ldaa 0,x
-    staa CLUSTER+1
+    staa B_CLUSTER+1
     ldaa 1,x
-    staa CLUSTER
-    clr SECI
-get_sector:
+    staa B_CLUSTER
+    clr B_SECI
+get_sector
     jsr cluster_lba
     jsr read_sector
     jsr buffer_reset
-get_buffered:
-    ldx BLEFT
+get_buffered
+    ldx B_BLEFT
     dex
-    stx BLEFT
-    ldaa REM
+    stx B_BLEFT
+    ldaa B_REM
     suba #1
-    staa REM
-    ldaa REM+1
+    staa B_REM
+    ldaa B_REM+1
     sbca #0
-    staa REM+1
-    ldaa REM+2
+    staa B_REM+1
+    ldaa B_REM+2
     sbca #0
-    staa REM+2
-    ldaa REM+3
+    staa B_REM+2
+    ldaa B_REM+3
     sbca #0
-    staa REM+3
-    ldx BUFP
+    staa B_REM+3
+    ldx B_BUFP
     ldaa 0,x
     inx
-    stx BUFP
+    stx B_BUFP
     rts
 ; Never return: executing from resident ROM permits clearing all loader RAM.
 ; Leave an E000 trampoline; commit removes the boot ROM overlay safely there.
-handoff:
+handoff
     sei
     ; The loader's CRC covers bytes received from SD. Check what SRAM actually
     ; retained as well, after RAM clearing and before locking/executing ROM.
@@ -831,37 +921,38 @@ handoff:
     ldaa #11
     jsr ui_status
     ldx #handoff_code
-    stx UI_TEXT
+    stx B_UI_TEXT
     ldx #$e000
-    stx UI_DEST
+    stx B_UI_DEST
     ldab #17
-handoff_copy:
-    ldx UI_TEXT
+handoff_copy
+    ldx B_UI_TEXT
     ldaa 0,x
     inx
-    stx UI_TEXT
-    ldx UI_DEST
+    stx B_UI_TEXT
+    ldx B_UI_DEST
     staa 0,x
     inx
-    stx UI_DEST
+    stx B_UI_DEST
     decb
     bne handoff_copy
-    ldaa SDMODE
+    ldaa B_SDMODE
     staa $e6a2
     ldx #0
     clra
-handoff_clear:
+handoff_clear
     staa 0,x
     inx
     cpx #$3000
     bne handoff_clear
     jmp $e000
-handoff_code:
+handoff_code
     db $86,$a5,$b7,$e6,$a0,$b6,$e6,$a0,$2b,$02,$20,$fe,$fe,$ff,$fe,$6e,$00
-loader_name:
+loader_name
     db "LOADER  BIN"
+    ds $fa00-*,$ff
     org $fa00
-crc16_hi:
+crc16_hi
     db $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$a1,$b1,$c1,$d1,$e1,$f1
     db $12,$02,$32,$22,$52,$42,$72,$62,$93,$83,$b3,$a3,$d3,$c3,$f3,$e3
     db $24,$34,$04,$14,$64,$74,$44,$54,$a5,$b5,$85,$95,$e5,$f5,$c5,$d5
@@ -878,7 +969,7 @@ crc16_hi:
     db $cb,$db,$eb,$fb,$8b,$9b,$ab,$bb,$4a,$5a,$6a,$7a,$0a,$1a,$2a,$3a
     db $fd,$ed,$dd,$cd,$bd,$ad,$9d,$8d,$7c,$6c,$5c,$4c,$3c,$2c,$1c,$0c
     db $ef,$ff,$cf,$df,$af,$bf,$8f,$9f,$6e,$7e,$4e,$5e,$2e,$3e,$0e,$1e
-crc16_lo:
+crc16_lo
     db $00,$21,$42,$63,$84,$a5,$c6,$e7,$08,$29,$4a,$6b,$8c,$ad,$ce,$ef
     db $31,$10,$73,$52,$b5,$94,$f7,$d6,$39,$18,$7b,$5a,$bd,$9c,$ff,$de
     db $62,$43,$20,$01,$e6,$c7,$a4,$85,$6a,$4b,$28,$09,$ee,$cf,$ac,$8d
@@ -899,23 +990,23 @@ crc16_lo:
     ; It survives SD sector/header buffers and the loader's main RAM clear.
     ; The last handoff clear erases it just before the classic BIOS starts.
     org $fc00
-ui_init:
-    ldaa MODEL
+ui_init
+    ldaa B_MODEL
     anda #1
     asla
     oraa #1
     staa $e629
-    clr UI_STAGE
+    clr B_UI_STAGE
     ldx #$400
     ldaa #' '
-ui_clear_screen:
+ui_clear_screen
     staa 0,x
     inx
     cpx #$7c0
     bne ui_clear_screen
     ldx #ui_crtc
     clrb
-ui_crtc_write:
+ui_crtc_write
     stab $e600
     ldaa 0,x
     staa $e601
@@ -923,7 +1014,7 @@ ui_crtc_write:
     incb
     cmpb #16
     bne ui_crtc_write
-    ldaa MODEL
+    ldaa B_MODEL
     bita #1
     beq ui_geometry_done
     ldaa #1
@@ -934,135 +1025,135 @@ ui_crtc_write:
     staa $e600
     ldaa #12
     staa $e601
-ui_geometry_done:
+ui_geometry_done
     ldx #$400
-    stx UI_DEST
+    stx B_UI_DEST
     ldx #ui_title
-    ldaa MODEL
+    ldaa B_MODEL
     bita #1
     beq ui_title_selected
     ldx #ui_title_a
-ui_title_selected:
+ui_title_selected
     jmp ui_puts
 ; A=stage. Preserve A/B/X; display stage name and retain it for failures.
-ui_status:
+ui_status
     psha
     pshb
-    stx UI_X
-    staa UI_STAGE
-    staa DEBUG
+    stx B_UI_X
+    staa B_UI_STAGE
+    staa B_DEBUG
     ldx #$450
     jsr ui_clear_line
     ldx #$4a0
     jsr ui_clear_line
     ldx #$450
-    stx UI_DEST
+    stx B_UI_DEST
     ldx #ui_step
     jsr ui_puts
-    ldaa UI_STAGE
+    ldaa B_UI_STAGE
     jsr ui_hex
     ldab #$3a
     jsr ui_putc
     ldab #' '
     jsr ui_putc
     ldx #ui_messages
-    ldab UI_STAGE
+    ldab B_UI_STAGE
     beq ui_message_found
-ui_message_find:
+ui_message_find
     inx
     inx
     decb
     bne ui_message_find
-ui_message_found:
+ui_message_found
     ldx 0,x
     jsr ui_puts
-    ldx UI_X
+    ldx B_UI_X
     pulb
     pula
     rts
 ; A=current block, B=total blocks. Preserve A/B/X.
-ui_progress:
+ui_progress
     psha
     pshb
-    stx UI_X
-    staa UI_BLOCK
-    stab UI_TOTAL
+    stx B_UI_X
+    staa B_UI_BLOCK
+    stab B_UI_TOTAL
     ldx #$4a0
-    stx UI_DEST
+    stx B_UI_DEST
     ldx #ui_block_message
     jsr ui_puts
-    ldaa UI_BLOCK
+    ldaa B_UI_BLOCK
     jsr ui_hex
     ldab #'/'
     jsr ui_putc
-    ldaa UI_TOTAL
+    ldaa B_UI_TOTAL
     jsr ui_hex
-    ldx UI_X
+    ldx B_UI_X
     pulb
     pula
     rts
-ui_error:
+ui_error
     ldx #$4f0
-    stx UI_DEST
+    stx B_UI_DEST
     ldx #ui_error_message
     jsr ui_puts
-    ldaa UI_STAGE
+    ldaa B_UI_STAGE
     jsr ui_hex
     ldx #$540
-    stx UI_DEST
+    stx B_UI_DEST
     ldx #ui_check_message
     jsr ui_puts
     ldx #$590
-    stx UI_DEST
+    stx B_UI_DEST
     ldx #ui_retry_message
     jsr ui_puts
-    ldaa UI_STAGE
+    ldaa B_UI_STAGE
     cmpa #1
     bne ui_string_done
     jmp sd_error_details
-ui_clear_line:
+ui_clear_line
     ldaa #' '
     ldab #40
-ui_clear_char:
+ui_clear_char
     staa 0,x
     inx
     psha
-    ldaa MODEL
+    ldaa B_MODEL
     bita #1
     beq ui_clear_601
     ldaa #' '
     staa 0,x
     inx
-ui_clear_601:
+ui_clear_601
     pula
     decb
     bne ui_clear_char
     rts
-ui_puts:
+ui_puts
     ldab 0,x
     beq ui_string_done
-    stx UI_TEXT
+    stx B_UI_TEXT
     jsr ui_putc
-    ldx UI_TEXT
+    ldx B_UI_TEXT
     inx
     bra ui_puts
-ui_string_done:
+ui_string_done
     rts
-ui_putc:
-    ldx UI_DEST
+ui_putc
+    ldx B_UI_DEST
     psha
-    ldaa MODEL
+    ldaa B_MODEL
     bita #1
     beq ui_putc_601
     clr 0,x
     inx
-ui_putc_601:
+ui_putc_601
     pula
     stab 0,x
     inx
-    stx UI_DEST
+    stx B_UI_DEST
     rts
-ui_hex:
+ui_hex
     psha
     lsra
     lsra
@@ -1070,102 +1161,118 @@ ui_hex:
     lsra
     jsr ui_nibble
     pula
-ui_nibble:
+ui_nibble
     anda #$0f
     cmpa #10
     bcs ui_digit
     adda #7
-ui_digit:
+ui_digit
     adda #'0'
     tab
     jmp ui_putc
-ui_crtc:
+ui_crtc
     db 63,40,46,8,38,0,24,36,0,7,$20,7,4,0,0,0
-ui_title:
+ui_title
     db "PYLDIN-601 SYSTEM INITIALIZATION",0
-ui_title_a:
+ui_title_a
     db "PYLDIN-601A SYSTEM INITIALIZATION",0
-ui_step:
+ui_step
     db "STEP ",0
-ui_block_message:
+ui_block_message
     db "BLOCK ",0
-ui_error_message:
+ui_error_message
     db "BOOT ERROR AT STEP ",0
-ui_check_message:
+ui_check_message
     db "CHECK SD / LOADER.BIN / P601.ROM",0
-ui_retry_message:
+ui_retry_message
     db "PRESS RESET TO RETRY",0
-ui_messages:
+ui_messages
     dw ui_starting,ui_sd,ui_fat,ui_loader,ui_rom,ui_header,ui_banks,ui_tail,ui_crc,ui_ram,ui_disk,ui_start,ui_sram
-ui_starting:
+ui_starting
     db "STARTING",0
-ui_sd:
+ui_sd
     db "INITIALIZING SD",0
-ui_fat:
+ui_fat
     db "READING MBR / FAT16",0
-ui_loader:
+ui_loader
     db "LOADING LOADER.BIN",0
-ui_rom:
+ui_rom
     db "OPENING SELECTED ROM",0
-ui_header:
+ui_header
     db "CHECKING ROM HEADER",0
-ui_banks:
+ui_banks
     db "LOADING ROM BANKS",0
-ui_tail:
+ui_tail
     db "LOADING BIOS / FONT",0
-ui_crc:
+ui_crc
     db "CHECKING ROM CRC32",0
-ui_ram:
+ui_ram
     db "INITIALIZING RAM",0
-ui_disk:
+ui_disk
     db "INITIALIZING ROM DISK",0
-ui_start:
+ui_start
     db "STARTING SELECTED BIOS",0
-ui_sram:
+ui_sram
     db "VERIFYING SRAM CRC32",0
-verify_sram:
+verify_sram
     clr $e6a4
     clr $e6a5
     ldaa #1
     staa $e6a6
     staa $e6aa
     ldaa #1
-    staa VERIFY_BLOCKS
-verify_bank:
+    staa B_VERIFY_BLOCKS
+verify_bank
     ldx #0
     jsr verify_block
-    dec VERIFY_BLOCKS
+    dec B_VERIFY_BLOCKS
     bne verify_bank
     ldx #$1800
     jsr verify_block
     ldaa $e6ac
     cmpa $1014
-    lbne failed
+    beq long_branch_47
+    jmp failed
+long_branch_47
     ldaa $e6ad
     cmpa $1015
-    lbne failed
+    beq long_branch_48
+    jmp failed
+long_branch_48
     ldaa $e6ae
     cmpa $1016
-    lbne failed
+    beq long_branch_49
+    jmp failed
+long_branch_49
     ldaa $e6af
     cmpa $1017
-    lbne failed
+    beq long_branch_50
+    jmp failed
+long_branch_50
     rts
-verify_block:
-    stx LEFT
-verify_byte:
+verify_block
+    stx B_LEFT
+verify_byte
     clr $e6ab
-verify_wait:
+verify_wait
     ldaa $e6a8
-    lbmi failed
+    bpl long_branch_51
+    jmp failed
+long_branch_51
     bita #1
     bne verify_wait
     ldaa $e6ab
     staa $e6a9
-    ldx LEFT
+    ldx B_LEFT
     dex
-    stx LEFT
+    stx B_LEFT
     bne verify_byte
     rts
+    ds $fff8-*,$ff
     org $fff8
     dw failed,failed,failed,$f000
+
+    include SETUP.ASM
+    include BOOTKEY.ASM
+    ds $e000-*,$ff
+    end

@@ -52,10 +52,12 @@ def prepare(image):
             raise ValueError(f'{name}: invalid compact ROM bundle')
         native = {'ROM0.BIN': old[512:512+65536], 'FONT.BIN': old[512+0x11000:]}
         new = sd.bundle(native, [], 0, model)
-        for page in (0, 1, 4, 5):
+        for page in (1, 4, 5):
             start = 512 + page*8192
             if new[start:start+8192] != old[start:start+8192]:
-                raise ValueError(f'{name}: native UniBIOS/UniDOS/Y ROM changed')
+                raise ValueError(f'{name}: native XBIOS/Y ROM changed')
+        if b'UniBIOS  Version 3.02' not in new[512:512+8192]:
+            raise ValueError(f'{name}: expected source-built UniBIOS 3.02')
         assert new[512+0x11000:] == old[512+0x11000:], 'font changed'
         files[name] = new
     new_boot = sd.fat16(files)
@@ -76,7 +78,7 @@ def prepare(image):
                   rom_files={n: sha(files[n]) for n in ('P601.ROM', 'P601A.ROM')},
                   files={n: dict(bytes=len(d), sha256=sha(d)) for n, d in programs.items()},
                   other_boot_and_b_files_preserved=True, mbr_ebr_preserved=True,
-                  native_rom_pages_preserved=True, gamebios_abi=1,
+                  native_xbios_y_pages_preserved=True, unibios_version='3.02', gamebios_abi=1,
                   gamebios_context_bytes=8608, gamebios_features=63,
                   fpga_update_required=False, requires_ps2_capture=True,
                   ps2_raw_identity=0x52)

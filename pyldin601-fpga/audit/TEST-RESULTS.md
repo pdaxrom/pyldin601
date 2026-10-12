@@ -198,7 +198,9 @@ FPGA FLASH Verify ID / Erase,Program,Verify и JTAG Chain Verification
 ## Исходник таблицы PS/2, 4 октября 2026
 
 Добавлены `firmware/ps2_set2.csv` с названиями клавиш и генератор
-`tools/make_ps2.py`, вызываемый при `make firmware`. Все 256 байт
+`tools/make_ps2.py`, вызывавшийся при `make firmware` на этом этапе.
+12 октября генератор заменён C-инструментом `firmware-data`;
+[аудит текущей сборки](FIRMWARE-SOURCES.md). Все 256 байт
 перегенерированного `rtl/ps2_set2.mem` побайтно совпали с прежним файлом
 (76 отображений, остальные FF). Четыре клавиатурных RTL bench прошли,
 включая 184 native navigation/Win случая, Scroll Lock, модификаторы,

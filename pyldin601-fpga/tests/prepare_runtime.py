@@ -16,7 +16,7 @@ if prefix == 'session':
     assert len(screen)==1000
     (root/'build/session-screen.mem').write_text(''.join(f'{v:02x}\n' for v in screen))
 sys.path.insert(0,str(root/'tools'))
-from build_partitions import assemble
+from unias import assemble
 ctx=json.loads((root/f'build/{prefix}-context.json').read_text())
 config=bytearray((root/f'build/{prefix}-config.bin').read_bytes());config[20:24]=bytes(4)
 source='''org $f000
@@ -59,7 +59,7 @@ if args.music_irq:
                 'ldx #0','stx $e180','ldx #$0003','stx $e692',
                 'ldx #$a980','stx $e694','ldaa #1','staa $e696','staa $e690']
 if prefix in ('keyboard', 'session'):
-    from build_partitions import bios_symbols
+    from unias import bios_symbols
     kbd=bios_symbols((root/'build/partitions/SD.ROM.LST').read_text())
     # Explicitly reserve fixture-only idle-DOS scratch, away from its saved
     # stack. Heap allocation is exercised by test_keyboard_rom's real boot.

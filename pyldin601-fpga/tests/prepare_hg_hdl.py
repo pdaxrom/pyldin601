@@ -1,13 +1,11 @@
 """Restore real UniDOS with its resident HG.PGM; run native INT40 and HG TIME."""
 from pathlib import Path
-import importlib.util
+import unias_fixture as asm
 import re
 import struct
 import json
 
 root=Path(__file__).resolve().parents[1]
-spec=importlib.util.spec_from_file_location('asm',root/'tools/asm6800.py')
-asm=importlib.util.module_from_spec(spec);spec.loader.exec_module(asm)
 ram=bytearray((root/'build/hgdisk-ram.bin').read_bytes())
 pgm=(root/'build/hg/HG.PGM').read_bytes()
 _,count,offset,length,*_=struct.unpack('>8H',pgm[:16])
@@ -22,35 +20,36 @@ for candidate in range(0x100,0xc000,256):
         base=candidate
 assert base is not None,'resident HG.PGM not found in real native RAM'
 symbols=dict((name,int(value,16)) for name,value in re.findall(r'^([A-Z_0-9]+) =\$([0-9A-F]+)$',(root/'build/hg/HG.LST').read_text(),re.M))
-source=f'''org $0100
-cli
-ldaa #1
-staa $0381
-ldx #$0300
-ldaa #1
-swi
-db $40
-tsta
-bne failed
-ldaa #2
-staa $0381
-ldx #$0300
-ldaa #2
-swi
-db $40
-tsta
-bne failed
-ldaa #3
-staa $0381
-jsr ${base+symbols['SYNC_TIME']:04x}
-bcs failed
-ldaa #$a5
-staa $0380
-halt: bra halt
-failed:
-ldaa #$ee
-staa $0380
-bra halt
+source=f'''    org $0100
+    cli
+    ldaa #1
+    staa $0381
+    ldx #$0300
+    ldaa #1
+    swi
+    db $40
+    tsta
+    bne failed
+    ldaa #2
+    staa $0381
+    ldx #$0300
+    ldaa #2
+    swi
+    db $40
+    tsta
+    bne failed
+    ldaa #3
+    staa $0381
+    jsr ${base+symbols['SYNC_TIME']:04x}
+    bcs failed
+    ldaa #$a5
+    staa $0380
+halt
+    bra halt
+failed
+    ldaa #$ee
+    staa $0380
+    bra halt
 '''
 program,_=asm.assemble(source,0x100)
 ram[0x100:0x100+len(program)]=program

@@ -1,8 +1,8 @@
 {
-  "date": "2026-10-11",
+  "date": "2026-10-12",
   "image": "sd.img",
   "bytes": 37748736,
-  "sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
+  "sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
   "sector_bytes": 512,
   "controller": "native-sd-lba",
   "boot_partition": "AUTO",
@@ -19,11 +19,11 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "3feb2a020237e9962379a1d69134b00bb44eb062290f7f28a24942428a9a966f",
+      "sha256": "b88650c38811514455037909768e444893e0173b380928c36cb30193bbd312bc",
       "files": {
         "P601.ROM": {
           "bytes": 72192,
-          "sha256": "28bb546565080002253f86740c559b1f63a185b07516786a19447dbcc7d14ebc"
+          "sha256": "960f1ae6a4ca617f00f89274f860f422da853243e3b0597c21082f0f0bf3fef4"
         },
         "LOADER.BIN": {
           "bytes": 406,
@@ -35,7 +35,7 @@
         },
         "P601A.ROM": {
           "bytes": 72192,
-          "sha256": "62ad3548908a45e64b834773cb8b67b407b4b94e932dfad18e2182264a46ab16"
+          "sha256": "91620abb660963002ffdba0697b92fed2205a3075518d74746cd306e24493bad"
         },
         "P601.SET": {
           "bytes": 16,
@@ -696,7 +696,7 @@
     "user_confirmation": {
       "date": "2026-10-10",
       "source": "user reply to hardware verification request",
-      "user_reply": "да, прогнал все демо проги и gd, работает!",
+      "user_reply": "\u0434\u0430, \u043f\u0440\u043e\u0433\u043d\u0430\u043b \u0432\u0441\u0435 \u0434\u0435\u043c\u043e \u043f\u0440\u043e\u0433\u0438 \u0438 gd, \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!",
       "requested_checks": [
         "boot",
         "DIR A:/B:/C:",
@@ -820,7 +820,7 @@
     "user_confirmation": {
       "date": "2026-10-10",
       "source": "user reply to RAMPAGE hardware verification request",
-      "user_reply": "готово, все PASS",
+      "user_reply": "\u0433\u043e\u0442\u043e\u0432\u043e, \u0432\u0441\u0435 PASS",
       "requested_checks": [
         "B:RAMPAGE at 1/2/4/8 MHz",
         "nonzero IRQ counter",
@@ -1071,7 +1071,7 @@
     },
     "physical_user_confirmation": {
       "date": "2026-10-10",
-      "quote": "Обе модели, музыка и управление работают",
+      "quote": "\u041e\u0431\u0435 \u043c\u043e\u0434\u0435\u043b\u0438, \u043c\u0443\u0437\u044b\u043a\u0430 \u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
       "models": [
         "601",
         "601A"
@@ -1120,7 +1120,7 @@
       "physical_autorepeat_verified": true,
       "physical_user_confirmation": {
         "date": "2026-10-11",
-        "quote": "Автоповтор и управление работают",
+        "quote": "\u0410\u0432\u0442\u043e\u043f\u043e\u0432\u0442\u043e\u0440 \u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
         "reported_checks": [
           "keyboard autorepeat",
           "YPLAY controls"
@@ -1133,7 +1133,7 @@
     "test_report": "build/hardware-keyboard-repeat/keyboard-tests.json",
     "physical_user_confirmation": {
       "date": "2026-10-11",
-      "quote": "Автоповтор и управление работают",
+      "quote": "\u0410\u0432\u0442\u043e\u043f\u043e\u0432\u0442\u043e\u0440 \u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
       "reported_checks": [
         "keyboard autorepeat",
         "YPLAY controls"
@@ -1184,7 +1184,7 @@
     },
     "hardware_confirmation": {
       "date": "2026-10-11",
-      "quote": "Обе модели: всё работает",
+      "quote": "\u041e\u0431\u0435 \u043c\u043e\u0434\u0435\u043b\u0438: \u0432\u0441\u0451 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
       "models": [
         "601",
         "601A"
@@ -1211,7 +1211,7 @@
     "available_on_hg": true,
     "hardware_confirmation": {
       "date": "2026-10-11",
-      "quote": "Графика, музыка, SPACE, ESC и повторный запуск работают",
+      "quote": "\u0413\u0440\u0430\u0444\u0438\u043a\u0430, \u043c\u0443\u0437\u044b\u043a\u0430, SPACE, ESC \u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u044b\u0439 \u0437\u0430\u043f\u0443\u0441\u043a \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442",
       "installation": "HG",
       "reported_checks": [
         "simultaneous HAM8 graphics and AY music",
@@ -1314,7 +1314,7 @@
     "hg_sample": "RITM4.VTX",
     "hardware_confirmation": {
       "date": "2026-10-11",
-      "quote": "Обе модели: всё работает",
+      "quote": "\u041e\u0431\u0435 \u043c\u043e\u0434\u0435\u043b\u0438: \u0432\u0441\u0451 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442",
       "models": [
         "601",
         "601A"
@@ -1884,7 +1884,78 @@
         "indicator in final status-line character on the right",
         "indicator clears after operation"
       ],
-      "user_reply": "да, сейчас нормально"
+      "user_reply": "\u0434\u0430, \u0441\u0435\u0439\u0447\u0430\u0441 \u043d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e"
     }
+  },
+  "firmware_sources": {
+    "date": "2026-10-12",
+    "unibios_version": "3.02",
+    "source_directory": "../firmware/bios",
+    "assembler": "UniAS",
+    "source_rewriting": false,
+    "binary_code_includes_without_source": false,
+    "python_required_for_firmware": false,
+    "before_sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
+    "after_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "changed_partitions": [
+      1
+    ],
+    "all_other_image_bytes_preserved": true,
+    "settings_preserved": true,
+    "fpga_update_required": false,
+    "physical_card_updated": true,
+    "hardware_confirmation_pending": false,
+    "tests": [
+      "601/601A, MC6800/HD6303: monitor, IRQ/NMI/SWI",
+      "keyboard, native SD/partitions, RAMMAN, GAMEBIOS",
+      "native Y code, GD after HG, existing SDKTEST and Arkanoid"
+    ],
+    "physical_installation": {
+      "date": "2026-10-12",
+      "installed_on_physical_card": true,
+      "rom_files": {
+        "P601.ROM": "960f1ae6a4ca617f00f89274f860f422da853243e3b0597c21082f0f0bf3fef4",
+        "P601A.ROM": "91620abb660963002ffdba0697b92fed2205a3075518d74746cd306e24493bad"
+      },
+      "backup": "/Storage2/pyldin601-backups/20261012-unibios302/card-before.img",
+      "backup_sha256": "2e69981df0824f8e6edee28965a385ea84f188c7396738de20eb707249551f78",
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "settings_preserved": true,
+      "other_boot_files_preserved": true,
+      "other_partitions_preserved": true,
+      "preserved_partition_numbers": [
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "verified_partition_tables": 13,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+      "fpga_reflashed": false,
+      "report": "build/hardware-unibios302/card-installed.json",
+      "hardware_confirmed": true,
+      "hardware_confirmation_pending": false,
+      "user_board_confirmation": {
+        "date": "2026-10-12",
+        "models": [
+          "601",
+          "601A"
+        ],
+        "boot_confirmed": true,
+        "user_reply": "\u0434\u0430, \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u044e\u0442\u0441\u044f \u043e\u0431\u0430",
+        "additional_checks_explicitly_confirmed": false
+      }
+    },
+    "game_apps_unchanged_from_previous_commit": true
   }
 }

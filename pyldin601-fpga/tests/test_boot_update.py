@@ -22,7 +22,7 @@ class BootUpdateTests(unittest.TestCase):
         a_start = sd.u32(image, 462+8) * 512
         cls.backup[a_start+2048:a_start+2056] = b'USERDATA'
         cls.bios = (project.parent/'native-src/BIOS_A.ROM').read_bytes()
-        from unias_boot import build
+        from unias import build
         cls.loader,_=build('loader')
 
     def test_update_preserves_user_disks_and_classic_rom(self):

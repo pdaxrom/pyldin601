@@ -4,6 +4,7 @@
 #define DIRECT_SD_FIXTURE 1
 #define ROMDISK_MAIN unused_romdisk_main
 #include "test_romdisk_unidos.c"
+#include "../build/partitions/unibios_labels.h"
 #undef ROMDISK_MAIN
 int main(int argc,char **argv){
  if(argc!=4)return 2;
@@ -26,7 +27,7 @@ int main(int argc,char **argv){
   i=1;r[0]=0;r[0x210]=0x3f;r[0x211]=0;
   page=4;ram_group=9;
   uint64_t deadline=virtual_cycles+1000000;
-  do{until(virtual_cycles+1);require(virtual_cycles<deadline,"monitor trap reaches command loop");}while(PC!=0xc1e1);
+  do{until(virtual_cycles+1);require(virtual_cycles<deadline,"monitor trap reaches command loop");}while(PC!=UB_MONITOR0);
   require(SP==0x7000,"monitor discards complete SWI frame without stack leak");
   require(r[0x28]==2&&r[0x29]==0x12,"monitor records correct trapped PC");
   require(r[6]==0xa5&&r[5]==0x5a&&r[7]==0x81&&r[8]==0x23,"monitor retains trapped A/B/X");

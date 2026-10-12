@@ -1,0 +1,337 @@
+{
+  "date": "2026-10-12",
+  "production_assembler": "UniAS",
+  "source_rewriting": false,
+  "python_required_for_firmware": false,
+  "outputs": {
+    "build/partitions/BIOS.ROM": {
+      "bytes": 4096,
+      "sha256": "4c0ddc7f543f893aed9eba6b3c0d8ce327854647aca6bc891af62709f5aa2c4d",
+      "identical_to_previous": false,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/RAMMAN.ROM": {
+      "bytes": 8192,
+      "sha256": "d46526fcfd28946c305b7884afe37d1ee94c35dc7564de51e2cb19800c25230c",
+      "identical_to_previous": false,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/BIOS_A.ROM": {
+      "bytes": 4096,
+      "sha256": "ffc0fabc3a037bffffef38bb6fc5ddec18fb60b31ed1668f7854057ce1155ed1",
+      "identical_to_previous": false,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/SHELL.ROM": {
+      "bytes": 8192,
+      "sha256": "2e9c0114a372d2e6f84e19ba5efc51b039e8a0bdef07473bdf2ae6ea7a4ee095",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/UNIBIOS.ROM": {
+      "bytes": 8192,
+      "sha256": "c5d84e515f256bab3c5570a86d34806cfbb609abc16aa6913c250836d2285608",
+      "identical_to_previous": false,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/PARTS.ROM": {
+      "bytes": 8192,
+      "sha256": "02a5f8b92478c2578c57850abb706e5b05b248678362b1607529517bad2beb9a",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/SD.ROM": {
+      "bytes": 8192,
+      "sha256": "cf81c645cac83af1b866e875d025d8fe26ad600d89d055c004d9e8da598a2cd8",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/partitions/SHELL.CMD": {
+      "bytes": 10001,
+      "sha256": "f1de277d2d8a6cdd19fee02730a975f71eeb24f00c24b5abe0f81b89b5f7b141",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/game/SDKTEST.PGM": {
+      "bytes": 1943,
+      "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/game/ARKANOID.PGM": {
+      "bytes": 6184,
+      "sha256": "36bc8d1b0750d8da4c963ba0e828a70cdebbb1bce9ffb85f1687443a039dfae4",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/audio/YPLAY.PGM": {
+      "bytes": 8915,
+      "sha256": "1e600da27ea7213edf8a62cbf688fac7a8ebd4547e7a39fe1f8f6d38cb0e3057",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/audio/GFXMUSIC.PGM": {
+      "bytes": 11307,
+      "sha256": "77bda81d6adb010cd6996d644519b540aeb30dee0e29b09a0766de7c4c3d9032",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/HAM.PGM": {
+      "bytes": 1070,
+      "sha256": "8997c5d0459e18371e4cda1369ffa761e6550525fd4134fe06c9ea7a0f532aea",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/CLIPSPR.PGM": {
+      "bytes": 1863,
+      "sha256": "3522a56559d91a025a4b95438bf249a420016a4cbb4fb07ddeba8435d5c5766f",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/SPRITES.PGM": {
+      "bytes": 1354,
+      "sha256": "40b61a34ad40b4abcedc6f206c9e84bd1860ff47cb92c4c60160000ffc193583",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/AY.PGM": {
+      "bytes": 424,
+      "sha256": "cbc7b293f138842f15c6cab6cccbd68b56fda323c5654d1b5f9f817034d23c76",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/VIEW.PGM": {
+      "bytes": 3750,
+      "sha256": "ac63e0f95eab545ca0d46d2bc2fc72db9e796bc3ee756974548614e2d08e6dc7",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/HVIEW.PGM": {
+      "bytes": 3355,
+      "sha256": "009226005ef85a7c077f4daac507d8b8f7541ce29597577b61275c7e3fc185bb",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/gfx/GFX.PGM": {
+      "bytes": 553,
+      "sha256": "880bf6b2d351de3b92b45345934cf38845f56b34fc4eb821def67eeef098e77a",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/storage/MOUNT.PGM": {
+      "bytes": 991,
+      "sha256": "30c9b3db16a4613ed161bed5e3cf78457be9661f0e9b72fb9bba7c2612afbad6",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/storage/UMOUNT.PGM": {
+      "bytes": 941,
+      "sha256": "28fc2cef6355b3ff337d1a9e5e75822f410a50de872f1a11f592bd7f38e7b27b",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/storage/FDISK.PGM": {
+      "bytes": 6301,
+      "sha256": "da8ba3b0df7548e64f18532a68ed1cffaadbbb8f3146a5bb13220ba98ced12bd",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/storage/FORMAT.PGM": {
+      "bytes": 1022,
+      "sha256": "351ef75aa3e310ac9596b842d53d34c7fca48803bd5f30de2527cbb74b8ebc61",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/hg/HG.PGM": {
+      "bytes": 2536,
+      "sha256": "1d0a4cb07ca660bbb3e153af2d9191e3bbc76bb7094c58b6eda8ff763b8ba3e6",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/hg/HGTIME.PGM": {
+      "bytes": 1436,
+      "sha256": "0937971cdee8ad7851d7562c0c660d66c25361f766c23330c8a8b8d0a90ea37b",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/memory-test/RAMPAGE.PGM": {
+      "bytes": 1257,
+      "sha256": "cee23086ac64060bab56b9ae53143dfedd694c40a96a00220d75a7d95d26cc60",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/memory-test/RAMALLOC.PGM": {
+      "bytes": 1412,
+      "sha256": "c08136f185c31de6698f0746fe878e13ff5cbefeef1c24de849b89e978ee2e81",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/boot.bin": {
+      "bytes": 8192,
+      "sha256": "b3d9e1d6af638e883dc743d1532670b1ef02f926eb4c5d05caf66b2d60e238fe",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    },
+    "build/loader.bin": {
+      "bytes": 406,
+      "sha256": "429c97efeedcfbc8781c9a1fdfcad51be527831f8402fde831f0252e7d30512f",
+      "identical_to_previous": true,
+      "clean_source_build_identical": true
+    }
+  },
+  "bios_public_addresses": {
+    "BIOS": {
+      "RESET": 61963,
+      "IRQHNDL": 61779,
+      "SWIHNDL": 61833,
+      "INT17": 62655,
+      "INT20": 63878,
+      "INT_37": 65224
+    },
+    "BIOS_A": {
+      "RESET": 61957,
+      "IRQHNDL": 61773,
+      "SWIHNDL": 61827,
+      "INT17": 62651,
+      "INT20": 63757,
+      "INT_37": 65294
+    }
+  },
+  "bootstrap_real_symbols_identical": true,
+  "removed_false_listing_symbols": [
+    "asla",
+    "aslb",
+    "dex",
+    "inx",
+    "lsra",
+    "lsrb",
+    "psha",
+    "pshb",
+    "pula",
+    "pulb",
+    "pulx",
+    "rts",
+    "tab"
+  ],
+  "ready_sd_unchanged": false,
+  "unibios_version": "3.02",
+  "opaque_code_includes": false,
+  "changed_from_prior_build": {
+    "build/partitions/BIOS.ROM": {
+      "before_sha256": "3112f893f935f0a3c4542834402440b0077216877b530d9790964664dbd6f0c4",
+      "after_sha256": "4c0ddc7f543f893aed9eba6b3c0d8ce327854647aca6bc891af62709f5aa2c4d"
+    },
+    "build/partitions/RAMMAN.ROM": {
+      "before_sha256": "bf669443752ca874dbfc56cfd44e8172aff0de69e90a51cf1e737239c9c79ba3",
+      "after_sha256": "d46526fcfd28946c305b7884afe37d1ee94c35dc7564de51e2cb19800c25230c"
+    },
+    "build/partitions/BIOS_A.ROM": {
+      "before_sha256": "d1fb70da1202de22f0d72964737391263beebc367ca4cedd98cba60511aa81c3",
+      "after_sha256": "ffc0fabc3a037bffffef38bb6fc5ddec18fb60b31ed1668f7854057ce1155ed1"
+    },
+    "build/partitions/UNIBIOS.ROM": {
+      "before_sha256": "19b9a05583ddc80904b1a616cc2e312c0916978c8b6f93d3a0c4835edc51171b",
+      "after_sha256": "c5d84e515f256bab3c5570a86d34806cfbb609abc16aa6913c250836d2285608"
+    }
+  },
+  "ready_sd": {
+    "date": "2026-10-12",
+    "unibios_version": "3.02",
+    "source_directory": "../firmware/bios",
+    "assembler": "UniAS",
+    "source_rewriting": false,
+    "binary_code_includes_without_source": false,
+    "python_required_for_firmware": false,
+    "before_sha256": "d4bcd427108298efff343c9d1944f31ba2dc338f7fe53ff8be098e16c6bfbbf8",
+    "after_sha256": "2fc3fe6c8598ee62a5e995ed89fe7a925419625528d486e18f408576a42110a9",
+    "changed_partitions": [
+      1
+    ],
+    "all_other_image_bytes_preserved": true,
+    "settings_preserved": true,
+    "fpga_update_required": false,
+    "physical_card_updated": true,
+    "hardware_confirmation_pending": false,
+    "tests": [
+      "601/601A, MC6800/HD6303: monitor, IRQ/NMI/SWI",
+      "keyboard, native SD/partitions, RAMMAN, GAMEBIOS",
+      "native Y code, GD after HG, existing SDKTEST and Arkanoid"
+    ],
+    "physical_installation": {
+      "date": "2026-10-12",
+      "installed_on_physical_card": true,
+      "rom_files": {
+        "P601.ROM": "960f1ae6a4ca617f00f89274f860f422da853243e3b0597c21082f0f0bf3fef4",
+        "P601A.ROM": "91620abb660963002ffdba0697b92fed2205a3075518d74746cd306e24493bad"
+      },
+      "backup": "/Storage2/pyldin601-backups/20261012-unibios302/card-before.img",
+      "backup_sha256": "2e69981df0824f8e6edee28965a385ea84f188c7396738de20eb707249551f78",
+      "settings_sha256": "f9b168bf36fb1bfd503a214315542f1b8dd148139857d775219f9ede624d0809",
+      "settings_preserved": true,
+      "other_boot_files_preserved": true,
+      "other_partitions_preserved": true,
+      "preserved_partition_numbers": [
+        2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "verified_partition_tables": 13,
+      "verification": "O_DIRECT: changed volumes, preserved partitions, MBR/EBRs",
+      "fpga_reflashed": false,
+      "report": "build/hardware-unibios302/card-installed.json",
+      "hardware_confirmed": true,
+      "hardware_confirmation_pending": false,
+      "user_board_confirmation": {
+        "date": "2026-10-12",
+        "models": [
+          "601",
+          "601A"
+        ],
+        "boot_confirmed": true,
+        "user_reply": "\u0434\u0430, \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u044e\u0442\u0441\u044f \u043e\u0431\u0430",
+        "additional_checks_explicitly_confirmed": false
+      }
+    },
+    "game_apps_unchanged_from_previous_commit": true
+  },
+  "source_font_bytes": 2048,
+  "source_font_sha256": "220f64844e2721898e9270ca1791bc0a71f1ff363e51c868fc9d77926710c944",
+  "source_font_matches_native_FONT_IMG": true,
+  "bootstrap_font_unchanged": true,
+  "clean_build": {
+    "python_available": false,
+    "preexisting_build_files": false,
+    "outputs_checked": 29
+  },
+  "checks": {
+    "production_build_without_python": "PASS",
+    "public_bios_addresses": "PASS",
+    "keyboard_rom_both_models": "PASS",
+    "native_sd_partition_models_and_modes": "PASS",
+    "paged_irq_nmi_swi": "PASS",
+    "monitor_models_and_modes": "PASS",
+    "ram_manager_and_gamebios": "PASS",
+    "native_y_compiler_interpreter_current_b_and_720k_baseline": "PASS",
+    "gd_after_hg_models_and_modes": "PASS",
+    "audio_ym_vtx_lh5_both_models": "PASS",
+    "sram_full_native_and_delayed_hdl_fault_detection": "PASS",
+    "hdl_handoff_warm_reset": "PASS",
+    "ready_image_only_boot_partition_changed": "PASS",
+    "clean_build_29_outputs": "PASS",
+    "existing_game_programs_byte_identical": "PASS",
+    "host_tests_34_firmware_scope": "PASS",
+    "existing_sdk_and_arkanoid_both_models": "PASS"
+  },
+  "game_updates_committed": false
+}

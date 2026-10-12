@@ -6,7 +6,7 @@ import subprocess
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'tools'))
-from build_partitions import assemble
+from unias import assemble
 p=argparse.ArgumentParser()
 p.add_argument('--unias',required=True)
 p.add_argument('--cc',default='cc')

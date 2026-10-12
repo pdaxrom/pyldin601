@@ -7,9 +7,8 @@ import subprocess
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from build_partitions import assemble
+from unias import assemble
 from add_disk_files import install
-from build_game import build as build_game
 
 p = argparse.ArgumentParser()
 p.add_argument('--unias', required=True)
@@ -46,7 +45,7 @@ context ds GB_CONTEXT_BYTES
     end
 ''')
 leak = assemble(a.unias, out, 'GAMELEAK.ASM', 'GAMELEAK.PGM')
-build_game(a.unias)
+subprocess.run(['make', '-s', '-f', 'firmware/Makefile', 'game', 'UNIAS='+a.unias], cwd=ROOT, check=True)
 image, _ = install((ROOT / 'images/sd.img').read_bytes(), {'GAMELEAK.PGM': leak, 'ARKANOID.PGM': (ROOT/'build/game/ARKANOID.PGM').read_bytes(), 'SDKTEST.PGM': (ROOT/'build/game/SDKTEST.PGM').read_bytes()}, replace=True)
 (out / 'sd-test.img').write_bytes(image)
 coef = (ROOT / 'firmware/gfx/PALCOEF.ASM').read_text()

@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'tests/hd6303'
+ROOT = Path(__file__).resolve().parents[2]
+SOURCE = Path(__file__).resolve().parent
 
 
 def nz(value, width):

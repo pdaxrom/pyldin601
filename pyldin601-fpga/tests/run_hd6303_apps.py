@@ -5,70 +5,72 @@ RTL uses minimal SWI console stubs and a periodic level PAL IRQ; expectations
 remain in the application. Real BIOS/UniDOS integration is checked separately.
 """
 import argparse
-import importlib.util
 from pathlib import Path
+import unias_fixture as asm
 import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/hd6303-apps'
-spec = importlib.util.spec_from_file_location('assembler', ROOT / 'tools/asm6800.py')
-asm = importlib.util.module_from_spec(spec);spec.loader.exec_module(asm)
-STUBS = '''org $f000
-irq_handler:
-ldaa #0
-staa $e62b
-rti
-org $f040
-swi_handler:
-tsx
-stx $eff2
-ldx 5,x
-ldaa 0,x
-staa $eff1
-ldx $eff2
-inc 6,x
-bne advanced
-inc 5,x
-advanced:
-ldaa $eff1
-cmpa #$23
-beq print_string
-cmpa #$22
-beq print_char
-cmpa #$38
-beq terminate
-ldaa #$ee
-staa $efff
-bra returned
-print_string:
-ldx $eff2
-ldx 3,x
-next_char:
-ldaa 0,x
-beq returned
-staa $eff0
-inx
-bra next_char
-print_char:
-ldx $eff2
-ldaa 2,x
-staa $eff0
-bra returned
-terminate:
-ldaa #$aa
-staa $efff
-returned:
-rti
-org $ff00
-lds #$bfff
-cli
-jmp $0100
-org $fff8
-dw irq_handler
-dw swi_handler
-dw irq_handler
-dw $ff00
+STUBS = '''    org 0
+    ds $f000-*,$ff
+    org $f000
+irq_handler
+    ldaa #0
+    staa $e62b
+    rti
+    org $f040
+swi_handler
+    tsx
+    stx $eff2
+    ldx 5,x
+    ldaa 0,x
+    staa $eff1
+    ldx $eff2
+    inc 6,x
+    bne advanced
+    inc 5,x
+advanced
+    ldaa $eff1
+    cmpa #$23
+    beq print_string
+    cmpa #$22
+    beq print_char
+    cmpa #$38
+    beq terminate
+    ldaa #$ee
+    staa $efff
+    bra returned
+print_string
+    ldx $eff2
+    ldx 3,x
+next_char
+    ldaa 0,x
+    beq returned
+    staa $eff0
+    inx
+    bra next_char
+print_char
+    ldx $eff2
+    ldaa 2,x
+    staa $eff0
+    bra returned
+terminate
+    ldaa #$aa
+    staa $efff
+returned
+    rti
+    ds $ff00-*,$ff
+    org $ff00
+    lds #$bfff
+    cli
+    jmp $0100
+    ds $fff8-*,$ff
+    org $fff8
+    dw irq_handler
+    dw swi_handler
+    dw irq_handler
+    dw $ff00
 '''
 
 

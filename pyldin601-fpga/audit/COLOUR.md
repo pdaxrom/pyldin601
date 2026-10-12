@@ -65,7 +65,7 @@ Burst начинается через 5,625 мкс, длится 2,25 мкс; р
 Первичные справочники: [AD723](https://www.analog.com/media/en/technical-documentation/data-sheets/ad723.pdf),
 [ITU-R BT.1700](https://www.itu.int/rec/R-REC-BT.1700).
 
-`tools/make_pal.py` создаёт `rtl/pal_waveform.mem`, 1024×6 бит, один EBR:
+C-инструмент `firmware-data` создаёт `rtl/pal_waveform.mem`, 1024×6 бит, один EBR:
 32 середины фазовых интервалов на цвет; второй банк — burst. Отражение
 индекса `15-phase` меняет знак V, сохраняя U, без удвоения таблицы.
 ROM и выходной регистр дают одинаковые две стадии задержки для всех

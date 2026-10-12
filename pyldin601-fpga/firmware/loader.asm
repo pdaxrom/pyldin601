@@ -1,74 +1,74 @@
 ; Stage two runs in ordinary RAM. It fills physical ROM through a boot-only port,
 ; verifies CRC32, clears cold RAM, hands off through the resident BIOS RAM trampoline.
-OPEN equ $f003
-GET equ $f006
-FAIL equ $f009
-STATUS equ $f00f
-PROGRESS equ $f012
-SIZE equ $100
-ADDR equ $e6a4
-STORE equ $e6a7
-MEMSTATUS equ $e6a8
-CRCFEED equ $e6a9
-CRCRESET equ $e6aa
-CRC equ $e6ac
-COMMIT equ $e6a0
-CONFIG equ $e6a3
-PTR equ $80
-LEFT equ $82
-BLOCKS equ $84
-TMP equ $85
+B_OPEN equ $f003
+B_GET equ $f006
+B_FAIL equ $f009
+B_STATUS equ $f00f
+B_PROGRESS equ $f012
+B_SIZE equ $100
+B_ADDR equ $e6a4
+B_STORE equ $e6a7
+B_MEMSTATUS equ $e6a8
+B_CRCFEED equ $e6a9
+B_CRCRESET equ $e6aa
+B_CRC equ $e6ac
+B_COMMIT equ $e6a0
+B_CONFIG equ $e6a3
+B_PTR equ $80
+B_LEFT equ $82
+B_BLOCKS equ $84
+B_TMP equ $85
     org $2000
     sei
     ldaa #4
-    jsr STATUS
+    jsr B_STATUS
     ldx #rom_name
-    ldaa COMMIT
+    ldaa B_COMMIT
     bita #1
     beq selected_rom
     ldx #rom_a_name
-selected_rom:
-    jsr OPEN
-    ldaa SIZE
+selected_rom
+    jsr B_OPEN
+    ldaa B_SIZE
     bne bad_size
-    ldaa SIZE+1
+    ldaa B_SIZE+1
     cmpa #$1a
     bne bad_size
-    ldaa SIZE+2
+    ldaa B_SIZE+2
     cmpa #1
     bne bad_size
-    ldaa SIZE+3
+    ldaa B_SIZE+3
     bne bad_size
     bra size_ok
-bad_size:
-    jmp FAIL
-size_ok:
+bad_size
+    jmp B_FAIL
+size_ok
     ldaa #5
-    jsr STATUS
+    jsr B_STATUS
     ldaa #1
-    staa CRCRESET
+    staa B_CRCRESET
     ldx #$1000
-    stx PTR
+    stx B_PTR
     ldx #512
-    stx LEFT
-read_header:
-    jsr GET
-    ldx PTR
+    stx B_LEFT
+read_header
+    jsr B_GET
+    ldx B_PTR
     staa 0,x
-    ldaa LEFT
+    ldaa B_LEFT
     bne header_crc_byte
-    ldaa LEFT+1
+    ldaa B_LEFT+1
     cmpa #5
     bcs no_header_crc
-header_crc_byte:
+header_crc_byte
     ldaa 0,x
-    staa CRCFEED
-no_header_crc:
+    staa B_CRCFEED
+no_header_crc
     inx
-    stx PTR
-    ldx LEFT
+    stx B_PTR
+    ldx B_LEFT
     dex
-    stx LEFT
+    stx B_LEFT
     bne read_header
     ldx #$1000
     ldaa 0,x
@@ -83,127 +83,130 @@ no_header_crc:
     ldaa 3,x
     cmpa #'1'
     bne bad
-    ldaa CRC
+    ldaa B_CRC
     cmpa $11fc
     bne bad
-    ldaa CRC+1
+    ldaa B_CRC+1
     cmpa $11fd
     bne bad
-    ldaa CRC+2
+    ldaa B_CRC+2
     cmpa $11fe
     bne bad
-    ldaa CRC+3
+    ldaa B_CRC+3
     cmpa $11ff
     bne bad
     jmp header_ok
-bad:
-    jmp FAIL
-header_ok:
-    ldaa COMMIT
+bad
+    jmp B_FAIL
+header_ok
+    ldaa B_COMMIT
     anda #1
     cmpa $1019
-    lbne FAIL
+    beq long_branch_1
+    jmp B_FAIL
+long_branch_1
     ; Provide only the compact ROM header; runtime firmware scans MBR/EBR.
     ldx #$1000
     clrb
-config_copy:
+config_copy
     ldaa 0,x
-    staa CONFIG
+    staa B_CONFIG
     inx
     incb
     cmpb #64
     bne config_copy
-    clr ADDR
-    clr ADDR+1
+    clr B_ADDR
+    clr B_ADDR+1
     ldaa #1
-    staa ADDR+2
-    staa CRCRESET
+    staa B_ADDR+2
+    staa B_CRCRESET
     ldaa #1
-    staa BLOCKS
+    staa B_BLOCKS
     ldaa #6
-    jsr STATUS
-payload_block:
+    jsr B_STATUS
+payload_block
     ldaa #2
-    suba BLOCKS
+    suba B_BLOCKS
     ldab #1
-    jsr PROGRESS
-    clr LEFT
-    clr LEFT+1
-payload_byte:
-    jsr GET
-    staa STORE
+    jsr B_PROGRESS
+    clr B_LEFT
+    clr B_LEFT+1
+payload_byte
+    jsr B_GET
+    staa B_STORE
     jsr mem_wait
-    staa CRCFEED
-    ldx LEFT
+    staa B_CRCFEED
+    ldx B_LEFT
     dex
-    stx LEFT
+    stx B_LEFT
     bne payload_byte
-    dec BLOCKS
+    dec B_BLOCKS
     bne payload_block
     ldaa #7
-    jsr STATUS
+    jsr B_STATUS
     ldx #$1800
-    stx LEFT
-payload_tail:
-    jsr GET
-    staa STORE
+    stx B_LEFT
+payload_tail
+    jsr B_GET
+    staa B_STORE
     jsr mem_wait
-    staa CRCFEED
-    ldx LEFT
+    staa B_CRCFEED
+    ldx B_LEFT
     dex
-    stx LEFT
+    stx B_LEFT
     bne payload_tail
     ldaa #8
-    jsr STATUS
-    ldaa CRC
+    jsr B_STATUS
+    ldaa B_CRC
     cmpa $1014
     bne bad_payload
-    ldaa CRC+1
+    ldaa B_CRC+1
     cmpa $1015
     bne bad_payload
-    ldaa CRC+2
+    ldaa B_CRC+2
     cmpa $1016
     bne bad_payload
-    ldaa CRC+3
+    ldaa B_CRC+3
     cmpa $1017
     bne bad_payload
     ; Resident handoff clears $0000-$2FFF after leaving this loader.
     ; Do not erase the executing loader, stack, header or zero-page variables.
     ldaa #9
-    jsr STATUS
-    clr ADDR
+    jsr B_STATUS
+    clr B_ADDR
     ldaa #$30
-    staa ADDR+1
-    clr ADDR+2
+    staa B_ADDR+1
+    clr B_ADDR+2
     ldx #$d000
-    stx LEFT
+    stx B_LEFT
     jsr clear_region
     ; Resident BIOS installs a RAM trampoline and clears the loader/stack itself.
     jmp $f00c
-bad_payload:
-    jmp FAIL
-clear_region:
+bad_payload
+    jmp B_FAIL
+clear_region
     clra
-clear_byte:
-    staa STORE
+clear_byte
+    staa B_STORE
     jsr mem_wait
-    ldx LEFT
+    ldx B_LEFT
     dex
-    stx LEFT
+    stx B_LEFT
     bne clear_byte
     rts
-mem_wait:
+mem_wait
     psha
-mem_poll:
-    ldaa MEMSTATUS
+mem_poll
+    ldaa B_MEMSTATUS
     bmi mem_failed
     bita #1
     bne mem_poll
     pula
     rts
-mem_failed:
-    jmp FAIL
-rom_name:
+mem_failed
+    jmp B_FAIL
+rom_name
     db "P601    ROM"
-rom_a_name:
+rom_a_name
     db "P601A   ROM"
+    end

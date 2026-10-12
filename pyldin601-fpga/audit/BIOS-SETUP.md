@@ -10,7 +10,7 @@ BIOS занимает 8 КиБ EBR: прежнее окно F000–FFFF сохр
 доступно только до lock; после передачи управления D000 снова отображается
 по классической карте RAM/ROM. E000–EFFF, включая I/O E600–E6FF и RAM-трамплин
 handoff E000, не перекрываются. Исходники — `firmware/boot.asm` и
-`firmware/setup.asm`; `tools/make_boot.py` собирает оба окна в `build/boot.bin`
+`firmware/setup.asm`; `firmware/Makefile` передаёт исходники UniAS и собирает оба окна в `build/boot.bin`
 и `build/boot.mem`, сначала F000, затем D000.
 
 ## Запуск и меню

@@ -121,7 +121,7 @@ def rom_files(native):
 
 def bundle(files, drives, boot, model=0, legacy=False):
     if not legacy:
-        from build_partitions import ROOT
+        from unias import ROOT
         bank=bytearray(files["ROM0.BIN"])
         bank[:8192]=(ROOT/"build/partitions/UNIBIOS.ROM").read_bytes()
         for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(6,"RAMMAN.ROM"),(7,"SHELL.ROM")]:
@@ -237,7 +237,7 @@ def build(native, disks, boot=0, allow_large=False, bios_a=None, default_extensi
         if len(data) != 4096:
             raise ValueError('601A BIOS must be exactly 4096 bytes')
         files['P601A.ROM'] = bundle({**classic_files, 'BIOS.BIN': data}, drives, boot, 1,legacy=legacy)
-    from unias_boot import build as build_boot
+    from unias import build as build_boot
     loader,_ = build_boot('loader')
     files['LOADER.BIN'] = loader
     config = dict(version=1, controller='native-sd-lba' if not legacy else 'legacy-fixture',

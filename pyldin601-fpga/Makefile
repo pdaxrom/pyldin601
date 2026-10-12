@@ -6,6 +6,7 @@ CC ?= cc
 NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
 UNIAS ?= unias
+export UNIAS
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
@@ -97,7 +98,7 @@ test: test-keyboard-rom test-hd6303 test-python test-rtl test-ram-pages test-ram
 .PHONY: game-apps test-gamebios test-gamebios-rtl test-game-perf
 GAME_PERF_ARGS ?= --frames 3
 game-apps: | $(BUILD)
-	$(PYTHON) tools/build_game.py --unias "$(UNIAS)"
+	$(MAKE) -f firmware/Makefile game UNIAS="$(UNIAS)" CC="$(CC)"
 test-gamebios: fixtures
 	$(PYTHON) tests/run_gamebios.py --unias "$(UNIAS)" --cc "$(CC)"
 test-gamebios-rtl: fixtures
@@ -107,7 +108,7 @@ test-game-perf: fixtures game-apps
 .PHONY: test-ram-pages-ycode
 .PHONY: memory-test test-memory-app
 memory-test: | $(BUILD)
-	$(PYTHON) tools/build_memory_test.py --unias $(UNIAS)
+	$(MAKE) -f firmware/Makefile memory UNIAS="$(UNIAS)" CC="$(CC)"
 test-memory-app: fixtures memory-test
 	$(PYTHON) tests/run_memory_app.py --cc "$(CC)"
 .PHONY: test-ram-manager
@@ -126,17 +127,10 @@ test-ram-pages-bios: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_ram_pages_monitor.c -o $(BUILD)/test_ram_pages_monitor
 	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_ram_pages_monitor $(BUILD)/test-sd.img $$model $$cpu; done; done
 firmware: | $(BUILD)
-	$(PYTHON) tools/build_partitions.py --unias $(UNIAS)
-	$(PYTHON) tools/build_storage.py --unias $(UNIAS)
-	$(PYTHON) tools/make_ps2.py --source firmware/ps2_set2.csv --output rtl/ps2_set2.mem
-	$(PYTHON) tools/make_font.py --source $(NATIVE)/Bios/video.roz --output rtl/font_boot.mem
-	$(PYTHON) tools/make_pal.py --output rtl/pal_waveform.mem
-	$(PYTHON) tools/make_psg.py --output rtl/ay8910.mem
-	UNIAS="$(UNIAS)" $(PYTHON) tools/make_boot.py
-	UNIAS="$(UNIAS)" $(PYTHON) -c "import sys;sys.path.insert(0,'tools');from unias_boot import build;from pathlib import Path;Path('build/loader.bin').write_bytes(build('loader')[0])"
+	$(MAKE) -f firmware/Makefile firmware UNIAS="$(UNIAS)" CC="$(CC)"
 $(BUILD):
 	mkdir -p $(BUILD)
-test-python: firmware game-apps
+test-python: firmware game-apps romdisk-extract
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
 test-rtl: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_video_reference.c -o $(BUILD)/prepare_video_reference
@@ -156,7 +150,8 @@ test-cpu: | $(BUILD)
 	$(BUILD)/cpu_reference $(BUILD)/cpu.bin $(BUILD)/cpu.expected.mem
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_cpu.vhd -e tb_cpu -r tb_cpu
 fixtures: firmware
-	$(PYTHON) tools/build_extension.py --unias $(UNIAS)
+	$(MAKE) -f firmware/Makefile extension UNIAS="$(UNIAS)" CC="$(CC)"
+	cp ../native-src/BIOS_A.ROM $(BUILD)/partitions/BIOS_A-BASE.ROM
 	$(PYTHON) tests/prepare_images.py $(NATIVE) $(BUILD)
 .PHONY: test-partitions test-raw-sd test-extension-services test-runtime-session romdisk-extract
 test-direct-sd: test-raw-sd test-partitions
@@ -229,7 +224,7 @@ test-stage1-a: test-mixed-clock fixtures
 	@$(PYTHON) -c "from pathlib import Path; assert 'MILESTONE actual HDL CPU loaded LOADER.BIN over SD SPI' in Path('build/stage1-a.log').read_text()"
 
 sram-diagnostic: | $(BUILD)
-	$(PYTHON) tools/asm6800.py firmware/sram_test.asm --origin 0xf000 --size 4096 --output $(BUILD)/sram-test.bin --mem $(BUILD)/sram-test.mem
+	$(MAKE) -f firmware/Makefile sram UNIAS="$(UNIAS)" CC="$(CC)"
 test-sram-diagnostic: test-mixed-clock sram-diagnostic
 	$(CC) -O2 -I$(EMUSRC) tests/test_sram_diagnostic.c -o $(BUILD)/test_sram_diagnostic
 	$(BUILD)/test_sram_diagnostic
@@ -259,7 +254,7 @@ test-hd6303: test-cpu test-hd6303-edges
 
 .PHONY: hd6303-apps test-hd6303-apps hd6303-test-image
 hd6303-apps: | $(BUILD)
-	$(PYTHON) tools/build_hd6303_tests.py --unias "$(UNIAS)" --output $(BUILD)/hd6303-apps
+	$(PYTHON) tests/hd6303/build_tests.py --unias "$(UNIAS)" --output $(BUILD)/hd6303-apps
 test-hd6303-apps: hd6303-apps
 	$(CC) -O2 -I$(EMUSRC) tests/test_hd6303_apps.c -o $(BUILD)/test_hd6303_apps
 	$(PYTHON) tests/run_hd6303_apps.py --nvc "$(NVC)"
@@ -302,7 +297,7 @@ hg-host:
 test-hg-host:
 	$(MAKE) -C host/hg test
 hg-apps: | $(BUILD)
-	$(PYTHON) tools/build_hg.py --unias "$(UNIAS)"
+	$(MAKE) -f firmware/Makefile hg UNIAS="$(UNIAS)" CC="$(CC)"
 test-hg: fixtures hg-apps test-hg-host
 	$(PYTHON) tests/test_hg_host.py
 	$(IVERILOG) -g2012 -s tb_hg -o $(BUILD)/tb_hg $(RTL) tests/tb_hg.v
@@ -330,7 +325,7 @@ test-view: gfx-apps fixtures
 	$(IVERILOG) -g2012 -s tb_pal_palette -o $(BUILD)/tb_pal_palette rtl/classic_pal_encoder.v tests/tb_pal_palette.v
 	$(VVP) $(BUILD)/tb_pal_palette
 gfx-apps: | $(BUILD)
-	$(PYTHON) tools/build_gfx.py --unias "$(UNIAS)"
+	$(MAKE) -f firmware/Makefile gfx UNIAS="$(UNIAS)" CC="$(CC)"
 test-gfx: firmware
 	$(IVERILOG) -g2012 -s tb_gfx -o $(BUILD)/tb_gfx $(RTL) tests/fast_clock.v tests/pal_viewport_reference.v tests/tb_gfx.v
 	$(VVP) $(BUILD)/tb_gfx
@@ -371,7 +366,7 @@ test-clip-sprites: gfx-apps fixtures
 .PHONY: test-ay test-ay-app
 .PHONY: audio-apps test-audio-app test-audio-irq test-gfxmusic test-gfxmusic-rtl
 audio-apps: | $(BUILD)
-	$(PYTHON) tools/build_audio.py --unias "$(UNIAS)"
+	$(MAKE) -f firmware/Makefile audio UNIAS="$(UNIAS)" CC="$(CC)"
 test-audio-app: audio-apps fixtures
 	$(PYTHON) tests/prepare_audio.py
 	$(PYTHON) tests/run_audio_app.py --cc "$(CC)"
@@ -413,8 +408,7 @@ test-hview-app: gfx-apps
 test-storage-software: fixtures hg-apps romdisk-extract
 	$(PYTHON) tests/run_storage_gd.py --cc "$(CC)"
 storage-apps: | $(BUILD)
-	$(PYTHON) tools/build_partitions.py --unias $(UNIAS)
-	$(PYTHON) tools/build_storage.py --unias $(UNIAS)
+	$(MAKE) -f firmware/Makefile roms storage UNIAS="$(UNIAS)" CC="$(CC)"
 test-partitions: fixtures
 	$(PYTHON) tests/prepare_partitions.py
 	$(CC) -O2 -I$(EMUSRC) tests/test_partitions.c -o $(BUILD)/test_partitions

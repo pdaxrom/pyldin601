@@ -4,7 +4,7 @@ module sram_diagnostic_fixture(
  output cpu_clk,cpu_reset,cpu_hold,cpu_irq,output[7:0]cpu_in
 );
  reg clk=0;always #21 clk=~clk;
- wire clk_fast;test_fast_clock fast_clock(clk_fast); // 24 MHz rounded to the simulator's ns time unit
+ wire clk_fast;test_fast_clock_physical fast_clock(clk_fast); // Physical SRAM clock: about 96 MHz.
  wire[19:0]sa;wire[15:0]sd;wire ce,oe,we,ub,lb;
  classic_system #(.BOOT_FILE("build/sram-smoke.mem")) dut(
   .clk(clk),.clk_fast(clk_fast),.pll_locked(1'b1),.btn_resetn(1'b1),.cpu_rw(cpu_rw),.cpu_vma(cpu_vma),
@@ -17,11 +17,11 @@ module sram_diagnostic_fixture(
  // small avoids NVC's expensive sensitivity list for a million-word model.
  reg[15:0]memory[0:8191];
  wire[19:0]pin_address;wire pin_ce,pin_oe,pin_we,pin_lb,pin_ub;wire[15:0]pin_data;
- assign #15 pin_address=sa;assign #15 pin_ce=ce;assign #15 pin_oe=oe;
- assign #3 pin_we=we;assign #15 pin_lb=lb;assign #15 pin_ub=ub;assign #15 pin_data=sd;
- // NVC currently accepts one continuous-assignment delay; use 20 ns for
- // release as well, conservatively slower than the 8 ns Icarus model.
- assign #20 sd=!pin_ce&&!pin_oe&&pin_we?memory[pin_address]:16'bz;
+ // Match the board timing budget used by the runtime/graphics fixtures:
+ // 10 ns address/control propagation plus 18 ns SRAM and return-path delay.
+ assign #10 pin_address=sa;assign #10 pin_ce=ce;assign #10 pin_oe=oe;
+ assign #6 pin_we=we;assign #10 pin_lb=lb;assign #10 pin_ub=ub;assign #15 pin_data=sd;
+ assign #18 sd=!pin_ce&&!pin_oe&&pin_we?memory[pin_address]:16'bz;
  always @(posedge pin_we)if(!pin_ce)begin
   if(!pin_lb)memory[pin_address][7:0]=pin_data[7:0];
   if(!pin_ub)memory[pin_address][15:8]=pin_data[15:8];

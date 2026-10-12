@@ -75,7 +75,7 @@ def main():
     bios = args.bios_a.read_bytes()
     if len(bios) != 4096 or bios[0xff7] != 0x80:
         raise ValueError('expected original 4096-byte 601A BIOS, hardware version 80')
-    from unias_boot import build
+    from unias import build
     loader,_ = build('loader')
     from migrate_sd import boot_files,file_sha
     from sd_partitions import scan

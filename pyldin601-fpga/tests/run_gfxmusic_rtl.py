@@ -14,7 +14,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from build_partitions import assemble
+from unias import assemble
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--unias', required=True)

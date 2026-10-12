@@ -70,20 +70,20 @@ int main(int argc,char **argv){
     if(argc!=5)return 2;
     model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");
     MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
-    size_t n;
+    size_t rom_size;
 #ifdef LEGACY_FIXTURE
-    unsigned char *rom=load("build/legacy-rom.reference",&n);
+    unsigned char *rom=load("build/legacy-rom.reference",&rom_size);
 #else
-    unsigned char *rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
+    unsigned char *rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&rom_size);
 #endif
-    require(n==ROM_BYTES+512,"native ROM bundle length");
+    require(rom_size==ROM_BYTES+512,"native ROM bundle length");
     memcpy(config,rom,HEADER_BYTES);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
     image=load(argv[1],&image_size);
 #ifdef LEGACY_FIXTURE
     if(model_a){
-        rom=load("build/partitions/BIOS_A-BASE.ROM",&n);
-        require(n==4096,"original BIOS_A length");
-        memcpy(physical+ROM_BIOS,rom,n);free(rom);
+        rom=load("build/partitions/BIOS_A-BASE.ROM",&rom_size);
+        require(rom_size==4096,"original BIOS_A length");
+        memcpy(physical+ROM_BIOS,rom,rom_size);free(rom);
     }
     memcpy(config+64,image+462,32);
     for(unsigned k=0;k<2;k++){
@@ -136,6 +136,7 @@ int main(int argc,char **argv){
 #endif
         require(call(0xa0,handle,255,0x8123)==handle,"Y exit restores caller A");
         inject_group=0;
+        if(B||X!=0x8123||h!=1||i!=1||n||z!=1||v||c!=1)fprintf(stderr,"Y return A=%02x B=%02x X=%04x HINZVC=%u%u%u%u%u%u\n",A,B,X,h,i,n,z,v,c);
         require(B==0&&X==0x8123&&h==1&&i==1&&n==0&&z==1&&v==0&&c==1,"Y exit code and caller X/CCR");
         require(contains("Y PAGE PASS 220"),"Y program completes");
 #ifndef LEGACY_FIXTURE

@@ -5,8 +5,7 @@ import subprocess
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from build_partitions import assemble
-from build_memory_test import build as build_memory
+from unias import assemble
 from add_disk_files import install
 p=argparse.ArgumentParser();p.add_argument('--unias',required=True);p.add_argument('--cc',default='cc');a=p.parse_args()
 out=ROOT/'build/ram-manager';out.mkdir(parents=True,exist_ok=True)
@@ -29,7 +28,7 @@ lease ds 114
     end
 ''')
 leak=assemble(a.unias,out,'RAMLEAK.ASM','RAMLEAK.PGM')
-build_memory(a.unias)
+subprocess.run(['make','-s','-f','firmware/Makefile','memory','UNIAS='+a.unias],cwd=ROOT,check=True)
 image,_=install((ROOT/'images/sd.img').read_bytes(),{'RAMLEAK.PGM':leak,'RAMALLOC.PGM':(ROOT/'build/memory-test/RAMALLOC.PGM').read_bytes()},replace=True)
 (out/'sd-test.img').write_bytes(image)
 runner=out/'test_ram_manager'

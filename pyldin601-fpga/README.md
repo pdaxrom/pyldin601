@@ -13,6 +13,13 @@ FPGA с raw IRQ v2 и оба ROM. [Интерфейс и проверки](audit
 GFX.PGM, VIEW.PGM с PCX-примерами, SPRITES.PGM, HAM.PGM, CLIPSPR.PGM, AY.PGM, YPLAY.PGM с YM-демо и HVIEW.PGM с LENA.IFF на B.
 [Контрольная сумма и инструкция записи](images/README.md).
 
+Исправленные системные BIOS 601/601А и UniDOS находятся в
+[firmware/bios](firmware/bios/README.md). UniBIOS 3.02 собирается целиком
+из UNIBIOS.ASM и FONT.INC, без бинарных фрагментов старого ROM 3.00.
+Все ROM/PGM собирает настоящий
+UniAS из сохранённых ASM/INC через `firmware/Makefile`; Python-патчеры
+и самодельный ассемблер удалены. [Аудит и проверка совпадения](audit/FIRMWARE-SOURCES.md).
+
 ROM **GAMEBIOS, INT E6 ABI 1** добавляет indexed/HAM8, графику и текст
 в framebuffer, очередь AY и нотные эффекты. Старые вызовы UniBIOS,
 штатные режимы и бипер сохраняются. Библиотека HD6303 рисует тайлы и
@@ -163,7 +170,7 @@ MC6800 выявила ошибки CLR/CCR и выбора вектора IRQ/SW
 Caps Lock передаёт штатный код FC. RGB показывает состояния BIOS:
 красный — Caps Lock включён, зелёный — кириллица, синий выключен.
 Исходник таблицы PS/2 — [firmware/ps2_set2.csv](firmware/ps2_set2.csv):
-байт Set 2, индекс PC Set 1 и название клавиши. `tools/make_ps2.py`
+байт Set 2, индекс PC Set 1 и название клавиши. C-инструмент `firmware-data`
 генерирует `rtl/ps2_set2.mem` при `make firmware`; неперечисленные байты
 получают FF. Таблицы перевода включаются в FPGABIOS настоящим UniAS,
 аппаратная EBR для них больше не используется. E0/F0/E1, модификаторы
@@ -194,7 +201,7 @@ audio[1] — левый, вывод 22. Пользователь подтвер�
 
 601A дополнительно поддерживает текст 80 колонок, цветной текст 40 колонок
 с атрибутами/миганием и графику 160×200×16, 320×200×4, 640×200×2.
-Для этой модели используется оригинальный `../native-src/BIOS_A.ROM`.
+Текущий BIOS этой модели собирается из `firmware/bios/BIOS_A.ASM`.
 На плате подтверждены запуск 601A, нормальный текст и работа DIR.
 Выбор модели, формат ROM, EBR и проверки — в [audit/MODELS.md](audit/MODELS.md).
 

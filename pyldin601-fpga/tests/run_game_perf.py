@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from build_partitions import assemble, bios_symbols, data_source
+from unias import assemble, bios_symbols, data_source
 from add_disk_files import install
 
 
