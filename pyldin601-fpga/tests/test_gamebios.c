@@ -13,7 +13,7 @@ static unsigned char gfx[16],pal[8192],saved_pal[8192],ay[16],saved_ay[16];
 static unsigned paladdr,readback,front,enabled,pending,overrun,envelopes,jobs;
 static uint32_t period=960000,period_shadow=960000,divider=0x03000000,divider_shadow=0x03000000;
 static uint64_t audio_last,audio_count,gfx_ready;
-static unsigned fault_busy,fault_audio,fault_divider,gfx_failed;
+static unsigned fault_busy,fault_audio,fault_divider,fault_palette,gfx_failed;
 static unsigned gfx_revision=6;
 static unsigned char raw_bytes[64];
 static unsigned raw_head,raw_count,raw_overflow,keyboard_raw_missing,raw_capture,keyboard_capture_missing;
@@ -36,7 +36,7 @@ static int hg_read_byte(uint16_t a,unsigned char*out){
 
  if(a>=0xe6b0&&a<=0xe6b3){*out=0xff;if(!keyboard_raw_missing)switch(a&3){case 0:*out='R';break;case 1:*out=(raw_count!=0)|((raw_count==64)<<5)|(raw_overflow<<7)|(raw_capture<<6);break;case 2:if(raw_count){*out=raw_bytes[raw_head++&63];raw_count--;}break;case 3:*out=raw_count;}return 1;}
  if(a>=0xe650&&a<=0xe65f){unsigned p=a&15;
-  *out=p==0?gfx[0]|(gfx_failed?16:0)|((fault_busy||virtual_cycles<gfx_ready)?128:0):p==2?front:p==14?(readback?pal[paladdr]:'G'):p==15?gfx_revision:gfx[p];return 1;}
+  *out=p==0?gfx[0]|(gfx_failed?16:0)|((fault_busy||virtual_cycles<gfx_ready)?128:0):p==2?front:p==14?(readback?pal[paladdr]:(fault_palette&&PC>=0xf640&&PC<0xf900?0:'G')):p==15?gfx_revision:gfx[p];return 1;}
  if(a>=0xe610&&a<=0xe61f){*out=ay[a&15];return 1;}
  if(a>=0xe690&&a<=0xe69f){unsigned p=a&15;audio_update();*out=0;
   if(p==0)*out=enabled|(pending<<7)|(overrun<<6)|(fault_divider<<5);
@@ -88,9 +88,9 @@ static int hg_write_byte(uint16_t a,unsigned char d){
  }else require(0,"supported command");
  gfx_ready=virtual_cycles+w*height/8+10;return 1;
 }
-static unsigned game_invoke(unsigned a,unsigned b,unsigned x){
+static unsigned service_invoke(unsigned service,unsigned a,unsigned b,unsigned x){
  unsigned pc0=PC,sp0=SP,a0=A,b0=B,x0=X,h0=h,i0=i,n0=n,z0=z,v0=v,c0=c,page0=page;
- r[0x210]=0x3f;r[0x211]=0xe6;r[0x212]=1;PC=0x210;A=a;B=b;X=x;
+ r[0x210]=0x3f;r[0x211]=service;r[0x212]=1;PC=0x210;A=a;B=b;X=x;
  uint64_t deadline=virtual_cycles+15000000;
  do{until(virtual_cycles+1);require(virtual_cycles<deadline,"GAMEBIOS returns");}while(PC!=0x212);
  unsigned result=A;result_b=B;result_x=X;
@@ -98,19 +98,74 @@ static unsigned game_invoke(unsigned a,unsigned b,unsigned x){
  require(h==h0&&i==i0&&n==n0&&z==z0&&v==v0&&c==c0,"GAMEBIOS preserves actual returned CCR");
  PC=pc0;A=a0;B=b0;X=x0;return result;
 }
+static unsigned game_invoke(unsigned a,unsigned b,unsigned x){return service_invoke(0xe6,a,b,x);}
+static unsigned free_banks(void){require(service_invoke(0xe5,0,0,0)==1,"RAMMAN available");return result_b;}
+static void bank_move(unsigned sb,unsigned db,unsigned src,unsigned dst,unsigned bytes,unsigned status){
+ r[0x7b00]=sb;r[0x7b01]=db;word_at(0x7b02,src);word_at(0x7b04,dst);word_at(0x7b06,bytes);
+ unsigned old_group=ram_group;
+ unsigned actual=service_invoke(0xe8,1,0x55,0x7b00);
+ if(actual!=status)fprintf(stderr,"BANKCOPY %u/%u %04x/%04x n%u got%u expected%u\n",sb,db,src,dst,bytes,actual,status);
+ require(actual==status&&result_b==0x55&&result_x==0x7b00&&ram_group==old_group,"BANKCOPY result, B/X/group preserved");
+}
+static void bankcopy_test(void){
+ require(service_invoke(0xe8,0,0,0)==1&&result_b==7&&result_x==8192,"native fixed-ROM copy service discovery");
+ if(!cpu_hd){bank_move(255,255,0x8000,0x9000,1,3);return;}
+ require(service_invoke(0xe5,1,111,0x7a00)==0,"own copy-test banks");
+ for(unsigned k=0;k<8192;k++)r[0x8000+k]=(k*17+k/31+3)&255;
+ unsigned char expected[8192];memcpy(expected,r+0x8000,sizeof expected);
+ bank_move(255,0,0x8000,0,8192,0);require(!memcmp(physical+0x22000,expected,8192),"ordinary RAM to bank");
+ bank_move(0,110,0,0,8192,0);require(!memcmp(physical+0xfe000,expected,8192),"bank to bank across final partial group");
+ memset(r+0x8000,0,8192);bank_move(110,255,0,0x8000,8192,0);require(!memcmp(r+0x8000,expected,8192),"bank to ordinary RAM");
+ memmove(expected+1,expected,8191);bank_move(110,110,0,1,8191,0);require(!memcmp(physical+0xfe000,expected,8192),"backwards bank memmove");
+ memmove(expected,expected+7,8185);bank_move(110,110,7,0,8185,0);require(!memcmp(physical+0xfe000,expected,8192),"forwards bank memmove");
+ bank_move(255,255,0x8000,0x9000,256,0);require(!memcmp(r+0x9000,r+0x8000,256),"ordinary RAM copy");
+ unsigned char bytes[512];memcpy(bytes,r+0x8000,512);memmove(bytes+1,bytes,511);bank_move(255,255,0x8000,0x8001,511,0);require(!memcmp(bytes,r+0x8000,512),"overlapping ordinary RAM copy");
+ bank_move(0,110,31,19,0,0);bank_move(0,110,8191,7,2,1);bank_move(0,110,7,8191,2,1);
+ bank_move(111,110,0,0,1,1);bank_move(0,255,0,0xbdff,2,1);bank_move(255,0,0xfffe,0,4,1);bank_move(0,110,0,0,8193,1);
+ require(!memcmp(physical+0xfe000,expected,8192),"invalid/zero copy writes nothing");
+ require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==111,"copy service allocates no memory");
+}
 static unsigned call(unsigned op,unsigned b,unsigned x,unsigned expected){
  unsigned g=ram_group,old_i=i;unsigned a=game_invoke(op,b,x);
  if(a!=expected){fprintf(stderr,"E6 op%u B%u X%04x: got %u expected %u, state=%04x owner=%04x lock=%u\n",op,b,x,a,expected,state,r[state+4]*256+r[state+5],r[state+3]);require(0,"GAMEBIOS status");}
  require(ram_group==g&&i==old_i,"RAM group and interrupt mask retained");
  if(op!=0&&op!=8&&op!=27)require(result_b==b&&result_x==x,"B and X preserved");return a;
 }
-static void open_context(unsigned flags){word_at(0x5000,8608);r[0x5002]=1;r[0x5003]=flags;call(1,0,0x5000,0);}
+static void open_context(unsigned flags){word_at(0x5000,416);r[0x5002]=2;r[0x5003]=flags;call(1,0,0x5000,0);}
 static void rect(int x,int y,unsigned w,unsigned height,unsigned colour){word_at(0x7400,x);word_at(0x7402,y);word_at(0x7404,w);r[0x7406]=height;r[0x7407]=colour;call(9,0,0x7400,0);}
 static void pixel(int x,int y,unsigned colour){word_at(0x7400,x);word_at(0x7402,y);r[0x7404]=colour;call(7,0,0x7400,0);}
 static void line(int x0,int y0,int x1,int y1,unsigned colour){word_at(0x7400,x0);word_at(0x7402,y0);word_at(0x7404,x1);word_at(0x7406,y1);r[0x7408]=colour;call(10,0,0x7400,0);}
 static void line_oracle(unsigned char*out,int x,int y,int ex,int ey,unsigned c){
  int dx=abs(ex-x),dy=abs(ey-y),sx=x<ex?1:-1,sy=y<ey?1:-1,e=dx-dy;
  for(;;){if(x>=0&&x<320&&y>=0&&y<200)out[y*320+x]=c;if(x==ex&&y==ey)return;int e2=2*e;if(e2> -dy){e-=dy;x+=sx;}if(e2<dx){e+=dx;y+=sy;}}
+}
+static void sprite_edges(void){
+ static const int xs[]={-32768,-320,-17,-16,-1,0,1,303,304,319,320,32767};
+ static const int ys[]={-32768,-200,-11,-10,-1,0,1,189,190,199,200,32767};
+ unsigned char*src=physical+0x130000,*dst=physical+0x120000,*expected=malloc(64000);
+ const unsigned offset=10*320+13,w=17,height=11;
+ for(unsigned k=0;k<64000;k++)src[k]=k%7?(k*17+9)&255:0;
+ word_at(0x7404,offset);word_at(0x7406,w);r[0x7408]=height;
+ r[0x7409]=3;r[0x740a]=2;r[0x740b]=0;
+ for(unsigned a=0;a<sizeof xs/sizeof*xs;a++)for(unsigned b=0;b<sizeof ys/sizeof*ys;b++){
+  memset(dst,37,64000);memset(expected,37,64000);
+  word_at(0x7400,xs[a]);word_at(0x7402,ys[b]);call(12,0,0x7400,0);
+  for(unsigned y=0;y<height;y++)for(unsigned x=0;x<w;x++){
+   int dx=xs[a]+x,dy=ys[b]+y;unsigned colour=src[offset+y*320+x];
+   if(dx>=0&&dx<320&&dy>=0&&dy<200&&colour)expected[dy*320+dx]=colour;
+  }
+  require(!memcmp(dst,expected,64000),"independent keyed-sprite clipping at all edges/extreme coordinates");
+ }
+ word_at(0x7400,0);word_at(0x7402,0);unsigned before=jobs;
+ word_at(0x7404,65535);call(12,0,0x7400,0);
+ word_at(0x7404,offset);word_at(0x7406,0);call(12,0,0x7400,0);
+ word_at(0x7406,321);call(12,0,0x7400,0);
+ word_at(0x7406,w);r[0x7408]=0;call(12,0,0x7400,0);
+ r[0x7408]=201;call(12,0,0x7400,0);
+ require(jobs==before,"invalid sprite dimensions/source execute no hardware command");
+ r[0x7408]=height;r[0x7409]=16;call(12,0,0x7400,1);
+ r[0x7409]=3;r[0x740a]=16;call(12,0,0x7400,1);
+ free(expected);
 }
 static void note(unsigned channel,unsigned n,unsigned ticks,unsigned volume){r[0x7400]=channel;r[0x7401]=n;word_at(0x7402,ticks);r[0x7404]=volume;call(20,0,0x7400,0);}
 static void restored(void){
@@ -132,12 +187,13 @@ static void gfx_test(void){
  const int lines[][4]={{-100,17,500,195},{270,210,11,-20},{5,8,5,8},{40,99,250,99},{63,-100,63,300},{300,30,20,100},{20,100,300,30}};
  for(unsigned k=0;k<sizeof(lines)/sizeof(*lines);k++){line(lines[k][0],lines[k][1],lines[k][2],lines[k][3],60+k);line_oracle(expected,lines[k][0],lines[k][1],lines[k][2],lines[k][3],60+k);}
  require(!memcmp(fb,expected,64000),"clipped pixels, rectangles and all line octants");free(expected);
- // E0 wrappers must return the nested SWI result and preserve the public ABI.
+ // Local blitter operations preserve the public ABI without another ROM.
  r[0x7400]=2;r[0x7401]=0;r[0x7402]=2;r[0x7403]=3;word_at(0x7404,0);word_at(0x7406,640);word_at(0x7408,7);r[0x740a]=2;
- call(11,0,0x7400,0);for(unsigned y=0;y<2;y++)require(!memcmp(physical+0x130000+640+y*320,fb+y*320,7),"COPY wrapper");
+ call(11,0,0x7400,0);for(unsigned y=0;y<2;y++)require(!memcmp(physical+0x130000+640+y*320,fb+y*320,7),"local COPY");
  memset(physical+0x130000,0,64000);physical[0x130000]=81;physical[0x130001]=82;physical[0x130000+320]=83;physical[0x130000+321]=0;
  word_at(0x7400,-1);word_at(0x7402,12);word_at(0x7404,0);word_at(0x7406,2);r[0x7408]=2;r[0x7409]=3;r[0x740a]=2;r[0x740b]=0;
- unsigned untouched=fb[13*320];call(12,0,0x7400,0);require(fb[12*320]==82&&fb[13*320]==untouched,"signed clipped transparent sprite wrapper");
+ unsigned untouched=fb[13*320];call(12,0,0x7400,0);require(fb[12*320]==82&&fb[13*320]==untouched,"local signed clipped transparent sprite");
+ sprite_edges();
  // Old BIOS font is the independent glyph oracle.
  r[0x7400]=3;r[0x7401]=4;r[0x7402]=5;r[0x7403]=3;call(17,0,0x7400,0);
  r[0x7400]=27;r[0x7401]=6;call(16,0,0x7400,0);call(19,0,0,0);call(13,'A',0,0);
@@ -157,8 +213,12 @@ static void gfx_test(void){
  r[0x7400]=3;r[0x7401]=4;call(15,0,0x7400,0);strcpy((char*)r+0x7500,"ABCDE\r\nFG\bH");call(14,0,0x7500,0);
  require(r[state+11]==5&&r[state+12]==6,"wrap, CR/LF and backspace cursor");
  // PAL samples checked against coefficients extracted from original waveform fixture.
- const signed char *coef=(const signed char*)physical; // loaded below from assembled coefficient constants
- size_t sz;unsigned char *coeff=load("build/gamebios/coeff.bin",&sz);require(sz==96,"coefficient fixture");coef=(const signed char*)coeff;
+ signed char coeff[96];unsigned entries=0,value;int ch;
+ FILE*source=fopen("firmware/gfx/PALCOEF.ASM","r");require(source!=NULL,"PAL coefficient source");
+ while((ch=fgetc(source))!=EOF)if(ch=='$'){
+  require(entries<96&&fscanf(source,"%2x",&value)==1,"coefficient data syntax");coeff[entries++]=value;
+ }
+ fclose(source);require(entries==96,"complete independent coefficient table");const signed char*coef=coeff;
  for(unsigned n=0;n<6;n++){
   unsigned rgb[3]={(n*37+3)&255,(n*53+99)&255,(n*71+11)&255};r[0x7400]=n+5;for(unsigned k=0;k<3;k++)r[0x7401+k]=rgb[k];call(6,0,0x7400,0);
   for(unsigned phase=0;phase<32;phase++){int sum=7936;for(unsigned k=0;k<3;k++)sum+=coef[phase*3+k]*rgb[k];require(pal[(n+5)*32+phase]==((sum>>9)&63),"RGB888 PAL sample calculation");}
@@ -166,7 +226,7 @@ static void gfx_test(void){
  call(5,2,0,0);require(front==2,"front page flipped");call(3,7,0,0);
  for(unsigned channel=0;channel<3;channel++)for(unsigned level=0;level<64;level++)for(unsigned phase=0;phase<32;phase++){
   int sum=(channel==1?768:6400)+coef[phase*3+channel]*((level<<2)|(level>>4));require(pal[(channel*64+level)*32+phase]==((sum>>9)&63),"HAM8 component samples");}
- free(coeff);call(7,0,0x7400,8);call(13,'A',0,8);
+ call(7,0,0x7400,8);call(13,'A',0,8);
  word_at(0x7400,0);word_at(0x7402,0);r[0x7404]=0xc1;call(29,0,0x7400,0);require(fb[0]==0xc1,"encoded HAM byte");call(3,1,0,0);
 }
 static void audio_test(void){
@@ -215,17 +275,34 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  memcpy(config,rom,HEADER_BYTES);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);image=load(argv[1],&image_size);committed=1;
  MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();r=MC6800GetCpuRam();
  state=r[0xefcc]*256+r[0xefcd];pcb=r[0xec00]*256+r[0xec01];sp_before=SP;require(state>=0xc000,"GAMEBIOS inactive in ROM without a heap allocation");
- native_step_hook=observe;watch_resets=1;call(0,0,0,1);require(result_b==63&&result_x==8608,"discoverable ABI/features/context size");
+ native_step_hook=observe;watch_resets=1;call(0,0,0,2);require(result_b==63&&result_x==416,"discoverable ABI/features/context size");
+ bankcopy_test();
  if(!cpu_hd){call(1,0,0x5000,3);command("dir c:");printf("PASS GAMEBIOS %s/MC6800 discovery, ISA refusal and native DOS\n",argv[2]);return 0;}
  front=4;for(unsigned k=0;k<8192;k++)pal[k]=saved_pal[k]=(k*17+k/32+5)&63;
  for(unsigned k=0;k<14;k++)ay[k]=saved_ay[k]=(k*5+11)&255;
  old_irq=r[0xefc8]*256+r[0xefc9];old_page=r[0xedf2]>>4;
  call(2,0,0,4);call(31,0,0,1);call(1,0,0xffff,1);
- word_at(0x5000,8608);r[0x5002]=1;r[0x5003]=3;fault_busy=1;call(1,0,0x5000,5);fault_busy=0;fault_audio=1;call(1,0,0x5000,2);fault_audio=0;
- open_context(3);require(!memcmp(r+0x5020,saved_pal,8192),"complete palette backup");call(1,0,0x5000,5);
+ word_at(0x5000,8608);r[0x5002]=1;r[0x5003]=3;call(1,0,0x5000,1);
+ word_at(0x5000,416);r[0x5002]=2;r[0x5003]=3;fault_busy=1;call(1,0,0x5000,5);fault_busy=0;fault_audio=1;call(1,0,0x5000,2);fault_audio=0;
+ require(free_banks()==111,"all banks initially free");
+ fault_palette=1;call(1,0,0x5000,2);fault_palette=0;restored();
+ require(free_banks()==111,"pre-copy failure frees palette bank without modifying unsaved AY");
+ open_context(2);require(free_banks()==111,"audio-only context allocates no palette bank");call(2,0,0,0);restored();
+ r[0x5003]=3;
+ require(service_invoke(0xe5,1,111,0x7a00)==0,"exhaust RAM pool");
+ call(1,0,0x5000,7);require(free_banks()==0&&!enabled&&!gfx[0],"failed OPEN retains hardware and existing allocation");
+ require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==111,"release original full-pool lease");
+ require(service_invoke(0xe5,1,110,0x7a00)==0,"force palette into final partial RAM group");
+ memset(r+0x51a0,0xa5,256);open_context(3);
+ require(r[0x5006]==1&&r[0x5007]==110&&r[0x5008]==1,"palette uses last RAMMAN bank");
+ require(!memcmp(physical+0x22000+r[0x5007]*8192,saved_pal,8192),"complete banked palette backup");
+ for(unsigned k=0;k<256;k++)require(r[0x51a0+k]==0xa5,"compact context stays within 416 bytes");
+ require(free_banks()==0,"video owns exactly one palette bank");call(1,0,0x5000,5);
  word_at(0xec00,pcb+1);call(3,1,0,6);word_at(0xec00,pcb);
  r[state+3]=1;call(3,1,0,5);require(r[state+3]==1,"nested lock retained");r[state+3]=0;
  gfx_test();audio_test();batch_test();call(2,0,0,0);restored();
+ require(free_banks()==1,"CLOSE releases only palette bank");
+ require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==111,"foreign-purpose lease retained through game");
  // A failed raw job must not poison cleanup or the next video owner.
  open_context(3);call(3,1,0,0);
  hg_write_byte(0xe651,0xff);until(virtual_cycles+10);require(gfx_failed,"hardware command error latched");
@@ -236,8 +313,9 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  open_context(3);require(!gfx_failed&&front==4,"OPEN acknowledges prior fault with a read-only command");
  call(3,1,0,0);call(2,0,0,0);restored();
  open_context(3);call(3,1,0,0);call(2,0,0,0);restored();
- // Real PGM deliberately omits CLOSE. Native INT38 must reclaim it.
- command("b:gameleak");restored();require(SP==sp_before,"INT38 cleanup balances stack");
+ // A real PGM closes its own context before returning through native INT38.
+ command("b:gameexit");restored();require(SP==sp_before,"application CLOSE and INT38 balance stack");
+ require(free_banks()==111,"application releases its palette bank");
  command("dir a:");command("dir b:");command("dir c:");require(SP==sp_before&&!resets&&!fdc_port_accesses,"native DOS works after repeated closes");
  printf("PASS GAMEBIOS %s/HD6303: context, palette, clipping/lines/text/scroll/HAM8, AY queue/notes/mixing/pause/rates and restored DOS (%u jobs)\n",argv[2],jobs);return 0;
 }

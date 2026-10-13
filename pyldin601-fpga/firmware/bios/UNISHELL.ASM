@@ -17,11 +17,16 @@ caller_stack equ $8c
     db "UniShell"
     jmp shell_init
     jmp shell_init
+    db $01
+    dw shell_start
     db $e3
     dw shell_copy
     db 0
 shell_init
     rts
+shell_start
+    jsr shell_copy
+    jmp $1000
 shell_copy
     tpa
     psha

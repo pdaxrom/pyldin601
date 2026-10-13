@@ -149,7 +149,8 @@ mount_have_header
     staa 4,x
     ldaa #driver_write
     staa 5,x
-    ldaa #10
+    ldaa $e6f0
+    anda #15
     staa 6,x
     clr 12,x
     clr 13,x
@@ -211,7 +212,8 @@ mount_have_header
     ldaa 26,x
     ldx PT
     staa 26,x
-    ldab #10
+    ldab $e6f0
+    andb #15
     int $5d
     tsta
     bne mount_install_failed

@@ -1,5 +1,5 @@
 ; Documentation example: indexed graphics, native font, timed AY NOTE.
-; Assemble with the real UniAS; GAME_MUSIC is not defined for this example.
+; Assemble with UniAS; GAME_MUSIC is not defined for this example.
     include GAMEBIOS.INC
 start
     ldx #bss_start

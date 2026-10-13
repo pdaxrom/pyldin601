@@ -11,6 +11,7 @@ architecture test of tb_gamebios is
   file f:text open read_mode is path;variable l:line;variable d:bytes(0 to n-1);variable b:std_logic_vector(7 downto 0);
  begin for a in d'range loop readline(f,l);hread(l,b);d(a):=b;end loop;return d;end;
  signal ram:bytes(0 to 65535):=load("build/gamebios/RAM-"&MODEL&".mem",65536);
+ signal banks:bytes(0 to 111*8192-1):=(others=>x"00");
  constant rom:bytes:=load("build/gamebios/ROM-"&MODEL&".mem",71680);
  signal framebuffer:bytes(0 to 63999):=(others=>x"00");
  signal palette:bytes(0 to 8191):=(others=>x"09");
@@ -32,8 +33,12 @@ begin
   a:=to_integer(unsigned(address));p:=to_integer(unsigned(page(2 downto 0)));din<=ram(a);
   if a>=16#f000# then din<=rom(65536+a-16#f000#);
   elsif a>=16#c000# and a<16#e000# and page(3)='1' then din<=rom(p*8192+a-16#c000#);
+  elsif a>=16#c000# and a<16#e000# and p>=1 and p<=6 then
+   k:=group_number*6+p-1;din<=x"ff";if k<111 then din<=banks(k*8192+a-16#c000#);end if;
   elsif a=16#e6f0# then din<=page;
   elsif a=16#e6f1# then din<=std_logic_vector(to_unsigned(group_number,8));
+  elsif a=16#e6f2# then din<=x"52";
+  elsif a=16#e6f3# then din<=x"6f";
   elsif a=16#e6a0# then din<=x"82";if not HD then din<=x"80";end if;
   elsif a=16#e691# then din<=x"59";
   elsif a=16#e690# then din<=x"00";if enabled then din(0)<='1';end if;if pending then din(7)<='1';end if;
@@ -91,6 +96,9 @@ begin
        else gfx_failed<='1';end if;
       end if;
      end if;
+    elsif a>=16#c000# and a<16#e000# and page(3)='0' and unsigned(page(2 downto 0))>=1 and unsigned(page(2 downto 0))<=6 then
+     k:=group_number*6+to_integer(unsigned(page(2 downto 0)))-1;
+     if k<111 then banks(k*8192+a-16#c000#)<=dout;end if;
     else ram(a)<=dout;
     end if;
     if a=16#070f# then

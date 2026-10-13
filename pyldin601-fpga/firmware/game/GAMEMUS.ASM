@@ -1,5 +1,5 @@
 ; Native YM/PSG/VTX/LH5 decoder reused from YPLAY, feeding GAMEBIOS FRAME.
-; No IRQ hook here: GAMEBIOS owns audio and process cleanup.
+; No IRQ hook here: GAMEBIOS owns audio; the application closes its context.
 ; Buffered file reader: bounded by the actual DOS size, not FAT allocation.
 mus_file_byte
     ldd mus_file_left
@@ -25,13 +25,13 @@ mus_refill
     ldx #mus_io_table
     int $4c
     tsta
-    beq ml_yplay_238
+    beq my238
     jmp mus_io_failed_jump
-ml_yplay_238
+my238
     cpx mus_io_table+2
-    beq ml_yplay_240
+    beq my240
     jmp mus_io_failed_jump
-ml_yplay_240
+my240
     stx mus_available
     ldx #mus_input_buffer
     stx mus_input_pointer
@@ -1220,14 +1220,82 @@ mus_compact_clear_next
     rts
 
 ; LHA level-0, -lh0- or -lh5-. Native streaming HD6303 decompression.
-; Canonical Huffman tables (no giant look-up tables), 8-KiB LZ mus_dictionary.
+; Two temporary banks hold the 8-KiB dictionary and Huffman tables.
 ; Original mus_header checksum and CRC16 are checked before accepting the song.
+mus_dictionary equ $c000
+mus_c_lengths equ $c000
+mus_pt_lengths equ $c1fe
+mus_c_tree equ $c211
+mus_pt_tree equ $c677
+ml_claim
+    ldaa #1
+    ldab #2
+    ldx #ml_lease
+    int $e5
+    tsta
+    beq ml_maps
+    jmp mus_finish
+ml_maps
+    clr mus_map_index
+ml_map
+    ldab mus_map_index
+    ldx #ml_lease+3
+    abx
+    ldaa 0,x
+    clrb
+ml_group
+    cmpa #6
+    bcs ml_page
+    suba #6
+    incb
+    bra ml_group
+ml_page
+    inca
+    psha
+    pshb
+    ldab mus_map_index
+    aslb
+    ldx #ml_sel
+    abx
+    pulb
+    stab 0,x
+    pula
+    staa 1,x
+    inc mus_map_index
+    ldaa mus_map_index
+    cmpa #2
+    bcs ml_map
+    rts
+ml_free
+    tst ml_lease+2
+    beq ml_freed
+    ldaa #2
+    ldx #ml_lease
+    int $e5
+ml_freed
+    rts
+ml_dic
+    psha
+    ldaa ml_sel
+    staa mus_group
+    ldaa ml_sel+1
+    staa mus_page
+    pula
+    rts
+ml_tab
+    psha
+    ldaa ml_sel+2
+    staa mus_group
+    ldaa ml_sel+3
+    staa mus_page
+    pula
+    rts
 mus_load_lha
     ldaa mus_header
     cmpa #22
-    bcc ml_lha5_6
+    bcc mh6
     jmp mus_lha_bad
-ml_lha5_6
+mh6
     suba #2
     staa mus_header_count
     ldx #mus_header+4
@@ -1250,30 +1318,30 @@ mus_lha_header_sum
     dec mus_header_count
     bne mus_lha_header_sum
     cmpb mus_header+1
-    beq ml_lha5_29
+    beq mh29
     jmp mus_lha_bad
-ml_lha5_29
+mh29
     ldaa mus_header+4
     cmpa #'h'
-    beq ml_lha5_32
+    beq mh32
     jmp mus_lha_bad
-ml_lha5_32
+mh32
     ldaa mus_header+6
     cmpa #'-'
-    beq ml_lha5_35
+    beq mh35
     jmp mus_lha_bad
-ml_lha5_35
+mh35
     tst mus_header+20
-    beq ml_lha5_37
+    beq mh37
     jmp mus_lha_bad
-ml_lha5_37
+mh37
     ldaa mus_header+5
     cmpa #'0'
     beq mus_lha_method_ok
     cmpa #'5'
-    beq ml_lha5_42
+    beq mh42
     jmp mus_lha_bad
-ml_lha5_42
+mh42
 mus_lha_method_ok
     staa mus_lha_method
     clra
@@ -1282,13 +1350,13 @@ mus_lha_method_ok
     std mus_compare
     ldaa mus_header
     cmpa mus_compare+1
-    bcc ml_lha5_51
+    bcc mh51
     jmp mus_lha_bad
-ml_lha5_51
+mh51
     tst mus_compare
-    beq ml_lha5_53
+    beq mh53
     jmp mus_lha_bad
-ml_lha5_53
+mh53
     ldx #mus_header+22
     ldab mus_header+21
     abx
@@ -1314,29 +1382,29 @@ ml_lha5_53
     std mus_packed_left+2
     ldx mus_packed_left
     cpx mus_file_left
-    bls ml_lha5_79
+    bls mh79
     jmp mus_lha_bad
-ml_lha5_79
+mh79
     blo mus_packed_fits
     ldx mus_packed_left+2
     cpx mus_file_left+2
-    bls ml_lha5_83
+    bls mh83
     jmp mus_lha_bad
-ml_lha5_83
+mh83
 mus_packed_fits
     ldaa mus_lha_method
     cmpa #'5'
     beq mus_lh5_start
     ldx mus_packed_left
     cpx mus_song_size
-    beq ml_lha5_90
+    beq mh90
     jmp mus_lha_bad
-ml_lha5_90
+mh90
     ldx mus_packed_left+2
     cpx mus_song_size+2
-    beq ml_lha5_93
+    beq mh93
     jmp mus_lha_bad
-ml_lha5_93
+mh93
 mus_lh0_next
     jsr mus_packed_byte
     jsr mus_lha_output
@@ -1346,6 +1414,8 @@ mus_lh0_next
 mus_lha_bad
     jmp mus_bad_file
 mus_lh5_start
+    jsr ml_claim
+    jsr ml_dic
     ldx #mus_dictionary
     ldd #8192
     std mus_clear_left
@@ -1359,15 +1429,16 @@ mus_dictionary_clear
     std mus_clear_left
     pula
     bne mus_dictionary_clear
+    jsr ml_tab
 mus_lh5_next
     ldd mus_block_left
     bne mus_lh5_symbol
     ldaa #16
     jsr mus_get_bits
     std mus_block_left
-    bne ml_lha5_122
+    bne mh122
     jmp mus_lha_bad
-ml_lha5_122
+mh122
     ldd #19
     std mus_tree_symbols
     ldaa #5
@@ -1422,6 +1493,7 @@ mus_distance_ready
     anda #31
     std mus_match_position
 mus_match_next
+    jsr ml_dic
     ldd mus_match_position
     addd #mus_dictionary
     std mus_table_pointer
@@ -1438,9 +1510,9 @@ mus_match_next
     bne mus_match_next
 mus_lh5_continue
     jsr mus_output_remaining
-    bne ml_lha5_193
+    bne mh193
     jmp mus_lha_check_crc
-ml_lha5_193
+mh193
     jmp mus_lh5_next
 mus_lha_check_crc
     tst mus_vtx_mode
@@ -1449,9 +1521,9 @@ mus_lha_check_crc
 mus_lha_has_crc
     ldx mus_crc
     cpx mus_expected_crc
-    beq ml_lha5_198
+    beq mh198
     jmp mus_lha_bad
-ml_lha5_198
+mh198
     rts
 mus_output_remaining
     ldd mus_output_left
@@ -1461,6 +1533,7 @@ mus_output_exists
     rts
 mus_dictionary_output
     psha
+    jsr ml_dic
     ldd mus_dictionary_position
     addd #mus_dictionary
     std mus_table_pointer
@@ -1477,6 +1550,8 @@ mus_dictionary_output
     jsr mus_loading_key
 mus_dictionary_key_checked
     pula
+    jsr mus_lha_output
+    jmp ml_tab
 mus_lha_output
     psha
     jsr mus_output_remaining
@@ -1564,15 +1639,15 @@ mus_pt_clear
     std mus_lengths_count
     ldx mus_lengths_count
     cpx mus_tree_symbols
-    bls ml_lha5_313
+    bls mh313
     jmp mus_tree_bad
-ml_lha5_313
+mh313
     ldd #0
     std mus_length_index
     ldd mus_lengths_count
-    bne ml_lha5_317
+    bne mh317
     jmp mus_pt_constant
-ml_lha5_317
+mh317
 mus_pt_next
     ldaa #3
     jsr mus_get_bits
@@ -1585,9 +1660,9 @@ mus_pt_extended
     inc mus_length_value
     ldaa mus_length_value
     cmpa #16
-    bls ml_lha5_330
+    bls mh330
     jmp mus_tree_bad
-ml_lha5_330
+mh330
     bra mus_pt_extended
 mus_pt_length_ready
     ldd #mus_pt_lengths
@@ -1626,9 +1701,9 @@ mus_pt_constant
     std mus_pt_tree+2
     ldx mus_pt_tree+2
     cpx mus_tree_symbols
-    bcs ml_lha5_366
+    bcs mh366
     jmp mus_tree_bad
-ml_lha5_366
+mh366
     ldaa #1
     staa mus_pt_tree
     rts
@@ -1650,15 +1725,15 @@ mus_c_clear
     std mus_lengths_count
     ldx mus_lengths_count
     cpx #510
-    bls ml_lha5_388
+    bls mh388
     jmp mus_tree_bad
-ml_lha5_388
+mh388
     ldd #0
     std mus_length_index
     ldd mus_lengths_count
-    bne ml_lha5_392
+    bne mh392
     jmp mus_c_constant
-ml_lha5_392
+mh392
 mus_c_next
     ldx #mus_pt_tree
     jsr mus_decode_symbol
@@ -1698,9 +1773,9 @@ mus_c_skip_zeroes
 mus_c_continue
     ldx mus_length_index
     cpx mus_lengths_count
-    bls ml_lha5_432
+    bls mh432
     jmp mus_tree_bad
-ml_lha5_432
+mh432
     blo mus_c_next
     ldd #510
     std mus_tree_symbols
@@ -1715,9 +1790,9 @@ mus_c_constant
     std mus_c_tree+2
     ldx mus_c_tree+2
     cpx #510
-    bcs ml_lha5_447
+    bcs mh447
     jmp mus_tree_bad
-ml_lha5_447
+mh447
     ldaa #1
     staa mus_c_tree
     rts
@@ -1742,9 +1817,9 @@ mus_count_length
     ldab 0,x
     beq mus_next_length
     cmpb #16
-    bls ml_lha5_472
+    bls mh472
     jmp mus_tree_bad_jump
-ml_lha5_472
+mh472
     clra
     asld
     addd mus_tree_base
@@ -1802,13 +1877,13 @@ mus_kraft_next
     ldx mus_length_pointer
     ldd mus_canonical_code
     asld
-    bcc ml_lha5_530
+    bcc mh530
     jmp mus_tree_bad_jump
-ml_lha5_530
+mh530
     subd 4,x
-    bcc ml_lha5_532
+    bcc mh532
     jmp mus_tree_bad_jump
-ml_lha5_532
+mh532
     std mus_canonical_code
     inc mus_length_offset
     inc mus_length_offset
@@ -1816,14 +1891,14 @@ ml_lha5_532
     cmpa #34
     bcs mus_kraft_next
     ldd mus_canonical_code
-    beq ml_lha5_540
+    beq mh540
     jmp mus_tree_bad_jump
-ml_lha5_540
+mh540
     ldx mus_canonical_index
     cpx mus_tree_symbols
-    bls ml_lha5_543
+    bls mh543
     jmp mus_tree_bad_jump
-ml_lha5_543
+mh543
     ldd #0
     std mus_symbol_index
 mus_sort_next

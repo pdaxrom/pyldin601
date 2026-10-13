@@ -12,7 +12,8 @@
 | [FIRMWARE.md](FIRMWARE.md) | BIOS из исходников, состав страниц, UniShell compression |
 | [FPGA-BIOS.md](FPGA-BIOS.md) | ROM INT E0/E1/E2/E3 и приватная клавиатурная служба |
 | [RAM-MANAGER.md](RAM-MANAGER.md) | INT E5, банки, cookie/PCB ownership |
-| [GAMEBIOS.md](GAMEBIOS.md) | INT E6 ABI 1, параметры графики/текста/AY, ошибки |
+| [GAMEBIOS.md](GAMEBIOS.md) | INT E6 ABI 2, компактный контекст, графика/текст/AY |
+| [BANKCOPY.md](BANKCOPY.md) | INT E8 постоянного BIOS, копирование RAM/банков/PAL |
 | [PROGRAMMING.md](PROGRAMMING.md) | Рисование/музыка, двойной буфер, полный UniAS пример |
 | [GRAPHICS.md](GRAPHICS.md) | Framebuffer, blitter и PAL-порт |
 | [HAM.md](HAM.md) | HAM8, таблица компонентов, наложение v6 |

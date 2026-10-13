@@ -229,9 +229,47 @@ game_copy
     jsr game_buffer
     bcc *+5
     jmp game_argument
-    ldaa #3
-    int $e0
+    jsr game_wait
+    tsta
+    beq *+3
     rts
+    ldx G_STATE
+    ldx G_PARM,x
+    ldaa 0,x
+    cmpa #1
+    beq game_copy_valid
+    cmpa #2
+    beq game_copy_valid
+    cmpa #6
+    beq game_copy_valid
+    jmp game_argument
+game_copy_valid
+    ldaa 2,x
+    cmpa #15
+    bhi game_copy_bad
+    staa $e654
+    ldaa 3,x
+    cmpa #15
+    bhi game_copy_bad
+    staa $e655
+    ldaa 1,x
+    staa $e653
+    ldd 4,x
+    staa $e657
+    stab $e656
+    ldd 6,x
+    staa $e659
+    stab $e658
+    ldd 8,x
+    staa $e65b
+    stab $e65a
+    ldaa 10,x
+    staa $e65c
+    ldaa 0,x
+    staa $e651
+    jmp game_wait
+game_copy_bad
+    jmp game_argument
 game_sprite
     jsr game_video
     bcc *+5
@@ -240,8 +278,134 @@ game_sprite
     jsr game_buffer
     bcc *+5
     jmp game_argument
-    ldaa #4
-    int $e0
+    jsr game_wait
+    tsta
+    beq *+3
+    rts
+    ldx G_STATE
+    ldx G_PARM,x
+    ldaa 9,x
+    cmpa #15
+    bhi game_copy_bad
+    staa $e654
+    ldaa 10,x
+    cmpa #15
+    bhi game_copy_bad
+    staa $e655
+    ldaa 11,x
+    staa $e653
+    ldd 0,x
+    psha
+    pshb
+    ldd 2,x
+    psha
+    pshb
+    ldd 4,x
+    psha
+    pshb
+    ldd 6,x
+    psha
+    pshb
+    ldaa 8,x
+    ldx G_STATE
+    staa G_H,x
+    pulb
+    pula
+    std G_W,x
+    pulb
+    pula
+    std G_EX,x
+    pulb
+    pula
+    std G_Y,x
+    pulb
+    pula
+    std G_X,x
+    ; Clipping uses only this context's foreground scratch. No other ROM.
+    ldd G_W,x
+    beq game_sprite_empty
+    subd #321
+    bcc game_sprite_empty
+    ldab G_H,x
+    beq game_sprite_empty
+    cmpb #201
+    bcc game_sprite_empty
+    decb
+    jsr game_stride
+    addd G_W,x
+    bcs game_sprite_empty
+    addd G_EX,x
+    bcs game_sprite_empty
+    subd #64001
+    bcs game_sprite_x
+game_sprite_empty
+    clra
+    rts
+game_sprite_x
+    ldd G_X,x
+    bpl game_sprite_right
+    addd G_W,x
+    ble game_sprite_empty
+    std G_W,x
+    ldd G_EX,x
+    subd G_X,x
+    std G_EX,x
+    clr G_X,x
+    clr G_X+1,x
+game_sprite_right
+    ldd #320
+    subd G_X,x
+    ble game_sprite_empty
+    subd G_W,x
+    bcc game_sprite_y
+    ldd #320
+    subd G_X,x
+    std G_W,x
+game_sprite_y
+    ldd G_Y,x
+    bpl game_sprite_bottom
+    clra
+    ldab G_H,x
+    addd G_Y,x
+    ble game_sprite_empty
+    stab G_H,x
+    ldd #0
+    subd G_Y,x
+    jsr game_stride
+    addd G_EX,x
+    std G_EX,x
+    clr G_Y,x
+    clr G_Y+1,x
+game_sprite_bottom
+    ldd #200
+    subd G_Y,x
+    ble game_sprite_empty
+    cmpb G_H,x
+    bcc game_sprite_draw
+    stab G_H,x
+game_sprite_draw
+    jsr game_offset
+    ldd G_SOURCE,x
+    staa $e659
+    stab $e658
+    ldd G_EX,x
+    staa $e657
+    stab $e656
+    ldd G_W,x
+    staa $e65b
+    stab $e65a
+    ldaa G_H,x
+    staa $e65c
+    ldaa #6
+    staa $e651
+    jmp game_wait
+game_stride
+    ldaa #64
+    mul
+    std G_TMP,x
+    asld
+    asld
+    addd G_TMP,x
     rts
 game_line
     jsr game_indexed

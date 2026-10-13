@@ -1,4 +1,4 @@
-; GAMEBIOS ABI1, linked after RAMBANKS in page E. Native BIOS stays intact.
+; GAMEBIOS ABI2, linked after RAMBANKS in page E. Native BIOS stays intact.
     include GAMEBIOS.INC
     include GAMESTATE.INC
 game_initialize
@@ -370,6 +370,14 @@ game_open_flags
     beq *+3
     rts
     ldx G_STATE
+    clra
+    int $e8
+    cmpa #1
+    beq game_open_transfer
+    ldaa #GB_UNAVAILABLE
+    rts
+game_open_transfer
+    ldx G_STATE
 game_open_audio
     ldaa G_FLAGS,x
     bita #GB_AUDIO
@@ -394,6 +402,31 @@ game_open_claim
     ldd $ec00
     bne *+5
     jmp game_argument
+    ldx G_PARM,x
+    clr 4,x
+    clr 5,x
+    clr 6,x
+    clr 8,x
+    ldaa 3,x
+    bita #GB_VIDEO
+    beq game_open_bank_ready
+    ldab #4
+    abx
+    ldaa #1
+    ldab #1
+    int $e5
+    tsta
+    beq game_open_bank_ready
+    cmpa #2
+    bne game_open_bank_missing
+    ldaa #GB_FULL
+    rts
+game_open_bank_missing
+    ldaa #GB_UNAVAILABLE
+    rts
+game_open_bank_ready
+    ldx G_STATE
+    ldd $ec00
     std G_OWNER,x
     ldd G_PARM,x
     std G_CONTEXT,x
@@ -431,6 +464,19 @@ game_open_claim
     ldaa $e652
     staa G_OLDFRONT,x
     jsr game_palette_save
+    tsta
+    beq game_open_claim_audio
+    ; Audio has not been snapshotted/hooked yet. A pre-copy failure must
+    ; release the palette lease without restoring uninitialized AY state.
+    psha
+    ldx G_STATE
+    ldx G_CONTEXT,x
+    ldab #4
+    abx
+    ldaa #2
+    int $e5
+    pula
+    jmp game_close_clear
 game_open_claim_audio
     jsr game_audio
     bcs game_open_done
@@ -494,7 +540,8 @@ game_shadow_clear
 game_open_hook
     sei
     ldaa #$e4
-    ldab #14
+    ldab $e6f0
+    andb #15
     ldx #game_irq
     int $2f
 game_open_done
@@ -577,6 +624,18 @@ game_close_palette
 game_close_mode
     ldaa G_OLDMODE,x
     staa G_GFX
+    ldx G_CONTEXT,x
+    ldab #4
+    abx
+    ldaa #2
+    int $e5
+    ldx G_STATE
+    tsta
+    beq game_close_result
+    tst G_TMP,x
+    bne game_close_result
+    ldaa #GB_HARDWARE
+    staa G_TMP,x
 game_close_result
     ldaa G_TMP,x
 game_close_clear
@@ -589,55 +648,34 @@ game_close_clear
     rts
 game_palette_save
     ldx G_STATE
-    ldd G_CONTEXT,x
-    addd #32
-    std G_SOURCE,x
-    ldd #8192
-    std G_COUNT,x
-    clr $e652
-    clr $e65d
-    ldaa #1
-    staa $e65f
-game_palette_save_loop
+    ldx G_CONTEXT,x
+    ldab 7,x
+    ldaa #2
+    int $e8
+    tsta
+    bne game_pal_failed
     ldx G_STATE
-    ldx G_SOURCE,x
-    ldaa $e65e
-    staa 0,x
-    inx
-    xgdx
-    ldx G_STATE
-    std G_SOURCE,x
-    ldaa #3
-    staa $e65f
-    ldd G_COUNT,x
-    subd #1
-    std G_COUNT,x
-    bne game_palette_save_loop
-    clr $e65f
+    ldx G_CONTEXT,x
+    inc 8,x
+    clra
     rts
 game_palette_restore
     ldx G_STATE
-    ldd G_CONTEXT,x
-    addd #32
-    std G_SOURCE,x
-    ldd #8192
-    std G_COUNT,x
-    clr $e652
-    clr $e65d
-    clr $e65f
-game_palette_restore_loop
+    ldx G_CONTEXT,x
+    tst 8,x
+    beq game_pal_unused
+    ldab 7,x
+    ldaa #3
+    int $e8
+    tsta
+    bne game_pal_failed
+game_pal_unused
+    clra
+    rts
+game_pal_failed
+    ldaa #GB_HARDWARE
     ldx G_STATE
-    ldx G_SOURCE,x
-    ldaa 0,x
-    staa $e65e
-    inx
-    xgdx
-    ldx G_STATE
-    std G_SOURCE,x
-    ldd G_COUNT,x
-    subd #1
-    std G_COUNT,x
-    bne game_palette_restore_loop
+    staa G_TMP,x
     rts
 game_wait
     ldx #0

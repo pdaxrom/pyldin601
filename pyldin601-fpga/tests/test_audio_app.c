@@ -115,6 +115,7 @@ static void observe(void){
  if(!app_base&&vector!=original_irq){
   app_base=vector-YP_IRQ_PLAYER;
   unsigned lease=app_base+YP_MEMORY_LEASE;
+  require(!r[app_base+YP_LH_LEASE+2],"temporary dictionary/Huffman banks released before playback");
   require(unpacked_size<=909312&&r[lease+2]>=(unpacked_size+8191)/8192,"song owns enough banks");
   unsigned seen[111]={0};
   for(unsigned bank=0;bank<r[lease+2];bank++){
@@ -169,6 +170,7 @@ int main(int argc,char **argv){
  MC6800SetMachine(PYLDIN_MACHINE_HD6303);
  size_t n;unsigned char *rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
  require(n==ROM_BYTES+512,"paired ROM fixture");memcpy(config,rom,HEADER_BYTES);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
+ if(getenv("AUDIO_ROM_SWAP")){unsigned char temp[8192];memcpy(temp,physical+0x14000,8192);memcpy(physical+0x14000,physical+0x16000,8192);memcpy(physical+0x16000,temp,8192);}
  image=load(argv[1],&image_size);committed=1;
  oracle=load(argv[4],&oracle_size);
  unpacked=load(argv[10],&unpacked_size);
@@ -177,9 +179,9 @@ int main(int argc,char **argv){
  manager_state=r[0xefca]*256+r[0xefcb];require(manager_state>=0x100&&manager_state+240<=0xbe00,"resident allocator available");
  const char *ram_mode=getenv("AUDIO_RAM");
  if(ram_mode){
-  held_count=!strcmp(ram_mode,"full")?1:3;
+  held_count=strcmp(ram_mode,"fragmented")?1:3;
   for(unsigned k=0;k<held_count;k++){
-   unsigned desc=0x3000+k*128;require(ram_call(1,held_count==1?111:1,desc)==0,"reserve foreign banks");
+   unsigned desc=0x3000+k*128;require(ram_call(1,held_count==1?(!strcmp(ram_mode,"scratch")?110:111):1,desc)==0,"reserve foreign banks");
    held_tokens[k]=r[desc]*256+r[desc+1];
   }
   if(held_count==3){require(ram_call(2,0,0x3080)==0,"make a physical hole");held_tokens[1]=0;

@@ -16,10 +16,10 @@ int main(int argc,char **argv){
  MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();
  unsigned char *monitor=physical+0x10000;
  unsigned entry=0;
- for(unsigned a=0;a<6141;a++)if(monitor[a]==0x30&&monitor[a+1]==0xee&&monitor[a+2]==9){
+ for(unsigned a=0;a<6141;a++)if(monitor[a]==0x30&&monitor[a+1]==0xee&&monitor[a+2]==8){
   require(!entry,"unique monitor frame entry");entry=0xc000+a;
  }
- require(entry!=0,"patched native monitor present");
+ require(entry!=0,"native monitor uses original SWI frame layout");
  unsigned char *r=MC6800GetCpuRam();
  word_at(0xee00,entry);r[0xed80]=(r[0xed80]&15)|0x80;
  for(unsigned run=0;run<32;run++){

@@ -7,13 +7,13 @@ Use the drive letter reported by HG.
 SPACE pauses/resumes music and animation; ESC returns to UniDOS.
 ESC also cancels loading and graphics preparation.
 
-Needs HD6303, paged RAM and the current graphics v5/audio FPGA.
+Needs HD6303, paged RAM and graphics v5 or newer with audio.
 Both models 601/601A need updated ROM with the INT E5 RAM manager.
-The current graphics v5/audio FPGA needs no update.
+The current graphics v6/audio FPGA needs no update.
 8 MHz is recommended for preparation; playback also works at 1 MHz.
-Conventional RAM: about 28 KiB plus DOS buffers.
+Conventional RAM: about 18 KiB plus DOS buffers.
 Music is decoded by the native YPLAY engine into up to 888 KiB.
-Only song-sized banks are allocated; other RAM owners are retained.
+LH5 also uses two temporary banks, released before playback.
 See YPLAYHOW.TXT for original YM/PSG/VTX/LH5 formats and clocks.
 
 Three transparent round sprites move across a procedural HAM8
@@ -27,7 +27,8 @@ This restriction belongs to this demo, not the general COPY command.
 Graphics pages 0/1: double buffer; 2: atlas; 3: static background.
 These occupy 256 KiB and do not overlap the 888-KiB music banks.
 The demo replaces these graphics pages and its allocated music RAM.
-Song banks are released on EOF, ESC, errors and DOS termination.
+The program releases song banks on EOF, ESC and errors before INT38.
+UniShell does not release extension banks on the program's behalf.
 On exit: full PAL palette, INT E4, AY clock/timer and page registers
 are restored; audio is silent and UniDOS text geometry is retained.
-Build GFXMUSIC.ASM with real UniAS and -D GFXMUSIC_DEMO.
+Build GFXMUSIC.ASM with UniAS and -D GFXMUSIC_DEMO.

@@ -28,7 +28,12 @@ def main():
                                 str(case['loop']), str(looping), case['error'] or '-',
                                 str(out / (name + '.raw'))], cwd=ROOT, check=True)
         if not args.case:
-            for name, mode, error in [('LH5BIG.YM', 'fragmented', '-'), ('AYBIG.VTX', 'fragmented', '-'), ('THREE.YM', 'full', 'not enough free')]:
+            case = cases['DEMOH5.YM']
+            subprocess.run([str(runner), str(out / 'sd-test.img'), model, 'demoh5.ym',
+                            str(out / case['oracle']), str(case['rate']), str(case['factor']),
+                            str(case['loop']), '0', '-', str(out / 'DEMOH5.YM.raw')],
+                           cwd=ROOT, check=True, env=dict(os.environ, AUDIO_ROM_SWAP='1'))
+            for name, mode, error in [('LH5BIG.YM', 'fragmented', '-'), ('AYBIG.VTX', 'fragmented', '-'), ('THREE.YM', 'full', 'not enough free'), ('DEMOH5.YM', 'scratch', 'not enough free')]:
                 case = cases[name]
                 subprocess.run([str(runner), str(out / 'sd-test.img'), model, name.lower(),
                                 str(out / case['oracle']), str(case['rate']), str(case['factor']),

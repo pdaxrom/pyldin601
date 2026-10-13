@@ -32,7 +32,7 @@ xo_prepare
     ldx #xo_music_name
     jsr hs_asset_path
     jsr mus_load
-    ; Load-time LH5 storage is reused by GAMEBIOS after OPEN.
+    ; Temporary LH5 banks have been released before GAMEBIOS OPEN.
     ldab #GB_VIDEO+GB_AUDIO
     jsr sdk_open
     tsta
@@ -223,6 +223,14 @@ xo_exit_native
     jsr mus_release
     ldx #xo_done
 xo_message_exit
+    ; OPEN/config/input failures must not rely on UniShell for cleanup.
+    ldaa $e6a0
+    bita #2
+    beq xo_message_print
+    pshx
+    jsr mus_release
+    pulx
+xo_message_print
     jsr hs_unhook
     int $23
     clra
@@ -1101,7 +1109,7 @@ xk_pages db 8,6,7,9,10,11,12,13,14,15
 xl_title db 'LOADING BACKGROUNDS',0
 xl_label db 'IMAGE 00 OF 00',0
 xo_done db 'XONIX: returned to UniDOS.',13,10,0
-xo_need_cpu db 'XONIX needs HD6303 and GAMEBIOS ABI 1.',13,10,0
+xo_need_cpu db 'XONIX needs HD6303 and GAMEBIOS ABI 2.',13,10,0
 xo_need_layer db 'XONIX needs layered HAM8 FPGA (revision 6).',13,10,0
 xo_bad_picture db 'XONIX: background must be readable 320x200 HAM8 ILBM.',13,10,0
 xo_bad_config db 'XONIX: invalid XONIX.CFG (10 paths, max 63 characters).',13,10,0

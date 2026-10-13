@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Install GAMEBIOS and games, or only games, in a regular SD backup.
 
-Only boot ROM files and named B: files change. Preserve settings, other
-files, MBR/EBR and all other partitions. --apps-only also preserves every
-boot-partition byte. Never open a block device.
+Update boot ROM files and named B: files. Preserve settings, disk shells,
+boot-sector code, other files, MBR/EBR and all other partitions.
+--apps-only also preserves every boot-partition byte. Never open a block device.
 """
 import argparse
 import hashlib
@@ -95,19 +95,21 @@ def prepare(image):
     updated = fat12_files(new_b)
     assert all(updated[n] == d for n, d in programs.items())
     assert all(updated[n] == d for n, d in previous.items() if n not in programs)
+    volumes = [(boot, old_boot, new_boot), (drive_b, old_b, new_b)]
     changes = [dict(partition=p.number, start_lba=p.start, sectors=p.sectors,
                     before_sha256=sha(old), after_sha256=sha(new))
-               for p, old, new in ((boot, old_boot, new_boot), (drive_b, old_b, new_b))]
+               for p, old, new in volumes]
     report = dict(changes=changes, settings_sha256=sha(files['P601.SET']),
                   rom_files={n: sha(files[n]) for n in ('P601.ROM', 'P601A.ROM')},
                   files={n: dict(bytes=len(d), sha256=sha(d)) for n, d in programs.items()},
                   other_boot_and_b_files_preserved=True, mbr_ebr_preserved=True,
-                  native_xbios_y_pages_preserved=True, unibios_version='3.02', gamebios_abi=1,
-                  gamebios_context_bytes=8608, gamebios_features=63,
+                  native_boot_sector_preserved=True,
+                  native_xbios_y_pages_preserved=True, unibios_version='3.02', gamebios_abi=2,
+                  gamebios_context_bytes=416, gamebios_features=63,
                   fpga_update_required=True, fpga_min_graphics_revision=6, requires_ps2_capture=True,
                   existing_xonix_config_preserved='XONIX.CFG' in previous,
                   ps2_raw_identity=0x52)
-    return [(boot.start*512, new_boot), (drive_b.start*512, new_b)], report
+    return [(p.start*512, new) for p, _, new in volumes], report
 
 
 def main():

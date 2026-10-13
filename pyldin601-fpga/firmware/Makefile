@@ -1,5 +1,5 @@
 # Run from the project root: make -f firmware/Makefile firmware UNIAS=/path/to/unias
-# Every instruction is assembled from checked-in firmware by the real UniAS.
+# Every instruction is assembled from checked-in firmware by UniAS.
 UNIAS ?= unias
 CC ?= cc
 BUILD := build

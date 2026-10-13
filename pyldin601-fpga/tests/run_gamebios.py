@@ -1,7 +1,6 @@
 """Exercise real GAMEBIOS ROM with native UniDOS on both models and ISAs."""
 import argparse
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
@@ -17,7 +16,7 @@ a = p.parse_args()
 out = ROOT / 'build/gamebios'
 out.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(ROOT / 'firmware/game/GAMEBIOS.INC', out / 'GAMEBIOS.INC')
-(out / 'GAMELEAK.ASM').write_text('''    include GAMEBIOS.INC
+(out / 'GAMEEXIT.ASM').write_text('''    include GAMEBIOS.INC
     ldx #context
     ldd #GB_CONTEXT_BYTES
     std 0,x
@@ -36,20 +35,22 @@ shutil.copyfile(ROOT / 'firmware/game/GAMEBIOS.INC', out / 'GAMEBIOS.INC')
     bne failed
     ldaa #7
     staa GB_PS2_CONTROL
+    ldaa #GB_CLOSE
+    int GB_INT
     clra
     int $38
 failed
+    ldaa #GB_CLOSE
+    int GB_INT
     ldaa #1
     int $38
 context ds GB_CONTEXT_BYTES
     end
 ''')
-leak = assemble(a.unias, out, 'GAMELEAK.ASM', 'GAMELEAK.PGM')
+program = assemble(a.unias, out, 'GAMEEXIT.ASM', 'GAMEEXIT.PGM')
 subprocess.run(['make', '-s', '-f', 'firmware/Makefile', 'game', 'UNIAS='+a.unias], cwd=ROOT, check=True)
-image, _ = install((ROOT / 'images/sd.img').read_bytes(), {'GAMELEAK.PGM': leak, 'ARKANOID.PGM': (ROOT/'build/game/ARKANOID.PGM').read_bytes(), 'SDKTEST.PGM': (ROOT/'build/game/SDKTEST.PGM').read_bytes(), **{n: (ROOT/'build/game'/n).read_bytes() for n in ('XONIX.PGM','LENA.IFF','WARHAWK.YM','LEDSTRM1.YM')}}, replace=True)
+image, _ = install((ROOT / 'images/sd.img').read_bytes(), {'GAMEEXIT.PGM': program, 'ARKANOID.PGM': (ROOT/'build/game/ARKANOID.PGM').read_bytes(), 'SDKTEST.PGM': (ROOT/'build/game/SDKTEST.PGM').read_bytes(), **{n: (ROOT/'build/game'/n).read_bytes() for n in ('XONIX.PGM','LENA.IFF','WARHAWK.YM','LEDSTRM1.YM')}}, replace=True)
 (out / 'sd-test.img').write_bytes(image)
-coef = (ROOT / 'firmware/gfx/PALCOEF.ASM').read_text()
-(out / 'coeff.bin').write_bytes(bytes(int(x, 16) for x in re.findall(r'\$([0-9a-fA-F]{2})', coef)))
 runner = out / 'test_gamebios'
 subprocess.run([a.cc, '-O2', '-I../pyldin601/src', 'tests/test_gamebios.c', '-o', str(runner)], cwd=ROOT, check=True)
 for model in ('601', '601a'):

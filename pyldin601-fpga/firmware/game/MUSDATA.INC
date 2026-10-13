@@ -91,6 +91,9 @@ mus_decode_code ds 2
 mus_decode_delta ds 2
 mus_decode_length ds 1
 mus_decode_pointer ds 2
+; Two temporary RAMMAN banks: dictionary, then canonical Huffman tables.
+ml_lease ds 5
+ml_sel ds 4
 
 mus_memory_lease ds 114
 mus_bank_groups ds 111

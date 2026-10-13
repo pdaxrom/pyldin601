@@ -34,6 +34,17 @@ int main(int argc,char**argv){
  unsigned state=r[0xefca]*256+r[0xefcb];require(state>=0x100&&state+240<=0xbe00,"resident state exists");
  for(unsigned v=0;v<909312;v++)physical[0x22000+v]=(v*17+(v>>13)*31)&255;
  unsigned char*saved=malloc(909312);memcpy(saved,physical+0x22000,909312);
+ // RAMMAN enters its ROM in group zero, then must return to the exact
+ // caller selectors. Cover every valid group and every legacy page,
+ // including page 0/7, ROM overlays and the last group's invalid RAM slots.
+ unsigned saved_page=page,saved_group=ram_group;
+ for(unsigned group=0;group<=18;group++)for(unsigned pg=0;pg<16;pg++){
+  page=0xa0|pg;ram_group=group;
+  require(call(1,1,0x3000)==0,"allocation from any caller page/group");
+  require(call(2,0,0x3000)==0,"release retains any caller page/group");
+ }
+ page=saved_page;ram_group=saved_group;
+ require(info()==111,"all page/group context checks release their lease");
  require(call(1,1,0x3000)==0&&r[0x3003]==0,"first allocation bank0");
  require(call(1,1,0x3100)==0&&r[0x3103]==1,"second allocation bank1");
  require(call(1,1,0x3200)==0&&r[0x3203]==2,"third allocation bank2");
@@ -62,9 +73,9 @@ int main(int argc,char**argv){
  for(unsigned k=0;k<111;k++)require(r[0x3003+k]==k,"no duplicate or reserved bank");
  require(call(2,0,0x3000)==0&&info()==111&&call(2,0,0x3000)==3,"full release and double free");
  require(!memcmp(saved,physical+0x22000,909312),"allocator never erases or writes bank data");free(saved);
- // Native PGM intentionally leaves a lease; close_PCB must reclaim it.
- command("b:ramleak");require(info()==111&&SP==sp,"INT38 process exit automatically reclaims memory");
+ // Native PGM owns allocation/release; UniShell has no allocator calls.
+ command("b:ramexit");require(info()==111&&SP==sp,"application releases its lease before INT38");
  command("b:ramalloc");require(contains("PASS: RAM allocator, 64 KiB, SWI/IRQ")&&info()==111&&SP==sp,"allocated RAM diagnostic and timer restore/release");
  command("dir a:");command("dir b:");command("dir c:");require(SP==sp&&!fdc_port_accesses,"DOS remains intact");
- printf("PASS RAM manager %s/%s: 111 banks, fragmentation, owners/tokens, exhaustion, nested-call lock, INT38 cleanup, DIR and unchanged SRAM\n",argv[2],argv[3]);return 0;
+ printf("PASS RAM manager %s/%s: all 19 groups x 16 pages, 111 banks, fragmentation, owners/tokens, exhaustion, nested-call lock, application release/INT38, DIR and unchanged SRAM\n",argv[2],argv[3]);return 0;
 }

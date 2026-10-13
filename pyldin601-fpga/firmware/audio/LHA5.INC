@@ -105,7 +105,8 @@ long_lha5_83
 packed_fits
     ldaa lha_method
     cmpa #'5'
-    beq lh5_start
+    bne *+5
+    jmp lh5_start
     ldx packed_left
     cpx song_size
     beq long_lha5_90
@@ -124,7 +125,79 @@ lh0_next
     jmp lha_check_crc
 lha_bad
     jmp bad_file
+; The code/stack stay in ordinary RAM; BIOS retains both selectors on IRQ/SWI.
+dictionary equ $c000
+c_lengths equ $c000
+pt_lengths equ $c1fe
+c_tree equ $c211
+pt_tree equ $c677
+lh_claim
+    ldaa #1
+    ldab #2
+    ldx #lh_lease
+    int $e5
+    tsta
+    beq lh_maps
+    ldx #memory_error
+    jmp finish
+lh_maps
+    clr map_index
+lh_map
+    ldab map_index
+    ldx #lh_lease+3
+    abx
+    ldaa 0,x
+    clrb
+lh_group
+    cmpa #6
+    bcs lh_page
+    suba #6
+    incb
+    bra lh_group
+lh_page
+    inca
+    psha
+    pshb
+    ldab map_index
+    aslb
+    ldx #lh_sel
+    abx
+    pulb
+    stab 0,x
+    pula
+    staa 1,x
+    inc map_index
+    ldaa map_index
+    cmpa #2
+    bcs lh_map
+    rts
+lh_free
+    tst lh_lease+2
+    beq lh_freed
+    ldaa #2
+    ldx #lh_lease
+    int $e5
+lh_freed
+    rts
+lh_dic
+    psha
+    ldaa lh_sel
+    staa group
+    ldaa lh_sel+1
+    staa page
+    pula
+    rts
+lh_tab
+    psha
+    ldaa lh_sel+2
+    staa group
+    ldaa lh_sel+3
+    staa page
+    pula
+    rts
 lh5_start
+    jsr lh_claim
+    jsr lh_dic
     ldx #dictionary
     ldd #8192
     std clear_left
@@ -138,6 +211,7 @@ dictionary_clear
     std clear_left
     pula
     bne dictionary_clear
+    jsr lh_tab
 lh5_next
     ldd block_left
     bne lh5_symbol
@@ -201,6 +275,7 @@ distance_ready
     anda #31
     std match_position
 match_next
+    jsr lh_dic
     ldd match_position
     addd #dictionary
     std table_pointer
@@ -224,14 +299,14 @@ long_lha5_193
 lha_check_crc
     tst vtx_mode
     beq lha_has_crc
-    rts
+    jmp lh_free
 lha_has_crc
     ldx crc
     cpx expected_crc
     beq long_lha5_198
     jmp lha_bad
 long_lha5_198
-    rts
+    jmp lh_free
 output_remaining
     ldd output_left
     bne output_exists
@@ -240,6 +315,7 @@ output_exists
     rts
 dictionary_output
     psha
+    jsr lh_dic
     ldd dictionary_position
     addd #dictionary
     std table_pointer
@@ -256,6 +332,8 @@ dictionary_output
     jsr loading_key
 dictionary_key_checked
     pula
+    jsr lha_output
+    jmp lh_tab
 lha_output
     psha
     jsr output_remaining

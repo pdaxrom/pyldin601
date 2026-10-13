@@ -1,7 +1,7 @@
 # Сборка, проверки и подготовка SD
 
 Все команды выполняются из `pyldin601-fpga`. Исходники firmware собирает
-настоящий UniAS. Нужны C-компилятор/Make; Python 3 используется для тестовых
+UniAS. Нужны C-компилятор/Make; Python 3 используется для тестовых
 сценариев и работы с обычными SD-образами, не как ассемблер/ROM-патчер.
 Для HDL нужны Icarus Verilog и NVC 1.23+ с mixed HDL.
 
@@ -43,6 +43,8 @@ make fixtures UNIAS=/path/to/hd6303-toolchain/unias
 | GAMEBIOS/игры | test-gamebios, test-gamebios-rtl, test-xonix |
 | HG/форматы/инструменты | test-hg, test-python |
 | Сжатая оболочка | test-shell |
+| Дисковый сектор/разные оболочки/ROM fallback, cold/warm Reset | test-shell-boot |
+| Независимость ROM, отсутствие служб, перенос страниц | test-rom-modules |
 
 ```sh
 make test UNIAS=/path/to/hd6303-toolchain/unias

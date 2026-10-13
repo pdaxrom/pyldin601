@@ -39,7 +39,8 @@ class GameInstallTests(unittest.TestCase):
         for name in before:
             if name not in ('P601.ROM', 'P601A.ROM'):
                 self.assertEqual(before[name], after[name])
-        self.assertEqual(report['gamebios_context_bytes'], 8608)
+        self.assertEqual(report['gamebios_context_bytes'], 416)
+        self.assertTrue(report['native_boot_sector_preserved'])
         self.assertTrue(report['fpga_update_required'])
         self.assertEqual(report['fpga_min_graphics_revision'], 6)
         self.assertEqual(report['ps2_raw_identity'], 0x52)

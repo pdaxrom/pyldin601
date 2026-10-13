@@ -33,7 +33,7 @@ sdk_present
     staa 2,x
     ldaa sdk_flags
     staa 3,x
-    ; Older ABI1 ROMs leave a completed graphics error latched on CLOSE.
+    ; Idle video may retain a completed hardware command error.
     ; Recover only idle, disabled video before claiming it. READ at offset
     ; zero acknowledges the prior error without changing memory/front.
     jsr sdk_video_recover
@@ -91,7 +91,7 @@ sdk_close
 ; Raw PS/2 set 2 input, separate from the native UniBIOS character queue.
 ; sdk_input_reset: capture keyboard exclusively, flush bytes/physical state.
 ; Native BIOS IRQ/repeat/clicks are suppressed until sdk_close, native video
-; restoration (including process cleanup), or reset. PAL/music IRQs continue.
+; restoration by the application, or reset. PAL/music IRQs continue.
 ; sdk_input: A=status, B=held logical mask, X preserved; sdk_pressed contains
 ; make edges since this call, including a tap released before the next frame.
 ; Arrows/WASD and both CTRL/SHIFT aliases have separate physical state.

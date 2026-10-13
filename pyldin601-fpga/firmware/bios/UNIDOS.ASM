@@ -1777,10 +1777,6 @@ close_PCB	proc
 		stab	ret_addr
 		staa	ret_addr+1
 
-		ldaa	#2
-		int	$e6
-		ldaa	#3
-		int	$e5
 		ldx	current_PCB
 		stx	x2
 
@@ -1956,11 +1952,11 @@ ret_err 	staa	swia
 terminate					;Terminate program ( Int $38 )
 		tsx
 		ldaa	#7
-		staa	x, 3
+		staa	x, 2
 		ldaa	#return_address
-		staa	x, 10
-		ldaa	#/return_address
 		staa	x, 9
+		ldaa	#/return_address
+		staa	x, 8
 		rts
 		endp
 

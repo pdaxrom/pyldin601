@@ -33,8 +33,8 @@ The decompressed original file must fit in 888 KiB.
 Loading claims ceil(size/8192) banks via ROM INT E5.
 Other owners are retained; EOF/ESC/error release the song banks.
 VTX stereo orders are validated; output is the AY mono mix.
-Conventional RAM footprint is about 18 KiB plus DOS buffers.
-Update both compact ROM bundles for the RAM manager.
+Conventional RAM footprint is about 8 KiB plus DOS buffers.
+LH5 uses two temporary banks, released before playback or on errors.
 B:RAMALLOC checks eight allocated banks, SWI/IRQ and cleanup.
 8 MHz is recommended for loading; playback works at 1/2/4/8.
 Playback uses its own hardware INT E4 timer at the file frame rate.
@@ -44,4 +44,4 @@ INT E4 vector, AY clock, timer period and pages are restored on exit.
 
 DEMO.YM is the original three-channel AY scale, 7.5 seconds.
 DEMOH5.YM contains the same song compressed with standard LH5.
-YPLAY.ASM, YMREAD.INC and LHA5.INC are built with real UniAS.
+YPLAY.ASM, YMREAD.INC and LHA5.INC are built with UniAS.

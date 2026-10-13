@@ -38,7 +38,7 @@ static void pump(void){
  unsigned char saved_page=page,saved_group=ram_group;
  unsigned target=ram[state+1]*256+ram[state+2];
  ram[0x900]=0xbd;ram[0x901]=target>>8;ram[0x902]=target;ram[0x903]=1;
- PC=0x900;SP=0x6fff;page=11;ram_group=0;i=1;
+ PC=0x900;SP=0x6fff;page=ram[0xedf3]&15;ram_group=0;i=1;
  unsigned steps=0;do{MC6800Step();}while(PC!=0x903&&++steps<20000);
  require(PC==0x903,"bounded MC6800 pump");
  PC=saved_pc;SP=saved_sp;X=saved_x;A=saved_a;B=saved_b;
@@ -80,12 +80,14 @@ static void test_key(unsigned mode,unsigned e,unsigned scan,unsigned pc){
  }
 }
 int main(int argc,char**argv){
- if(argc!=4)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");
+ if(argc!=4&&argc!=5)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");
  MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*b=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);
  memcpy(config,b,64);memcpy(physical+0x10000,b+512,ROM_BYTES);free(b);image=load(argv[1],&image_size);
+ if(argc==5){unsigned char temp[8192];memcpy(temp,physical+0x14000,8192);memcpy(physical+0x14000,physical+0x16000,8192);memcpy(physical+0x16000,temp,8192);}
  memcpy(config+64,image+462,32);committed=1;MC6800Init();ram=MC6800GetCpuRam();native_step_hook=irq_observe;MC6800Reset();until(60000000);
  state=ram[0xefce]*256+ram[0xefcf];require(state>=0x100&&state+64<=0xbe00,"native BIOS allocated keyboard state");
+ require((ram[0xedf3]&15)==(argc==5?10:11),"E7 page follows the registered keyboard ROM");
  require(ram[state]==0x7e&&raw_enable,"resident gateway and raw IRQ initialized");
  physical_key(0,0,0x5a);until(virtual_cycles+100000);physical_key(0,1,0x5a);until(virtual_cycles+100000);
  physical_key(0,0,0x5a);until(virtual_cycles+100000);physical_key(0,1,0x5a);until(virtual_cycles+100000);
@@ -110,5 +112,5 @@ int main(int argc,char**argv){
  hg_write_byte(0xe6b3,11);pump();require(!ram[state+5]&&!ram[state+8]&&code==255&&!parser_reset,"release resets software modifiers and queue");
  for(unsigned k=0;k<65;k++)push(k);pump();require(!count&&!overflow&&!ram[state+5],"raw overflow resynchronizes safely");
  irq_context_test();
- printf("PASS keyboard ROM %s/%s: resident allocation, %u layout/navigation cases, Pause, queue, capture, overflow, IRQ context and Caps Lock\n",argv[2],argv[3],checked);return 0;
+ printf("PASS keyboard ROM %s/%s page %X: resident allocation, %u layout/navigation cases, Pause, queue, capture, overflow, IRQ context and Caps Lock\n",argv[2],argv[3],ram[0xedf3]&15,checked);return 0;
 }

@@ -1,9 +1,9 @@
-; Public GAMEBIOS ABI 1. All words big endian; functions selected in A.
-; B and X preserved except INFO (A=1, B=features, X=context bytes),
+; Public GAMEBIOS ABI 2. All words big endian; functions selected in A.
+; B and X preserved except INFO (A=2, B=features, X=context bytes),
 ; READPIX (B=pixel), STATUS (B=queued, X=ticks). A=0 successful operation.
 GB_INT equ $e6
-GB_ABI equ 1
-GB_CONTEXT_BYTES equ 8608
+GB_ABI equ 2
+GB_CONTEXT_BYTES equ 416
 GB_VIDEO equ 1
 GB_AUDIO equ 2
 GB_INFO equ 0
@@ -69,9 +69,10 @@ GB_KEY_SPACE equ 16
 GB_KEY_ESC equ 32
 GB_KEY_CTRL equ 64
 GB_KEY_SHIFT equ 128
-; OPEN X: sizeBE (8608), ABI (1), flags (VIDEO|AUDIO), 28 reserved bytes,
-;         8192-byte palette backup, 384-byte private state.
-; Caller owns this RAM until CLOSE/INT38. No additional resident allocation.
+; OPEN X: sizeBE (416), ABI (2), flags (VIDEO|AUDIO), 28 private bytes,
+;         384-byte private state. Caller owns this RAM until CLOSE/INT38.
+; VIDEO leases one 8192-byte palette bank through RAMMAN; AUDIO alone none.
+; Header 4..7: RAMMAN descriptor; 8: valid palette backup.
 ; PALETTE X: index,R,G,B. PIXEL/RAWPIX X: xBE,yBE,value. READPIX: xBE,yBE.
 ; RECT X: xBE,yBE,widthBE,height,value; signed x/y, width 1..320,h 1..200.
 ; LINE X: x0BE,y0BE,x1BE,y1BE,value. Endpoints within -320..639,-200..399.
@@ -92,4 +93,4 @@ GB_KEY_SHIFT equ 128
 ; BATCH B=count (0..32), X=list of operation,B,pointerBE (4 bytes each).
 ; Allowed: TARGET,PIXEL,RECT,LINE,COPY,SPRITE,PUTC,PUTS,CURSOR,ATTR,WINDOW,
 ; SCROLL,CLEAR,RAWPIX. Stops on first error; prior operations remain applied.
-; INFO feature bit 5 announces BATCH; ABI/context size remain unchanged.
+; INFO feature bit 5 announces BATCH. Old ABI1 contexts are not accepted.

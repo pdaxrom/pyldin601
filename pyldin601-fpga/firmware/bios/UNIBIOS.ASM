@@ -703,14 +703,13 @@ breakpoint
 ;		ldx	swix
 ;		stx	regs+3
 		tsx
-		ldx	9,x	; Return address, E6F1/E6F0, hardware PC
+		ldx	8,x	; Return address, E6F0, hardware PC
 		stx	pc
 		stx	a2
 		bsr	newln
 		jsr	pra2hex
 		jsr	prsp
 		ins			;compensate stack
-		ins			; Extra saved E6F1 RAM group
 		ins
 		ins
 		ins

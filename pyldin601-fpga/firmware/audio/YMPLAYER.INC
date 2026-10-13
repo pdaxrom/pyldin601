@@ -22,10 +22,10 @@ long_yplay_15
     beq long_yplay_18
     jmp no_ram
 long_yplay_18
-    ldaa $edf0
-    anda #$f0
-    cmpa #$b0
-    beq long_yplay_22
+    ldaa #$e0
+    int $2e
+    cpx #0
+    bne long_yplay_22
     jmp no_ram
 long_yplay_22
     ldaa $e691
@@ -49,7 +49,7 @@ audio_bios
 audio_idle
     ldaa #$e5
     int $2e
-    tstb
+    cpx #0
     bne memory_service
     jmp no_ram
 memory_service
@@ -59,6 +59,9 @@ memory_service
     beq memory_service_ready
     jmp no_ram
 memory_service_ready
+    clr lh_lease
+    clr lh_lease+1
+    clr lh_lease+2
     ldaa page
     staa saved_page
     ldaa group
@@ -298,6 +301,7 @@ finish_pages
     ldaa #2
     int $e5
 finish_memory
+    jsr lh_free
     cli
     jsr close_song
     ldx finish_message

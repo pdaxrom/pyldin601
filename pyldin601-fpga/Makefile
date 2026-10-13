@@ -36,6 +36,15 @@ test-boot-console: test-firmware
 	$(VVP) $(BUILD)/tb_boot_console
 .PHONY: test-setup
 .PHONY: test-shell
+.PHONY: test-shell-boot
+test: test-shell-boot
+test-shell-boot: fixtures memory-test
+	$(PYTHON) tests/run_shell_boot.py --cc "$(CC)"
+.PHONY: test-rom-modules
+test: test-rom-modules
+test-rom-modules: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_rom_modules.c -o $(BUILD)/test_rom_modules
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do for mode in no-pages no-parts no-raw no-shell no-kernel no-game relocated no-e0; do $(BUILD)/test_rom_modules $$model $$cpu $$mode; done; done; done
 test-shell: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_shell_codec.c -o $(BUILD)/test_shell_codec -lm
 	$(BUILD)/test_shell_codec
@@ -90,6 +99,7 @@ test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 test-keyboard-rom: fixtures
 	$(CC) -O2 -I$(EMUSRC) tests/test_keyboard_rom.c -o $(BUILD)/test_keyboard_rom
 	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_keyboard_rom $(BUILD)/test-sd.img $$model $$cpu; done; done
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_keyboard_rom $(BUILD)/test-sd.img $$model $$cpu swapped; done; done
 	$(CC) -O2 -I$(EMUSRC) tests/test_boot_keyboard.c -o $(BUILD)/test_boot_keyboard
 	@set -e; for mode in auto save8 save-left exit save-part4 save-part-left; do $(BUILD)/test_boot_keyboard $(BUILD)/boot.bin $(BUILD)/models-sd.img $$mode; done
 	@set -e; for mode in auto save8 save-left exit save-part4 save-part-left; do BOOT_FAST_TAPS=1 $(BUILD)/test_boot_keyboard $(BUILD)/boot.bin $(BUILD)/models-sd.img $$mode; done

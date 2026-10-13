@@ -1,5 +1,5 @@
 ; Private state in the caller context, reached through the INT E6 JMP gateway.
-; The vector points to ROM while inactive, to context+8224 while open.
+; The vector points to ROM while inactive, to context+32 while open.
 G_STATE equ $efcc
 G_SIZE equ 384
 G_LOCK equ 3

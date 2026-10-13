@@ -126,6 +126,13 @@ install_parts
     clra
     rts
 install_allocate
+    ldaa #$e2
+    int $2e
+    cpx #0
+    bne install_driver
+    ldaa #6
+    rts
+install_driver
     ldx PW
     cpx #0
     bne install_work

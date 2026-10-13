@@ -27,7 +27,7 @@ static void arcade_observe(void){
  unsigned context_offset=which?XO_SDK_CONTEXT:GAME_SDK_CONTEXT;
  // CLOSE retains an old context pointer. Discover this PGM from its own
  // validated OPEN call, including when HG relocates it to another address.
- if(!app&&PC<0xc000&&r[PC]==0x3f&&r[PC+1]==0xe6&&A==1&&X>=context_offset+0x100&&X<0xbe00&&read16(X)==8608&&r[X+2]==1)app=X-context_offset;
+ if(!app&&PC<0xc000&&r[PC]==0x3f&&r[PC+1]==0xe6&&A==1&&X>=context_offset+0x100&&X<0xbe00&&read16(X)==416&&r[X+2]==2)app=X-context_offset;
  if(app&&PC==off(GAME_HS_PANEL_DONE,XO_HS_PANEL_DONE))graphics_live=1;
  if(app&&PC==off(GAME_SDK_CLOSE,XO_SDK_CLOSE))graphics_live=0;
  if(graphics_live){
@@ -121,6 +121,7 @@ static void type_app(const char*name){
 static void music_oracle(void){
  size_t size;unsigned char*data=load(which?"build/games-next/LEDSTRM1.raw":"build/games-next/WARHAWK.raw",&size);
  unsigned lease=off(GAME_MUS_MEMORY_LEASE,XO_MUS_MEMORY_LEASE);require(r[lease+2]==(size+8191)/8192,"music owns exactly the required paged RAM banks");
+ require(!r[off(GAME_ML_LEASE,XO_ML_LEASE)+2],"temporary LH5 scratch banks released before gameplay");
  for(unsigned k=0;k<size;k++){unsigned id=r[lease+3+k/8192];require(id<111&&physical[0x22000+id*8192+k%8192]==data[k],"complete native LH5 output matches independent 7z oracle");}free(data);
  if(which){data=load("build/games-next/LENA.raw",&size);require(size==64000&&!memcmp(data,physical+0x180000,size),"native IFF/ByteRun1 preserves every original HAM8 byte");require(gfx[0]==15,"Xonix uses lossless HAM8 background with palette overlays");free(data);}
 }

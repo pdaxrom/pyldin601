@@ -1,6 +1,6 @@
-PYLDIN ARCADE / GAMEBIOS ABI 1 / HD6303 SDK
+PYLDIN ARCADE / GAMEBIOS ABI 2 / HD6303 SDK
 
-Uses GAMEBIOS ABI1 ROM and the raw PS/2 capture FPGA.
+Uses GAMEBIOS ABI2 ROM and the raw PS/2 capture FPGA.
 The updated ROM keeps graphics enabled while preparing HAM8 palettes.
 Install this ROM with the games to avoid a native-screen flash in XONIX.
 XONIX also requires graphics FPGA revision 6 (layered HAM8).
@@ -90,13 +90,15 @@ operations in one SWI, each entry is operation,B,pointerBE. No audio,
 palette, mode, FLIP or recursive calls in a batch. Prior operations remain
 applied on error. IRQ keeps playing music; B/X/CCR and bank are preserved.
 Text draws horizontal ink runs; all native 8x8 glyphs stay unchanged.
-ARKANOID discovers BATCH and also runs with older ABI1 ROMs.
+ARKANOID discovers BATCH; SDK checks ABI2 and its compact context.
 OPEN acknowledges a prior completed graphics error with a read-only job.
-SDK does the same on older ABI1 ROMs; framebuffer/front stay unchanged.
+SDK also acknowledges idle errors; framebuffer/front stay unchanged.
 Active-context faults and busy timeouts still return hardware error.
 Old graphics/text and beeper calls retain their original modes/parameters.
 New indexed text/graphics and AY services require an explicit context.
-The 8608-byte caller context includes palette backup and all private state.
+The caller context is 416 bytes; PAL backup leases one 8192-byte RAM bank.
+Native BIOS INT E8 transfers PAL/banks without code or scratch in main RAM.
+LH5 uses two temporary RAMMAN banks, released before playback or on errors.
 Closing or terminating its owning process restores video, palette and AY.
 GAMEBIOS consumes no extra conventional RAM during normal system startup.
 
@@ -104,7 +106,7 @@ Raw PS/2: E6B0 identity R; E6B1 bits 0 data, 5 full, 6 capture, 7 overflow;
 E6B2 read/pop; E6B3 count (0..64), write bits 0 flush, 1 clear overflow,
 2 capture native input, 3 release. Commands 1/2 retain capture state.
 sdk_input_reset captures input and clears history; sdk_close releases it.
-Native video restoration (including process cleanup) and Reset also release.
+Native video restoration by the application and Reset also release.
 PS/2 prefixes/modifiers and PAL/music IRQs continue during capture.
 sdk_input returns A=status, B=held;
 sdk_pressed contains make edges, including taps released between frames.

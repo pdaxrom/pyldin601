@@ -1,4 +1,4 @@
-/* Native BIOS banked INT E3, with the entire shell supplied by page F. */
+/* Native BIOS registered INT01 boot entry and the shell supplied by page F. */
 #define NATIVE_STABILITY_MAIN unused_stability_main
 #include "test_native_stability.c"
 #undef NATIVE_STABILITY_MAIN
@@ -31,12 +31,14 @@ int main(int argc,char **argv) {
     memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
     shell_reference=load("build/partitions/SHELL.CMD",&shell_size);
     image=load("images/sd.img",&image_size);memcpy(config+64,image+462,32);
+    /* Exercise ROM fallback without executing the native disk boot sector. */
+    unsigned start=le32(image+462+8);image[(start+1)*512-2]=0x55;image[(start+1)*512-1]=0xaa;
     committed=1;native_step_hook=observe_shell;
     MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);wait_prompt();
     if(!entered||!returned||!irq_count) {fprintf(stderr,"compressed shell was not invoked\n");return 1;}
     key(0x20);key(0x17);key(0x13);key(0x1c);wait_prompt();
     entered=returned=0;MC6800Reset();until(virtual_cycles+2000000);key(0x1c);key(0x1c);wait_prompt();
     if(!entered||!returned) {fprintf(stderr,"warm Reset did not restore compressed shell\n");return 1;}
-    printf("PASS %s/%s native INT E3, single-page shell startup, DIR and warm Reset; complete shell/scratch/SP/IRQ mask restored, %u timer IRQs\n",argv[1],argv[2],irq_count);
+    printf("PASS %s/%s native INT01, single-page shell startup, DIR and warm Reset; complete shell/scratch/SP/IRQ mask restored, %u timer IRQs\n",argv[1],argv[2],irq_count);
     free(shell_reference);return 0;
 }

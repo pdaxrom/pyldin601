@@ -2,7 +2,7 @@
 ; 0 info -> A=1 ABI, B=free banks, X=111 total banks.
 ; 1 allocate B=1..111, X=RAM descriptor (3+B bytes): tokenBE,count,bank IDs.
 ; 2 release X=descriptor; token AND current UniDOS PCB must match.
-; 3 release all leases owned by the current PCB (also called by close_PCB).
+; 3 release all leases owned by the current PCB (explicit application call).
 ; Other functions return A=1. Operations: A=0 OK,1 argument,2 no memory,
 ; 3 stale/foreign token,4 unavailable,5 reentrant call. B/X preserved.
 ; Arbitrary free banks are gathered, so fragmentation does not lose capacity.

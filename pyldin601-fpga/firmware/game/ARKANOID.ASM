@@ -20,7 +20,7 @@ game_prepare
     ldx #music_name
     jsr hs_asset_path
     jsr mus_load
-    ; LH5 scratch overlaps the context: finish loading before opening video.
+    ; Decode music in temporary banks before opening the video context.
     ldab #GB_VIDEO+GB_AUDIO
     jsr sdk_open
     tsta
@@ -984,7 +984,7 @@ refresh_clone
     staa copy_one+3
     tst batch_available
     bne refresh_packed
-    ; ABI1 ROMs without BATCH still run the same game through ordinary COPY.
+    ; Without the BATCH feature use individual COPY operations.
     ldaa #GB_COPY
     ldx #copy_zero
     jsr api
@@ -1215,6 +1215,14 @@ exit_native
     jsr mus_release
     ldx #done_text
 message_exit
+    ; Every HD6303 exit owns music release, including OPEN/input failures.
+    ldaa $e6a0
+    bita #2
+    beq message_print
+    pshx
+    jsr mus_release
+    pulx
+message_print
     jsr hs_unhook
     int $23
     clra
@@ -1252,7 +1260,7 @@ music_name db 'WARHAWK.YM',0
 launch_text db 'SPACE: LAUNCH   ESC: EXIT',0
 win_text db 'ALL BRICKS!    ESC: EXIT ',0
 lose_text db 'GAME OVER      ESC: EXIT ',0
-need_gamebios db 'ARKANOID needs HD6303 and GAMEBIOS ABI 1.',13,10,0
+need_gamebios db 'ARKANOID needs HD6303 and GAMEBIOS ABI 2.',13,10,0
 need_input db 'ARKANOID needs raw PS/2 capture FPGA.',13,10,0
 refresh_batch
     db GB_COPY,0

@@ -15,12 +15,8 @@
       "start_lba": 2048,
       "sectors": 32768,
       "bytes": 16777216,
-      "sha256": "3f19301e05f248e9dcd177b52bed5f930483109c9424cc0e12c9a9c7f13d80bc",
+      "sha256": "9ceecc807d41a4f05438f523ffc04244b2f9824e1da57e61577b590afee3fdda",
       "files": {
-        "P601.ROM": {
-          "bytes": 72192,
-          "sha256": "5adc1ed30c5a3f7f5c183ce6e51b665fdc4b22204fdd681c5d718008cb3d9e3d"
-        },
         "LOADER.BIN": {
           "bytes": 406,
           "sha256": "429c97efeedcfbc8781c9a1fdfcad51be527831f8402fde831f0252e7d30512f"
@@ -29,13 +25,17 @@
           "bytes": 222,
           "sha256": "4ba56f070d09083133fc2db12c2eb598b2a5fb4fb2231a05891651e4f670a26a"
         },
-        "P601A.ROM": {
+        "P601.ROM": {
           "bytes": 72192,
-          "sha256": "a8498b396ef330350471f02304f510e624a1d2ea2b1059ad319557d5e8be35fa"
+          "sha256": "ba35cbf566cc910587620b9439a7c94b2ee7ac6442b77d23732d60473eb7b559"
         },
         "P601.SET": {
           "bytes": 16,
           "sha256": "c50f4bc83bcd6d198363f85bd7eeff393404a81c19a212934d5624d6ca60ab8c"
+        },
+        "P601A.ROM": {
+          "bytes": 72192,
+          "sha256": "3493791a6aca8b372b12f077ed5bf93e375ddde9b68ad6e263af172303ef55e8"
         }
       }
     },
@@ -47,13 +47,13 @@
       "bytes": 737280,
       "sha256": "d6144e9b7fc4ff19a963e87c92485a570e5bf6f5f87c8683047c3848d0e30c6e",
       "files": {
-        "UNIDOS.CMD": {
-          "bytes": 10001,
-          "sha256": "ee6ee90f725c6a1314b508f9720f0f900097cbba84dc44fc052b8d1011ecf1b3"
-        },
         "ATTRIB.CMD": {
           "bytes": 625,
           "sha256": "05a9ca1f9b00a4e6c13c579c56810b8e27b8fc30ce9c9a8ff82bf1cbc935bc98"
+        },
+        "CALC.CMD": {
+          "bytes": 13681,
+          "sha256": "7aac03fe11452e2926cc5f072f2169cdccc1aab53c22d86af0ed5b42d346fd6e"
         },
         "DATETIME.PGM": {
           "bytes": 3933,
@@ -62,6 +62,10 @@
         "DISKCOPY.CMD": {
           "bytes": 2084,
           "sha256": "3ac768fe3231555cd8ce68a8b37ec6679ba471cd6d6b9c88a3eee79d61e5dd59"
+        },
+        "DOSEDIT.PGM": {
+          "bytes": 369,
+          "sha256": "a0fd0660d767c28164695402e41b27894a1a3666d3a4be4bf3f88e39e19be80f"
         },
         "FORMAT.CMD": {
           "bytes": 2977,
@@ -83,21 +87,17 @@
           "bytes": 2655,
           "sha256": "e7491e571cc013f1ce05f256d9bc0c4e493b6c24f01bf41a619b6cb80edb3525"
         },
-        "VDISK.PGM": {
-          "bytes": 366,
-          "sha256": "39f64f3a5e367ca1b14ef376ec1bd549f5bf37d8401e3f02da6c0e886cdc9f72"
-        },
-        "DOSEDIT.PGM": {
-          "bytes": 369,
-          "sha256": "a0fd0660d767c28164695402e41b27894a1a3666d3a4be4bf3f88e39e19be80f"
+        "UNIDOS.CMD": {
+          "bytes": 10001,
+          "sha256": "ee6ee90f725c6a1314b508f9720f0f900097cbba84dc44fc052b8d1011ecf1b3"
         },
         "VDISK.JOB": {
           "bytes": 173,
           "sha256": "8ce6301dd16a379dc5d57e9c35893938abbf51947fdebf5c397e560e034752ae"
         },
-        "CALC.CMD": {
-          "bytes": 13681,
-          "sha256": "7aac03fe11452e2926cc5f072f2169cdccc1aab53c22d86af0ed5b42d346fd6e"
+        "VDISK.PGM": {
+          "bytes": 366,
+          "sha256": "39f64f3a5e367ca1b14ef376ec1bd549f5bf37d8401e3f02da6c0e886cdc9f72"
         }
       }
     },
@@ -107,27 +107,27 @@
       "start_lba": 36864,
       "sectors": 2880,
       "bytes": 1474560,
-      "sha256": "d013e22c499a62f989dcdea3666e9fa24a7b72bb070e7927d50b775010e06155",
+      "sha256": "679d1deb17630fe1046c42ece0f060f5dac503d4073cef9312385544be02a73e",
       "files": {
         "ARKANOID.ASM": {
-          "bytes": 23221,
-          "sha256": "674ba5420fc665d1c49a6c5ee231407bf193151a89e0c252253692db1efbfd46"
+          "bytes": 23379,
+          "sha256": "d22187832122d666d50bc84dff9f085707c5b6b1db9829a747c3425a32fa04fc"
         },
         "ARKANOID.PGM": {
-          "bytes": 15598,
-          "sha256": "338eb1b35abd10bb373db9233ef62b755337dd0890fbaf5bebdd85d324565996"
+          "bytes": 15757,
+          "sha256": "c451594aaca9fb8a8d04f57dea826603aaf6b2d0a462391d99f903feffb58f13"
         },
         "ARKSONG.INC": {
           "bytes": 3976,
           "sha256": "b79ee36a32c55f452f379c8d48bf9c0e1f608c09147f71a49f4f15f76b63f218"
         },
         "AY.ASM": {
-          "bytes": 2040,
-          "sha256": "083c7063db8db41e7b61ae061f499280dffb3a92ab9692c2dbce4dbfbfd093c5"
+          "bytes": 2034,
+          "sha256": "8e44fa23efb15dab09f2d6c40292a3ce5adfe89e5f5521dbe505cf9029812313"
         },
         "AY.PGM": {
           "bytes": 424,
-          "sha256": "cbc7b293f138842f15c6cab6cccbd68b56fda323c5654d1b5f9f817034d23c76"
+          "sha256": "d16bcbb58cd5e5033fa895325b7c4378aee9a9ff04015e99462a57bf6de249f3"
         },
         "AYHOWTO.TXT": {
           "bytes": 935,
@@ -178,24 +178,24 @@
           "sha256": "7fd7915f596a7605050adbd62cb45ba11ea8aa49af912ce72f82b4d8d9de1c59"
         },
         "GAMEBIOS.INC": {
-          "bytes": 3239,
-          "sha256": "c3e383166fd428653ae3655c9360e38d28d8aefb8e0d9481191e0c337df9d0b3"
+          "bytes": 3309,
+          "sha256": "7a5e6d47ed9eca62e5794b1f0573e5d8afc34d5bd9e128e38db91520c0a93f69"
         },
         "GAMEHOW.TXT": {
-          "bytes": 7466,
-          "sha256": "0d776749e414f616e40f334665b9e728e9c0f22a1c4a9722b911254e17557c52"
+          "bytes": 7611,
+          "sha256": "23f4de8d4e2feced07bc201e26a09e3a26e303bce5fb1599993d8a63d3f76692"
         },
         "GAMEMUS.ASM": {
-          "bytes": 41910,
-          "sha256": "67453d7111c153dc1102fb3917a2f087436b1aa66fbacebddae11a2fe049a089"
+          "bytes": 42603,
+          "sha256": "c7b463db663cc68d1a34c4db60a35c850b8ba8e3478d28a225acab82785b16f8"
         },
         "GAMESDK.ASM": {
-          "bytes": 11598,
-          "sha256": "f7b95606c3e8270afd7afc08a24d156a11af2da325d60b2db22fbb4194c1c0a6"
+          "bytes": 11580,
+          "sha256": "c4ff85eb1a64d457d5aa27a26edff0805b484bb2ea574b82436b9671ca9bd68a"
         },
         "GAMESDTA.INC": {
-          "bytes": 709,
-          "sha256": "61b55d6da0826b3300f5661c26ce2440193b35836091ff38672bcb19d1af8899"
+          "bytes": 387,
+          "sha256": "a63a0e30f8c5dff18935aea0984b245c9c37547c544a569074de24e9193eeccb"
         },
         "GFX.ASM": {
           "bytes": 3431,
@@ -210,8 +210,8 @@
           "sha256": "cdd8229aec7bf7115fcda14f67ab320526df2907c65310948a2b74716d054a2f"
         },
         "GFXHOW.TXT": {
-          "bytes": 1749,
-          "sha256": "991161b8a0e2c9585f191aee1ac048d0c636308e70dca0fd31e4a9b33a221c30"
+          "bytes": 1772,
+          "sha256": "c85d3108e3d7b9df54565120fe78a8bbf1d274149604393d14a7c4a0115e3953"
         },
         "GFXHOWTO.TXT": {
           "bytes": 492,
@@ -222,8 +222,8 @@
           "sha256": "4d984967c131e94529a92e26e70e9e1337802634e70c7821570926cb4e32b738"
         },
         "GFXMUSIC.PGM": {
-          "bytes": 11307,
-          "sha256": "77bda81d6adb010cd6996d644519b540aeb30dee0e29b09a0766de7c4c3d9032"
+          "bytes": 11480,
+          "sha256": "3ca762b54981b48f6582c337ed7607ace822d79d99ce60a291ec2e0032c0ffa2"
         },
         "HAM.ASM": {
           "bytes": 5972,
@@ -314,24 +314,24 @@
           "sha256": "2655152c156830a4c0515c772c0ba18726b6a7c381d4692e4a639913bb96f09e"
         },
         "LHA5.INC": {
-          "bytes": 12536,
-          "sha256": "487f454618f7a2a0c32c2f24e181f2d2c319f7c7ffd5169c6230f9d9b75425a4"
+          "bytes": 13653,
+          "sha256": "0a8f0afdf43b0875d24431ebfc38a5da65d6f61988891f09802afc6a14c89d5e"
         },
         "LHABSS.INC": {
           "bytes": 101,
-          "sha256": "bed66fcfba6977521e05804bb50bcb4cbc6e96d08a62f734718ed48af1c3f8bb"
+          "sha256": "253997ebb6bcc84950157ea5feaaac9c03780294cc883939bbe465e5f169d26e"
         },
         "LHASTATE.INC": {
           "bytes": 607,
           "sha256": "ae509fbcf0d57be465f39c069ded68d6f929b5c455bfec3eb7e3fd06bd01154d"
         },
         "MUSAPI.ASM": {
-          "bytes": 3478,
-          "sha256": "f970b18f30bc9b5efdf372d1f4f6c645c33c37d8f462cfc49edb7aef5b416fc0"
+          "bytes": 3512,
+          "sha256": "1bea74c1ffe1e31a288cc55c2b70af511fdce2ff391eb50c83ec86c0412dd819"
         },
         "MUSDATA.INC": {
-          "bytes": 2067,
-          "sha256": "6f8ce09b4e5a410ed9c72ce0d0fca574c785d14ee70afb87cef8483d3e8f92ee"
+          "bytes": 2166,
+          "sha256": "3497984c07fc3bbdcb948bde5387b311de84ac365a7781557fc256689d8e993f"
         },
         "MUSIC.TXT": {
           "bytes": 1209,
@@ -342,8 +342,8 @@
           "sha256": "7d10b6faaa059a9b0c1170f93a2d0b0774c604f4dc0b1359c0e97746538e5893"
         },
         "PALCOEF.ASM": {
-          "bytes": 806,
-          "sha256": "2e52377f7c000c7e9a29e340639a0f0f2c23c170052be3b2441695ba39dd33a1"
+          "bytes": 817,
+          "sha256": "7d697f9d6439bb319bee69f90846ae0135314c95ef9ce126d6367bba05a410fa"
         },
         "RAMALLOC.PGM": {
           "bytes": 1412,
@@ -379,7 +379,7 @@
         },
         "SDKTEST.PGM": {
           "bytes": 1943,
-          "sha256": "46b066ad1cc9f4137b702c95902dcc0a13590b8e80bb0408a7e91ff51fc87cd6"
+          "sha256": "7be909711042b0941aaf79c8474b6d393921eab063971599c7b4fe860efa2fc4"
         },
         "SDKWORLD.INC": {
           "bytes": 284,
@@ -422,24 +422,24 @@
           "sha256": "5deefdadfbd4874d8f5a811345a0c6ae44a01c8abd9b42509d101d470442ea71"
         },
         "XONIX.ASM": {
-          "bytes": 21037,
-          "sha256": "900c66d4205d882c39566e130cf03956b8b139922068f60a775ca81d90017444"
+          "bytes": 21221,
+          "sha256": "058a203284fa5058ca1ac40048bdcc4c76cff6153fb8b6b287abf2787cb332d9"
         },
         "XONIX.CFG": {
           "bytes": 159,
           "sha256": "f65d5fafe8cd629606ce986edecf33b35d8a01fe73cf7029b9e9fe0e18a6db4d"
         },
         "XONIX.PGM": {
-          "bytes": 17240,
-          "sha256": "8791ee929504218b9170f2ad21aa8ca5779cedd704b0e872273c15ba867ccbc2"
+          "bytes": 17399,
+          "sha256": "396b73ffd1cca55fd2792c40c078d0c285425f7d44e465c97252f4cbf826d8be"
         },
         "YMDATA.INC": {
           "bytes": 2211,
           "sha256": "830bcbf813060076c257a2ebd8315bb4dc08ccf8b4fcc3211cdc2549b5cf7a4f"
         },
         "YMPLAYER.INC": {
-          "bytes": 15024,
-          "sha256": "f91a1075a5a4f4ca9eecc56aadbfeb1e1ce188388ff5036862c23a5466d466d9"
+          "bytes": 15094,
+          "sha256": "8c6e1ae77437a00125144a74a82a3e84427f0007b01823be004a37b7a24c2bd1"
         },
         "YMREAD.INC": {
           "bytes": 14716,
@@ -454,12 +454,12 @@
           "sha256": "25e6154e1fdf588f0a7698ce4f4042cda00890630eff7a2320fb346f4ed67399"
         },
         "YPLAY.PGM": {
-          "bytes": 8915,
-          "sha256": "1e600da27ea7213edf8a62cbf688fac7a8ebd4547e7a39fe1f8f6d38cb0e3057"
+          "bytes": 9088,
+          "sha256": "e01a57186eb6ca6fc34b4f38911b8a30447fd2b020ab01da4c3f6965fc11cb21"
         },
         "YPLAYHOW.TXT": {
-          "bytes": 2188,
-          "sha256": "1c8b283c00802ce9a096a487c284618a74bed23a26248bdac005ab86d5b1a12e"
+          "bytes": 2151,
+          "sha256": "ca058886ed85b1a9307868ef229084f7c1f929e523bb992c1fd1c83ad0e91f86"
         }
       }
     },
@@ -555,7 +555,7 @@
     }
   ],
   "date": "2026-10-13",
-  "sha256": "7ad3d4374fec6d56f74d0c441f83a00e6287954fb0561509c93fc935d505c346",
+  "sha256": "4f523ac1a719f69fe8b0613e32738193bcea8178dc6cfdf1eb2df059a60ea4f1",
   "matches_physical_card_readback": false,
   "installed_on_physical_board": false,
   "required_fpga": {
@@ -569,14 +569,32 @@
     "index": "../docs/README.md",
     "registers": "../docs/REGISTERS.md",
     "boot": "../docs/BOOT.md",
-    "programming": "../docs/PROGRAMMING.md"
+    "programming": "../docs/PROGRAMMING.md",
+    "bank_copy": "../docs/BANKCOPY.md"
   },
   "latest_change": {
-    "kind": "documentation",
-    "updated_b_files": [
-      "GAMEHOW.TXT"
-    ],
-    "rom_and_program_binaries_changed": false,
-    "other_files_and_partitions_preserved": true
+    "kind": "independent-rom-services-native-boot-order",
+    "hardware_confirmed": true,
+    "gamebios_abi": 2,
+    "context_bytes": 416,
+    "palette_banks": 1,
+    "lh5_temporary_banks": 2,
+    "native_bios_copy_interrupt": "E8",
+    "rom_and_program_binaries_changed": true,
+    "fpga_update_required": false,
+    "other_files_and_partitions_preserved": true,
+    "native_bios_owns_copy_registration": true,
+    "gamebios_uses_local_blitter": true,
+    "shell_calls_ramman_gamebios": false,
+    "services_use_registered_pages": true,
+    "application_owned_cleanup": true,
+    "native_boot_sector_priority": true,
+    "native_boot_signature": "A55A",
+    "native_boot_entry": "0150",
+    "rom_boot_interrupt": "01",
+    "native_bios_owns_boot_order": true,
+    "disk_shell_preserved": true,
+    "legacy_interrupt_frame_preserved": true,
+    "legacy_disk_presence_byte": "E6D0=80"
   }
 }

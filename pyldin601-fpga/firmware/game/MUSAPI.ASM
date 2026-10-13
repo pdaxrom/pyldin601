@@ -24,7 +24,7 @@ mus_zero_state
     staa mus_looping
     ldaa #$e5
     int $2e
-    tstb
+    cpx #0
     beq mus_load_failed
     ldd mus_name_arg
     std mus_io_table
@@ -45,6 +45,7 @@ mus_zero_state
     ldd mus_file_size+2
     std mus_file_left+2
     jsr mus_load_song
+    jsr ml_free
     jsr mus_close_song
     jsr mus_parse_song
     jsr mus_restore_bank
@@ -157,6 +158,7 @@ mus_close_song
 mus_closed
     rts
 mus_release
+    jsr ml_free
     tst mus_memory_lease+2
     beq mus_release_done
     ldaa #2

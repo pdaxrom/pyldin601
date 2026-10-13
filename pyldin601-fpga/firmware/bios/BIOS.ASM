@@ -120,7 +120,9 @@ reshndl1	clr	0,x		; ­  ¨­²¥°º¯²¨²¥ ¨ ±²° ­¨¶¨²¥ ¨¬
 		bne	reshndl1
 		ldab	#$70		;³±² ­®¢¿¢ ­¥ ­  ¨­²¥°º¯²¨ 00-37
 		lds	#restbl-1
-		ldx	#swivec
+		jmp	bank_copy_init
+		global	native_reset_vectors
+native_reset_vectors
 reshndl2	pula
 		staa	0,x
 		inx
@@ -242,8 +244,7 @@ mainrom_ok
 		int	$27
 
 		cli
-		ldaa	#7
-		int	$e1
+		jsr	native_boot
 		ds	$f143-*,1
 nofloppy
 resetloop	int	$01		; ª° © ¯® RESET ¢¥ª²®° 
@@ -282,6 +283,7 @@ irqhndl1	jmp	paged_irq
 ;---------------------------------------
 swihndl	proc
 		jmp	paged_swi
+		include	ROMRETURNS.INC
 		ds	$f20b-*,1
 		endp
 
@@ -1723,17 +1725,17 @@ int_37		proc
 		clrb			;don't change page
 ok
 		tsx
-		stab	3,x		;corresponding page
+		stab	2,x		;corresponding page
 		ldab	swix		;go to it via rts exit from this int
 		ldaa	swix+1
-		stab	9,x		;pc
-		staa	10,x
+		stab	8,x		;pc
+		staa	9,x
 
-		ldaa	4,x		;pass original ZP parms
+		ldaa	3,x		;pass original ZP parms
 		staa	swic
-		ldab	5,x
-		ldaa	6,x
-		ldx	7,x
+		ldab	4,x
+		ldaa	5,x
+		ldx	6,x
 		jmp	rtswix
 
 		endp

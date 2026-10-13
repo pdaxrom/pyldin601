@@ -7,10 +7,10 @@ start
         ldx #need_cpu
         jmp message_exit
 cpu_ok
-        ldaa $edf0
-        anda #$f0
-        cmpa #$b0
-        beq extension_ok
+        ldaa #$e0
+        int $2e
+        cpx #0
+        bne extension_ok
         ldx #need_rom
         jmp message_exit
 extension_ok

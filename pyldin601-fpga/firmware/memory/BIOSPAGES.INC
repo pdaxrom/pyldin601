@@ -1,8 +1,9 @@
-; MC6800-compatible native BIOS paging dispatch. E6F0 and E6F1 are saved
-; on the interrupted stack, including nested SWI/IRQ/NMI. Vector page zero
-; preserves BOTH registers. Nonzero vectors use their native page in group 0.
+; MC6800-compatible paging, with the original SWI/IRQ handler stack layout.
+; E6F1 is encoded in the handler return address (19 valid groups), avoiding
+; an extra byte between the saved E6F0 and hardware frame. Nested calls have
+; independent continuations. Page zero preserves both selectors.
 ; Based on the original BIOS.ASM SWI register exchange and call convention.
-    global paged_irq,paged_swi,audio_irq_dispatch,audio_irq_rti
+    global paged_irq,paged_swi,audio_irq_dispatch,audio_irq_rti,exchregs
 ; New audio hardware has a latched, separately acknowledged IRQ. Check the
 ; signature first so these ROMs remain safe with an older FPGA (open bus FF).
 ; INT E4 is its vector; native INT05 remains exactly the PAL system tick.
@@ -63,9 +64,12 @@ keyboard_rom_poll
     psha
     ldaa $e6f1
     psha
+    ldaa swipag+$73
+    anda #15
+    beq keyboard_poll_call
     clr $e6f1
-    ldaa #$0b
     staa rompage
+keyboard_poll_call
     ldx $efce
     jsr 0,x
     pula
@@ -86,7 +90,14 @@ paged_irq
 irq_call
     cpx #0
     beq irq_return
-    jsr 0,x
+    pula
+    asla
+    adda #irq_returns
+    ldab #/irq_returns
+    adcb #0
+    psha
+    pshb
+    jmp 0,x
 irq_return
     sei
     pula
@@ -112,6 +123,11 @@ paged_swi
     ldab rompage
     pshb
     ldab $e6f1
+    aslb
+    addb #swi_returns
+    pshb
+    ldab #/swi_returns
+    adcb #0
     pshb
     tab
     lsrb
@@ -139,18 +155,8 @@ swi_vector
     ldx swihndl_x
     ldaa swivec+1,x
     ldab swivec,x
-    beq swi_return
-    jsr swi_call
-swi_return
-    sei
-    pulb
-    stab $e6f1
-    pulb
-    stab rompage
-    tsx
-    jsr exchregs
-    dec indos
-    rti
+    bne swi_call
+    rts
 exchregs
     ldaa 1,x
     ldab swib
@@ -183,3 +189,6 @@ swi_call
     ldaa swia
     cli
     rts
+    include BOOTSECTOR.INC
+    include BANKCOPY.INC
+    include BIOSBOOT.INC

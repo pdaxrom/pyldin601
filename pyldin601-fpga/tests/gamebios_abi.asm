@@ -34,6 +34,37 @@ fail
     staa $070f
     bra fail
 extended
+    ldaa #1
+    ldab #111
+    ldx #banklease
+    int $e5
+    tsta
+    beq *+5
+    jmp fail
+    ldaa #$5a
+    staa $9000
+    ldx #bankput
+    ldaa #1
+    int $e8
+    tsta
+    beq *+5
+    jmp fail
+    ldx #bankget
+    ldaa #1
+    int $e8
+    tsta
+    beq *+5
+    jmp fail
+    ldaa $9100
+    cmpa #$5a
+    beq *+5
+    jmp fail
+    ldaa #2
+    ldx #banklease
+    int $e5
+    tsta
+    beq *+5
+    jmp fail
     ldx #$5000
     ldd #GB_CONTEXT_BYTES
     std 0,x
@@ -107,6 +138,12 @@ wait_music
     jsr call
     cpx #6
     bcs wait_music
+    ldx #bankirq
+    ldaa #1
+    int $e8
+    tsta
+    beq *+5
+    jmp fail
     ldaa #GB_BATCH
     ldab #32
     ldx #batch_text
@@ -227,4 +264,11 @@ batch_text
     dw 0
     db GB_PUTC,'W'
     dw 0
+bankput db $ff,110
+    dw $9000,13,1
+bankget db 110,$ff
+    dw 13,$9100,1
+bankirq db $ff,$ff
+    dw $6000,$7000,4096
+banklease ds 114
     end start

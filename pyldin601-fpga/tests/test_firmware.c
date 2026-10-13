@@ -235,14 +235,9 @@ int SuperIoReadByte(word a,byte*out){
   case 0xe632:*out=0x80;return 1;
   case 0xe6c0:return 0;case 0xe6d0:
 #ifdef COMPACT_FIXTURE
-  // The native memory mover can read an otherwise unmapped I/O address
-  // while compacting saved monitor variables. Match the RTL's base RAM
-  // behind removed ports; only old FDC routines must trip this assertion.
-  if(PC<0xf400||PC>=0xf900)return 0;
-  fdc_port_accesses++;
-  fprintf(stderr,"removed FDC status read %04x PC=%04x X=%04x SP=%04x mode=%02x\n",a,PC,X,SP,MC6800GetCpuRam()[0xe629]);
-  for(unsigned j=1;j<=32;j++)fprintf(stderr,"%02x%c",MC6800GetCpuRam()[(SP+j)&65535],j==32?'\n':' ');
-  exit(1);
+  // The removed status address is ordinary SRAM, as in the RTL. Native
+  // boot seeds its compatibility presence byte for historical disk shells.
+  return 0;
 #else
   *out=0x80;return 1;
 #endif
@@ -312,7 +307,11 @@ int SuperIoWriteByte(word a,byte d){
  case 0xe6f0:page=d;break;
  case 0xe600:case 0xe604:crtc_index=d;return 1;
  case 0xe601:case 0xe605:crtc[crtc_index&15]=d;return 1;
- case 0xe6c0:return 0;case 0xe6d0:case 0xe6d1:
+ case 0xe6c0:return 0;case 0xe6d0:
+#ifdef COMPACT_FIXTURE
+  return 0;
+#endif
+ case 0xe6d1:
 #ifdef COMPACT_FIXTURE
   if(PC<0xf400||PC>=0xf900)return 0;
 #endif

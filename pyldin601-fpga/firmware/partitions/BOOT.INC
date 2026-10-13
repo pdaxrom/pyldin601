@@ -71,7 +71,7 @@ boot_mount_rest
 boot_mount_loop
     ldaa PL
     cmpa PN
-    bcc boot_shell
+    bcc boot_done
     staa PI
     jsr record_pointer
     ldx PR
@@ -92,10 +92,6 @@ boot_mount_loop
 boot_mount_next
     inc PL
     bra boot_mount_loop
-boot_shell
-    int $2c
-    ; Page F restores the complete command interpreter from its packed stream.
-    int $e3
-    jsr $1000
+boot_done
     clra
     rts

@@ -42,7 +42,7 @@ static void wait_frames(unsigned n){uint64_t deadline=virtual_cycles+200000000;w
 static void game_observe(void){
  observe();
  if(app&&PC==app+GAME_HS_WAIT)ui_state=1;if(app&&PC==app+GAME_HS_NAME_KEY)ui_state=2;
- if(!app&&PC<0xc000&&r[PC]==0x3f&&r[PC+1]==0xe6&&A==1&&X>=GAME_SDK_CONTEXT+0x100&&X<0xbe00&&r[X]==(8608>>8)&&r[X+1]==(8608&255)&&r[X+2]==1)app=X-GAME_SDK_CONTEXT;
+ if(!app&&PC<0xc000&&r[PC]==0x3f&&r[PC+1]==0xe6&&A==1&&X>=GAME_SDK_CONTEXT+0x100&&X<0xbe00&&r[X]==(416>>8)&&r[X+1]==(416&255)&&r[X+2]==2)app=X-GAME_SDK_CONTEXT;
 }
 static unsigned sdk_frames;
 static void sdk_frame(unsigned dp){
@@ -181,7 +181,11 @@ int GAME_APP_MAIN(int argc,char**argv){
  app=frames=0;type_game();wait_frames(3);require(r[app+GAME_LIVES]==3&&r[app+GAME_REMAINING]==40&&!at(GAME_SCORE),"second run starts fresh");finish_ui();restored();
  keyboard_raw_missing=1;app=frames=0;type_game();prompt_wait();keyboard_raw_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"older FPGA gets a clear refusal with context cleanup");
  keyboard_capture_missing=1;app=frames=0;type_game();prompt_wait();keyboard_capture_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"old raw FIFO without capture is refused");
+ require(free_banks()==111,"input refusal releases loaded music without UniShell assistance");
  app=frames=0;type_game();wait_frames(3);for(unsigned k=0;k<65;k++)raw_byte(0x1c);prompt_wait();restored();require(!raw_count&&!raw_overflow,"raw overflow flushes safely and restores DOS");require(contains("OP=FE STATUS=02 RAW=40"),"failure identifies raw overflow and capture before cleanup");
+ require(free_banks()==111,"runtime failure releases every application bank");
+ fault_palette=1;app=frames=0;command("b:arkanoid");fault_palette=0;restored();
+ require(!frames&&free_banks()==111,"OPEN failure releases already loaded music");
  native_step_hook=observe;flip_hook=sdk_frame;command("b:sdktest");restored();require(sdk_frames==8&&contains("PASS: SDK tiles and scrolling"),"SDK map, all scroll directions, boundary no-op and invalid arguments");
  command("dir a:");command("dir b:");command("dir c:");printf("PASS ARKANOID %s: SDK/tile atlas, full-frame oracle, continuous held/released keys, edges/opposites/SPACE, moving-paddle angles/speed/clamps, collisions/lives, music/effects, ESC/relaunch/DIR (%u jobs)\n",argv[2],jobs);return 0;
 }
