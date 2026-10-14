@@ -94,21 +94,18 @@ menu_draw_all
 menu_key
     int $11
     cmpa #27
-    bne nc_long_ncmenu_1_377
+    bne *+5
     jmp menu_done
-nc_long_ncmenu_1_377
     cmpa #3
-    bne nc_long_ncmenu_2_377
+    bne *+5
     jmp menu_done
-nc_long_ncmenu_2_377
     cmpa #$c1
     beq menu_left
     cmpa #$c2
     beq menu_right
     cmpa #$c0
-    bne nc_long_ncmenu_3_377
+    bne *+5
     jmp menu_selected
-nc_long_ncmenu_3_377
     cmpa #$c4
     beq menu_up
     cmpa #$c3
@@ -230,10 +227,10 @@ menu_selected
     beq settings
     lsra
     lsra
-    staa active
-    jsr choose_panel
     tst window_key
     beq menu_drive
+    staa active
+    jsr choose_panel
     jmp refresh
 menu_drive
     jmp change_drive
@@ -268,9 +265,8 @@ menu_command
     clr input
     ldx #command_prompt
     jsr dialog
-    bcc nc_long_ncmenu_4_377
+    bcc *+5
     jmp menu_done
-nc_long_ncmenu_4_377
     ldx #input
     stx src
     ldx #command_line
@@ -280,9 +276,8 @@ nc_long_ncmenu_4_377
     jsr path_length
     stab command_length
     tstb
-    bne nc_long_ncmenu_5_377
+    bne *+5
     jmp menu_done
-nc_long_ncmenu_5_377
     jmp enter
 
 ; Changes are staged in the modal window. Esc/Cancel discards the draft;
@@ -353,13 +348,11 @@ settings_value_marker
 settings_key
     int $11
     cmpa #27
-    bne nc_long_ncmenu_1_387
+    bne *+5
     jmp settings_cancel
-nc_long_ncmenu_1_387
     cmpa #3
-    bne nc_long_ncmenu_2_387
+    bne *+5
     jmp settings_cancel
-nc_long_ncmenu_2_387
     cmpa #$c0
     beq settings_enter
     cmpa #$c4
@@ -420,9 +413,8 @@ settings_toggle_hidden
 settings_enter
     ldaa window_focus
     cmpa #6
-    bne nc_long_ncmenu_3_387
+    bne *+5
     jmp settings_cancel
-nc_long_ncmenu_3_387
 settings_apply
     ldx owner
     ldaa draft_sort

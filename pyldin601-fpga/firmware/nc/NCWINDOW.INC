@@ -13,6 +13,21 @@ window_open
 window_draw
     stx window_title
     jsr caret_hide
+    ; The graphics caret is an underscore in the prompt's reserved blank
+    ; cell. Hardware parking alone cannot remove it when a modal opens.
+    ldaa mode
+    anda #3
+    beq window_frame_start
+    ldaa #$70
+    jsr colour
+    ldaa command_caret
+    staa ui_x
+    ldaa ui_command
+    staa ui_y
+    jsr position
+    ldaa #' '
+    jsr put
+window_frame_start
     ldaa window_top
     staa window_index
 window_frame_row

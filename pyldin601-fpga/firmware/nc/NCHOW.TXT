@@ -35,7 +35,8 @@ KEYS
     Insert              Mark / unmark and advance
     Enter               Enter directory, run file, or execute command line
     Backspace           Parent directory; edit when the command line is used
-    Ctrl+D              Choose the active panel's drive, A through H
+    Ctrl+F1             Choose the left panel's drive
+    Ctrl+F2             Choose the right panel's drive
     Ctrl+R              Reread both directories
     Ctrl+O              Unload panels and enter the real UniDOS shell
     EXIT in shell       Reload panels
@@ -57,6 +58,14 @@ The top bar contains Left, File, Command, Options and Right. In a menu use
 Left/Right to change groups, Up/Down or Tab to select, Enter to execute,
 or the displayed item number. Esc/Ctrl+C closes the menu. Left/Right menus
 choose a drive or reread the corresponding panel. Options opens Settings.
+
+The drive window lists registered UniDOS drives and highlights the panel's
+current drive. Up/Down, Left/Right or Tab moves selection; Home/End selects
+the first/last drive. A drive letter highlights that entry. Enter confirms;
+Esc/Ctrl+C cancels without changing either panel or the active panel.
+Selecting the current drive preserves its directory and cursor. A different
+drive opens its root and activates the requested panel. Listing drives does
+not probe removable media; a media error on selection returns to the list.
 
 Settings has four sort radio buttons (n/e/s/d: name/extension/size/date)
 and a hidden-file checkbox (h). Up/Down/Tab moves focus; Space selects or

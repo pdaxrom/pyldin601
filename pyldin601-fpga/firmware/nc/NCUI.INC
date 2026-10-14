@@ -206,9 +206,8 @@ render_name_heading
     jsr field
     ldaa columns
     cmpa #80
-    bcc nc_long_ncui_1_801
+    bcc *+5
     jmp render_row_border
-nc_long_ncui_1_801
     ldaa #BOX_VERTICAL
     jsr put
     ldaa #10
@@ -357,14 +356,12 @@ directory_label_done
 ; timestamps stay blank; formatting uses no DOS calls or bank transfers.
 render_file_date
     ldx row_entry
-    bne nc_long_ncui_2_786
+    bne *+5
     jmp render_date_done
-nc_long_ncui_2_786
     ldaa E_DATE,x
     oraa E_DATE+1,x
-    bne nc_long_ncui_3_786
+    bne *+5
     jmp render_date_done
-nc_long_ncui_3_786
     ldaa E_DATE,x
     anda #31
     jsr date_two
@@ -772,36 +769,4 @@ put_field
     include NCWINDOW.INC
     include NCMENU.INC
 
-change_drive
-    clr input
-    ldx #drive_prompt
-    jsr dialog
-    bcs drive_done
-    ldaa input
-    anda #$df
-    suba #'A'
-    cmpa #8
-    bcc drive_done
-    int $5c
-    tsta
-    bne drive_error
-    ldaa active
-    jsr choose_panel
-    ldaa input
-    anda #$df
-    ldx pathptr
-    staa 0,x
-    ldaa #':'
-    staa 1,x
-    ldaa #'\'
-    staa 2,x
-    clr 3,x
-    jsr page_flag_pointer
-    clr 0,x
-    clr pcur
-    jsr store_cursor
-    jmp refresh
-drive_error
-    jsr error
-drive_done
-    jmp redraw
+    include NCDRIVE.INC

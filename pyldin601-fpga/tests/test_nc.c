@@ -11,6 +11,7 @@ static unsigned cancel_pending,cancel_injected,core_load_armed,probe_armed;
 static unsigned nc_base,core_base,core_entries,wait_entries,supervisor_sp,core_sp,probe_base,probe_ok;
 static unsigned measure_key,measured_reads,measured_scans,measured_transfers,measured_glyphs;
 static unsigned input_boundary,modal_video,progress_checks,progress_captured;
+static unsigned drive_probe_reads,drive_probe_writes,drive_probe_count;
 static void snapshot(unsigned video,const char*backend);
 static void check_command_caret(void);
 static void check_modal_caret(unsigned boundary);
@@ -33,8 +34,12 @@ static int matches(unsigned pc,const unsigned char*sig,const unsigned char*mask)
 }
 static void observe(void){
  if(core_base){
-  const unsigned waits[]={NCMAIN_DIALOG_KEY,NCMAIN_MENU_KEY,NCMAIN_SETTINGS_KEY,NCMAIN_CONFIRM_KEY,NCMAIN_MESSAGE_KEY};
+  const unsigned waits[]={NCMAIN_DIALOG_KEY,NCMAIN_MENU_KEY,NCMAIN_SETTINGS_KEY,NCMAIN_CONFIRM_KEY,NCMAIN_MESSAGE_KEY,NCMAIN_DRIVE_KEY};
   for(unsigned k=0;k<sizeof waits/sizeof waits[0];k++)if(PC==core_base+waits[k])input_boundary=waits[k];
+  if(PC==core_base+NCMAIN_DRIVE_ENUMERATE){drive_probe_reads=sd_reads;drive_probe_writes=sd_writes;}
+  if(PC==core_base+NCMAIN_DRIVE_LIST_READY){
+   require(sd_reads==drive_probe_reads&&sd_writes==drive_probe_writes,"enumerating available drives performs no media reads or writes");drive_probe_count++;
+  }
   if(PC==core_base+NCMAIN_COPY_BLOCK&&MC6800GetCpuRam()[core_base+NCMAIN_PROGRESS_MODE]){
    unsigned char*r=MC6800GetCpuRam();unsigned d=core_base+NCMAIN_PROGRESS_DONE,t=core_base+NCMAIN_PROGRESS_TOTAL;
    uint32_t done=(uint32_t)r[d]<<24|r[d+1]<<16|r[d+2]<<8|r[d+3],total=(uint32_t)r[t]<<24|r[t+1]<<16|r[t+2]<<8|r[t+3];
@@ -110,6 +115,8 @@ static void check_command_caret(void){
  }else check_text_caret(col,row);
 }
 static void check_modal_caret(unsigned boundary){
+ if(MC6800GetCpuRam()[core_base+NCMAIN_MODE]&3)
+  graphic_cell(MC6800GetCpuRam()[core_base+NCMAIN_COMMAND_CARET],MC6800GetCpuRam()[core_base+NCMAIN_UI_COMMAND],' ',1,0);
  unsigned char*r=MC6800GetCpuRam();
  if(boundary==NCMAIN_DIALOG_KEY&&!r[core_base+NCMAIN_WINDOW_FOCUS]){
   unsigned col=6+r[core_base+NCMAIN_EDIT_CURSOR]-r[core_base+NCMAIN_EDIT_OFFSET];
@@ -153,7 +160,11 @@ static void check_menu_restore(void){
  modal_key(0x48,NCMAIN_MENU_KEY);
  require(r[core_base+NCMAIN_MENU_INDEX]==0,"Up selects the previous menu item");
 }
-static void drive_b(void){unsigned after=wait_entries;KBDModKeyDown(1);key(0x20);KBDModKeyUp(1);type("b");key(0x1c);panels(after);}
+static void open_drive_picker(unsigned panel){
+ input_boundary=0;KBDModKeyDown(1);key(0x3b+panel);KBDModKeyUp(1);modal_wait(NCMAIN_DRIVE_KEY);
+ require(MC6800GetCpuRam()[core_base+NCMAIN_DRIVE_TARGET]==panel,"Ctrl+F1/F2 opens drives for the requested panel");
+}
+static void drive_b(void){unsigned after=wait_entries;open_drive_picker(MC6800GetCpuRam()[core_base+NCMAIN_ACTIVE]);type("b");key(0x1c);panels(after);}
 static void check_incremental_screen(void){
  unsigned char*r=MC6800GetCpuRam(),expected[16000];
  unsigned base=ram_word(core_base+NCMAIN_SCREEN_BASE),mode=r[core_base+NCMAIN_MODE];
@@ -258,6 +269,84 @@ static void check_file_information(unsigned video){
  snapshot(video,"info");memcpy(entry,saved,sizeof saved);panel_key(0x50);panel_key(0x48);
 }
 
+static void check_drive_picker(unsigned video){
+ unsigned char*r=MC6800GetCpuRam(),available[8],paths[160];unsigned count=0;
+ unsigned state=nc_base+NC_STATE,original=invoke(0x45,0,0,0),old_active=r[core_base+NCMAIN_ACTIVE];
+ memcpy(paths,r+state+NC_S_PATHS,sizeof paths);
+ for(unsigned k=0;k<8;k++)if(!invoke(0x44,k,0,0))available[count++]=k;
+ require(!invoke(0x44,original,0,0)&&count>1,"drive-picker fixture has multiple installed drives");
+ unsigned after=wait_entries;
+ open_drive_picker(0);
+ require(r[core_base+NCMAIN_MENU_COUNT]==count&&!memcmp(r+core_base+NCMAIN_DRIVE_LIST,available,count),"drive picker lists exactly the registered UniDOS drives");
+ require(invoke(0x45,0,0,0)==original,"opening drive selection preserves the shell's current drive");
+ unsigned initial=r[core_base+NCMAIN_MENU_INDEX];
+ require(available[initial]==(unsigned)(paths[0]-'A'),"current panel drive is initially highlighted");
+ snapshot(video,"drive-left");
+ modal_key(0x4f,NCMAIN_DRIVE_KEY);require(r[core_base+NCMAIN_MENU_INDEX]==count-1,"End selects the last available drive");
+ modal_key(0x50,NCMAIN_DRIVE_KEY);require(!r[core_base+NCMAIN_MENU_INDEX],"Down wraps from last drive to first");
+ modal_key(0x48,NCMAIN_DRIVE_KEY);require(r[core_base+NCMAIN_MENU_INDEX]==count-1,"Up wraps from first drive to last");
+ modal_key(0x47,NCMAIN_DRIVE_KEY);modal_key(0x4d,NCMAIN_DRIVE_KEY);require(r[core_base+NCMAIN_MENU_INDEX]==1,"Right selects the next available drive");
+ modal_key(0x4b,NCMAIN_DRIVE_KEY);require(!r[core_base+NCMAIN_MENU_INDEX],"Left selects the previous available drive");
+ modal_key(0x0f,NCMAIN_DRIVE_KEY);require(r[core_base+NCMAIN_MENU_INDEX]==1,"Tab selects the next available drive");
+ modal_key(0x47,NCMAIN_DRIVE_KEY);
+ for(unsigned k=0;k<8;k++){
+  unsigned present=0;for(unsigned n=0;n<count;n++)present|=available[n]==k;
+  if(!present){char invalid[2]={(char)('a'+k),0};type(invalid);modal_wait(NCMAIN_DRIVE_KEY);require(!r[core_base+NCMAIN_MENU_INDEX],"unavailable drive letters are ignored");break;}
+ }
+ key(1);panels(after);
+ require(r[core_base+NCMAIN_ACTIVE]==old_active&&!memcmp(paths,r+state+NC_S_PATHS,sizeof paths)&&invoke(0x45,0,0,0)==original,"Esc leaves both panels and DOS working drive unchanged");
+
+ // Native UniDOS keeps its eight registered device pointers at EB03.
+ // Change only this test fixture, then restore it before any file access.
+ const unsigned drive_table=0xeb03;unsigned char devices[16];memcpy(devices,r+drive_table,sizeof devices);
+ memset(r+drive_table,0,sizeof devices);memcpy(r+drive_table,devices,2);memcpy(r+drive_table+14,devices+2,2);
+ after=wait_entries;open_drive_picker(0);
+ require(r[core_base+NCMAIN_MENU_COUNT]==2&&r[core_base+NCMAIN_DRIVE_LIST]==0&&r[core_base+NCMAIN_DRIVE_LIST+1]==7,"drive enumeration crosses registration gaps and includes H");
+ modal_key(0x4f,NCMAIN_DRIVE_KEY);require(r[core_base+NCMAIN_MENU_INDEX]==1,"End selects H after a gap");
+ key(1);panels(after);
+ for(unsigned k=0;k<8;k++)memcpy(r+drive_table+2*k,devices,2);
+ after=wait_entries;open_drive_picker(0);
+ require(r[core_base+NCMAIN_MENU_COUNT]==8,"all eight registered drives fit in the picker");
+ snapshot(video,"drive-eight");modal_key(0x4f,NCMAIN_DRIVE_KEY);modal_key(0x0f,NCMAIN_DRIVE_KEY);
+ require(!r[core_base+NCMAIN_MENU_INDEX],"Tab wraps an eight-drive list");
+ key(1);panels(after);memcpy(r+drive_table,devices,sizeof devices);
+
+ // Fail an actual SD read during media validation. Acknowledging the error
+ // must restore the wider error box's underlay and retain the drive list.
+ after=wait_entries;open_drive_picker(0);type("b");modal_wait(NCMAIN_DRIVE_KEY);
+ unsigned base=ram_word(core_base+NCMAIN_SCREEN_BASE),screen_size=(video&3)?25*(model_a?640:320):26*crtc[1];
+ unsigned char expected[16000];memcpy(expected,r+base,screen_size);
+ runtime_r1=0x20;modal_key(0x1c,NCMAIN_MESSAGE_KEY);runtime_r1=0;
+ require(r[core_base+NCMAIN_ACTIVE]==old_active&&!memcmp(paths,r+state+NC_S_PATHS,sizeof paths),"a media error preserves panel paths and focus");
+ modal_key(0x1c,NCMAIN_DRIVE_KEY);
+ require(r[core_base+NCMAIN_MENU_COUNT]==count&&r[core_base+NCMAIN_MENU_INDEX]==1&&!memcmp(expected,r+base,screen_size),"acknowledging a media error restores the complete picker and its underlay");
+ key(1);panels(after);
+ after=wait_entries;open_drive_picker(1);snapshot(video,"drive-right");
+ modal_key(0x47,NCMAIN_DRIVE_KEY);
+ unsigned wanted=0;for(unsigned n=0;n<count;n++)if(available[n]!=(unsigned)(paths[80]-'A')){wanted=n;break;}
+ for(unsigned n=0;n<wanted;n++)modal_key(0x50,NCMAIN_DRIVE_KEY);
+ key(0x1c);panels(after);
+ require(r[core_base+NCMAIN_ACTIVE]==1&&r[state+NC_S_PATHS+80]=='A'+available[wanted]&&!memcmp(paths,r+state+NC_S_PATHS,80),"Ctrl+F2 and Enter change only the right panel drive");
+ after=wait_entries;open_drive_picker(1);char letter[2]={(char)(paths[80]-'A'+'a'),0};type(letter);key(0x1c);panels(after);
+ require(!memcmp(paths,r+state+NC_S_PATHS,sizeof paths),"drive-letter shortcut highlights and Enter restores the requested drive");
+ after=wait_entries;key(0x43);modal_wait(NCMAIN_MENU_KEY);
+ while(r[core_base+NCMAIN_MENU_GROUP]!=0)modal_key(0x4d,NCMAIN_MENU_KEY);
+ key(0x1c);modal_wait(NCMAIN_DRIVE_KEY);require(!r[core_base+NCMAIN_DRIVE_TARGET],"Left menu uses the same drive selector");key(1);panels(after);
+ require(r[core_base+NCMAIN_ACTIVE]==1,"cancelling the other panel's menu preserves active-panel focus");
+ after=wait_entries;key(0x43);modal_wait(NCMAIN_MENU_KEY);
+ while(r[core_base+NCMAIN_MENU_GROUP]!=4)modal_key(0x4d,NCMAIN_MENU_KEY);
+ key(0x1c);modal_wait(NCMAIN_DRIVE_KEY);require(r[core_base+NCMAIN_DRIVE_TARGET]==1,"Right menu uses the same drive selector");key(1);panels(after);
+
+ after=wait_entries;open_drive_picker(0);type("b");key(0x1c);panels(after);
+ require(!r[core_base+NCMAIN_ACTIVE]&&r[state+NC_S_PATHS]=='B'&&!memcmp(paths+80,r+state+NC_S_PATHS+80,80),"Ctrl+F1 changes only the left panel while the right panel was active");
+ select_name("TREE    ");panel_key(0x1c);select_name("SUB     ");
+ unsigned char nested[160],cursors[2],tops[2];memcpy(nested,r+state+NC_S_PATHS,sizeof nested);memcpy(cursors,r+core_base+NCMAIN_CURSORS,2);memcpy(tops,r+core_base+NCMAIN_TOPS,2);
+ after=wait_entries;open_drive_picker(0);key(0x1c);panels(after);
+ require(!memcmp(nested,r+state+NC_S_PATHS,sizeof nested)&&!memcmp(cursors,r+core_base+NCMAIN_CURSORS,2)&&!memcmp(tops,r+core_base+NCMAIN_TOPS,2),"choosing the current drive preserves a nested directory, cursor and scroll position");
+ after=wait_entries;open_drive_picker(0);type("a");key(0x1c);panels(after);
+ after=wait_entries;KBDModKeyDown(1);key(0x20);KBDModKeyUp(1);panels(after);
+ require(!strcmp((char*)paths,(char*)r+state+NC_S_PATHS)&&!strcmp((char*)paths+80,(char*)r+state+NC_S_PATHS+80)&&r[core_base+NCMAIN_ACTIVE]==old_active&&drive_probe_count>=4,"Ctrl+D is unassigned and all picker probes preserve panel state");
+}
 static void check_input_focus(unsigned video){
  unsigned char*r=MC6800GetCpuRam();unsigned old_blink=r[0xed1f];
  // Cyrillic blink bits ($60) defeat cursor_start | $20; parking must still
@@ -338,6 +427,7 @@ int main(int argc,char**argv){
  require(!strcmp((char*)r+core_base+NCMAIN_COMMAND_LINE,"a"),"native Backspace edits the command line");
  after=wait_entries;KBDModKeyDown(1);key(0x2e);KBDModKeyUp(1);panels(after);
  require(!r[core_base+NCMAIN_COMMAND_LENGTH]&&core_entries==1,"Ctrl+C clears command input without abandoning memory");
+ if(strncmp(backend,"many",4))check_drive_picker(video);
  check_input_focus(video);
  after=wait_entries;
  type("b:ncprobe");key(0x1c);loaded(2);panels(after);

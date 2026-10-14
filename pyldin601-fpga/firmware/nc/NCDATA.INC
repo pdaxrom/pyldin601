@@ -12,9 +12,11 @@ free_unknown db '? free',0
 marks_page_text db 'Unmark files before changing page.',0
 keys_short db '1Hlp2Cmd3Viw4Edt5Cpy6Mov7Mkd8Del9Mnu10Q',0
 keys_long db '1Help 2Command 3View 4Edit 5Copy 6Move 7Mkdir 8Delete 9Menu 10Quit',0
-help_text db 'F1-10: commands; Ctrl+O: shell, EXIT back',0
+help_text db 'F1-10: commands; Ctrl+F1/F2: left/right drive; Ctrl+O: shell, EXIT back',0
 editor_message db 'F4 editor is planned for the next stage.',0
-drive_prompt db 'Drive (A-H)',0
+drive_prompt db 'Select drive',0
+drive_buttons db '[Enter] [Esc]',0
+no_drives_text db 'No drives available.',0
 command_prompt db 'Command',0
 mkdir_prompt db 'New directory',0
 copy_prompt db 'Copy to',0
@@ -135,6 +137,14 @@ delta ds 1
 command_length ds 1
 command_line ds 81
 input ds 81
+; Drive selection and text-input dialogs are mutually exclusive. Media
+; errors use error_text, so the available-drive list survives an error box.
+drive_list equ input
+drive_current equ input+8
+drive_original equ input+9
+drive_scan equ input+10
+drive_target equ input+11
+drive_choice equ input+12
 input_end ds 2
 command_caret ds 1
 src ds 2

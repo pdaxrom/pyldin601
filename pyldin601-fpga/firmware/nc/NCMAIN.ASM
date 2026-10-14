@@ -17,6 +17,7 @@ nc_argument
     int $3c
     ldx #input
     ldab #4
+; A branch to *+5 skips the three-byte JMP without spending a UniAS symbol.
 nc_hex
     ldaa 0,x
     inx
@@ -25,9 +26,8 @@ nc_hex
     bls nc_digit
     suba #7
     cmpa #15
-    bls nc_long_ncmain_1_417
+    bls *+5
     jmp bad_parent
-nc_long_ncmain_1_417
 nc_digit
     pshb
     ldab #4
@@ -42,23 +42,19 @@ nc_shift
     decb
     bne nc_hex
     tst 0,x
-    beq nc_long_ncmain_2_417
+    beq *+5
     jmp bad_parent
-nc_long_ncmain_2_417
     ldaa owner
-    bne nc_long_ncmain_3_417
+    bne *+5
     jmp bad_parent
-nc_long_ncmain_3_417
     cmpa #$bd
-    bcs nc_long_ncmain_4_417
+    bcs *+5
     jmp bad_parent
-nc_long_ncmain_4_417
     ldx owner
     ldx 0,x
     cpx #$4e43
-    beq nc_long_ncmain_5_417
+    beq *+5
     jmp bad_parent
-nc_long_ncmain_5_417
     ldx owner
     ldaa S_ACTIVE,x
     anda #1
@@ -175,6 +171,14 @@ key_not_shell
     jsr switch_panel
     jmp wait_key
 key_not_tab2
+    cmpa #$e1
+    bne key_not_drive_left
+    jmp drive_left
+key_not_drive_left
+    cmpa #$e2
+    bne key_not_drive_right
+    jmp drive_right
+key_not_drive_right
     cmpa #$c9
     bne key_not_f1
     jmp help
@@ -274,10 +278,6 @@ key_not_pgdn
     bne key_not_ins
     jmp mark_entry
 key_not_ins
-    cmpa #4
-    bne key_not_drive
-    jmp change_drive
-key_not_drive
     cmpa #18
     bne key_not_refresh
     jmp refresh
@@ -295,9 +295,8 @@ key_not_escape
     bne key_not_backspace
 delete_command_char
     ldaa command_length
-    bne nc_long_ncmain_1_553
+    bne *+5
     jmp wait_key_jump
-nc_long_ncmain_1_553
     deca
     staa command_length
     jsr command_end
@@ -305,9 +304,8 @@ nc_long_ncmain_1_553
     jmp command_redraw
 key_not_backspace
     cmpa #32
-    bcc nc_long_ncmain_2_553
+    bcc *+5
     jmp wait_key_jump
-nc_long_ncmain_2_553
     cmpa #127
     bcc wait_key_jump
     ldab command_length
@@ -338,11 +336,11 @@ move_cursor
     tst delta
     bpl move_nonnegative
     cmpa pcur
-    bhi nc_long_ncmain_3_553
+    bhi move_previous_window
     tsta
-    beq nc_long_ncmain_3_553
+    beq *+5
     jmp set_cursor
-nc_long_ncmain_3_553
+move_previous_window
     ldab panel
     ldx #has_previous
     jsr add_b
@@ -354,16 +352,14 @@ move_first
     ldaa pcur
     adda delta
     cmpa pcur
-    bcc nc_long_ncmain_1_669
+    bcc *+5
     jmp set_cursor
-nc_long_ncmain_1_669
     clra
     jmp set_cursor
 move_nonnegative
     cmpa pcount
-    bcc nc_long_ncmain_4_553
+    bcc *+5
     jmp set_cursor
-nc_long_ncmain_4_553
     ldab panel
     ldx #has_next
     jsr add_b
@@ -485,14 +481,12 @@ mark_entry
     ldaa active
     jsr choose_panel
     jsr selected
-    bcc nc_long_ncmain_5_553
+    bcc *+5
     jmp wait_key_jump
-nc_long_ncmain_5_553
     ldaa 0,x
     cmpa #'.'
-    bne nc_long_ncmain_6_553
+    bne *+5
     jmp wait_key_jump
-nc_long_ncmain_6_553
     ldaa 12,x
     eora #1
     staa 12,x
