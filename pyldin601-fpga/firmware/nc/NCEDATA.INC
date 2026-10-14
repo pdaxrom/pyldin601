@@ -1,6 +1,7 @@
 standalone_message db 10,'Start the editor with NC F4.',10,0
 title db ' NC Editor',0
-help_text db 'F2 Save; Shift+F2 Save as; F7 Search; Shift+F7 Next; Ctrl+Z/Y Undo/Redo; F10 Exit',0
+help_text db 'F2 Save; Sh+F2 As; F7 Find; Sh+F7 Next; F3/Shift Select; '
+    db '^C Copy; ^X Cut; ^V Paste; ^A All; ^Z/Y Undo/Redo; F10 Exit',0
 ok_button db '[ OK ]',0
 yes_button db '[ Yes ]',0
 no_button db '[ No ]',0
@@ -12,8 +13,9 @@ work_name db 'NCE00000.IDX',0
 work_extensions db 'IDX',0,'ADD',0,'UND',0
 insert_label db ' INS C:',0
 overwrite_label db ' OVR C:',0
-editor_keys_short db '1Hlp 2Sav Sh2As 7Fnd Sh7Nxt ^Z/Y 10Exit',0
-editor_keys_long db '1Help 2Save Sh2SaveAs 7Find Sh7Next ^ZUndo ^YRedo 10Exit',0
+block_label db ' BLK C:',0
+editor_keys_short db '1Hlp 2Sav 3Blk ^C/X/V 7Fnd ^Z/Y 10Exit',0
+editor_keys_long db '1Help 2Save Sh2As 3Block ^C/X/V 7Find Sh7Next ^Z/Y 10Exit',0
 exit_title db 'Exit editor',0
 exit_message db 'Save changes before leaving?',0
 exit_save_label db 'Save',0
@@ -99,8 +101,8 @@ cache_hand ds 1
 cache_buf ds 2
 cache_byte ds 2
 saved_tag ds 2
-cache_tags ds 168
-cache_data ds 2560
+cache_tags ds 160
+cache_data ds 2048
 cache_lease ds 4
 cache_leased ds 1
 old_page ds 1
@@ -209,20 +211,21 @@ cursor_row ds 1
 cursor_seen ds 1
 render_eof ds 1
 build_full ds 1
-render_x ds 1
-anchor_set ds 1
-scan_column ds 4
-scan_start ds 4
-scan_char_pos ds 4
-scan_char_column ds 4
-scan_char ds 1
-display_char ds 1
-scan_end ds 4
-eol_detected ds 1
-paint_cache ds 2
-paint_text ds 2
-paint_char ds 1
-paint_run ds 1
+; view_scan+0 = render_x
+; view_scan+1 = anchor_set
+; view_scan+2 = scan_column
+; view_scan+6 = scan_start
+; view_scan+10 = scan_char_pos
+; view_scan+14 = scan_char_column
+; view_scan+18 = scan_char
+; view_scan+19 = display_char
+; view_scan+20 = scan_end
+; view_scan+24 = eol_detected
+; view_scan+25 = paint_cache
+; view_scan+27 = paint_text
+; view_scan+29 = paint_char
+; view_scan+30 = paint_run
+view_scan ds 31
 caret_x ds 1
 caret_y ds 1
 caret_char ds 1
@@ -286,12 +289,13 @@ error_key ds 1
 split_has_neighbor ds 1
 split_neighbor ds 2
 split_neighbor_slot ds 1
-anchor_offset ds 4
-anchor_column ds 4
-anchor_saved_cursor ds 4
-anchor_saved_column ds 4
-anchor_saved_row ds 1
-anchor_error ds 1
+; view_anchor+0 = anchor_offset
+; view_anchor+4 = anchor_column
+; view_anchor+8 = anchor_saved_cursor
+; view_anchor+12 = anchor_saved_column
+; view_anchor+16 = anchor_saved_row
+; view_anchor+17 = anchor_error
+view_anchor ds 18
 editor_initialized ds 1
 copy_blocks ds 1
 copy_tail ds 1
@@ -301,13 +305,12 @@ view_valid ds 1
 restore_row ds 1
 restore_ptr ds 2
 change_linebreak ds 1
-scan_take ds 2
-scan_run_start ds 2
-scan_run_end ds 2
-scan_advance ds 4
-save_input_length ds 1
+; view_tail+0 = scan_take
+; view_tail+2 = scan_run_start
+; view_tail+4 = scan_run_end
+; view_tail+6 = scan_advance
+view_tail ds 10
 save_bar_width ds 1
-header_valid ds 1
-header_modified ds 1
-header_overwrite ds 1
+block_state ds 112
+block_marks ds 48
 bss_end

@@ -107,26 +107,50 @@ one-based visual column. The caret stays in the document or active dialog.
     Insert              Switch insertion / overwrite
     Delete / Backspace  Delete after / before the caret
     Enter / Tab         Insert a newline / a literal tab (8-column stops)
+    F3                  Start / stop extending a linear selection
+    Shift+navigation    Extend selection on the FPGA PS/2 keyboard
+    Ctrl+A              Select the whole document
+    Ctrl+C / Ctrl+X     Copy / cut the selection
+    Ctrl+V              Paste; replace a selection if present
     F1                  Editor help
     F2                  Save
     Shift+F2            Save As
     F7                  Search forward; wraps once at the document end
     Shift+F7            Repeat the previous search
     Ctrl+Z / Ctrl+Y     Undo / Redo; consecutive typing is one undo group
-    Esc / F10           Exit; modified text offers Save / Discard / Cancel
+    Esc                 Clear selection; otherwise exit
+    F10                 Exit; modified text offers Save / Discard / Cancel
 
 Long lines scroll horizontally without inserting line breaks. Offsets,
 sizes and columns are 32-bit. Text uses native 8-bit Pyldin characters;
-UTF-8 conversion, syntax highlighting and block operations are not included.
+UTF-8 conversion and syntax highlighting are not included.
 Search matches bytes and case. Existing tabs, CRLF/LF/CR, NUL and 1A bytes
 are preserved; new lines use the first detected convention (CRLF if empty).
 Control bytes are displayed as dots. Delete/Backspace treats CRLF as a pair.
+
+F3 starts marking at the caret; ordinary navigation extends the range, and
+F3 again freezes it. On the FPGA PS/2 keyboard, Shift+arrows/Home/End/pages
+also selects text; Ctrl+Shift+Home/End reaches document boundaries. Ordinary
+navigation clears a frozen/Shift selection. Typing, Enter, Tab, Delete and
+Backspace replace the selected range as one Undo action. Colour and graphics
+modes highlight selected cells. Native monochrome text has no cell colours,
+so brackets mark the range endpoints; '*' marks a single selected cell.
+These display markers do not change file data.
+
+The clipboard is a unique NCE000hh.CLP disk file in Work (or the document's
+parent). It survives closing F4, so Copy in one file and Paste in another
+works throughout the current NC session. NC deletes its clipboard on final
+F10 exit. A failed/cancelled Copy keeps the previous clipboard. Paste stages
+all incoming bytes before changing the document. Large Copy/Paste/replacement
+operations show byte progress and accept Esc. Cut, Paste and replacement
+are each one Undo record, regardless of block size. Native tabs, line endings
+and control bytes are copied exactly.
 
 Opening only reads the original; it creates no work files. The first edit
 creates unique NCE000hh.IDX, .ADD and .UND files in the work directory.
 The original remains read-only while edits update disk-backed pieces and
 Undo/Redo records. RAM use does not grow with document length or edit count.
-The ordinary cache has five 512-byte blocks; when available, an allocated
+The ordinary cache has four 512-byte blocks; when available, an allocated
 RAMMAN 8K bank adds sixteen blocks. A missing/full RAMMAN uses ordinary RAM.
 Continuous local typing uses the cache. Cold jumps and searches scan from
 a known position; large files and saving remain limited by native DOS I/O.
@@ -148,8 +172,8 @@ Save As can copy an unmodified document to a writable disk as well.
 MEMORY AND LIMITS
 Only the small NC.PGM supervisor remains during EXEC or the nested shell.
 For F4, NCMAIN releases its memory and the supervisor loads NCEDIT instead.
-The editor and its small streamed-relocation loader use about 25K of ordinary
-RAM, plus the optional 8K leased cache; the supervisor uses about 1.1K.
+The editor and its small streamed-relocation loader use about 26K of ordinary
+RAM, plus the optional 8K leased cache; the supervisor uses about 1.2K.
 NCMAIN terminates, closes its handles and releases its optional RAM bank.
 Return reloads NCMAIN from its original absolute pathname, rereads both
 directories, and restores paths, catalogue windows, cursors and active panel.
@@ -202,5 +226,6 @@ incremental screen output with a complete render byte-for-byte.
 Editor tests include all supported model/video/CPU combinations, missing
 or occupied RAMMAN, a document over 2 MiB, a line over 64 KiB, fragmented
 edits, exact byte comparisons, Undo/Redo, tab columns, native Cyrillic,
-read-only and full disks, injected read/write faults, cancellation, failed
+read-only and full disks, injected read/write faults, cancellation,
+selection across lines/tabs, a disk clipboard over 2 MiB across F4, failed
 editor loading, panel return, and released heap/stack/bank leases.

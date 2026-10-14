@@ -166,8 +166,13 @@ byte*allocateCpuRam(dword size){return calloc(1,size);}
 int SuperIoInit(void){return 0;}int SuperIoFinish(void){return 0;}
 void SuperIoReset(void){if(committed){sd_idle=0;sd_mode=sdsc?0:0x40;spi_control=0x23;spi_div=29;}page=ram_group=0;disk_address=0;crtc_index=0;memset(crtc,0,sizeof(crtc));tick=0;KBDReset();}
 void SuperIoUpdate(void){KBDUpdate();}
+#ifdef TEST_RAW_KEYBOARD
+void SuperIoPs2KeyDown(unsigned n){nc_ps2_key(n,0);}void SuperIoPs2KeyUp(unsigned n){nc_ps2_key(n,1);}
+void SuperIoPs2ModKeyDown(byte n){nc_ps2_mod(n,0);}void SuperIoPs2ModKeyUp(byte n){nc_ps2_mod(n,1);}
+#else
 void SuperIoPs2KeyDown(unsigned n){}void SuperIoPs2KeyUp(unsigned n){}
 void SuperIoPs2ModKeyDown(byte n){}void SuperIoPs2ModKeyUp(byte n){}
+#endif
 void resetRequested(void){}
 int SWIemulator(int n,byte*a,byte*b,word*x,byte*t,word*pc){return 0;}
 int SuperIoReadByte(word a,byte*out){

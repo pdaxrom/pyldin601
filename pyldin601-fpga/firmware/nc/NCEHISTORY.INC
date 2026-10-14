@@ -34,14 +34,10 @@ append_return
 ; A small edit is prepared before it is published. The pending operation
 ; records enough progress to resume an interrupted undo/delete after I/O errors.
 change_prepare
-    ldaa change_at
-    staa where
-    ldaa change_at+1
-    staa where+1
-    ldaa change_at+2
-    staa where+2
-    ldaa change_at+3
-    staa where+3
+    ldx #change_at
+    jsr q_load
+    ldx #where
+    jsr q_store
     jsr doc_locate
     tsta
     bne change_prepared
@@ -73,14 +69,10 @@ change_prepare_end
     tsta
     bne change_prepared
 change_prepare_start
-    ldaa change_at
-    staa where
-    ldaa change_at+1
-    staa where+1
-    ldaa change_at+2
-    staa where+2
-    ldaa change_at+3
-    staa where+3
+    ldx #change_at
+    jsr q_load
+    ldx #where
+    jsr q_store
     jmp doc_locate
 change_prepared
     rts
@@ -93,22 +85,14 @@ editor_change
     tsta
     beq *+5
     jmp change_return
-    ldaa change_at
-    staa pending_record
-    ldaa change_at+1
-    staa pending_record+1
-    ldaa change_at+2
-    staa pending_record+2
-    ldaa change_at+3
-    staa pending_record+3
-    ldaa add_tail
-    staa pending_record+4
-    ldaa add_tail+1
-    staa pending_record+4+1
-    ldaa add_tail+2
-    staa pending_record+4+2
-    ldaa add_tail+3
-    staa pending_record+4+3
+    ldx #change_at
+    jsr q_load
+    ldx #pending_record
+    jsr q_store
+    ldx #add_tail
+    jsr q_load
+    ldx #pending_record+4
+    jsr q_store
     ldaa change_delete
     jsr q_small
     ldx #pending_record+8
@@ -133,14 +117,10 @@ change_collect
     inc change_index
     bra change_collect
 change_new_text
-    ldaa add_tail
-    staa pending_record+12
-    ldaa add_tail+1
-    staa pending_record+12+1
-    ldaa add_tail+2
-    staa pending_record+12+2
-    ldaa add_tail+3
-    staa pending_record+12+3
+    ldx #add_tail
+    jsr q_load
+    ldx #pending_record+12
+    jsr q_store
     ldaa change_add
     jsr q_small
     ldx #pending_record+16
@@ -161,14 +141,10 @@ change_append
     inc change_index
     bra change_append
 change_record
-    ldaa e_cursor
-    staa pending_record+20
-    ldaa e_cursor+1
-    staa pending_record+20+1
-    ldaa e_cursor+2
-    staa pending_record+20+2
-    ldaa e_cursor+3
-    staa pending_record+20+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #pending_record+20
+    jsr q_store
     ldaa change_add
     jsr q_small
     ldx #change_at
@@ -180,14 +156,10 @@ change_record
     ldaa change_group
     staa pending_record+28
     clr history_mode
-    ldaa history_cursor
-    staa history_position
-    ldaa history_cursor+1
-    staa history_position+1
-    ldaa history_cursor+2
-    staa history_position+2
-    ldaa history_cursor+3
-    staa history_position+3
+    ldx #history_cursor
+    jsr q_load
+    ldx #history_position
+    jsr q_store
     ldx #history_cursor
     jsr q_load
     ldx #const32
@@ -242,32 +214,20 @@ change_record
     jsr q_add
     ldx #history_record+16
     jsr q_store
-    ldaa pending_record+24
-    staa history_record+24
-    ldaa pending_record+24+1
-    staa history_record+24+1
-    ldaa pending_record+24+2
-    staa history_record+24+2
-    ldaa pending_record+24+3
-    staa history_record+24+3
-    ldaa history_cursor
-    staa history_target
-    ldaa history_cursor+1
-    staa history_target+1
-    ldaa history_cursor+2
-    staa history_target+2
-    ldaa history_cursor+3
-    staa history_target+3
+    ldx #pending_record+24
+    jsr q_load
+    ldx #history_record+24
+    jsr q_store
+    ldx #history_cursor
+    jsr q_load
+    ldx #history_target
+    jsr q_store
     bra change_write_record
 change_new_record
-    ldaa history_cursor
-    staa history_position
-    ldaa history_cursor+1
-    staa history_position+1
-    ldaa history_cursor+2
-    staa history_position+2
-    ldaa history_cursor+3
-    staa history_position+3
+    ldx #history_cursor
+    jsr q_load
+    ldx #history_position
+    jsr q_store
     ldx #pending_record
     stx src
     ldx #history_record
@@ -286,46 +246,26 @@ change_write_record
     jmp change_return
     ldaa change_group
     staa group_open
-    ldaa pending_record
-    staa apply_pos
-    ldaa pending_record+1
-    staa apply_pos+1
-    ldaa pending_record+2
-    staa apply_pos+2
-    ldaa pending_record+3
-    staa apply_pos+3
-    ldaa pending_record+8
-    staa apply_left
-    ldaa pending_record+8+1
-    staa apply_left+1
-    ldaa pending_record+8+2
-    staa apply_left+2
-    ldaa pending_record+8+3
-    staa apply_left+3
-    ldaa pending_record+12
-    staa apply_insert_off
-    ldaa pending_record+12+1
-    staa apply_insert_off+1
-    ldaa pending_record+12+2
-    staa apply_insert_off+2
-    ldaa pending_record+12+3
-    staa apply_insert_off+3
-    ldaa pending_record+16
-    staa apply_insert_len
-    ldaa pending_record+16+1
-    staa apply_insert_len+1
-    ldaa pending_record+16+2
-    staa apply_insert_len+2
-    ldaa pending_record+16+3
-    staa apply_insert_len+3
-    ldaa pending_record+24
-    staa apply_cursor
-    ldaa pending_record+24+1
-    staa apply_cursor+1
-    ldaa pending_record+24+2
-    staa apply_cursor+2
-    ldaa pending_record+24+3
-    staa apply_cursor+3
+    ldx #pending_record
+    jsr q_load
+    ldx #apply_pos
+    jsr q_store
+    ldx #pending_record+8
+    jsr q_load
+    ldx #apply_left
+    jsr q_store
+    ldx #pending_record+12
+    jsr q_load
+    ldx #apply_insert_off
+    jsr q_store
+    ldx #pending_record+16
+    jsr q_load
+    ldx #apply_insert_len
+    jsr q_store
+    ldx #pending_record+24
+    jsr q_load
+    ldx #apply_cursor
+    jsr q_store
     ldaa #1
     staa apply_phase
     jmp history_resume
@@ -391,46 +331,26 @@ history_undo
     jmp history_io_return
     ldaa #1
     staa history_mode
-    ldaa history_record
-    staa apply_pos
-    ldaa history_record+1
-    staa apply_pos+1
-    ldaa history_record+2
-    staa apply_pos+2
-    ldaa history_record+3
-    staa apply_pos+3
-    ldaa history_record+16
-    staa apply_left
-    ldaa history_record+16+1
-    staa apply_left+1
-    ldaa history_record+16+2
-    staa apply_left+2
-    ldaa history_record+16+3
-    staa apply_left+3
-    ldaa history_record+4
-    staa apply_insert_off
-    ldaa history_record+4+1
-    staa apply_insert_off+1
-    ldaa history_record+4+2
-    staa apply_insert_off+2
-    ldaa history_record+4+3
-    staa apply_insert_off+3
-    ldaa history_record+8
-    staa apply_insert_len
-    ldaa history_record+8+1
-    staa apply_insert_len+1
-    ldaa history_record+8+2
-    staa apply_insert_len+2
-    ldaa history_record+8+3
-    staa apply_insert_len+3
-    ldaa history_record+20
-    staa apply_cursor
-    ldaa history_record+20+1
-    staa apply_cursor+1
-    ldaa history_record+20+2
-    staa apply_cursor+2
-    ldaa history_record+20+3
-    staa apply_cursor+3
+    ldx #history_record
+    jsr q_load
+    ldx #apply_pos
+    jsr q_store
+    ldx #history_record+16
+    jsr q_load
+    ldx #apply_left
+    jsr q_store
+    ldx #history_record+4
+    jsr q_load
+    ldx #apply_insert_off
+    jsr q_store
+    ldx #history_record+8
+    jsr q_load
+    ldx #apply_insert_len
+    jsr q_store
+    ldx #history_record+20
+    jsr q_load
+    ldx #apply_cursor
+    jsr q_store
     ldaa #1
     staa apply_phase
     jmp history_resume
@@ -454,120 +374,72 @@ history_redo
     jmp history_io_return
     ldaa #2
     staa history_mode
-    ldaa history_record
-    staa apply_pos
-    ldaa history_record+1
-    staa apply_pos+1
-    ldaa history_record+2
-    staa apply_pos+2
-    ldaa history_record+3
-    staa apply_pos+3
-    ldaa history_record+8
-    staa apply_left
-    ldaa history_record+8+1
-    staa apply_left+1
-    ldaa history_record+8+2
-    staa apply_left+2
-    ldaa history_record+8+3
-    staa apply_left+3
-    ldaa history_record+12
-    staa apply_insert_off
-    ldaa history_record+12+1
-    staa apply_insert_off+1
-    ldaa history_record+12+2
-    staa apply_insert_off+2
-    ldaa history_record+12+3
-    staa apply_insert_off+3
-    ldaa history_record+16
-    staa apply_insert_len
-    ldaa history_record+16+1
-    staa apply_insert_len+1
-    ldaa history_record+16+2
-    staa apply_insert_len+2
-    ldaa history_record+16+3
-    staa apply_insert_len+3
-    ldaa history_record+24
-    staa apply_cursor
-    ldaa history_record+24+1
-    staa apply_cursor+1
-    ldaa history_record+24+2
-    staa apply_cursor+2
-    ldaa history_record+24+3
-    staa apply_cursor+3
+    ldx #history_record
+    jsr q_load
+    ldx #apply_pos
+    jsr q_store
+    ldx #history_record+8
+    jsr q_load
+    ldx #apply_left
+    jsr q_store
+    ldx #history_record+12
+    jsr q_load
+    ldx #apply_insert_off
+    jsr q_store
+    ldx #history_record+16
+    jsr q_load
+    ldx #apply_insert_len
+    jsr q_store
+    ldx #history_record+24
+    jsr q_load
+    ldx #apply_cursor
+    jsr q_store
     ldaa #1
     staa apply_phase
 history_resume
     ldaa apply_phase
     cmpa #1
     bne history_insert
-    ldaa apply_pos
-    staa where
-    ldaa apply_pos+1
-    staa where+1
-    ldaa apply_pos+2
-    staa where+2
-    ldaa apply_pos+3
-    staa where+3
-    ldaa apply_left
-    staa remove_left
-    ldaa apply_left+1
-    staa remove_left+1
-    ldaa apply_left+2
-    staa remove_left+2
-    ldaa apply_left+3
-    staa remove_left+3
+    ldx #apply_pos
+    jsr q_load
+    ldx #where
+    jsr q_store
+    ldx #apply_left
+    jsr q_load
+    ldx #remove_left
+    jsr q_store
     jsr delete_more
     staa apply_error
-    ldaa remove_left
-    staa apply_left
-    ldaa remove_left+1
-    staa apply_left+1
-    ldaa remove_left+2
-    staa apply_left+2
-    ldaa remove_left+3
-    staa apply_left+3
+    ldx #remove_left
+    jsr q_load
+    ldx #apply_left
+    jsr q_store
     ldaa apply_error
     beq *+5
     jmp history_io_return
     ldaa #2
     staa apply_phase
 history_insert
-    ldaa apply_pos
-    staa where
-    ldaa apply_pos+1
-    staa where+1
-    ldaa apply_pos+2
-    staa where+2
-    ldaa apply_pos+3
-    staa where+3
-    ldaa apply_insert_off
-    staa insert_off
-    ldaa apply_insert_off+1
-    staa insert_off+1
-    ldaa apply_insert_off+2
-    staa insert_off+2
-    ldaa apply_insert_off+3
-    staa insert_off+3
-    ldaa apply_insert_len
-    staa insert_len
-    ldaa apply_insert_len+1
-    staa insert_len+1
-    ldaa apply_insert_len+2
-    staa insert_len+2
-    ldaa apply_insert_len+3
-    staa insert_len+3
+    ldx #apply_pos
+    jsr q_load
+    ldx #where
+    jsr q_store
+    ldx #apply_insert_off
+    jsr q_load
+    ldx #insert_off
+    jsr q_store
+    ldx #apply_insert_len
+    jsr q_load
+    ldx #insert_len
+    jsr q_store
     jsr doc_insert
     tsta
     beq *+5
     jmp history_io_return
-    ldaa apply_cursor
-    staa e_cursor
-    ldaa apply_cursor+1
-    staa e_cursor+1
-    ldaa apply_cursor+2
-    staa e_cursor+2
-    ldaa apply_cursor+3
-    staa e_cursor+3
+    ldx #apply_cursor
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
     tst history_mode
     bne history_move_cursor
     ; A new edit after Undo discards the redo tail, including a saved marker.
@@ -578,23 +450,15 @@ history_insert
     bcc history_keep_saved
     clr saved_valid
 history_keep_saved
-    ldaa history_target
-    staa history_count
-    ldaa history_target+1
-    staa history_count+1
-    ldaa history_target+2
-    staa history_count+2
-    ldaa history_target+3
-    staa history_count+3
+    ldx #history_target
+    jsr q_load
+    ldx #history_count
+    jsr q_store
 history_move_cursor
-    ldaa history_target
-    staa history_cursor
-    ldaa history_target+1
-    staa history_cursor+1
-    ldaa history_target+2
-    staa history_cursor+2
-    ldaa history_target+3
-    staa history_cursor+3
+    ldx #history_target
+    jsr q_load
+    ldx #history_cursor
+    jsr q_store
     clr apply_phase
     ldaa #1
     staa modified

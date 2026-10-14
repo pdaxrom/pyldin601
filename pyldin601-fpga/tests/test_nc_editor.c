@@ -1,17 +1,61 @@
-// The actual editor PGM and actual UniDOS, never a host-side editor model.
+// Actual editor, UniDOS and native FPGA PS/2 translator; private media only.
+#define HG_FIXTURE 1
+#define TEST_RAW_KEYBOARD 1
+#define TEST_FILE_IO_BASE 0x1800
+#define TEST_FILE_DATA_BASE 0x2800
+static int hg_read_byte(unsigned short a,unsigned char*out);
+static int hg_write_byte(unsigned short a,unsigned char d);
+static void nc_ps2_key(unsigned n,unsigned up);
+static void nc_ps2_mod(unsigned n,unsigned up);
 #define NC_MAIN panels_unused_main
 #include "test_nc.c"
 #undef NC_MAIN
 #include "../build/nc/NCEDIT.h"
+#include "../build/nc/NCELOAD.h"
+// Independent byte FIFO/MMIO model. Translation runs in the real ROM IRQ,
+// not KBDTranslateKey; the latter's legacy latch is deliberately disconnected.
+static unsigned char raw_fifo[64],raw_code=255;
+static unsigned raw_head,raw_count,raw_overflow,raw_capture,raw_reset,raw_enable,raw_consumed=1,raw_strobe,raw_irq;
+static const unsigned char raw_scans[128]={0xff,0x76,0x16,0x1e,0x26,0x25,0x2e,0x36,0x3d,0x3e,0x46,0x45,0x4e,0x55,0x66,0xd,0x15,0x1d,0x24,0x2d,0x2c,0x35,0x3c,0x43,0x44,0x4d,0x54,0x5b,0x5a,0xff,0x1c,0x1b,0x23,0x2b,0x34,0x33,0x3b,0x42,0x4b,0x4c,0x52,0xe,0xff,0x5d,0x1a,0x22,0x21,0x2a,0x32,0x31,0x3a,0x41,0x49,0x4a,0xff,0xff,0xff,0x29,0x58,0x5,0x6,0x4,0xc,0x3,0xb,0x83,0xa,0x1,0x9,0xff,0xff,0x6c,0x75,0x7d,0xff,0x6b,0x73,0x74,0xff,0x69,0x72,0x7a,0x70,0x71,0xff,0xff,0xff,0x78,0x7,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+static void raw_push(unsigned b){if(raw_count<64)raw_fifo[(raw_head+raw_count++)&63]=b;else raw_overflow=1;}
+static void raw_event(unsigned e,unsigned up,unsigned code){if(e)raw_push(0xe0);if(up)raw_push(0xf0);raw_push(code);}
+static void nc_ps2_key(unsigned n,unsigned up){if(n==0x46){raw_event(1,up,0x1f);return;}if(n<128&&raw_scans[n]!=255)raw_event(n>=0x47&&n<=0x53,up,raw_scans[n]);}
+static void nc_ps2_mod(unsigned n,unsigned up){if(n&1)raw_event(0,up,0x14);if(n&2)raw_event(0,up,0x12);}
+static int hg_read_byte(unsigned short a,unsigned char*out){
+ if(a>=0xe6b0&&a<=0xe6b7){*out=255;switch(a&7){
+ case 0:*out='R';break;case 1:*out=(raw_count!=0)|(raw_consumed<<2)|(raw_reset<<3)|((raw_count==64)<<5)|(raw_capture<<6)|(raw_overflow<<7);break;
+ case 2:if(raw_count){*out=raw_fifo[raw_head++&63];raw_count--;}break;case 3:*out=raw_count;break;case 4:*out=2;break;}return 1;}
+ if(a==0xe628){*out=raw_capture?255:raw_code;raw_consumed=1;raw_strobe=raw_irq=0;return 1;}
+ if(a==0xe62a||a==0xe62e){*out=0x37|(caps_off?8:0)|((!raw_capture&&raw_strobe)?128:0);if(raw_code!=255&&!raw_capture&&!raw_consumed)raw_strobe^=1;return 1;}
+ return 0;
+}
+static int hg_write_byte(unsigned short a,unsigned char d){
+ if(a==0xe628){raw_code=raw_capture?255:d;raw_consumed=raw_code==255;raw_strobe=raw_irq=0;return 1;}
+ if(a==0xe62a||a==0xe62e){caps_off=(d&8)!=0;if(d&128&&!raw_consumed&&raw_code!=255&&!raw_capture)raw_strobe=raw_irq=1;return 1;}
+ if(a>=0xe6b0&&a<=0xe6b7){if(a==0xe6b3){
+  if(d&1)raw_head=raw_count=0;if(d&2)raw_overflow=0;if(d&16)raw_enable=1;if(d&64)raw_enable=0;if(d&32)raw_reset=0;
+  if(d&4){if(!raw_capture)raw_reset=1;raw_capture=1;raw_code=255;raw_consumed=1;raw_strobe=raw_irq=0;}
+  if(d&8){if(raw_capture)raw_reset=1;raw_capture=0;}
+ }return 1;}return 0;
+}
+static void raw_observe(void){keyConsumed=1;if(!i&&(raw_irq||(raw_enable&&!raw_capture&&(raw_count||raw_overflow||raw_reset))))MC6800SetInterrupt(1);}
+
+static unsigned loader_base;static unsigned char loader_sig[24],loader_mask[24];
 static unsigned editor_base,editor_active,editor_entries,editor_waits;
 static unsigned editor_progress_captured;
 static void editor_snapshot(unsigned video,const char*name);
+static uint32_t eread(unsigned label);
+static unsigned inject_clip_read,inject_cancel_paste;
 static unsigned inject_save_fault,inject_read_fault,inject_apply_fault,inject_cancel_save,editor_boundary;
 static unsigned saved_ram_vector,saved_ram_page,expected_free_banks;
 static unsigned char reserved_lease[114];static unsigned reserved_bytes;
 static unsigned profile_save,last_profile_pc;static uint64_t last_profile_cycles,profile_bins[5];
 static unsigned char editor_sig[24],editor_mask[24];
 static void editor_observe(void){
+ raw_observe();
+ if(!editor_active&&PC>=0x100&&PC<0xbc00&&matches(PC,loader_sig,loader_mask))loader_base=PC;
+ if(loader_base&&PC==loader_base+NCELOAD_LOADER_ERROR)fprintf(stderr,"editor loader error A=%u base=%04x core=%04x size=%u top=%04x SP=%04x\n",A,loader_base,ram_word(loader_base+NCELOAD_LOAD_BASE),ram_word(loader_base+NCELOAD_LOAD_RAM),ram_word(0xee1e),SP);
+
  if(profile_save){
   if(last_profile_cycles){unsigned relative=last_profile_pc-editor_base;unsigned bin=last_profile_pc>=0xc000?0:relative>=NCEDIT_STREAM_INIT&&relative<NCEDIT_DOC_BYTE?1:relative>=NCEDIT_Q_LOAD&&relative<NCEDIT_BLOCK_GET?2:relative>=NCEDIT_BLOCK_GET&&relative<NCEDIT_LEAF_ENTRY?3:4;profile_bins[bin]+=virtual_cycles-last_profile_cycles;}
   last_profile_pc=PC;last_profile_cycles=virtual_cycles;
@@ -19,9 +63,9 @@ static void editor_observe(void){
 
  if(editor_active){
   if(!editor_progress_captured&&PC==editor_base+NCEDIT_SAVE_WRITE){
-   unsigned char*r=MC6800GetCpuRam();unsigned d=editor_base+NCEDIT_SAVE_DONE,t=editor_base+NCEDIT_DOC_SIZE;uint32_t done=(uint32_t)r[d]<<24|(uint32_t)r[d+1]<<16|r[d+2]<<8|r[d+3],total=(uint32_t)r[t]<<24|(uint32_t)r[t+1]<<16|r[t+2]<<8|r[t+3];
+   unsigned char*r=MC6800GetCpuRam();unsigned d=editor_base+NCEDIT_SAVE_DONE,t=editor_base+NCEDIT_BLOCK_STATE+96;uint32_t done=(uint32_t)r[d]<<24|(uint32_t)r[d+1]<<16|r[d+2]<<8|r[d+3],total=(uint32_t)r[t]<<24|(uint32_t)r[t+1]<<16|r[t+2]<<8|r[t+3];
    require(done<=total&&r[editor_base+NCEDIT_SAVE_CELLS]<=r[editor_base+NCEDIT_SAVE_BAR_WIDTH],"editor progress reports written bytes inside its frame");
-   if(done>=total/3&&done<total&&total>1024){editor_snapshot(r[editor_base+NCEDIT_MODE],"save-progress");editor_progress_captured=1;}
+   if(done>=total/3&&done<total&&total>1024){editor_snapshot(r[editor_base+NCEDIT_MODE],r[editor_base+NCEDIT_BLOCK_STATE+104]?"copy-progress":"save-progress");editor_progress_captured=1;}
   }
   if(measure_key){
    if(PC==editor_base+NCEDIT_EDITOR_KEY+7&&!key_started)key_started=virtual_cycles;
@@ -29,7 +73,11 @@ static void editor_observe(void){
   }
   if(PC==editor_base+NCEDIT_EDITOR_KEY)editor_waits++;
   if(PC==editor_base+NCEDIT_MESSAGE_KEY||PC==editor_base+NCEDIT_DIALOG_KEY||PC==editor_base+NCEDIT_EXIT_KEY||PC==editor_base+NCEDIT_EDITOR_PENDING_KEY)editor_boundary=PC-editor_base;
+  if(inject_clip_read==1&&PC==editor_base+NCEDIT_BLOCK_PASTE_READ&&eread(NCEDIT_BLOCK_STATE+56)<eread(NCEDIT_BLOCK_STATE+80)){runtime_r1=0x20;inject_clip_read=2;}
+  if(inject_clip_read==2&&PC==editor_base+NCEDIT_EDITOR_ERROR){runtime_r1=0;inject_clip_read=3;}
+  if(inject_cancel_paste==1&&PC==editor_base+NCEDIT_BLOCK_PASTE_READ){KBDKeyDown(1);inject_cancel_paste=2;}
   if(inject_cancel_save==1&&PC==editor_base+NCEDIT_SAVE_WRITE){KBDKeyDown(1);inject_cancel_save=2;}
+  if((inject_cancel_save==2||inject_cancel_paste==2)&&PC==editor_base+NCEDIT_EDITOR_ERROR&&A==255)KBDKeyUpCode(1);
   if(inject_save_fault==1&&PC==editor_base+NCEDIT_SAVE_WRITE&&ram_word(editor_base+NCEDIT_SAVE_DONE+2)>=512){runtime_r1=0x20;inject_save_fault=2;}
   if(inject_save_fault==2&&PC==editor_base+NCEDIT_SAVE_FAIL){runtime_r1=0;inject_save_fault=3;}
   if(inject_apply_fault==1&&PC==editor_base+NCEDIT_DELETE_MORE&&ram_word(editor_base+NCEDIT_REMOVE_LEFT+2)<1000){runtime_r1=0x20;inject_apply_fault=2;}
@@ -64,13 +112,13 @@ static void editor_pixel(unsigned col,unsigned row,unsigned code,unsigned foregr
 static void editor_check_caret(void){
  unsigned char*r=MC6800GetCpuRam();unsigned col=r[editor_base+NCEDIT_CARET_X],row=r[editor_base+NCEDIT_CARET_Y],mode=r[editor_base+NCEDIT_MODE];
  require(col<r[editor_base+NCEDIT_COLUMNS]&&row>=1&&row<=r[editor_base+NCEDIT_BODY_ROWS],"editor caret remains inside its visible text area");
- if(mode&3){require(crtc[14]*256+crtc[15]==0x3fff,"graphics editor parks the hardware cursor");editor_pixel(col,row,r[editor_base+NCEDIT_CARET_CHAR],0,1);}
+ if(mode&3){require(crtc[14]*256+crtc[15]==0x3fff,"graphics editor parks the hardware cursor");unsigned selected=r[editor_base+NCEDIT_BLOCK_STATE+36]==3;editor_pixel(col,row,r[editor_base+NCEDIT_CARET_CHAR],selected?(mode==2?3:1):0,selected?0:1);}
  else{unsigned step=model_a&&!mode?2:1,expected=ram_word(editor_base+NCEDIT_SCREEN_BASE)+row*crtc[1]+col*step+(step==2)+(model_a?0:2);require(crtc[14]*256+crtc[15]==expected,"text editor caret follows the document cursor");}
 }
 static void editor_wait(void){
  uint64_t end=virtual_cycles+3000000000ull;
  do{until(virtual_cycles+1009);if(editor_base&&editor_active&&PC==(model_a?0xf397:0xf39d)){editor_check_caret();return;}}while(virtual_cycles<end);
- require(0,"F4 loads the editor and reaches input");
+ fprintf(stderr,"editor not ready base=%04x active=%u entries=%u loader=%04x req=%u error=%u\n",editor_base,editor_active,editor_entries,loader_base,MC6800GetCpuRam()[nc_base+NC_STATE+NC_S_REQUEST],MC6800GetCpuRam()[nc_base+NC_STATE+NC_S_ERROR]);require(0,"F4 loads the editor and reaches input");
 }
 static void editor_input(unsigned after){
  uint64_t end=virtual_cycles+3000000000ull;
@@ -82,6 +130,11 @@ static void editor_profile_key(unsigned scan,const char*name){
  printf("NC EDIT PERF %s: %llu cycles, %u reads/%u writes\n",name,(unsigned long long)key_cycles,sd_reads-reads,sd_writes-writes);fflush(stdout);
  require(key_cycles&&key_cycles<200000,"cached editor input stays below a 200 ms budget at 1 MHz");
  require(sd_reads==reads&&sd_writes==writes,"cached editor input has no disk I/O");
+}
+static void editor_ctrl(unsigned scan){KBDModKeyDown(1);editor_key(scan);KBDModKeyUp(1);}
+static void editor_shift(unsigned scan){KBDModKeyDown(2);editor_key(scan);KBDModKeyUp(2);}
+static void clipboard_absent(const char*path){
+ unsigned char*r=MC6800GetCpuRam(),saved[512];memcpy(saved,r+0x3000,sizeof saved);strcpy((char*)r+0x3100,path);word_at(0x3000,0x3100);word_at(0x3002,0);require(invoke(0x4a,1,0,0x3000)==11,"supervisor removes its session clipboard on F10");memcpy(r+0x3000,saved,sizeof saved);
 }
 static void editor_snapshot(unsigned video,const char*name){
  unsigned char*r=MC6800GetCpuRam();char path[180];snprintf(path,sizeof path,"build/nc/screen-editor-%s-%u-%s.bin",model_a?"601a":"601",video,name);
@@ -130,20 +183,20 @@ int main(int argc,char**argv){
  if(argc!=6)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");unsigned video=atoi(argv[4]);
  MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
- image=load(argv[1],&image_size);committed=1;MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();
+ image=load(argv[1],&image_size);committed=1;native_step_hook=raw_observe;MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();
  if(!strcmp(argv[5],"ui"))command("md b:work");
  if(!strcmp(argv[5],"readonly"))require(!invoke(0xe1,3,3,0)&&!invoke(0xe1,13,3,0)&&result_b==1,"remount the source B volume read-only");
  unsigned original_sp=SP,original_himem=ram_word(0xee1e);
  invoke(0x2e,0xe5,0,0);saved_ram_vector=result_x;saved_ram_page=result_b;
  require(invoke(0xe5,0,0,0)==1,"editor fixture RAMMAN ABI");expected_free_banks=result_b;
- if(!strcmp(argv[5],"missing")){invoke(0x2f,0xe5,0,0);}
+ if(!strcmp(argv[5],"missing")||strstr(argv[5],"-missing")){invoke(0x2f,0xe5,0,0);}
  if(!strcmp(argv[5],"busy")||!strcmp(argv[5],"offset")){
   unsigned count=!strcmp(argv[5],"offset")?7:expected_free_banks;
   require(!invoke(0xe5,1,count,0x9000),"reserve banks for another owner");reserved_bytes=count+3;memcpy(reserved_lease,MC6800GetCpuRam()+0x9000,reserved_bytes);expected_free_banks-=count;
   for(unsigned k=3;k<reserved_bytes;k++)memset(physical+0x22000+reserved_lease[k]*8192,k^0x5a,8192);
  }
  if(model_a&&(video==0||video==4))invoke(0x12,video,video==0?0x71:0,0);
- signature("build/nc/NC.PGM",nc_sig,nc_mask);signature("build/nc/NCMAIN.PGM",core_sig,core_mask);signature("build/nc/NCPROBE.PGM",probe_sig,probe_mask);signature("build/nc/NCEDIT.core.PGM",editor_sig,editor_mask);
+ signature("build/nc/NC.PGM",nc_sig,nc_mask);signature("build/nc/NCMAIN.PGM",core_sig,core_mask);signature("build/nc/NCPROBE.PGM",probe_sig,probe_mask);signature("build/nc/NCEDIT.core.PGM",editor_sig,editor_mask);signature("build/nc/NCEDIT.PGM",loader_sig,loader_mask);
  native_step_hook=editor_observe;watch_resets=1;
  type((video&3)?(video==2?"b:ncgraf2":"b:ncgraf3"):"b:nc");key(0x1c);panels(0);drive_b();select_name("HELLO   ");
  if(!strcmp(argv[5],"ui")){
@@ -152,7 +205,7 @@ int main(int argc,char**argv){
   settings_after=wait_entries;open_settings();type("w");modal_wait(NCMAIN_DIALOG_KEY);type("b:\\work");key(0x1c);modal_wait(NCMAIN_SETTINGS_KEY);modal_key(0x0f,NCMAIN_SETTINGS_KEY);key(0x1c);panels(settings_after);
   require(!strcmp((char*)MC6800GetCpuRam()+nc_base+NC_STATE+NC_S_WORKDIR,"B:\\WORK\\"),"Settings applies the normalized editor work directory");
  }
- const char*selected=!strcmp(argv[5],"keys")?"EMPTY   ":!strcmp(argv[5],"large")?"HUGE    ":!strcmp(argv[5],"long")?"LONG    ":!strcmp(argv[5],"raw")?"RAW     ":!strcmp(argv[5],"edge")?"EDGE    ":!strcmp(argv[5],"empty")?"EMPTY   ":"HELLO   ";
+ const char*selected=(!strcmp(argv[5],"block")||!strcmp(argv[5],"block-missing")||!strcmp(argv[5],"keys"))?"EMPTY   ":(!strcmp(argv[5],"large")||!strncmp(argv[5],"block-large",11))?"HUGE    ":!strcmp(argv[5],"long")?"LONG    ":!strcmp(argv[5],"raw")?"RAW     ":!strcmp(argv[5],"edge")?"EDGE    ":!strcmp(argv[5],"empty")?"EMPTY   ":"HELLO   ";
  select_name(selected);
  if(!strcmp(argv[5],"full"))strcpy((char*)MC6800GetCpuRam()+nc_base+NC_STATE+NC_S_WORKDIR,"A:\\");
  if(!strcmp(argv[5],"sort-return")){
@@ -173,7 +226,7 @@ int main(int argc,char**argv){
  key(0x3e);editor_wait();
  require(MC6800GetCpuRam()[editor_base+NCEDIT_MODE]==video&&MC6800GetCpuRam()[0xed12]==video,"F4 preserves the panel video mode across native child exit and streamed loading");
  editor_snapshot(video,"open");
- require(editor_entries==1&&MC6800GetCpuRam()[editor_base+NCEDIT_CACHE_LEASED]==(strcmp(argv[5],"missing")&&strcmp(argv[5],"busy")),"editor optional RAMMAN cache");
+ require(editor_entries==1&&MC6800GetCpuRam()[editor_base+NCEDIT_CACHE_LEASED]==(strcmp(argv[5],"missing")&&strcmp(argv[5],"busy")&&!strstr(argv[5],"-missing")),"editor optional RAMMAN cache");
  if(!strcmp(argv[5],"readonly")){
   unsigned char*r=MC6800GetCpuRam();unsigned ew=editor_waits;editor_boundary=0;key(0x1e);editor_modal(NCEDIT_MESSAGE_KEY);
   require(!r[editor_base+NCEDIT_MODIFIED]&&sd_writes==writes,"read-only default workspace refuses editing without changing the source");key(0x1c);editor_input(ew);
@@ -183,6 +236,41 @@ int main(int argc,char**argv){
   ew=editor_waits;KBDModKeyDown(2);key(0x3c);KBDModKeyUp(2);editor_modal(NCEDIT_DIALOG_KEY);key(0x47);unsigned len=strlen((char*)r+editor_base+NCEDIT_INPUT);for(unsigned k=0;k<len;k++)key(0x53);type("a:ncero.txt");key(0x1c);editor_input(ew);file_check("a:NCERO.TXT",expected,source_size);raw_file_check("HELLO   TXT",original,original_size);
   after=wait_entries;key(1);panels(after);key(0x44);prompt_wait();editor_check_banks();require(SP==original_sp&&ram_word(0xee1e)==original_himem,"read-only editor cleanup");
   puts("PASS NC editor read-only: lazy opening, refused default workspace, alternate work disk, original preserved, Save As to writable disk");return 0;
+ }
+ if(!strncmp(argv[5],"block-large",11)){
+  unsigned char*r=MC6800GetCpuRam();unsigned size=64*32768+18;unsigned char*data=malloc(size);require(data!=NULL,"large clipboard oracle");for(unsigned k=0;k<32768;k++)memcpy(data+64*k,"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\r\n",64);memcpy(data+64*32768,"UNIQUE LAST LINE\r\n",18);
+  editor_ctrl(0x1e);editor_ctrl(0x2e);require(!r[editor_base+NCEDIT_WORK_READY]&&!r[editor_base+NCEDIT_MODIFIED],"Copy All does not create a document editing journal");char clip[80];strcpy(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH);file_check(clip,data,size);
+  unsigned after=wait_entries;key(0x44);panels(after);select_name("EMPTY   ");key(0x3e);editor_wait();editor_ctrl(0x2f);require(eread(NCEDIT_DOC_SIZE)==size,"Paste a clipboard larger than 2 MiB into another file");editor_ctrl(0x2c);require(!eread(NCEDIT_DOC_SIZE),"one Undo removes the whole 2 MiB Paste");editor_ctrl(0x15);require(eread(NCEDIT_DOC_SIZE)==size,"one Redo restores the whole 2 MiB Paste");editor_key(0x3c);file_check("b:EMPTY.TXT",data,size);
+  after=wait_entries;key(1);panels(after);key(0x44);prompt_wait();clipboard_absent(clip);editor_check_banks();require(SP==original_sp&&ram_word(0xee1e)==original_himem,"large cross-file clipboard cleanup");free(data);printf("PASS NC editor large clipboard %s: >2 MiB Copy/Paste across F4, one-record Undo/Redo, byte-exact Save, cleanup\n",argv[5]);return 0;
+ }
+ if(!strcmp(argv[5],"block-faults")){
+  unsigned char*r=MC6800GetCpuRam(),data[6000];char clip[80];editor_ctrl(0x1e);editor_ctrl(0x2e);strcpy(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH);file_check(clip,original,original_size);
+  unsigned ew=editor_waits;editor_boundary=0;inject_save_fault=1;KBDModKeyDown(1);key(0x2e);KBDModKeyUp(1);editor_modal(NCEDIT_MESSAGE_KEY);require(inject_save_fault==3&&!r[editor_base+NCEDIT_MODIFIED]&&!strcmp(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH),"failed Copy keeps the old clipboard and document");key(0x1c);editor_input(ew);file_check(clip,original,original_size);
+  inject_cancel_save=1;editor_ctrl(0x2e);KBDKeyUpCode(1);require(inject_cancel_save==2&&!strcmp(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH),"cancelled Copy keeps the old clipboard");editor_ctrl(0x47);
+  ew=editor_waits;editor_boundary=0;inject_clip_read=1;KBDModKeyDown(1);key(0x2f);KBDModKeyUp(1);editor_modal(NCEDIT_MESSAGE_KEY);require(inject_clip_read==3&&!r[editor_base+NCEDIT_MODIFIED]&&eread(NCEDIT_DOC_SIZE)==original_size,"late clipboard read failure applies no Paste");key(0x1c);editor_input(ew);check_document(original,original_size);
+  inject_cancel_paste=1;editor_ctrl(0x2f);KBDKeyUpCode(1);require(inject_cancel_paste==2&&!r[editor_base+NCEDIT_MODIFIED]&&eread(NCEDIT_DOC_SIZE)==original_size,"cancelled Paste applies no text");
+  editor_ctrl(0x2f);memcpy(data,original,original_size);memcpy(data+original_size,original,original_size);editor_key(0x3c);file_check("b:HELLO.TXT",data,2*original_size);
+  unsigned after=wait_entries;key(1);panels(after);key(0x44);prompt_wait();clipboard_absent(clip);editor_check_banks();require(SP==original_sp&&ram_word(0xee1e)==original_himem,"clipboard faults release handles and memory");puts("PASS NC editor clipboard faults: old clipboard survives failed/cancelled Copy, failed/cancelled Paste leaves document unchanged, retry/Save and cleanup");return 0;
+ }
+ if(!strcmp(argv[5],"block")||!strcmp(argv[5],"block-missing")){
+  unsigned char*r=MC6800GetCpuRam(),data[8192];unsigned st=editor_base+NCEDIT_BLOCK_STATE;char clip[80];
+  editor_key(0x1e);editor_key(0x30);editor_key(0x2e);editor_key(0x1c);editor_key(0x20);editor_key(0x12);editor_key(0x21);editor_key(0x1c);editor_key(0x22);editor_key(0x23);editor_key(0x17);editor_key(0x3c);
+  memcpy(data,"abc\r\ndef\r\nghi",13);file_check("b:EMPTY.TXT",data,13);
+  editor_shift(0x4b);require(eread(NCEDIT_E_CURSOR)==12&&eread(NCEDIT_BLOCK_STATE+8)==12&&eread(NCEDIT_BLOCK_STATE+12)==13,"Shift+Left selects one physical character instead of native Home");
+  editor_shift(0x4b);require(eread(NCEDIT_BLOCK_STATE+8)==11,"Shift selection extends");editor_shift(0x4d);require(eread(NCEDIT_BLOCK_STATE+8)==12,"Shift selection shrinks");
+  editor_ctrl(0x47);editor_key(0x4d);editor_shift(0x4b);editor_shift(0x4d);editor_shift(0x4d);require(eread(NCEDIT_BLOCK_STATE+8)==1&&eread(NCEDIT_BLOCK_STATE+12)==2,"selection reverses around its anchor");
+  editor_ctrl(0x47);editor_key(0x4d);editor_shift(0x50);require(eread(NCEDIT_E_CURSOR)==6&&r[st+24],"Shift+Down selects across CRLF");
+  require(r[editor_base+NCEDIT_BLOCK_MARKS]==1&&r[editor_base+NCEDIT_BLOCK_MARKS+1]==r[editor_base+NCEDIT_COLUMNS]&&r[editor_base+NCEDIT_BLOCK_MARKS+2]==0&&r[editor_base+NCEDIT_BLOCK_MARKS+3]==1,"multiline selection has exact visible row intervals");
+  editor_snapshot(video,"selection");editor_ctrl(0x2e);strcpy(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH);require(clip[0]&&!r[editor_base+NCEDIT_MODIFIED]&&eread(NCEDIT_DOC_SIZE)==13,"Copy publishes a disk clipboard without modifying text");file_check(clip,(unsigned char*)"bc\r\nd",5);
+  editor_key(0x4d);require(!r[st+24],"ordinary navigation clears the selection");editor_ctrl(0x4f);editor_ctrl(0x2f);memcpy(data+13,"bc\r\nd",5);require(eread(NCEDIT_DOC_SIZE)==18,"Paste inserts the copied multiline block");check_document(data,18);editor_ctrl(0x2c);require(eread(NCEDIT_DOC_SIZE)==13,"Paste is one Undo record");editor_ctrl(0x15);check_document(data,18);editor_ctrl(0x2c);
+  editor_ctrl(0x47);editor_key(0x3d);editor_key(0x4d);editor_key(0x4d);editor_key(0x4d);editor_key(0x3d);require(r[st+24]&&!r[st+25],"F3 freezes a block selected with ordinary arrows");editor_ctrl(0x2d);require(eread(NCEDIT_DOC_SIZE)==10,"Cut removes the selected bytes");check_document((unsigned char*)"\r\ndef\r\nghi",10);clipboard_absent(clip);strcpy(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH);file_check(clip,(unsigned char*)"abc",3);editor_ctrl(0x2c);check_document(data,13);
+  editor_ctrl(0x47);editor_ctrl(0x2f);check_document((unsigned char*)"abcabc\r\ndef\r\nghi",16);editor_ctrl(0x2c);editor_ctrl(0x1e);editor_key(0x2d);check_document((unsigned char*)"x",1);editor_ctrl(0x2c);check_document(data,13);
+  editor_ctrl(0x1e);editor_ctrl(0x2d);require(!eread(NCEDIT_DOC_SIZE),"Cut All can leave an empty document");editor_ctrl(0x2c);check_document(data,13);editor_ctrl(0x15);require(!eread(NCEDIT_DOC_SIZE),"Redo Cut All");editor_ctrl(0x2c);check_document(data,13);
+  strcpy(clip,(char*)r+nc_base+NC_STATE+NC_S_CLIP_PATH);file_check(clip,data,13);
+  unsigned after=wait_entries;editor_boundary=0;key(0x44);if(r[editor_base+NCEDIT_MODIFIED]){editor_modal(NCEDIT_EXIT_KEY);type("d");}panels(after);select_name("HELLO   ");key(0x3e);editor_wait();editor_ctrl(0x47);editor_ctrl(0x2f);
+  memmove(data+13,original,original_size);editor_key(0x3c);file_check("b:HELLO.TXT",data,13+original_size);editor_ctrl(0x2c);require(eread(NCEDIT_DOC_SIZE)==original_size,"Undo a cross-file Paste after Save");editor_ctrl(0x15);editor_key(0x3c);
+  after=wait_entries;key(1);panels(after);key(0x44);prompt_wait();clipboard_absent(clip);editor_check_banks();require(SP==original_sp&&ram_word(0xee1e)==original_himem,"selection and cross-file clipboard release memory");
+  printf("PASS NC editor block %s/%s mode %u: Shift/F3 selection, reverse/multiline ranges, Copy/Cut/Paste/replace/All, grouped Undo/Redo, clipboard across F4, Save and cleanup\n",argv[2],argv[3],video);return 0;
  }
  if(!strcmp(argv[5],"keys")){
   unsigned char data[256];unsigned char*r=MC6800GetCpuRam();editor_key(0x1e);editor_key(0x30);editor_key(0x2e);

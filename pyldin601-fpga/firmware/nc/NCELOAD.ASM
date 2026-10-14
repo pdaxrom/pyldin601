@@ -1,5 +1,5 @@
 ; Small native PGM prefix. Its packed editor payload follows this PGM's code.
-; Stream relocation records through 512 bytes instead of reserving the entire
+; Stream relocation records through 64 bytes instead of reserving the entire
 ; table in low RAM. This matters while 16K native graphics memory is allocated.
 start
     ldx #bss_start
@@ -150,6 +150,8 @@ loader_relocation_block
     ldaa load_records
     bne loader_full_block
     ldaa load_records+1
+    cmpa #32
+    bhi loader_full_block
     staa load_block_records
     clrb
     asla
@@ -158,8 +160,9 @@ loader_relocation_block
     stab load_io+2
     bra loader_read_records
 loader_full_block
-    clr load_block_records
-    ldx #512
+    ldaa #32
+    staa load_block_records
+    ldx #64
     stx load_io+2
 loader_read_records
     ldx #load_buffer
@@ -262,7 +265,7 @@ loader_report
 load_message db 10,'NC editor: ',0
 bss_start
 load_path ds 81
-load_buffer ds 512
+load_buffer ds 64
 load_open ds 4
 load_io ds 4
 load_handle ds 1

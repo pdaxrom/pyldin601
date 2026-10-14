@@ -83,14 +83,10 @@ search_open
     ldx #cancel_save_text
     ldaa #16
     jsr window_line
-    ldaa e_cursor
-    staa where
-    ldaa e_cursor+1
-    staa where+1
-    ldaa e_cursor+2
-    staa where+2
-    ldaa e_cursor+3
-    staa where+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #where
+    jsr q_store
     tst search_skip
     beq search_position
     ldx #where
@@ -102,14 +98,10 @@ search_open
     ldx #where
     jsr q_store
 search_position
-    ldaa where
-    staa search_start
-    ldaa where+1
-    staa search_start+1
-    ldaa where+2
-    staa search_start+2
-    ldaa where+3
-    staa search_start+3
+    ldx #where
+    jsr q_load
+    ldx #search_start
+    jsr q_store
     clr search_wrapped
 search_stream
     clr search_j
@@ -160,14 +152,10 @@ search_advance
     anda #15
     oraa where+3
     bne search_byte
-    ldaa where
-    staa number
-    ldaa where+1
-    staa number+1
-    ldaa where+2
-    staa number+2
-    ldaa where+3
-    staa number+3
+    ldx #where
+    jsr q_load
+    ldx #number
+    jsr q_store
     jsr decimal_number
     ldx #number_text
     ldaa #11
@@ -202,14 +190,10 @@ search_found
     tsta
     beq *+5
     jmp search_return
-    ldaa nav_start
-    staa screen_top
-    ldaa nav_start+1
-    staa screen_top+1
-    ldaa nav_start+2
-    staa screen_top+2
-    ldaa nav_start+3
-    staa screen_top+3
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
     clr horizontal
     clr horizontal+1
     clr horizontal+2

@@ -1,4 +1,6 @@
 editor_dispatch
+    jmp block_dispatch
+editor_native_dispatch
     ldaa last_key
     cmpa #$c1
     bne *+5
@@ -123,14 +125,10 @@ editor_result_rebuild
 move_right
     clr group_open
     clr desired_valid
-    ldaa e_cursor
-    staa where
-    ldaa e_cursor+1
-    staa where+1
-    ldaa e_cursor+2
-    staa where+2
-    ldaa e_cursor+3
-    staa where+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #where
+    jsr q_store
     jsr doc_byte
     bcc *+5
     jmp key_ignored
@@ -141,14 +139,10 @@ move_right
     jmp move_right_line
     cmpa #9
     beq move_right_tab
-    ldaa where
-    staa e_cursor
-    ldaa where+1
-    staa e_cursor+1
-    ldaa where+2
-    staa e_cursor+2
-    ldaa where+3
-    staa e_cursor+3
+    ldx #where
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
     ldx #e_column
     jsr q_load
     jsr q_inc
@@ -156,14 +150,10 @@ move_right
     jsr q_store
     jmp move_finished
 move_right_tab
-    ldaa where
-    staa e_cursor
-    ldaa where+1
-    staa e_cursor+1
-    ldaa where+2
-    staa e_cursor+2
-    ldaa where+3
-    staa e_cursor+3
+    ldx #where
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
     ldx #e_column
     jsr q_load
     ldaa q+3
@@ -174,37 +164,25 @@ move_right_tab
     jsr q_store
     jmp move_finished
 move_right_cr
-    ldaa where
-    staa nav_saved
-    ldaa where+1
-    staa nav_saved+1
-    ldaa where+2
-    staa nav_saved+2
-    ldaa where+3
-    staa nav_saved+3
+    ldx #where
+    jsr q_load
+    ldx #nav_saved
+    jsr q_store
     jsr doc_byte
     bcs move_right_cr_end
     cmpa #10
     bne *+5
     jmp move_right_line
 move_right_cr_end
-    ldaa nav_saved
-    staa where
-    ldaa nav_saved+1
-    staa where+1
-    ldaa nav_saved+2
-    staa where+2
-    ldaa nav_saved+3
-    staa where+3
+    ldx #nav_saved
+    jsr q_load
+    ldx #where
+    jsr q_store
 move_right_line
-    ldaa where
-    staa e_cursor
-    ldaa where+1
-    staa e_cursor+1
-    ldaa where+2
-    staa e_cursor+2
-    ldaa where+3
-    staa e_cursor+3
+    ldx #where
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
     clr e_column
     clr e_column+1
     clr e_column+2
@@ -272,26 +250,18 @@ move_left_line
     jsr q_test
     bne *+5
     jmp key_ignored
-    ldaa nav_line
-    staa nav_position
-    ldaa nav_line+1
-    staa nav_position+1
-    ldaa nav_line+2
-    staa nav_position+2
-    ldaa nav_line+3
-    staa nav_position+3
+    ldx #nav_line
+    jsr q_load
+    ldx #nav_position
+    jsr q_store
     jsr previous_line
     tsta
     beq *+5
     jmp editor_error
-    ldaa nav_end
-    staa e_cursor
-    ldaa nav_end+1
-    staa e_cursor+1
-    ldaa nav_end+2
-    staa e_cursor+2
-    ldaa nav_end+3
-    staa e_cursor+3
+    ldx #nav_end
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
     tst cursor_row
     beq move_left_scroll
     dec cursor_row
@@ -301,14 +271,10 @@ move_left_line
     jmp editor_error
     jmp move_finished
 move_left_scroll
-    ldaa nav_start
-    staa screen_top
-    ldaa nav_start+1
-    staa screen_top+1
-    ldaa nav_start+2
-    staa screen_top+2
-    ldaa nav_start+3
-    staa screen_top+3
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
     jmp rebuild_cursor
 move_home
     clr group_open
@@ -359,14 +325,10 @@ move_up_scroll
     tsta
     beq *+5
     jmp editor_error
-    ldaa nav_start
-    staa screen_top
-    ldaa nav_start+1
-    staa screen_top+1
-    ldaa nav_start+2
-    staa screen_top+2
-    ldaa nav_start+3
-    staa screen_top+3
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
     jsr build_view
     tsta
     beq *+5
@@ -424,14 +386,10 @@ remember_column
     clr group_open
     tst desired_valid
     bne remembered_column
-    ldaa e_column
-    staa desired_column
-    ldaa e_column+1
-    staa desired_column+1
-    ldaa e_column+2
-    staa desired_column+2
-    ldaa e_column+3
-    staa desired_column+3
+    ldx #e_column
+    jsr q_load
+    ldx #desired_column
+    jsr q_store
     inc desired_valid
 remembered_column
     rts
@@ -458,34 +416,22 @@ move_document_home
 move_document_end
     clr group_open
     clr desired_valid
-    ldaa doc_size
-    staa e_cursor
-    ldaa doc_size+1
-    staa e_cursor+1
-    ldaa doc_size+2
-    staa e_cursor+2
-    ldaa doc_size+3
-    staa e_cursor+3
-    ldaa doc_size
-    staa nav_start
-    ldaa doc_size+1
-    staa nav_start+1
-    ldaa doc_size+2
-    staa nav_start+2
-    ldaa doc_size+3
-    staa nav_start+3
+    ldx #doc_size
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
+    ldx #doc_size
+    jsr q_load
+    ldx #nav_start
+    jsr q_store
     jsr find_line_start
     tsta
     beq *+5
     jmp editor_error
-    ldaa nav_start
-    staa screen_top
-    ldaa nav_start+1
-    staa screen_top+1
-    ldaa nav_start+2
-    staa screen_top+2
-    ldaa nav_start+3
-    staa screen_top+3
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
     jmp rebuild_cursor
 move_page_down
     jsr remember_column
@@ -513,14 +459,10 @@ move_page_up
     jsr remember_column
     ldaa body_rows
     staa page_remaining
-    ldaa screen_top
-    staa nav_position
-    ldaa screen_top+1
-    staa nav_position+1
-    ldaa screen_top+2
-    staa nav_position+2
-    ldaa screen_top+3
-    staa nav_position+3
+    ldx #screen_top
+    jsr q_load
+    ldx #nav_position
+    jsr q_store
 page_previous
     ldx #nav_position
     jsr q_load
@@ -530,33 +472,21 @@ page_previous
     tsta
     beq *+5
     jmp editor_error
-    ldaa nav_start
-    staa nav_position
-    ldaa nav_start+1
-    staa nav_position+1
-    ldaa nav_start+2
-    staa nav_position+2
-    ldaa nav_start+3
-    staa nav_position+3
+    ldx #nav_start
+    jsr q_load
+    ldx #nav_position
+    jsr q_store
     dec page_remaining
     bne page_previous
 page_previous_done
-    ldaa nav_position
-    staa screen_top
-    ldaa nav_position+1
-    staa screen_top+1
-    ldaa nav_position+2
-    staa screen_top+2
-    ldaa nav_position+3
-    staa screen_top+3
-    ldaa nav_position
-    staa e_cursor
-    ldaa nav_position+1
-    staa e_cursor+1
-    ldaa nav_position+2
-    staa e_cursor+2
-    ldaa nav_position+3
-    staa e_cursor+3
+    ldx #nav_position
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
+    ldx #nav_position
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
     jsr build_view
     tsta
     beq *+5
@@ -587,14 +517,10 @@ find_line_back
     beq find_line_done
     cmpa #10
     beq find_line_done
-    ldaa nav_probe
-    staa nav_start
-    ldaa nav_probe+1
-    staa nav_start+1
-    ldaa nav_probe+2
-    staa nav_start+2
-    ldaa nav_probe+3
-    staa nav_start+3
+    ldx #nav_probe
+    jsr q_load
+    ldx #nav_start
+    jsr q_store
     jsr editor_poll
     tsta
     beq *+5
@@ -636,14 +562,10 @@ previous_line
     ldx #nav_end
     jsr q_store
 previous_find
-    ldaa nav_end
-    staa nav_start
-    ldaa nav_end+1
-    staa nav_start+1
-    ldaa nav_end+2
-    staa nav_start+2
-    ldaa nav_end+3
-    staa nav_start+3
+    ldx #nav_end
+    jsr q_load
+    ldx #nav_start
+    jsr q_store
     jmp find_line_start
 ; Derive the column from the nearest known horizontal anchor when possible.
 column_from_start
@@ -699,14 +621,10 @@ column_one
     jmp find_line_return
     bra column_character
 column_done
-    ldaa nav_column
-    staa e_column
-    ldaa nav_column+1
-    staa e_column+1
-    ldaa nav_column+2
-    staa e_column+2
-    ldaa nav_column+3
-    staa e_column+3
+    ldx #nav_column
+    jsr q_load
+    ldx #e_column
+    jsr q_store
     clra
     rts
 cursor_to_column
@@ -738,14 +656,10 @@ cursor_column_stream
     jsr stream_init
     bcs cursor_column_set
 cursor_column_read
-    ldaa where
-    staa nav_saved
-    ldaa where+1
-    staa nav_saved+1
-    ldaa where+2
-    staa nav_saved+2
-    ldaa where+3
-    staa nav_saved+3
+    ldx #where
+    jsr q_load
+    ldx #nav_saved
+    jsr q_store
     ldx #nav_column
     jsr q_load
     ldx #desired_column
@@ -777,31 +691,19 @@ cursor_column_advance
     jsr q_store
     bra cursor_column_read
 cursor_column_before
-    ldaa nav_saved
-    staa where
-    ldaa nav_saved+1
-    staa where+1
-    ldaa nav_saved+2
-    staa where+2
-    ldaa nav_saved+3
-    staa where+3
+    ldx #nav_saved
+    jsr q_load
+    ldx #where
+    jsr q_store
 cursor_column_set
-    ldaa where
-    staa e_cursor
-    ldaa where+1
-    staa e_cursor+1
-    ldaa where+2
-    staa e_cursor+2
-    ldaa where+3
-    staa e_cursor+3
-    ldaa nav_column
-    staa e_column
-    ldaa nav_column+1
-    staa e_column+1
-    ldaa nav_column+2
-    staa e_column+2
-    ldaa nav_column+3
-    staa e_column+3
+    ldx #where
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
+    ldx #nav_column
+    jsr q_load
+    ldx #e_column
+    jsr q_store
     clra
     rts
 move_finished
@@ -859,26 +761,18 @@ rebuild_cursor
     jmp editor_error
     tst cursor_seen
     bne rebuild_horizontal
-    ldaa e_cursor
-    staa nav_start
-    ldaa e_cursor+1
-    staa nav_start+1
-    ldaa e_cursor+2
-    staa nav_start+2
-    ldaa e_cursor+3
-    staa nav_start+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #nav_start
+    jsr q_store
     jsr find_line_start
     tsta
     beq *+5
     jmp editor_error
-    ldaa nav_start
-    staa screen_top
-    ldaa nav_start+1
-    staa screen_top+1
-    ldaa nav_start+2
-    staa screen_top+2
-    ldaa nav_start+3
-    staa screen_top+3
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
     jsr build_view
     tsta
     beq *+5
@@ -898,24 +792,16 @@ key_text
     staa change_add
     staa change_group
     clr change_delete
-    ldaa e_cursor
-    staa change_at
-    ldaa e_cursor+1
-    staa change_at+1
-    ldaa e_cursor+2
-    staa change_at+2
-    ldaa e_cursor+3
-    staa change_at+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #change_at
+    jsr q_store
     tst overwrite
     beq text_change
-    ldaa e_cursor
-    staa where
-    ldaa e_cursor+1
-    staa where+1
-    ldaa e_cursor+2
-    staa where+2
-    ldaa e_cursor+3
-    staa where+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #where
+    jsr q_store
     jsr doc_byte
     bcs text_change
     cmpa #13
@@ -944,14 +830,10 @@ key_tab
     staa change_add
     clr change_group
     clr change_delete
-    ldaa e_cursor
-    staa change_at
-    ldaa e_cursor+1
-    staa change_at+1
-    ldaa e_cursor+2
-    staa change_at+2
-    ldaa e_cursor+3
-    staa change_at+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #change_at
+    jsr q_store
     jsr editor_change
     tsta
     beq *+5
@@ -978,14 +860,10 @@ key_newline
     staa change_bytes
     ldaa eol_bytes+1
     staa change_bytes+1
-    ldaa e_cursor
-    staa change_at
-    ldaa e_cursor+1
-    staa change_at+1
-    ldaa e_cursor+2
-    staa change_at+2
-    ldaa e_cursor+3
-    staa change_at+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #change_at
+    jsr q_store
     jsr editor_change
     tsta
     beq *+5
@@ -1001,22 +879,14 @@ key_delete
     clr desired_valid
     clr change_group
     clr change_add
-    ldaa e_cursor
-    staa change_at
-    ldaa e_cursor+1
-    staa change_at+1
-    ldaa e_cursor+2
-    staa change_at+2
-    ldaa e_cursor+3
-    staa change_at+3
-    ldaa e_cursor
-    staa where
-    ldaa e_cursor+1
-    staa where+1
-    ldaa e_cursor+2
-    staa where+2
-    ldaa e_cursor+3
-    staa where+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #change_at
+    jsr q_store
+    ldx #e_cursor
+    jsr q_load
+    ldx #where
+    jsr q_store
     jsr doc_byte
     bcc *+5
     jmp key_ignored
@@ -1097,14 +967,10 @@ backspace_tab
 backspace_line
     ldaa #1
     staa change_linebreak
-    ldaa e_cursor
-    staa nav_position
-    ldaa e_cursor+1
-    staa nav_position+1
-    ldaa e_cursor+2
-    staa nav_position+2
-    ldaa e_cursor+3
-    staa nav_position+3
+    ldx #e_cursor
+    jsr q_load
+    ldx #nav_position
+    jsr q_store
     jsr previous_line
     tsta
     beq *+5
@@ -1115,24 +981,16 @@ backspace_line
     jsr q_sub
     ldaa q+3
     staa change_delete
-    ldaa nav_end
-    staa change_at
-    ldaa nav_end+1
-    staa change_at+1
-    ldaa nav_end+2
-    staa change_at+2
-    ldaa nav_end+3
-    staa change_at+3
+    ldx #nav_end
+    jsr q_load
+    ldx #change_at
+    jsr q_store
     tst cursor_row
     bne backspace_join
-    ldaa nav_start
-    staa screen_top
-    ldaa nav_start+1
-    staa screen_top+1
-    ldaa nav_start+2
-    staa screen_top+2
-    ldaa nav_start+3
-    staa screen_top+3
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
 backspace_join
     jsr editor_change
     jmp editor_result_rebuild

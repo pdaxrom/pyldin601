@@ -1,4 +1,4 @@
-; Five ordinary 512-byte blocks; one optional RAMMAN bank adds 16 blocks.
+; Four ordinary 512-byte blocks; one optional RAMMAN bank adds 16 blocks.
 ; Tags are separate from data, and BIOS/font/IRQ mapping restores selectors.
 ; A=logical file, Q=byte offset. X=byte pointer, block_left=bytes to boundary.
 block_get
@@ -92,14 +92,10 @@ block_clear
     bcc block_loaded
     ldaa wanted_file
     staa io_file
-    ldaa wanted_pos
-    staa io_position
-    ldaa wanted_pos+1
-    staa io_position+1
-    ldaa wanted_pos+2
-    staa io_position+2
-    ldaa wanted_pos+3
-    staa io_position+3
+    ldx #wanted_pos
+    jsr q_load
+    ldx #io_position
+    jsr q_store
     jsr file_seek
     tsta
     beq *+5
@@ -161,9 +157,9 @@ cache_tag
     jmp add_b
 cache_buffer
     ldaa cache_slot
-    cmpa #5
+    cmpa #4
     bcs cache_plain
-    suba #5
+    suba #4
     asla
     adda #$c0
     staa cache_byte
@@ -324,7 +320,7 @@ size_pointer
     ldx #file_sizes
     jmp add_b
 editor_cache_open
-    ldaa #5
+    ldaa #4
     staa cache_count
     ldaa #$e5
     int $2e
@@ -354,7 +350,7 @@ editor_cache_map
     staa $e6f0
     ldaa lease_group
     staa $e6f1
-    ldaa #21
+    ldaa #20
     staa cache_count
 editor_cache_ready
     rts

@@ -5,7 +5,7 @@ scan_line_tail
     bcc *+5
     jmp scan_tail_return
     ldx stream_left
-    stx scan_take
+    stx view_tail+0
     ldx #e_cursor
     jsr q_load
     ldx #where
@@ -18,23 +18,23 @@ scan_line_tail
     oraa q+1
     bne scan_tail_limit
     ldaa q+2
-    cmpa scan_take
+    cmpa view_tail+0
     bne scan_tail_compare
     ldaa q+3
-    cmpa scan_take+1
+    cmpa view_tail+0+1
 scan_tail_compare
     bcc scan_tail_limit
     ldx q+2
-    stx scan_take
+    stx view_tail+0
 scan_tail_limit
     ldx stream_ptr
-    stx scan_run_start
-    ldaa scan_run_start+1
-    adda scan_take+1
-    staa scan_run_end+1
-    ldaa scan_run_start
-    adca scan_take
-    staa scan_run_end
+    stx view_tail+2
+    ldaa view_tail+2+1
+    adda view_tail+0+1
+    staa view_tail+4+1
+    ldaa view_tail+2
+    adca view_tail+0
+    staa view_tail+4
 scan_run_byte
     ldaa 0,x
     cmpa #9
@@ -44,46 +44,46 @@ scan_run_byte
     cmpa #13
     beq scan_run_done
     inx
-    cpx scan_run_end
+    cpx view_tail+4
     bne scan_run_byte
 scan_run_done
     stx stream_ptr
-    stx scan_run_end
-    clr scan_advance
-    clr scan_advance+1
-    ldaa scan_run_end+1
-    suba scan_run_start+1
-    staa scan_advance+3
-    ldaa scan_run_end
-    sbca scan_run_start
-    staa scan_advance+2
-    ldaa scan_advance+2
-    oraa scan_advance+3
+    stx view_tail+4
+    clr view_tail+6
+    clr view_tail+6+1
+    ldaa view_tail+4+1
+    suba view_tail+2+1
+    staa view_tail+6+3
+    ldaa view_tail+4
+    sbca view_tail+2
+    staa view_tail+6+2
+    ldaa view_tail+6+2
+    oraa view_tail+6+3
     bne *+5
     jmp scan_tail_ok
     ldx #stream_remaining
     jsr q_load
-    ldx #scan_advance
+    ldx #view_tail+6
     jsr q_sub
     ldx #stream_remaining
     jsr q_store
     ldx #where
     jsr q_load
-    ldx #scan_advance
+    ldx #view_tail+6
     jsr q_add
     ldx #where
     jsr q_store
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_load
-    ldx #scan_advance
+    ldx #view_tail+6
     jsr q_add
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_store
     ldaa stream_left+1
-    suba scan_advance+3
+    suba view_tail+6+3
     staa stream_left+1
     ldaa stream_left
-    sbca scan_advance+2
+    sbca view_tail+6+2
     staa stream_left
     ldaa #$ff
     staa poll_count

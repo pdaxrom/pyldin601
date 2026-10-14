@@ -175,6 +175,10 @@ finished
     ldaa #12
     int $22
 exit_to_dos
+    ldx #state+S_CLIP_PATH
+    tst 0,x
+    beq *+4
+    int $4f
     int $38
 module_tail
     ldx #mainline

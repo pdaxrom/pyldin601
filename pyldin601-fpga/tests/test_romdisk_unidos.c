@@ -62,24 +62,29 @@ static unsigned invoke(unsigned op,unsigned a,unsigned b,unsigned x){
 static void word_at(unsigned address,unsigned value){
  unsigned char*r=MC6800GetCpuRam();r[address]=value>>8;r[address+1]=value;
 }
+#ifndef TEST_FILE_IO_BASE
+#define TEST_FILE_IO_BASE 0x3000
+#define TEST_FILE_DATA_BASE 0x4000
+#endif
 static void file_check(const char*name,const unsigned char*expected,unsigned size){
+ unsigned io=TEST_FILE_IO_BASE,data=TEST_FILE_DATA_BASE;
  unsigned char*r=MC6800GetCpuRam(),saved_io[512],saved_data[512];
- // UniShell now occupies RAM through $3710. Test-only SWI argument/read
- // buffers must be restored before executing another native shell command.
- memcpy(saved_io,r+0x3000,sizeof saved_io);memcpy(saved_data,r+0x4000,sizeof saved_data);
- strcpy((char*)r+0x3100,name);
- word_at(0x3000,0x3100);word_at(0x3002,0);
- require(invoke(0x4a,1,0,0x3000)==0,"open native disk file");unsigned handle=result_b;
- require(invoke(0x51,handle,0,0x3004)==0,"file size API");
- require(((uint32_t)r[0x3004]<<24|r[0x3005]<<16|r[0x3006]<<8|r[0x3007])==size,"original file size");
+ // Test-only buffers are restored before native code resumes. Low-memory
+ // graphics applications override their locations to avoid the active stack.
+ memcpy(saved_io,r+io,sizeof saved_io);memcpy(saved_data,r+data,sizeof saved_data);
+ strcpy((char*)r+(io+0x100),name);
+ word_at(io,(io+0x100));word_at((io+2),0);
+ require(invoke(0x4a,1,0,io)==0,"open native disk file");unsigned handle=result_b;
+ require(invoke(0x51,handle,0,(io+4))==0,"file size API");
+ require(((uint32_t)r[(io+4)]<<24|r[(io+5)]<<16|r[(io+6)]<<8|r[(io+7)])==size,"original file size");
  for(unsigned offset=0;offset<size;){
   unsigned length=size-offset>512?512:size-offset;
-  word_at(0x3000,0x4000);word_at(0x3002,length);
-  require(invoke(0x4c,handle,0,0x3000)==0&&result_x==length,"native file read");
-  require(!memcmp(r+0x4000,expected+offset,length),"file data matches original ROM across bank boundaries");offset+=length;
+  word_at(io,data);word_at((io+2),length);
+  require(invoke(0x4c,handle,0,io)==0&&result_x==length,"native file read");
+  if(memcmp(r+data,expected+offset,length)){for(unsigned k=0;k<length;k++)if(r[data+k]!=expected[offset+k]){fprintf(stderr,"file %s byte %u: got=%02x expected=%02x\n",name,offset+k,r[data+k],expected[offset+k]);break;}require(0,"file data matches original ROM across bank boundaries");}offset+=length;
  }
  require(invoke(0x4e,handle,0,0)==0,"close native disk file");
- memcpy(r+0x3000,saved_io,sizeof saved_io);memcpy(r+0x4000,saved_data,sizeof saved_data);
+ memcpy(r+io,saved_io,sizeof saved_io);memcpy(r+data,saved_data,sizeof saved_data);
 }
 static unsigned fat_next(const unsigned char*fat,unsigned cluster){
  unsigned off=cluster+cluster/2,v=le16(fat+off);return cluster&1?v>>4:v&4095;

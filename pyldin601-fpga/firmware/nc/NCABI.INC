@@ -1,4 +1,6 @@
-; Private NC/NCMAIN/NCEDIT ABI 2. Offsets, never absolute application addresses.
+; Private NC/NCMAIN/NCEDIT ABI 3. Offsets, never absolute application addresses.
+S_COMMAND equ 226
+    .ifndef NC_EDITOR
 S_MAGIC equ 0
 S_REQUEST equ 2
 S_ACTIVE equ 3
@@ -13,10 +15,10 @@ S_ERROR equ 14
 S_PIVOTS equ 16
 S_PAGEFLAGS equ 64
 S_PATHS equ 66
-S_COMMAND equ 226
 S_WORKDIR equ 307
 S_EDITED equ 387
-S_SIZE equ 401
+S_CLIP_PATH equ 401
+S_SIZE equ 481
 PATH_SIZE equ 80
 ; Requests: 0 final exit, 1 execute command, 2 nested shell, 3 reload panels, 4 editor.
 ; Each panel owns a bounded, sorted window, with continuation at its end.
@@ -36,3 +38,4 @@ BASE_UI_INFO equ 21
 BASE_UI_BOTTOM equ 23
 BASE_UI_COMMAND equ 24
 BASE_UI_KEYS equ 25
+    .endif

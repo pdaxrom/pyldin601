@@ -31,7 +31,7 @@ editor_save_as
     ldaa #19
     rts
 save_input_length_ok
-    stab save_input_length
+    stab block_state+108
     ; Resolve relative names against the editor document's directory.
     ldx #input
     ldaa 1,x
@@ -65,7 +65,7 @@ save_parent_length
     incb
     bra save_parent_length
 save_parent_counted
-    addb save_input_length
+    addb block_state+108
     cmpb #64
     bcs save_parent_fits
     ldaa #19
@@ -79,7 +79,7 @@ save_parent_fits
     ldx #error_text
     bra save_resolve
 save_document_root
-    ldaa save_input_length
+    ldaa block_state+108
     cmpa #62
     bcs save_document_root_fits
     ldaa #19
@@ -128,16 +128,20 @@ save_cancelled
     ldaa #$ff
     rts
 save_begin
-    tst save_open
-    beq save_no_pending_handle
-    ldaa save_handle
-    int $4e
+    jsr block_close_pending
     tsta
     beq *+5
     jmp save_return
-    clr save_open
-    ldx #save_temp
-    int $4f
+    clr block_state+104
+    clr block_state+100
+    clr block_state+101
+    clr block_state+102
+    clr block_state+103
+    ldx #doc_size
+    jsr q_load
+    ldx #block_state+96
+    jsr q_store
+
 save_no_pending_handle
     clr save_open
     clr save_renamed
@@ -185,58 +189,12 @@ save_names
     ldx #save_target
     ldaa #8
     jsr window_line
-    ldx #cancel_save_text
-    ldaa #16
-    jsr window_line
-    clr save_done
-    clr save_done+1
-    clr save_done+2
-    clr save_done+3
-    clr where
-    clr where+1
-    clr where+2
-    clr where+3
-    clr save_cells
-    ldaa doc_size
-    staa number
-    ldaa doc_size+1
-    staa number+1
-    ldaa doc_size+2
-    staa number+2
-    ldaa doc_size+3
-    staa number+3
-    ldaa columns
-    suba #12
-    staa save_bar_width
-    staa number_divisor
-    jsr divide_number
-    ldaa number
-    staa save_quantum
-    ldaa number+1
-    staa save_quantum+1
-    ldaa number+2
-    staa save_quantum+2
-    ldaa number+3
-    staa save_quantum+3
-    ldx #save_quantum
+save_stream_begin
+    jsr save_meter_begin
+    ldx #block_state+100
     jsr q_load
-    tst remainder
-    beq save_quantum_ready
-    jsr q_inc
-save_quantum_ready
-    jsr q_test
-    bne save_quantum_store
-    jsr q_inc
-save_quantum_store
-    ldx #save_quantum
+    ldx #where
     jsr q_store
-    ldx #save_next
-    jsr q_store
-    jsr save_progress
-    clr where
-    clr where+1
-    clr where+2
-    clr where+3
     jsr stream_init
     bcc *+5
     jmp save_stream_end
@@ -246,6 +204,21 @@ save_fill
     clr save_length
     clr save_length+1
 save_read_byte
+    clr save_chunk
+    clr save_chunk+1
+    ldx save_length
+    stx save_chunk+2
+    ldx #block_state+96
+    jsr q_load
+    ldx #save_done
+    jsr q_sub
+    ldx #save_chunk
+    jsr q_sub
+    jsr q_test
+    bne *+5
+    jmp save_read_end
+    ldx #block_state+72
+    jsr q_store
     jsr stream_block
     bcc *+5
     jmp save_read_end
@@ -265,6 +238,19 @@ save_compare_take
     ldx stream_left
     stx save_take
 save_take_ready
+    ldaa block_state+72
+    oraa block_state+73
+    bne save_range_ready
+    ldaa block_state+74
+    cmpa save_take
+    bne save_range_compare
+    ldaa block_state+75
+    cmpa save_take+1
+save_range_compare
+    bcc save_range_ready
+    ldx block_state+74
+    stx save_take
+save_range_ready
     ldx stream_ptr
     stx src
     ldx save_ptr
@@ -334,6 +320,9 @@ save_stream_end
     beq *+5
     jmp save_fail
     clr save_open
+    tst block_state+104
+    beq *+5
+    jmp block_copy_commit
     tst save_exists
     beq save_publish
     ldx #base_path
@@ -408,14 +397,10 @@ save_published
     ldx #filename
     stx dst
     jsr copy_z
-    ldaa history_cursor
-    staa saved_history
-    ldaa history_cursor+1
-    staa saved_history+1
-    ldaa history_cursor+2
-    staa saved_history+2
-    ldaa history_cursor+3
-    staa saved_history+3
+    ldx #history_cursor
+    jsr q_load
+    ldx #saved_history
+    jsr q_store
     ldaa #1
     staa saved_valid
     clr modified
@@ -691,7 +676,7 @@ same_path_done
 save_progress
     ldx #save_done
     jsr q_load
-    ldx #doc_size
+    ldx #block_state+96
     jsr q_cmp
     bcs save_progress_cells
     ldaa save_bar_width
@@ -739,7 +724,7 @@ save_progress_draw
     ldx #total_label
     ldaa #12
     jsr window_line
-    ldx #doc_size
+    ldx #block_state+96
     jsr q_load
     ldx #number
     jsr q_store
@@ -790,4 +775,44 @@ editor_path_byte
     rts
 editor_path_valid
     clc
+    rts
+
+; Shared progress initialization for Save, Copy and large block transfers.
+save_meter_begin
+    ldx #cancel_save_text
+    ldaa #16
+    jsr window_line
+    clr save_done
+    clr save_done+1
+    clr save_done+2
+    clr save_done+3
+    clr save_cells
+    ldx #block_state+96
+    jsr q_load
+    ldx #number
+    jsr q_store
+    ldaa columns
+    suba #12
+    staa save_bar_width
+    staa number_divisor
+    jsr divide_number
+    ldx #number
+    jsr q_load
+    ldx #save_quantum
+    jsr q_store
+    ldx #save_quantum
+    jsr q_load
+    tst remainder
+    beq save_quantum_ready
+    jsr q_inc
+save_quantum_ready
+    jsr q_test
+    bne save_quantum_store
+    jsr q_inc
+save_quantum_store
+    ldx #save_quantum
+    jsr q_store
+    ldx #save_next
+    jsr q_store
+    jsr save_progress
     rts

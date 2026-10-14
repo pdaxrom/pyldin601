@@ -144,7 +144,8 @@ nc: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/nc
 	cp firmware/nc/* $(BUILD)/nc/
 	@set -e; for app in NC NCMAIN NCEDIT NCELOAD; do \
-	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
+	defs=""; if [ "$$app" = NCEDIT ]; then defs="-D NC_EDITOR"; fi; \
+	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" $$defs -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
 	$(DATA) pgm $(BUILD)/nc/$$app.raw.PGM $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.json auto; \
 	$(DATA) labels $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.h $$app; done
 	python3 tools/nc_editor_pack.py

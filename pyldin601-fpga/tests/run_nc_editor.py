@@ -56,7 +56,9 @@ runner=out/'test_nc_editor'
 subprocess.run([a.cc,'-O2','-I../pyldin601/src','tests/test_nc_editor.c','-o',str(runner)],cwd=ROOT,check=True)
 cases=[('601','mc6800','0','ui'),('601','mc6800','0','missing')] if a.quick else [(m,c,v,'ui') for m in ('601','601a') for c in ('mc6800','hd6303') for v in (('0','3') if m=='601' else ('0','4','2','3'))]
 if not a.quick:
+ cases += [(m,c,v,'block') for m in ('601','601a') for c in ('mc6800','hd6303') for v in (('0','3') if m=='601' else ('0','4','2','3'))]
+ cases += [('601','mc6800','0','block-missing'),('601a','hd6303','2','block-missing')]
  cases += [('601','mc6800','0','bank'),('601','mc6800','0','busy'),('601','mc6800','0','offset'),('601','mc6800','0','missing'),('601a','hd6303','2','missing'),('601a','mc6800','3','missing')]
- cases += [('601','mc6800','0',name) for name in ('large','long','raw','edge','empty','keys','readonly','faults','full','sort-return','missing-editor','bad-editor')]
+ cases += [('601','mc6800','0',name) for name in ('large','long','raw','edge','empty','keys','block-large','block-large-missing','block-faults','readonly','faults','full','sort-return','missing-editor','bad-editor')]
 for model,cpu,video,kind in cases:
  subprocess.run([str(runner),str(out/({'full':'sd-editor-full.img','missing-editor':'sd-editor-missing.img','bad-editor':'sd-editor-bad.img'}.get(kind,'sd-editor.img'))),model,cpu,video,kind],cwd=ROOT,check=True)

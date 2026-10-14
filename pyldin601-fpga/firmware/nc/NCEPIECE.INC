@@ -131,14 +131,10 @@ locate_leaf
     jsr q_add
     ldx #leaf_start
     jsr q_store
-    ldaa next_leaf
-    staa leaf_id
-    ldaa next_leaf+1
-    staa leaf_id+1
-    ldaa next_leaf+2
-    staa leaf_id+2
-    ldaa next_leaf+3
-    staa leaf_id+3
+    ldx #next_leaf
+    jsr q_load
+    ldx #leaf_id
+    jsr q_store
     bra locate_leaf
 locate_entries
     clr piece_index
@@ -544,14 +540,10 @@ insert_return
     rts
 ; Remove REMOVE_LEN bytes at WHERE. Trims whole spans in one step.
 doc_delete
-    ldaa remove_len
-    staa remove_left
-    ldaa remove_len+1
-    staa remove_left+1
-    ldaa remove_len+2
-    staa remove_left+2
-    ldaa remove_len+3
-    staa remove_left+3
+    ldx #remove_len
+    jsr q_load
+    ldx #remove_left
+    jsr q_store
 delete_more
     ldx #remove_left
     jsr q_load

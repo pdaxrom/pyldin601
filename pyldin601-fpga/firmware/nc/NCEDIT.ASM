@@ -132,6 +132,16 @@ editor_pitch_done
     staa $e600
     pula
     tap
+    ldaa mode
+    cmpa #4
+    beq block_video_mono
+    anda #3
+    bne block_video_ready
+    tst $fff7
+    bmi block_video_ready
+block_video_mono
+    inc block_state+90
+block_video_ready
     ldx #ignore_break
     clrb
     ldaa #4
@@ -179,5 +189,6 @@ fail_io
     include NCEUNDOUI.INC
     include NCESAVE.INC
     include NCESEARCH.INC
+    include NCEBLOCK.INC
     include NCEDATA.INC
     end start

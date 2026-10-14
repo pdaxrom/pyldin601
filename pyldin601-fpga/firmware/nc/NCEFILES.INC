@@ -19,14 +19,10 @@ editor_open
     tsta
     beq *+5
     jmp editor_open_return
-    ldaa file_sizes
-    staa doc_size
-    ldaa file_sizes+1
-    staa doc_size+1
-    ldaa file_sizes+2
-    staa doc_size+2
-    ldaa file_sizes+3
-    staa doc_size+3
+    ldx #file_sizes
+    jsr q_load
+    ldx #doc_size
+    jsr q_store
     ; Seed a pinned RAM-only index leaf, so read-only viewing needs no scratch.
     clr cache_slot
     jsr cache_buffer

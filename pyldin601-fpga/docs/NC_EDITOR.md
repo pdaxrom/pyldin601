@@ -8,22 +8,25 @@ selection, including a new sorted window if the saved size/date moved it.
 
 Install NC.PGM, NCMAIN.PGM and NCEDIT.PGM from the same build together.
 No BIOS, UniDOS or FPGA change is required. The native INT interfaces are
-the only storage and memory APIs used by the applications.
+the storage and memory APIs. Shift selection additionally reads the current
+FPGA keyboard's ordinary-RAM E7 descriptor when its v2 raw interface, address
+bounds and JMP gateway are valid. It never changes or calls the private
+keyboard vector. F3 marking works with ordinary native BIOS navigation.
 
 ## Loading and memory
 
 The delivered NCEDIT.PGM contains a small native PGM followed by an ordinary
 relocatable editor PGM. The bootstrap opens its own absolute pathname,
 allocates the editor with 256-byte alignment, reads the code, applies
-relocations in 512-byte batches, closes the file, and jumps to the editor.
+relocations in 64-byte batches, closes the file, and jumps to the editor.
 This avoids a transient low-RAM allocation for the entire relocation table
 while graphics video RAM is allocated. Both allocations belong to the native
 child and are released by DOS on its exit. `tools/nc_editor_pack.py` packages
 the two standard PGM files and updates the delivered file's manifest hash.
 
-The editor uses about 25 KiB of ordinary RAM, including its loader, code,
+The editor uses about 26 KiB of ordinary RAM, including its loader, code,
 viewport character cache, metadata and I/O buffers. Document length and edit
-count do not increase this allocation. Five ordinary 512-byte cache slots
+count do not increase this allocation. Four ordinary 512-byte cache slots
 work without RAMMAN. If its ABI check and allocation succeed, one leased
 8 KiB bank adds sixteen slots. The lease never assumes a free physical bank
 number and restores selectors around BIOS/DOS/font operations. Banked data
@@ -82,6 +85,44 @@ through the document with at most one wrap. Search and cold scans can be
 cancelled between blocks. A distant jump can still require a sequential
 scan; there is no permanent whole-document line index.
 
+## Selection and session clipboard
+
+A selection retains a 32-bit anchor byte offset and visual column, plus
+normalized start/end offsets and columns. Each visible row caches only two
+bytes for its selected column interval; changing a selection repaints the
+cells whose appearance changes without rereading document text. The same
+intervals restore modal underlays and keep the graphics caret visible inside
+highlighted text. Native monochrome text lacks cell attributes, so endpoint
+brackets are output separately while the character cache retains file bytes.
+
+F3 toggles extension with native navigation. On the current FPGA PS/2 driver,
+Shift navigation uses the physical Set-2 arrow to undo the native layout's
+Shift-to-Home/End/page translation. Ctrl+A selects the whole document. Esc
+clears selection before exiting. Ctrl+C/X/V copies, cuts or pastes; typing,
+Enter, Tab, Delete or Backspace replaces a nonempty selection.
+
+Copy streams exactly the selected range to a unique .CLP beside the work
+files. The supervisor records its pathname only after the file is closed,
+then removes the previous clipboard. It retains that pathname across editor
+unloads and deletes the file on final NC exit. Thus the clipboard can cross
+files and exceed ordinary RAM. Failed/cancelled copies preserve the previous
+clipboard. Work files and CLP names are never assumed free.
+
+Paste stages the clipboard into ADD before mutating the document. Removed
+ranges are similarly snapshotted into ADD for Undo. An arbitrary-length
+replacement reuses the normal history/application phases and is one Undo
+record. Large staging operations share the Save byte progress window and
+check cancellation between bounded transfers. Cancellation drains repeated
+Esc/Ctrl+C events until key release, so a held cancel key cannot also exit
+the editor. A pending close is retried before reusing the transfer handle;
+clipboard readers are never treated as disposable output files.
+
+UniAS has a fixed symbol table. Editor builds define NC_EDITOR to include
+only the ABI constants they use. Some viewport scratch fields share named
+BSS regions with documented offsets to leave symbol space for block commands.
+Repeated 32-bit transfers use the shared accumulator helpers, keeping code
+and relocation workspace small enough for native graphics modes.
+
 ## Save and failure handling
 
 Save streams the logical document into a unique .NEW beside the target.
@@ -111,8 +152,10 @@ The editor matrix covers all supported model/video/CPU combinations, banked
 cache and ordinary fallback, foreign leases, a file over 2 MiB, a line over
 64 KiB, fragmented pieces, grouped Undo/Redo, byte-exact saves, mixed EOL and
 control bytes, sector boundaries, Cyrillic input/search, tab columns,
-horizontal scrolling, Save As path resolution, cancellation, read-only/full
+horizontal scrolling, Save As path resolution, selection, cross-file clipboard
+above 2 MiB, clipboard failures/cancellation, read-only/full
 disks, injected read/write failures, missing/damaged editor, sorted panel
-return, and memory/stack/bank cleanup. Pixel checks compare the caret with the
-actual ROM glyph. Rendered snapshots are digital video references, not PAL
+return, and memory/stack/bank cleanup. Editor input tests use an independent Set-2 FIFO/MMIO fixture and the real
+ROM keyboard translator. The legacy latch is disconnected. Pixel checks
+compare the caret with the actual ROM glyph. Rendered snapshots are digital video references, not PAL
 or physical-board validation.

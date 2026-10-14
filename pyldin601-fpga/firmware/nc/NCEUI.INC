@@ -3,7 +3,7 @@
 ; line repaint only its visible slice, using the cached horizontal anchor.
 redraw
 editor_redraw
-    clr header_valid
+    clr block_state+105
     ldx #screen_chars
     ldaa #$ff
     ldab #240
@@ -44,12 +44,17 @@ editor_finish
     tsta
     beq *+5
     jmp editor_error
+    tst block_state+28
+    beq *+5
+    jmp editor_restore
+    jsr block_finish
     jsr editor_header
     jsr editor_caret
     jmp editor_key
 editor_error
     cmpa #$ff
     bne editor_io_error
+    jsr block_cancel_release
     tst editor_initialized
     bne *+5
     jmp editor_close
@@ -101,13 +106,16 @@ editor_pending_retry
     bne editor_error
     jmp editor_redraw
 editor_header
-    tst header_valid
+    tst block_state+105
     beq editor_header_full
     ldaa modified
-    cmpa header_modified
+    cmpa block_state+106
     bne editor_header_full
     ldaa overwrite
-    cmpa header_overwrite
+    cmpa block_state+107
+    bne editor_header_full
+    ldaa block_state+24
+    cmpa block_state+35
     bne editor_header_full
     ; Filename and mode are stable while typing; repaint only the column.
     ldaa columns
@@ -121,12 +129,14 @@ editor_header
     staa remaining
     bra header_column
 editor_header_full
+    ldaa block_state+24
+    staa block_state+35
     ldaa #1
-    staa header_valid
+    staa block_state+105
     ldaa modified
-    staa header_modified
+    staa block_state+106
     ldaa overwrite
-    staa header_overwrite
+    staa block_state+107
     clr ui_x
     clr ui_y
     ldaa #$03
@@ -150,6 +160,9 @@ header_mark
     beq header_mode
     ldx #overwrite_label
 header_mode
+    tst block_state+24
+    beq *+5
+    ldx #block_label
     jsr text_field
 header_column
     ldx #e_column
@@ -209,14 +222,10 @@ build_view
     clr render_row
     clr cursor_seen
     clr render_eof
-    ldaa screen_top
-    staa where
-    ldaa screen_top+1
-    staa where+1
-    ldaa screen_top+2
-    staa where+2
-    ldaa screen_top+3
-    staa where+3
+    ldx #screen_top
+    jsr q_load
+    ldx #where
+    jsr q_store
     ldaa #1
     staa build_full
 build_view_row
@@ -257,22 +266,18 @@ build_blank
     inx
     decb
     bne build_blank
-    clr render_x
-    clr anchor_set
+    clr view_scan+0
+    clr view_scan+1
     tst build_full
     beq build_partial
-    clr scan_column
-    clr scan_column+1
-    clr scan_column+2
-    clr scan_column+3
-    ldaa where
-    staa scan_start
-    ldaa where+1
-    staa scan_start+1
-    ldaa where+2
-    staa scan_start+2
-    ldaa where+3
-    staa scan_start+3
+    clr view_scan+2
+    clr view_scan+2+1
+    clr view_scan+2+2
+    clr view_scan+2+3
+    ldx #where
+    jsr q_load
+    ldx #view_scan+6
+    jsr q_store
     tst render_eof
     beq *+5
     jmp build_inactive
@@ -292,9 +297,9 @@ build_partial
     ldaa render_row
     jsr left_column_pointer
     jsr q_load
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_store
-    clr anchor_set
+    clr view_scan+1
 build_stream
     jsr stream_init
     bcc *+5
@@ -306,39 +311,27 @@ build_character
     ldx #e_cursor
     jsr q_cmp
     bne build_read
-    ldaa scan_column
-    staa e_column
-    ldaa scan_column+1
-    staa e_column+1
-    ldaa scan_column+2
-    staa e_column+2
-    ldaa scan_column+3
-    staa e_column+3
+    ldx #view_scan+2
+    jsr q_load
+    ldx #e_column
+    jsr q_store
     ldaa render_row
     staa cursor_row
     ldaa #1
     staa cursor_seen
 build_read
-    ldaa where
-    staa scan_char_pos
-    ldaa where+1
-    staa scan_char_pos+1
-    ldaa where+2
-    staa scan_char_pos+2
-    ldaa where+3
-    staa scan_char_pos+3
-    ldaa scan_column
-    staa scan_char_column
-    ldaa scan_column+1
-    staa scan_char_column+1
-    ldaa scan_column+2
-    staa scan_char_column+2
-    ldaa scan_column+3
-    staa scan_char_column+3
+    ldx #where
+    jsr q_load
+    ldx #view_scan+10
+    jsr q_store
+    ldx #view_scan+2
+    jsr q_load
+    ldx #view_scan+14
+    jsr q_store
     jsr stream_next
     bcc *+5
     jmp build_eof
-    staa scan_char
+    staa view_scan+18
     cmpa #13
     bne *+5
     jmp build_cr
@@ -354,15 +347,15 @@ build_read
 build_control
     ldaa #'.'
 build_emit_char
-    staa display_char
+    staa view_scan+19
     jsr build_emit
     bra build_continue
 build_tab
     ldaa #' '
-    staa display_char
+    staa view_scan+19
 build_tab_space
     jsr build_emit
-    ldaa scan_column+3
+    ldaa view_scan+2+3
     anda #7
     bne build_tab_space
 build_continue
@@ -372,7 +365,7 @@ build_continue
     rts
     tst build_full
     beq build_partial_limit
-    ldaa render_x
+    ldaa view_scan+0
     cmpa columns
     bcs build_more_chars
     jsr scan_line_tail
@@ -382,59 +375,55 @@ build_continue
 build_more_chars
     jmp build_character
 build_partial_limit
-    ldaa render_x
+    ldaa view_scan+0
     cmpa columns
     bcs build_more_chars
     clra
     rts
 
 build_emit
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_load
     ldx #horizontal
     jsr q_cmp
     bcs build_advance_column
-    ldaa render_x
+    ldaa view_scan+0
     cmpa columns
     bcc build_advance_column
-    tst anchor_set
+    tst view_scan+1
     bne build_emit_store
     ldaa render_row
     jsr left_pointer
-    ldx #scan_char_pos
+    ldx #view_scan+10
     jsr q_load
     ldaa render_row
     jsr left_pointer
     jsr q_store
-    ldx #scan_char_column
+    ldx #view_scan+14
     jsr q_load
     ldaa render_row
     jsr left_column_pointer
     jsr q_store
-    inc anchor_set
+    inc view_scan+1
 build_emit_store
-    ldab render_x
+    ldab view_scan+0
     ldx #new_line
     jsr add_b
-    ldaa display_char
+    ldaa view_scan+19
     staa 0,x
-    inc render_x
+    inc view_scan+0
 build_advance_column
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_load
     jsr q_inc
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_store
     rts
 build_cr
-    ldaa scan_char_pos
-    staa scan_end
-    ldaa scan_char_pos+1
-    staa scan_end+1
-    ldaa scan_char_pos+2
-    staa scan_end+2
-    ldaa scan_char_pos+3
-    staa scan_end+3
+    ldx #view_scan+10
+    jsr q_load
+    ldx #view_scan+20
+    jsr q_store
     jsr stream_next
     bcc build_cr_next
     tsta
@@ -449,7 +438,7 @@ build_cr_next
     ldx #where
     jsr q_store
 build_cr_alone
-    tst eol_detected
+    tst view_scan+24
     bne build_newline
     ldaa #1
     staa eol_length
@@ -457,7 +446,7 @@ build_cr_alone
     staa eol_bytes
     bra build_detected
 build_crlf
-    tst eol_detected
+    tst view_scan+24
     bne build_newline
     ldaa #2
     staa eol_length
@@ -467,69 +456,57 @@ build_crlf
     staa eol_bytes+1
     bra build_detected
 build_lf
-    ldaa scan_char_pos
-    staa scan_end
-    ldaa scan_char_pos+1
-    staa scan_end+1
-    ldaa scan_char_pos+2
-    staa scan_end+2
-    ldaa scan_char_pos+3
-    staa scan_end+3
-    tst eol_detected
+    ldx #view_scan+10
+    jsr q_load
+    ldx #view_scan+20
+    jsr q_store
+    tst view_scan+24
     bne build_newline
     ldaa #1
     staa eol_length
     ldaa #10
     staa eol_bytes
 build_detected
-    inc eol_detected
+    inc view_scan+24
 build_newline
     bra build_store_end
 build_eof
     tsta
     beq *+5
     jmp build_return
-    ldaa where
-    staa scan_end
-    ldaa where+1
-    staa scan_end+1
-    ldaa where+2
-    staa scan_end+2
-    ldaa where+3
-    staa scan_end+3
+    ldx #where
+    jsr q_load
+    ldx #view_scan+20
+    jsr q_store
     inc render_eof
     ldx #where
     jsr q_load
     ldx #e_cursor
     jsr q_cmp
     bne build_store_end
-    ldaa scan_column
-    staa e_column
-    ldaa scan_column+1
-    staa e_column+1
-    ldaa scan_column+2
-    staa e_column+2
-    ldaa scan_column+3
-    staa e_column+3
+    ldx #view_scan+2
+    jsr q_load
+    ldx #e_column
+    jsr q_store
     ldaa render_row
     staa cursor_row
     ldaa #1
     staa cursor_seen
 build_store_end
-    tst anchor_set
+    tst view_scan+1
     bne build_anchor_ready
-    ldx #scan_end
+    ldx #view_scan+20
     jsr q_load
     ldaa render_row
     jsr left_pointer
     jsr q_store
-    ldx #scan_column
+    ldx #view_scan+2
     jsr q_load
     ldaa render_row
     jsr left_column_pointer
     jsr q_store
 build_anchor_ready
-    ldx #scan_end
+    ldx #view_scan+20
     jsr q_load
     ldaa render_row
     jsr end_pointer
@@ -541,61 +518,118 @@ build_inactive
     ldab render_row
     jsr add_b
     clr 0,x
-    ldaa where
-    staa scan_end
-    ldaa where+1
-    staa scan_end+1
-    ldaa where+2
-    staa scan_end+2
-    ldaa where+3
-    staa scan_end+3
-    clr scan_column
-    clr scan_column+1
-    clr scan_column+2
-    clr scan_column+3
+    ldx #where
+    jsr q_load
+    ldx #view_scan+20
+    jsr q_store
+    clr view_scan+2
+    clr view_scan+2+1
+    clr view_scan+2+2
+    clr view_scan+2+3
     jmp build_store_end
 paint_line
+    jsr block_row
+    jsr block_mark_pointer
+    ldaa 0,x
+    staa block_state+31
+    ldaa 1,x
+    staa block_state+32
+    ldaa block_state+29
+    staa 0,x
+    ldaa block_state+30
+    staa 1,x
     jsr screen_pointer
-    stx paint_cache
+    stx view_scan+25
     ldx #new_line
-    stx paint_text
+    stx view_scan+27
     clr ui_x
     ldaa render_row
     inca
     staa ui_y
-    clr paint_run
+    clr view_scan+30
+    ldaa block_state+30
+    oraa block_state+32
+    staa block_state+91
     ldaa #$71
-    jsr colour
+    staa block_state+33
 paint_cell
-    ldx paint_text
+    ldx view_scan+27
     ldaa 0,x
     inx
-    stx paint_text
-    staa paint_char
-    ldx paint_cache
+    stx view_scan+27
+    staa view_scan+29
+    tst block_state+91
+    bne paint_cell_marked
+    ldx view_scan+25
     cmpa 0,x
     beq paint_same
+    bra paint_changed
+paint_cell_marked
+    ldaa #$71
+    staa block_state+33
+    staa block_state+34
+    ldaa ui_x
+    cmpa block_state+29
+    bcs paint_old_ink
+    cmpa block_state+30
+    bcc paint_old_ink
+    ldaa #$03
+    staa block_state+33
+paint_old_ink
+    ldaa ui_x
+    cmpa block_state+31
+    bcs paint_compare
+    cmpa block_state+32
+    bcc paint_compare
+    ldaa #$03
+    staa block_state+34
+paint_compare
+    ldx view_scan+25
+    ldaa view_scan+29
+    cmpa 0,x
+    bne paint_changed
+    ldaa block_state+33
+    cmpa block_state+34
+    bne paint_changed
+    cmpa #$03
+    bne paint_same
+    tst block_state+90
+    beq paint_same
+    ldaa block_state+29
+    cmpa block_state+31
+    bne paint_changed
+    ldaa block_state+30
+    cmpa block_state+32
+    beq paint_same
+paint_changed
+    ldaa view_scan+29
     staa 0,x
-    tst paint_run
+    tst view_scan+30
     bne paint_put
     jsr position
 paint_put
-    ldaa paint_char
-    jsr put
+    ldaa block_state+33
+    cmpa ink
+    beq *+5
+    jsr colour
+    ldaa view_scan+29
+    jsr block_put
     ldaa #1
-    staa paint_run
+    staa view_scan+30
     bra paint_advance
 paint_same
-    clr paint_run
+    clr view_scan+30
 paint_advance
-    ldx paint_cache
+    ldx view_scan+25
     inx
-    stx paint_cache
+    stx view_scan+25
     inc ui_x
     ldaa ui_x
     cmpa columns
-    bcs paint_cell
+    bcc *+5
+    jmp paint_cell
     rts
+
 editor_caret
     ldx #e_column
     jsr q_load
@@ -623,7 +657,9 @@ editor_graphic_caret
     jsr add_b
     ldaa 0,x
     staa caret_char
-    ldaa #$03
+    jsr block_cached_ink
+    staa block_state+36
+    eora #$72
     jsr colour
     jsr position
     ldaa caret_char
@@ -632,7 +668,7 @@ editor_uncaret
     ldaa mode
     anda #3
     beq editor_native_uncaret
-    ldaa #$71
+    ldaa block_state+36
     jsr colour
     ldaa caret_x
     staa ui_x
@@ -646,7 +682,8 @@ editor_native_uncaret
 
 ; Modal underlays come from the display cache, without rescanning long lines.
 editor_restore
-    clr header_valid
+    clr block_state+28
+    clr block_state+105
     clr restore_row
 restore_body_row
     ldaa restore_row
@@ -661,11 +698,13 @@ restore_body_row
     jsr colour
     jsr position
 restore_body_cell
+    jsr block_cached_ink
+    jsr colour
     ldx restore_ptr
     ldaa 0,x
     inx
     stx restore_ptr
-    jsr put
+    jsr block_put
     inc ui_x
     ldaa ui_x
     cmpa columns
