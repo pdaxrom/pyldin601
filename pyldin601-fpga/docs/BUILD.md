@@ -21,6 +21,12 @@ make fixtures UNIAS=/path/to/hd6303-toolchain/unias
 Отдельные цели: `make firmware`, `game-apps`, `audio-apps`, `gfx-apps`,
 `storage-apps`, `hg-apps` с тем же UNIAS. Память: отдельная цель
 `make -f firmware/Makefile memory UNIAS=/path/to/unias`.
+Загружаемые ROM-модули: `make ramloader-apps UNIAS=/path/to/unias`,
+проверки — `make test-ramloader`. `build/ramloader/RAMLOAD.PGM` загружает
+8-КиБ ROM в закреплённые RAMMAN-банки; CRC16.ROM/RAMCHECK.PGM проверяют
+вызов через SWI после выхода загрузчика. Нужен обновлённый ROM RAMMAN,
+первая установка выполняется из основной оболочки до NC.
+[Команды, ABI и ресурсы](RAMLOADER.md).
 Файловый менеджер: `make nc-apps UNIAS=/path/to/unias`; `NC.PGM`,
 `NCMAIN.PGM` и `NCEDIT.PGM` из `build/nc` должны находиться в одном каталоге.
 При обновлении заменять все три файла вместе.
@@ -70,6 +76,7 @@ Undo/Redo, ошибки диска, read-only, заполненный диск,
 | MBR/EBR/boot priority/LBA | test-partitions, test-boot-partitions, test-raw-sd, test-storage-software |
 | Нативный FAT12/FAT16, BPB32, запись, кэш свободного места, read-only mount/list и опциональный RAMMAN-кэш | test-fat16, test-free-space, test-mount; повторить с FAT_RAMMAN=1 |
 | RAM/BIOS/Y-код | test-ram-pages, test-ram-pages-bios, test-ram-pages-ycode, test-ram-manager |
+| ROM в RAMMAN: загрузка/выгрузка, SWI, IRQ, владение и откат | test-ramloader |
 | Клавиатура | test-keyboard-rom, test-keyboard-bios |
 | Graphics/HAM/спрайты | test-gfx, test-ham-pal, test-ham-layers, test-clip-sprites |
 | AY/записи/IRQ | test-ay, test-audio-app, test-audio-irq |

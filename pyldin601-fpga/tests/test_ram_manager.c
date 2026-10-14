@@ -72,6 +72,15 @@ int main(int argc,char**argv){
  require(call(1,111,0x3000)==0&&info()==0&&r[0x3002]==111,"full capacity");
  for(unsigned k=0;k<111;k++)require(r[0x3003+k]==k,"no duplicate or reserved bank");
  require(call(2,0,0x3000)==0&&info()==111&&call(2,0,0x3000)==3,"full release and double free");
+ require(call(1,1,0x3000)==0&&call(5,0,0x3000)==3&&info()==110,"pinned release rejects ordinary process leases");
+ unsigned pinned_token=token(0x3000);
+ require(call(4,0,0x3000)==0&&token(0x3000)==pinned_token&&info()==110,"pin retains cookie and allocated bank");
+ require(call(2,0,0x3000)==3&&call(4,0,0x3000)==3,"process release and repeated pin cannot consume system lease");
+ require(call(3,0,0)==0&&info()==110,"process cleanup preserves pinned lease");
+ r[0xec00]=0;r[0xec01]=0;
+ require(call(3,0,0)==0&&info()==110,"zero PCB cannot bulk release system leases");
+ r[0xec00]=pcb>>8;r[0xec01]=pcb;
+ require(call(5,0,0x3000)==0&&info()==111&&token(0x3000)==0&&call(5,0,0x3000)==3,"explicit pinned release restores capacity and rejects stale cookie");
  require(!memcmp(saved,physical+0x22000,909312),"allocator never erases or writes bank data");free(saved);
  // Native PGM owns allocation/release; UniShell has no allocator calls.
  command("b:ramexit");require(info()==111&&SP==sp,"application releases its lease before INT38");

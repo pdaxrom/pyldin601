@@ -9,8 +9,8 @@ UNIAS_PATH := $(if $(filter /%,$(UNIAS)),$(UNIAS),$(shell command -v "$(UNIAS)")
 RUN := $(abspath tools/run-unias.sh)
 DATA := $(abspath $(BUILD)/firmware-data)
 
-.PHONY: firmware roms bootstrap tables storage game audio gfx hg memory extension sram all nc
-all: firmware game audio gfx hg memory nc
+.PHONY: firmware roms bootstrap tables storage game audio gfx hg memory extension sram all nc ramloader
+all: firmware game audio gfx hg memory nc ramloader
 firmware: roms bootstrap tables storage
 $(BUILD)/firmware-data: tools/firmware_data.c
 	mkdir -p $(BUILD)
@@ -151,3 +151,17 @@ nc: $(BUILD)/firmware-data
 	python3 tools/nc_editor_pack.py
 	$(DATA) index $(BUILD)/nc/manifest.json $(BUILD)/nc/NC.json $(BUILD)/nc/NCMAIN.json $(BUILD)/nc/NCEDIT.json
 	rm -f $(BUILD)/nc/*.raw.PGM
+
+ramloader: $(BUILD)/firmware-data
+	mkdir -p $(BUILD)/ramloader
+	cp firmware/ramloader/* $(BUILD)/ramloader/
+	@set -e; for app in RAMLOAD RAMCORE RAMCHECK; do \
+	(cd $(BUILD)/ramloader && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
+	$(DATA) pgm $(BUILD)/ramloader/$$app.raw.PGM $(BUILD)/ramloader/$$app.PGM $(BUILD)/ramloader/$$app.LST $(BUILD)/ramloader/$$app.json auto; \
+	$(DATA) labels $(BUILD)/ramloader/$$app.LST $(BUILD)/ramloader/$$app.h $$app; done
+	cp $(BUILD)/ramloader/RAMLOAD.PGM $(BUILD)/ramloader/RAMLOAD.prefix.PGM
+	cd $(BUILD)/ramloader && sh $(RUN) CRC16.log "$(UNIAS_PATH)" -l CRC16.LST -o CRC16.ROM CRC16.ASM
+	cd $(BUILD)/ramloader && sh $(RUN) CRCALT.log "$(UNIAS_PATH)" -D SECOND_MODULE -l CRCALT.LST -o CRCALT.ROM CRC16.ASM
+	python3 tools/ramloader_pack.py
+	$(DATA) index $(BUILD)/ramloader/manifest.json $(BUILD)/ramloader/RAMLOAD.json $(BUILD)/ramloader/RAMCORE.json $(BUILD)/ramloader/RAMCHECK.json
+	rm -f $(BUILD)/ramloader/*.raw.PGM

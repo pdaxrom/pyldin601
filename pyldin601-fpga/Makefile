@@ -149,6 +149,12 @@ test-nc-editor: fixtures nc-apps
 	$(PYTHON) tests/run_nc_editor.py --cc "$(CC)"
 	$(PYTHON) tests/render_nc.py
 .PHONY: test-ram-manager
+.PHONY: ramloader-apps test-ramloader
+test: test-ramloader
+ramloader-apps: | $(BUILD)
+	$(MAKE) -f firmware/Makefile ramloader UNIAS="$(UNIAS)" CC="$(CC)"
+test-ramloader: fixtures ramloader-apps
+	$(PYTHON) tests/run_ramloader.py --cc "$(CC)"
 test-ram-manager: fixtures memory-test
 	$(PYTHON) tests/run_ram_manager.py --unias "$(UNIAS)" --cc "$(CC)"
 test-ram-pages-ycode: fixtures romdisk-extract

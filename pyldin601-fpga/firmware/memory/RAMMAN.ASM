@@ -3,6 +3,8 @@
 ; 1 allocate B=1..111, X=RAM descriptor (3+B bytes): tokenBE,count,bank IDs.
 ; 2 release X=descriptor; token AND current UniDOS PCB must match.
 ; 3 release all leases owned by the current PCB (explicit application call).
+; 4 pin an owned lease for a resident module (owner zero, cookie retained).
+; 5 release a pinned lease by its cookie; ordinary leases are rejected.
 ; Other functions return A=1. Operations: A=0 OK,1 argument,2 no memory,
 ; 3 stale/foreign token,4 unavailable,5 reentrant call. B/X preserved.
 ; Arbitrary free banks are gathered, so fragmentation does not lose capacity.
@@ -109,7 +111,12 @@ ram_descriptor
     cmpa #1
     beq ram_allocate_check
     cmpa #2
+    beq ram_release_request
+    cmpa #4
+    beq ram_release_request
+    cmpa #5
     bne ram_unknown
+ram_release_request
     jmp ram_release_check
 ram_unknown
     jmp ram_argument
@@ -331,12 +338,33 @@ ram_find_cookie
     bne ram_cookie_next
     cmpb 1,x
     bne ram_cookie_next
+    stx RM_X
+    ldx RM_STATE
+    ldaa 21,x
+    ldx RM_X
+    cmpa #5
+    bne ram_process_owner
+    ldaa 2,x
+    oraa 3,x
+    bne ram_bad_cookie
+    bra ram_release_owned
+ram_process_owner
     ldaa RM_PCB
     cmpa 2,x
     bne ram_bad_cookie
     ldaa RM_PCB+1
     cmpa 3,x
     bne ram_bad_cookie
+    stx RM_X
+    ldx RM_STATE
+    ldaa 21,x
+    ldx RM_X
+    cmpa #4
+    bne ram_release_owned
+    clr 2,x
+    clr 3,x
+    jmp ram_success
+ram_release_owned
     jsr ram_free_lease
     ldx RM_STATE
     ldx 11,x
@@ -362,6 +390,11 @@ ram_bad_cookie
     ldaa #3
     bra ram_result
 ram_release_owner
+    ldaa RM_PCB
+    oraa RM_PCB+1
+    bne ram_owner_process
+    jmp ram_success
+ram_owner_process
     ldaa #1
     staa 8,x
     ldab #RM_LEASES
