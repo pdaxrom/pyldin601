@@ -345,9 +345,8 @@ put_blank_value
     staa 7,x
     ldab mode
     cmpb #2
-    beq nc_long_ncvideo_2_302
+    beq *+5
     jmp put_advance_eight
-nc_long_ncvideo_2_302
     staa 8,x
     staa 9,x
     staa 10,x

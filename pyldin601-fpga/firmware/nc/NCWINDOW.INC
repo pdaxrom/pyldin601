@@ -351,9 +351,8 @@ dialog_focus
     inc window_focus
     ldaa window_focus
     cmpa #3
-    bcc nc_long_ncwindow_1_405
+    bcc *+5
     jmp dialog_draw
-nc_long_ncwindow_1_405
     clr window_focus
     jmp dialog_draw
 dialog_edit
@@ -374,6 +373,8 @@ dialog_edit
     cmpa #32
     bcs dialog_key
     cmpa #127
+    beq dialog_key
+    cmpa #$c0
     bcc dialog_key
     ldab edit_length
     cmpb #79
@@ -406,31 +407,27 @@ dialog_end
     jmp dialog_draw
 dialog_left
     tst edit_cursor
-    bne nc_long_ncwindow_2_405
+    bne *+5
     jmp dialog_key
-nc_long_ncwindow_2_405
     dec edit_cursor
     jmp dialog_draw
 dialog_right
     ldaa edit_cursor
     cmpa edit_length
-    bne nc_long_ncwindow_3_405
+    bne *+5
     jmp dialog_key
-nc_long_ncwindow_3_405
     inc edit_cursor
     jmp dialog_draw
 dialog_back
     tst edit_cursor
-    bne nc_long_ncwindow_4_405
+    bne *+5
     jmp dialog_key
-nc_long_ncwindow_4_405
     dec edit_cursor
 dialog_delete
     ldaa edit_cursor
     cmpa edit_length
-    bne nc_long_ncwindow_5_405
+    bne *+5
     jmp dialog_key
-nc_long_ncwindow_5_405
     staa edit_index
 dialog_delete_shift
     ldx #input

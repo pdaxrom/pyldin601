@@ -295,7 +295,6 @@ scroll_row_copied
 scroll_advance
     staa scroll_row
     dec scroll_count
-    beq nc_long_ncfast_1_286
+    beq *+5
     jmp scroll_next_row
-nc_long_ncfast_1_286
     rts

@@ -226,8 +226,8 @@ static void continuous_arrow(unsigned scan,const char*expected){
  }else require(newrow==(scan==0x50?row+1:row-1)&&!memcmp(before,after,rows*11),"ordinary arrows keep the viewport and move only one row");
 }
 static void check_large_directory(unsigned video){
- char names[361][12];unsigned count=0;
- const char*fixed[]={"AONE    TXT","BTWO    TXT","CTHREE  TXT","DFOUR   TXT","EFIVE   TXT","ZLAST   TXT","NC      PGM","NCMAIN  PGM","NCPROBE PGM","NCGRAF2 PGM","NCGRAF3 PGM"};
+ char names[362][12];unsigned count=0;
+ const char*fixed[]={"AONE    TXT","BTWO    TXT","CTHREE  TXT","DFOUR   TXT","EFIVE   TXT","ZLAST   TXT","NC      PGM","NCMAIN  PGM","NCEDIT  PGM","NCPROBE PGM","NCGRAF2 PGM","NCGRAF3 PGM"};
  for(unsigned k=0;k<350;k++)snprintf(names[count++],12,"F%03u    TXT",k);
  for(unsigned k=0;k<sizeof fixed/sizeof fixed[0];k++)strcpy(names[count++],fixed[k]);
  qsort(names,count,sizeof names[0],name_order);
@@ -368,7 +368,10 @@ static void check_input_focus(unsigned video){
  r[0xed1f]=old_blink;
  after=wait_entries;key(1);panels(after);
 }
-int main(int argc,char**argv){
+#ifndef NC_MAIN
+#define NC_MAIN main
+#endif
+int NC_MAIN(int argc,char**argv){
  if(argc!=5&&argc!=6)return 2;
  const char*backend=argc==6?argv[5]:"bank";
  model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");unsigned video=atoi(argv[4]);modal_video=video;
@@ -448,7 +451,7 @@ int main(int argc,char**argv){
   key(0x44);prompt_wait();
   require(SP==original_sp&&ram_word(0xee1e)==original_himem,"large directory exits without memory leaks");
   if(!strcmp(backend,"many-bank"))require(invoke(0xe5,0,0,0)==1&&result_b==banks_before,"large bank catalogue releases its lease");
-  printf("PASS NC large directory %s/%s video %u %s: 361 files, adjacent arrows, one-row scrolling across cache boundaries, PgDn/PgUp\n",argv[2],argv[3],video,backend);return 0;
+  printf("PASS NC large directory %s/%s video %u %s: 362 files, adjacent arrows, one-row scrolling across cache boundaries, PgDn/PgUp\n",argv[2],argv[3],video,backend);return 0;
  }
 
  {unsigned width=r[core_base+NCMAIN_PANEL_WIDTH];
@@ -505,9 +508,9 @@ int main(int argc,char**argv){
  unsigned state=nc_base+NC_STATE,old_sort=r[state+NC_S_SORT],old_hidden=r[state+NC_S_HIDDEN];
  after=wait_entries;open_settings();type("dh");key(1);panels(after);
  require(r[state+NC_S_SORT]==old_sort&&r[state+NC_S_HIDDEN]==old_hidden,"Esc discards all staged settings");
- after=wait_entries;open_settings();type("h");modal_key(0x0f,NCMAIN_SETTINGS_KEY);modal_key(0x0f,NCMAIN_SETTINGS_KEY);key(0x1c);panels(after);
+ after=wait_entries;open_settings();type("h");modal_key(0x0f,NCMAIN_SETTINGS_KEY);modal_key(0x0f,NCMAIN_SETTINGS_KEY);modal_key(0x0f,NCMAIN_SETTINGS_KEY);key(0x1c);panels(after);
  require(r[state+NC_S_HIDDEN]==old_hidden,"Cancel button discards the hidden-file setting");
- after=wait_entries;open_settings();type("h");modal_key(0x0f,NCMAIN_SETTINGS_KEY);key(0x1c);panels(after);
+ after=wait_entries;open_settings();type("h");modal_key(0x0f,NCMAIN_SETTINGS_KEY);modal_key(0x0f,NCMAIN_SETTINGS_KEY);key(0x1c);panels(after);
  require(r[state+NC_S_HIDDEN]==(old_hidden^1),"Apply button commits the hidden-file setting");
  after=wait_entries;open_settings();type("h");key(0x1c);panels(after);
  after=wait_entries;key(0x3b);key(1);panels(after);

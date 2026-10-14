@@ -34,9 +34,8 @@ viewer_zero
 viewer_page
     jsr view_seek
     tsta
-    beq nc_long_ncview_1_227
+    beq *+5
     jmp viewer_error
-nc_long_ncview_1_227
     clr ui_x
     clr ui_y
     ldaa #$06

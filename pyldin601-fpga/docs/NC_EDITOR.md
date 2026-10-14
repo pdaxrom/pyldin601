@@ -1,0 +1,118 @@
+# NC text editor
+
+F4 sends request 4 through the private `NCABI.INC` state. NCMAIN closes
+its files, returns its RAMMAN lease, and terminates. The NC supervisor
+restores the captured video mode and executes NCEDIT with the same state
+pointer. When it returns, NC reloads NCMAIN and restores the edited file's
+selection, including a new sorted window if the saved size/date moved it.
+
+Install NC.PGM, NCMAIN.PGM and NCEDIT.PGM from the same build together.
+No BIOS, UniDOS or FPGA change is required. The native INT interfaces are
+the only storage and memory APIs used by the applications.
+
+## Loading and memory
+
+The delivered NCEDIT.PGM contains a small native PGM followed by an ordinary
+relocatable editor PGM. The bootstrap opens its own absolute pathname,
+allocates the editor with 256-byte alignment, reads the code, applies
+relocations in 512-byte batches, closes the file, and jumps to the editor.
+This avoids a transient low-RAM allocation for the entire relocation table
+while graphics video RAM is allocated. Both allocations belong to the native
+child and are released by DOS on its exit. `tools/nc_editor_pack.py` packages
+the two standard PGM files and updates the delivered file's manifest hash.
+
+The editor uses about 25 KiB of ordinary RAM, including its loader, code,
+viewport character cache, metadata and I/O buffers. Document length and edit
+count do not increase this allocation. Five ordinary 512-byte cache slots
+work without RAMMAN. If its ABI check and allocation succeed, one leased
+8 KiB bank adds sixteen slots. The lease never assumes a free physical bank
+number and restores selectors around BIOS/DOS/font operations. Banked data
+passes through an ordinary 512-byte bounce buffer for native DOS transfers.
+
+## Document and history
+
+All logical and physical offsets, columns, lengths and history cursors are
+big-endian unsigned 32-bit values. The original file is opened read-only.
+Initially its sole index leaf is pinned in RAM, so merely opening a document
+requires no writable workspace.
+
+The first edit creates three unique 8.3 files in the configured work directory
+(or the source directory by default):
+
+| Extension | Contents |
+|---|---|
+| ADD | Appended inserted text and deleted text retained for Undo |
+| IDX | Disk-backed unrolled doubly linked lists of pieces |
+| UND | Fixed-size Undo/Redo records |
+
+Each IDX leaf occupies 512 bytes. Its header contains next leaf at 0, total
+logical bytes at 4, entry count at 8, and previous leaf at 12. Up to 31
+sixteen-byte piece descriptors begin at 16. A descriptor contains source
+offset at 0, length at 4, and source file ID at 8 (0 original, 2 ADD).
+Leaf links, totals and descriptors are accessed through the shared block
+cache. Splits prepare the new leaf before linking it. A retained finger
+walks in either direction rather than restarting at the first leaf.
+
+A 32-byte history record contains document position at 0; removed ADD offset
+and length at 4/8; inserted ADD offset and length at 12/16; before/after
+cursor offsets at 20/24; typing group and newline flags at 28/29. Consecutive
+typing coalesces. A new edit after Undo replaces the redo tail. The saved
+history position determines the modified marker. Pending multi-part edits
+record their application phase and remaining delete length so retrying an
+I/O failure does not apply completed parts twice.
+
+## Rendering and navigation
+
+The editor shares NC's native glyph renderer, box characters and modal input
+windows. Visible logical line starts/ends and horizontal anchors are kept
+in RAM. The text framebuffer cannot serve as a readable cache because ROM
+is overlaid there, so characters are cached explicitly. Ordinary edits repaint
+changed cells in their line and adjust subsequent cached offsets. Horizontal
+movement uses known anchors; cold scans parse contiguous runs in blocks.
+Tab stops are every eight columns. Vertical movement keeps a desired visual
+column and chooses the position before a tab if the desired column is inside
+its span. CRLF is one logical line break. Existing bytes, including NUL and
+1A, remain part of the document. New lines use the first detected convention.
+
+Native text uses the hardware caret. Graphics parks that caret and inverts
+the actual native glyph at the editor position. Input dialogs own the focus
+while open; restoration uses the cached viewport instead of rescanning a
+long line. Forward search uses a small KMP prefix table and streams once
+through the document with at most one wrap. Search and cold scans can be
+cancelled between blocks. A distant jump can still require a sequential
+scan; there is no permanent whole-document line index.
+
+## Save and failure handling
+
+Save streams the logical document into a unique .NEW beside the target.
+Only bytes accepted by DOS contribute to progress. Once the new file is
+closed, the old target is renamed to a unique .BAK and the new file is
+published. A failed publication attempts to restore the original target.
+The original backing version remains readable so Undo can cross Save.
+On normal exit the latest previous version is retained as .BAK; an older
+backing version is removed if it has been superseded by a later backup.
+Work files are removed on normal exit. They are not a crash recovery format.
+
+A failed output write leaves the original and the editing state available
+for another Save or Save As. A read-only source can use a writable scratch
+directory and Save As to another drive. A full target can likewise be bypassed
+with Save As if the work disk still has space. An I/O failure during a partially
+applied edit offers retry, or an explicit discard-and-close action.
+
+## Verification
+
+`make test-nc` runs the panels regression and editor matrix;
+`make test-nc-editor` runs the editor matrix separately. Both use private image
+copies and the actual BIOS, UniDOS and assembled relocatable applications
+under the project's MC6800/HD6303 reference harness. They do not access the
+physical board, physical card or modify `images/sd.img`.
+
+The editor matrix covers all supported model/video/CPU combinations, banked
+cache and ordinary fallback, foreign leases, a file over 2 MiB, a line over
+64 KiB, fragmented pieces, grouped Undo/Redo, byte-exact saves, mixed EOL and
+control bytes, sector boundaries, Cyrillic input/search, tab columns,
+horizontal scrolling, Save As path resolution, cancellation, read-only/full
+disks, injected read/write failures, missing/damaged editor, sorted panel
+return, and memory/stack/bank cleanup. Pixel checks compare the caret with the
+actual ROM glyph. Rendered snapshots are digital video references, not PAL
+or physical-board validation.

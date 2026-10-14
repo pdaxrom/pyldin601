@@ -129,22 +129,19 @@ action_get
     tst group_marked
     beq action_single
     tst 12,x
-    bne nc_long_ncfiles_1_632
+    bne *+5
     jmp action_advance
-nc_long_ncfiles_1_632
     bra action_chosen
 action_single
     ldaa action_index
     cmpa pcur
-    beq nc_long_ncfiles_2_632
+    beq *+5
     jmp action_advance
-nc_long_ncfiles_2_632
 action_chosen
     ldaa 0,x
     cmpa #'.'
-    bne nc_long_ncfiles_3_632
+    bne *+5
     jmp action_advance
-nc_long_ncfiles_3_632
     stx action_record
     ldx pathptr
     stx src
@@ -374,9 +371,8 @@ walk_item
     tsta
     beq walk_have_item
     cmpa #11
-    bne nc_long_ncfiles_4_632
+    bne *+5
     jmp walk_directory_done
-nc_long_ncfiles_4_632
     rts
 walk_have_item
     ldx frame
@@ -574,9 +570,8 @@ copy_source_ready
     ldx #open_table
     int $4b
     tsta
-    beq nc_long_ncfiles_5_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_5_632
     stab target_handle
     inc target_open
     jsr progress_start
@@ -597,9 +592,8 @@ copy_read
     ldx #io_table
     int $4c
     tsta
-    beq nc_long_ncfiles_6_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_6_632
     cpx #0
     beq copy_complete
     stx io_table+2
@@ -607,9 +601,8 @@ nc_long_ncfiles_6_632
     ldx #io_table
     int $4d
     tsta
-    beq nc_long_ncfiles_7_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_7_632
     cpx io_table+2
     bne copy_short_write
     jsr progress_update
@@ -623,31 +616,27 @@ copy_complete
     ldx #file_stamp
     int $55
     tsta
-    beq nc_long_ncfiles_8_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_8_632
     ldaa #1
     ldab target_handle
     ldx #file_stamp
     int $55
     tsta
-    beq nc_long_ncfiles_9_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_9_632
     ldaa target_handle
     int $4e
     clr target_open
     tsta
-    beq nc_long_ncfiles_10_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_10_632
     ldaa source_handle
     int $4e
     clr source_open
     tsta
-    beq nc_long_ncfiles_11_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_11_632
     ; Keep the old destination under a backup name until publication succeeds.
     tst existing_target
     beq copy_publish
@@ -675,9 +664,8 @@ copy_publish
     ldx #rename_table
     jsr dos_rename
     tsta
-    beq nc_long_ncfiles_13_632
+    beq *+5
     jmp copy_fail
-nc_long_ncfiles_13_632
     tst backup_active
     beq copy_attributes
     clr backup_active

@@ -314,21 +314,24 @@ catalog_insert
     bcc insert_pivot_less
     ldaa paging_direction
     cmpa #2
-    bne nc_long_nccat_7_640
+    bne *+5
     jmp insert_done
-nc_long_nccat_7_640
     bra insert_capacity
 insert_pivot_less
     ldaa paging_direction
-    cmpa #2
-    beq nc_long_nccat_8_640
-    jmp insert_done
-nc_long_nccat_8_640
-    ; Names are unique, equality needs a separate comparison result.
+    cmpa #3
+    bne insert_pivot_strict
     tst cmp_result
-    bne nc_long_nccat_9_640
+    beq insert_capacity
     jmp insert_done
-nc_long_nccat_9_640
+insert_pivot_strict
+    cmpa #2
+    beq *+5
+    jmp insert_done
+    ; A strict backwards window excludes the pivot itself.
+    tst cmp_result
+    bne *+5
+    jmp insert_done
 insert_capacity
     ldaa pcount
     cmpa entry_capacity
@@ -344,9 +347,8 @@ insert_capacity
     ldx #candidate
     stx cmp_left
     jsr compare_entries
-    bcs nc_long_nccat_1_646
+    bcs *+5
     jmp insert_done
-nc_long_nccat_1_646
     ldaa #1
     staa shift_index
 insert_drop_first
@@ -374,9 +376,8 @@ insert_forward_full
     ldx #candidate
     stx cmp_left
     jsr compare_entries
-    bcc nc_long_nccat_1_728
+    bcc *+5
     jmp insert_done
-nc_long_nccat_1_728
 insert_find
     ldaa #1
     staa insert_index
@@ -631,100 +632,6 @@ set_working_directory
     int $46
 work_done
     rts
-add_b
-    tstb
-    beq add_done
-    ; MC6800 has no ABX. Add in constant time, preserving A as before.
-    stx add_pointer
-    psha
-    ldaa add_pointer+1
-    aba
-    staa add_pointer+1
-    bcc add_no_carry
-    inc add_pointer
-add_no_carry
-    ldx add_pointer
-    pula
-    clrb
-add_done
-    rts
-end_z
-    tst 0,x
-    beq end_done
-    inx
-    bra end_z
-end_done
-    rts
-copy_z
-    ldx src
-    ldaa 0,x
-    inx
-    stx src
-    ldx dst
-    staa 0,x
-    beq copy_z_done
-    inx
-    stx dst
-    bra copy_z
-copy_z_done
-    rts
-copy_n
-    ldx src
-    ldaa 0,x
-    inx
-    stx src
-    ldx dst
-    staa 0,x
-    inx
-    stx dst
-    decb
-    bne copy_n
-    rts
+    include NCUTIL.INC
 
-; A = number of eight-byte groups (zero is empty). Separate pointers permit
-; banked cache transfers and overlapping panel-row copies on an MC6800.
-copy_octets
-    staa copy_blocks
-    tsta
-    beq copy_octets_done
-copy_octet
-    ldx src
-    ldaa 0,x
-    ldab 1,x
-    ldx dst
-    staa 0,x
-    stab 1,x
-    ldx src
-    ldaa 2,x
-    ldab 3,x
-    ldx dst
-    staa 2,x
-    stab 3,x
-    ldx src
-    ldaa 4,x
-    ldab 5,x
-    ldx dst
-    staa 4,x
-    stab 5,x
-    ldx src
-    ldaa 6,x
-    ldab 7,x
-    ldx dst
-    staa 6,x
-    stab 7,x
-    ldaa src+1
-    adda #8
-    staa src+1
-    bcc copy_source_advanced
-    inc src
-copy_source_advanced
-    ldaa dst+1
-    adda #8
-    staa dst+1
-    bcc copy_target_advanced
-    inc dst
-copy_target_advanced
-    dec copy_blocks
-    bne copy_octet
-copy_octets_done
-    rts
+    include NCOCTETS.INC

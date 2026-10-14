@@ -91,7 +91,7 @@ replace_tail
     cmpa #65
     bls name_fits
     ldaa #19
-    bra fatal
+    jmp fatal
 name_fits
     ldx #main_name
     stx src
@@ -125,11 +125,38 @@ nc_long_nc_2_217
     beq shell
     cmpa #3
     beq reload
+    cmpa #4
+    beq editor
     ldx #state+S_COMMAND
     int $39
     bra result
 shell
     int $3a
+    bra result
+editor
+    jsr restore_video
+    jsr module_tail
+    ldaa #'E'
+    staa 2,x
+    ldaa #'D'
+    staa 3,x
+    ldaa #'I'
+    staa 4,x
+    ldaa #'T'
+    staa 5,x
+    ldx #mainline
+    int $39
+    psha
+    jsr module_tail
+    ldaa #'M'
+    staa 2,x
+    ldaa #'A'
+    staa 3,x
+    ldaa #'I'
+    staa 4,x
+    ldaa #'N'
+    staa 5,x
+    pula
 result
     tsta
     beq reload
@@ -149,6 +176,17 @@ finished
     int $22
 exit_to_dos
     int $38
+module_tail
+    ldx #mainline
+    ldab name_offset
+module_tail_loop
+    tstb
+    beq module_tail_done
+    inx
+    decb
+    bra module_tail_loop
+module_tail_done
+    rts
 restore_video
     int $13
     cmpa state+S_MODE

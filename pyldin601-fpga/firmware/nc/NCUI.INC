@@ -1,14 +1,7 @@
 ; Native text and graphics share the ROM font (see NCVIDEO.INC).
 ; NC colours: light grey on blue, black on cyan, yellow marked names.
 ; Pyldin's Cyrillic font differs from PC code pages at CF and D3.
-BOX_TOP_LEFT equ $da
-BOX_TOP_RIGHT equ $cf
-BOX_BOTTOM_LEFT equ $c0
-BOX_BOTTOM_RIGHT equ $d9
-BOX_HORIZONTAL equ $c4
-BOX_VERTICAL equ $d3
-BOX_LEFT_TEE equ $c3
-BOX_RIGHT_TEE equ $d4
+    include NCBOX.INC
 render
     clr menu_active
     jsr render_menu_bar
@@ -667,105 +660,10 @@ command_tail
     ldaa command_caret
     staa ui_x
     jmp caret_at
-; X=32-bit little-endian integer -> zero-terminated decimal, no 64K truncation.
-decimal_le
-    ldaa 3,x
-    staa number
-    ldaa 2,x
-    staa number+1
-    ldaa 1,x
-    staa number+2
-    ldaa 0,x
-    staa number+3
-decimal_number
-    ldaa #10
-    staa number_divisor
-    ldx #number_text+10
-    clr 0,x
-    stx number_ptr
-decimal_digit
-    jsr divide_number
-    ldaa remainder
-    adda #'0'
-    ldx number_ptr
-    dex
-    staa 0,x
-    stx number_ptr
-    ldaa number
-    oraa number+1
-    oraa number+2
-    oraa number+3
-    bne decimal_digit
-    ; Stop when the quotient reaches zero, rather than doing ten complete
-    ; 32-bit divisions for every small file on every newly exposed row.
-    ldx number_ptr
-    stx src
-    ldx #number_text
-    stx dst
-    jsr copy_z
-    rts
-; Unsigned BE32 / byte, quotient in number, remainder in remainder.
-divide_number
-    clr remainder
-    ldx #number
-    ldab #4
-decimal_byte
-    pshb
-    ldab #8
-decimal_bit
-    asl 0,x
-    rol remainder
-    ldaa remainder
-    cmpa number_divisor
-    bcs decimal_less
-    suba number_divisor
-    staa remainder
-    inc 0,x
-decimal_less
-    decb
-    bne decimal_bit
-    inx
-    pulb
-    decb
-    bne decimal_byte
-    rts
+    include NCNUMBER.INC
     include NCVIDEO.INC
 
-line_text
-    ldaa columns
-    staa remaining
-field
-    jsr text_field
-padding
-    ldaa #' '
-    staa fill_char
-fill_field
-    tst remaining
-    beq field_done
-    ldaa fill_char
-    jsr put_field
-    bra fill_field
-field_done
-    rts
-text_field
-    stx textptr
-text_loop
-    tst remaining
-    beq text_done
-    ldx textptr
-    ldaa 0,x
-    beq text_done
-    inx
-    stx textptr
-    jsr put_field
-    bra text_loop
-text_done
-    rts
-put_field
-    tst remaining
-    beq field_done
-    dec remaining
-    jmp put
+    include NCFIELDS.INC
     include NCWINDOW.INC
     include NCMENU.INC
 

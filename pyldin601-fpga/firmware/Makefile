@@ -143,9 +143,10 @@ sram: $(BUILD)/firmware-data
 nc: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/nc
 	cp firmware/nc/* $(BUILD)/nc/
-	@set -e; for app in NC NCMAIN; do \
+	@set -e; for app in NC NCMAIN NCEDIT NCELOAD; do \
 	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
 	$(DATA) pgm $(BUILD)/nc/$$app.raw.PGM $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.json auto; \
 	$(DATA) labels $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.h $$app; done
-	$(DATA) index $(BUILD)/nc/manifest.json $(BUILD)/nc/NC.json $(BUILD)/nc/NCMAIN.json
+	python3 tools/nc_editor_pack.py
+	$(DATA) index $(BUILD)/nc/manifest.json $(BUILD)/nc/NC.json $(BUILD)/nc/NCMAIN.json $(BUILD)/nc/NCEDIT.json
 	rm -f $(BUILD)/nc/*.raw.PGM

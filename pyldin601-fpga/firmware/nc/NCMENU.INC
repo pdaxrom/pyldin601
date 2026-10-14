@@ -246,9 +246,7 @@ menu_action
     ldx 0,x
     jmp 0,x
 menu_editor
-    ldx #editor_message
-    jsr message
-    jmp redraw
+    jmp edit_file
 menu_copy
     ldaa #1
     jmp file_action
@@ -289,6 +287,12 @@ settings
     staa window_focus
     ldaa S_HIDDEN,x
     staa draft_hidden
+    jsr settings_work_pointer
+    stx src
+    ldx #draft_workdir
+    stx dst
+    jsr copy_z
+settings_window
     ldx #settings_title
     jsr window_open
 settings_draw
@@ -340,8 +344,27 @@ settings_value_marker
     ldaa menu_draw
     cmpa #5
     bcs settings_control
+    ldaa #$07
+    ldab window_focus
+    cmpb #5
+    bne settings_work_colour
+    ldaa #$03
+settings_work_colour
+    jsr colour
+    ldx #workdir_label
+    ldaa #13
+    jsr window_line
+    ldaa #$07
+    jsr colour
+    ldx #draft_workdir
+    tst 0,x
+    bne settings_work_value
+    ldx #workdir_default
+settings_work_value
+    ldaa #14
+    jsr window_line
     ldaa window_focus
-    suba #5
+    suba #6
     staa button_focus
     ldx #apply_cancel_buttons
     jsr window_buttons
@@ -364,6 +387,9 @@ settings_key
     cmpa #32
     beq settings_space
     oraa #$20
+    cmpa #'w'
+    bne *+5
+    jmp settings_work_edit
     cmpa #'h'
     beq settings_toggle_hidden
     ldx #sort_keys
@@ -383,14 +409,14 @@ settings_set_sort
 settings_up
     ldaa window_focus
     bne settings_up_step
-    ldaa #7
+    ldaa #8
 settings_up_step
     deca
     bra settings_focus
 settings_down
     ldaa window_focus
     inca
-    cmpa #7
+    cmpa #8
     bcs settings_focus
     clra
 settings_focus
@@ -398,6 +424,9 @@ settings_focus
     jmp settings_draw
 settings_space
     ldaa window_focus
+    cmpa #5
+    bne *+5
+    jmp settings_work_edit
     cmpa #4
     beq settings_toggle_hidden
     bcc settings_enter
@@ -412,7 +441,10 @@ settings_toggle_hidden
     jmp settings_draw
 settings_enter
     ldaa window_focus
-    cmpa #6
+    cmpa #5
+    bne *+5
+    jmp settings_work_edit
+    cmpa #7
     bne *+5
     jmp settings_cancel
 settings_apply
@@ -423,6 +455,81 @@ settings_apply
     staa S_HIDDEN,x
     clr S_PAGEFLAGS,x
     clr S_PAGEFLAGS+1,x
+    jsr settings_work_pointer
+    stx dst
+    ldx #draft_workdir
+    stx src
+    jsr copy_z
     jmp refresh
 settings_cancel
     jmp redraw
+
+settings_work_pointer
+    ldx owner
+    ldab #255
+    jsr add_b
+    ldab #52
+    jmp add_b
+settings_work_edit
+    ldx #draft_workdir
+    stx src
+    ldx #input
+    stx dst
+    jsr copy_z
+    ldx #workdir_title
+    jsr dialog
+    bcs settings_work_back
+    tst input
+    beq settings_work_auto
+    ldx #input
+    stx full_table
+    ldx #target_path
+    stx full_table+2
+    ldx #full_table
+    int $3f
+    tsta
+    bne settings_work_error
+    ldx #target_path
+    jsr path_length
+    cmpb #3
+    beq settings_work_slash
+    ldx #target_path
+    jsr stat_path
+    tsta
+    bne settings_work_error
+    ldaa stat_entry+11
+    bita #16
+    beq settings_work_invalid
+settings_work_slash
+    ldx #target_path
+    jsr path_length
+    cmpb #51
+    bhi settings_work_invalid
+    dex
+    ldaa 0,x
+    inx
+    cmpa #'\'
+    beq settings_work_copy
+    cmpb #51
+    beq settings_work_invalid
+    ldaa #'\'
+    staa 0,x
+    clr 1,x
+settings_work_copy
+    ldx #target_path
+    stx src
+    ldx #draft_workdir
+    stx dst
+    jsr copy_z
+    bra settings_work_back
+settings_work_auto
+    clr draft_workdir
+    bra settings_work_back
+settings_work_invalid
+    ldaa #19
+settings_work_error
+    jsr error
+settings_work_back
+    ldaa #5
+    staa window_focus
+    jmp settings_window

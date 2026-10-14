@@ -11,6 +11,7 @@ from sd_partitions import scan
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--cc',default='cc')
 p.add_argument('--quick',action='store_true')
+p.add_argument('--prepare-only',action='store_true')
 a=p.parse_args()
 out=ROOT/'build/nc'
 # Assemble the probe with the same production UniAS and PGM packer.
@@ -27,14 +28,14 @@ for mode in (2,3):
  flags=['-D','COLOUR'] if mode==2 else []
  subprocess.run(['sh',str(ROOT/'tools/run-unias.sh'),app+'.log',assembler,*flags,'-l',app+'.LST','-o',app+'.raw.PGM','NCGRAPH.ASM'],cwd=out,check=True)
  subprocess.run([str(ROOT/'build/firmware-data'),'pgm',str(out/(app+'.raw.PGM')),str(out/(app+'.PGM')),str(out/(app+'.LST')),str(out/(app+'.json')),'auto'],cwd=ROOT,check=True)
-files={name:(out/name).read_bytes() for name in ('NC.PGM','NCMAIN.PGM','NCPROBE.PGM','NCGRAF2.PGM','NCGRAF3.PGM')}
+files={name:(out/name).read_bytes() for name in ('NC.PGM','NCMAIN.PGM','NCEDIT.PGM','NCPROBE.PGM','NCGRAF2.PGM','NCGRAF3.PGM')}
 files['HELLO.TXT']=(b'Pyldin Commander text viewer\r\n'+b'Line of text for paging.\r\n'*100)
 files['EMPTY.TXT']=b''
 files['LARGE.BIN']=bytes(range(256))*300
 from make_sd import blank_disk
 base=bytearray((ROOT/'images/sd.img').read_bytes())
 # A launchable image retains the user's existing directories and disk shell.
-package={name:(out/name).read_bytes() for name in ('NC.PGM','NCMAIN.PGM','NCHOW.TXT')}
+package={name:(out/name).read_bytes() for name in ('NC.PGM','NCMAIN.PGM','NCEDIT.PGM','NCHOW.TXT')}
 ready,metadata=install(base,package,replace=True)
 (out/'sd-nc.img').write_bytes(ready)
 (out/'sd-nc.json').write_text(json.dumps(metadata,indent=2)+'\n')
@@ -55,10 +56,12 @@ no_main[pb.start*512:(pb.start+pb.sectors)*512]=add_files(blank,{'NC.PGM':files[
 many_files={f'F{k:03d}.TXT':str(k).encode() for k in range(350)}
 many_files.update({k:v for k,v in files.items() if k.endswith('.PGM')})
 many_files.update({'ZLAST.TXT':b'last','AONE.TXT':b'first','BTWO.TXT':b'second','CTHREE.TXT':b'third','DFOUR.TXT':b'fourth','EFIVE.TXT':b'fifth'})
-# 350 numbered + five executables + six named = 361 ordinary files.
+# 350 numbered + six executables + six named = 362 ordinary files.
 many=bytearray(image)
 many[pb.start*512:(pb.start+pb.sectors)*512]=add_files(blank,many_files,replace=True)
 (out/'sd-many.img').write_bytes(many)
+if a.prepare_only:
+ sys.exit(0)
 runner=out/'test_nc'
 subprocess.run([a.cc,'-O2','-I../pyldin601/src','tests/test_nc.c','-o',str(runner)],cwd=ROOT,check=True)
 cases=[('601','mc6800','0')] if a.quick else [(m,c,v) for m in ('601','601a') for c in ('mc6800','hd6303') for v in (('0','3') if m=='601' else ('0','4','2','3'))]

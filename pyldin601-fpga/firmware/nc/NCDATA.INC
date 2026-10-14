@@ -13,7 +13,6 @@ marks_page_text db 'Unmark files before changing page.',0
 keys_short db '1Hlp2Cmd3Viw4Edt5Cpy6Mov7Mkd8Del9Mnu10Q',0
 keys_long db '1Help 2Command 3View 4Edit 5Copy 6Move 7Mkdir 8Delete 9Menu 10Quit',0
 help_text db 'F1-10: commands; Ctrl+F1/F2: left/right drive; Ctrl+O: shell, EXIT back',0
-editor_message db 'F4 editor is planned for the next stage.',0
 drive_prompt db 'Select drive',0
 drive_buttons db '[Enter] [Esc]',0
 no_drives_text db 'No drives available.',0
@@ -64,6 +63,9 @@ apply_cancel_buttons dw apply_button,cancel_text
 cancel_button db '[ Esc Cancel ]',0
 confirm_title db 'Confirm',0
 settings_title db 'Settings',0
+workdir_label db ' w Work files directory...',0
+workdir_default db '(document directory)',0
+workdir_title db 'Editor work directory',0
 sort_keys db 'nesd'
 sort_name db ' ( ) n Name',0
 sort_ext db ' ( ) e Extension',0
@@ -235,6 +237,7 @@ menu_slot ds 1
 menu_draw ds 1
 draft_sort ds 1
 draft_hidden ds 1
+draft_workdir ds 80
 draw_panel ds 1
 origin ds 1
 draw_index ds 1
@@ -307,4 +310,6 @@ view_ptr ds 2
 io_buffer ds 512
 entries_left ds ENTRY_COUNT*ENTRY_SIZE
 entries_right equ entries_left
+edited_name_ptr ds 2
+edited_retry ds 1
 bss_end

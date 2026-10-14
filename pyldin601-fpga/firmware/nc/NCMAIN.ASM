@@ -150,6 +150,7 @@ nc_crtc_done
     jsr choose_panel
     ldaa #1
     jsr choose_panel
+    jsr restore_edited
     jmp redraw
 bad_parent
     ldx #standalone_message
@@ -193,9 +194,7 @@ key_not_f2
 key_not_f3
     cmpa #$cc
     bne key_not_f4
-    ldx #editor_message
-    jsr message
-    jmp redraw
+    jmp edit_file
 key_not_f4
     cmpa #$cd
     bne key_not_f5
@@ -507,6 +506,31 @@ refresh_marks
     ldaa #1
     jsr choose_panel
     jmp redraw
+edit_file
+    ldaa active
+    jsr choose_panel
+    jsr selected
+    bcc *+5
+    jmp redraw
+    ldaa 11,x
+    bita #16
+    beq *+5
+    jmp redraw
+    stx src
+    jsr editor_state_name
+    stx dst
+    ldab #11
+    jsr copy_n
+    jsr selected_path
+    ldx owner
+    ldab #S_COMMAND
+    jsr add_b
+    stx dst
+    ldx #source_path
+    stx src
+    jsr copy_z
+    ldaa #4
+    jmp leave
 shell_request
     ldaa active
     jsr choose_panel
@@ -659,6 +683,7 @@ fail_io
     rts
     include NCCACHE.INC
     include NCCAT.INC
+    include NCRETURN.INC
     include NCUI.INC
     include NCFAST.INC
     include NCPROGRESS.INC
