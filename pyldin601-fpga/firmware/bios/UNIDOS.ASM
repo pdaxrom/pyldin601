@@ -5183,24 +5183,20 @@ pr_dec_
 		stx	x1
 		clr	dec_flag
 
-		ldx	#_10000000
+; Full unsigned 32-bit output; keep the old eight-column minimum width.
+		ldx	#_1000000000
+pr_digit
 		bsr	subtract
-		ldx	#_1000000
-		bsr	subtract
-		ldx	#_100000
-		bsr	subtract
-		ldx	#_10000
-		bsr	subtract
-		ldx	#_1000
-		bsr	subtract
-		ldx	#_100
-		bsr	subtract
-		ldx	#_10
-		bsr	subtract
+		ldx	x2
+		inx
+		inx
+		inx
+		inx
+		cpx	#_1
+		bne	pr_digit
 
 		ldaa	#1
 		staa	dec_flag
-		ldx	#_1
 		bra	subtract
 
 subtract
@@ -5253,6 +5249,12 @@ sorry
 		orab	dec_flag
 		stab	dec_flag
 		bne	pr_it
+; Omit padding for the two extra leading digits only.
+		ldx	x2
+		cpx	#_1000000000
+		beq	pr_done
+		cpx	#_100000000
+		beq	pr_done
 		ldaa	#' '
 pr_it
 		tst	pr_dec_flag
@@ -5260,7 +5262,7 @@ pr_it
 		int	$69
 		rts
 rom		int	$22
-		rts
+pr_done		rts
 
 ;$0000 0001 = 1
 ;$0000 000A = 10
@@ -5271,6 +5273,8 @@ rom		int	$22
 ;$000F 4240 = 1 000 000
 ;$0098 9680 = 10 000 000
 
+_1000000000	db	0,$ca,$9a,$3b
+_100000000	db	0,$e1,$f5,5
 _10000000	db	$80,$96,$98,0
 _1000000	db	$40,$42,$f,0
 _100000 	db	$a0,$86,1,0

@@ -241,5 +241,6 @@ argtext ds 81
 record ds 24
 device_name db "SD0:PART"
 type_name db "/T:FAT12",0
+type16_name db "/T:FAT16",0
 newline db 13,10,0
 error_msg db "SD: error $",0

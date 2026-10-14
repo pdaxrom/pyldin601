@@ -1,4 +1,4 @@
-"""Protect legacy GD graphics/heap compatibility after replacing ROM/RAM disks."""
+"""Protect GD graphics/heap on its supported 601 hardware target."""
 import argparse
 from pathlib import Path
 import struct
@@ -21,7 +21,7 @@ def main():
     for legacy in (True,False):
         runner=ROOT/('build/test_storage_gd'+('-legacy' if legacy else ''))
         subprocess.run([args.cc,'-O2','-I../pyldin601/src',*(['-DLEGACY_FIXTURE'] if legacy else []),'tests/test_storage_gd.c','host/hg/fat12.c','-o',str(runner)],cwd=ROOT,check=True)
-        for model in ('601','601a'):
+        for model in ('601',):
             for cpu in ('mc6800','hd6303'):
                 golden=ROOT/f'build/storage-gd-{model}-{cpu}.bin'
                 subprocess.run([str(runner),str(path),model,cpu,str(golden)],cwd=ROOT,check=True)

@@ -7,6 +7,8 @@ NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
 UNIAS ?= unias
 export UNIAS
+FAT_RAMMAN ?= 0
+export FAT_RAMMAN
 HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
@@ -430,7 +432,16 @@ test-hview-app: gfx-apps
 	$(PYTHON) tests/prepare_hview.py
 	$(PYTHON) tests/run_hview_app.py --nvc "$(NVC)" --unias "$(UNIAS)"
 
-.PHONY: storage-apps test-partitions test-raw-sd test-storage-software
+.PHONY: storage-apps test-partitions test-fat16 test-mount test-raw-sd test-storage-software
+test: test-fat16 test-mount
+test-fat16: fixtures
+	$(CC) -O2 -DEXPECT_FAT_RAMMAN=$(FAT_RAMMAN) -I$(EMUSRC) tests/test_fat16.c -o $(BUILD)/test_fat16
+	$(CC) -O2 -I$(EMUSRC) tests/test_fat16_tools.c -o $(BUILD)/test_fat16_tools
+	$(CC) -O2 -I$(EMUSRC) tests/test_fdisk_ui.c -o $(BUILD)/test_fdisk_ui
+	$(PYTHON) tests/run_fat16.py
+test-mount: fixtures
+	$(CC) -O2 -I$(EMUSRC) tests/test_mount.c -o $(BUILD)/test_mount
+	$(PYTHON) tests/run_mount.py
 test-storage-software: fixtures hg-apps romdisk-extract
 	$(PYTHON) tests/run_storage_gd.py --cc "$(CC)"
 storage-apps: | $(BUILD)

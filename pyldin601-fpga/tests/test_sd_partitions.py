@@ -21,6 +21,17 @@ class Partitions(unittest.TestCase):
   v=p.fat12('UNRELATED',123);d=p.bpb(v,p.TOTAL)
   self.assertEqual((len(v),d['sectors_per_cluster'],d['root_entries'],d['sectors_per_fat']), (32400*512,8,512,12))
   self.assertEqual(a.root_files(a.add_files(v,{'GD.CMD':b'test'})),{'GD.CMD':b'test'})
+ def test_full_fat16_bpb_and_boot(self):
+  v=bytearray(512);v[510:512]=b'\x55\xaa'
+  struct.pack_into('<HBHBHHBHHHII',v,11,512,4,2048,2,512,0,0xf8,256,0,0,40960,262144)
+  d=p.bpb(v,262144)
+  self.assertEqual((d['fat_bits'],d['sectors'],d['reserved'],d['sectors_per_fat'],d['clusters']), (16,262144,2048,256,64888))
+  part=p.Partition(4,40960,262144,14,True,0,3)
+  self.assertEqual(p.choose_boot([part],lambda _:v),4)
+  with self.assertRaises(ValueError):p.bpb(v,262143)
+  with self.assertRaises(ValueError):p.choose_boot([p.Partition(4,40960,262144,1,True,0,3)],lambda _:v)
+  struct.pack_into('<I',v,32,0xffffffff)
+  with self.assertRaises(ValueError):p.bpb(v)
  def test_ebr_backwards_and_boot(self):
   im=self.image();parts=p.scan(im)
   self.assertEqual([q.number for q in parts],[1,4,5,6,7])

@@ -80,6 +80,15 @@ boot_mount_loop
     ldaa 11,x
     cmpa #$ff
     bne boot_mount_next
+    ; Preserve the shipped A/B/C mapping. Bootstrap FAT16 PART1 is available
+    ; through an explicit MOUNT, but never consumes B: during AUTO startup.
+    ldaa 8,x
+    cmpa #1
+    bne boot_mount_user
+    ldaa 22,x
+    cmpa #16
+    beq boot_mount_next
+boot_mount_user
     ldaa 8,x
     staa PB
     ; mount uses PJ and never PL, so the scan index remains owned here.

@@ -40,6 +40,8 @@ def short_name(name):
 
 def layout(volume):
     info = partitions.bpb(volume, len(volume)//512)
+    if info['fat_bits'] != 12:
+        raise ValueError('add_disk_files supports FAT12; use a FAT16 file tool for this volume')
     reserved, copies, spf, entries = sd.u16(volume,14), volume[16], sd.u16(volume,22), sd.u16(volume,17)
     fat_start, fat_size = reserved*512, spf*512
     root_start = (reserved+copies*spf)*512

@@ -49,10 +49,10 @@ class SDTests(unittest.TestCase):
         struct.pack_into('<HH',data,24,1,1)
         self.assertEqual(sd.disk_info(data)['cylinders'],32400)
 
-    def test_reject_invalid_geometry_and_fat(self):
+    def test_lba_ignores_chs_and_rejects_invalid_fat(self):
         disk = bytearray(sd.blank_disk(12*1024*1024,96,2))
         struct.pack_into('<H',disk,24,0)
-        with self.assertRaises(ValueError): sd.disk_info(disk)
+        self.assertEqual(sd.disk_info(disk)['sectors'],24576)
         disk = bytearray(sd.blank_disk(12*1024*1024,96,2))
         disk[13] = 1
         with self.assertRaises(ValueError): sd.disk_info(disk)

@@ -29,6 +29,7 @@ def main():
     image=bytearray((root/'images/sd.img').read_bytes())
     start,count=struct.unpack_from('<II',image,486)
     programs={name:(root/'build/hg'/name).read_bytes() for name in ('HG.PGM','HGTIME.PGM')}
+    programs['FDISK.PGM']=(root/'build/storage/MOUNT.PGM').read_bytes()
     image[start*512:(start+count)*512]=add_disk_files.add_files(make_sd.blank_disk(count*512),programs)
     test_image=root/'build/sd-hg.img';test_image.write_bytes(image)
     text=b'Hello from the host HG disk\r\n'*100
@@ -49,6 +50,8 @@ def main():
     run(args.cc,'-O2','-I../pyldin601/src','-Ihost/hg','tests/test_hg_directory_unidos.c','host/hg/fat12.c','host/hg/volume.c','-o','build/test_hg_directory_unidos')
     for model in args.models:
         for wire in (1,2):
+            run('build/test_hg_unidos',str(test_image),str(host_image),model,
+                'v2' if wire == 2 else 'v1','overwrite')
             run('build/test_hg_unidos',str(test_image),str(host_image),model, *(() if wire == 1 else ('v2',)))
             remote=fat12.root_files((root/'build/hg-host-after.img').read_bytes())
             local=(root/'build/hg-sd-after.img').read_bytes();a_start,a_count=struct.unpack_from('<II',local,470)

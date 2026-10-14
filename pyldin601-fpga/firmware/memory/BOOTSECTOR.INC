@@ -19,3 +19,21 @@ native_boot_sector
     jsr $0150
 native_sector_return
     rts
+
+; Fixed-ROM gateway: change window only while executing permanent BIOS.
+; X -> source BE16, destination BE16, page, group. Exactly 512 bytes.
+; INT2D is the original MC6800 memory mover; it retains the saved selectors
+; on the real stack and disables IRQ while using its temporary copy stack.
+native_fat_copy
+    ldaa $e6f0
+    psha
+    ldaa $e6f1
+    psha
+    ldaa 5,x
+    staa $e6f1
+    ldaa 4,x
+    staa $e6f0
+    clra
+    ldab #2
+    int $2d
+    jmp native_fat_copy_done

@@ -36,6 +36,7 @@ make fixtures UNIAS=/path/to/hd6303-toolchain/unias
 | ISA/прерывания | test-cpu, test-hd6303, test-cpu-interrupts, test-boot-lockstep |
 | SRAM/частота/шины | test-turbo, test-memory-bus |
 | MBR/EBR/boot priority/LBA | test-partitions, test-boot-partitions, test-raw-sd, test-storage-software |
+| Нативный FAT12/FAT16, BPB32, запись, read-only mount/list и опциональный RAMMAN-кэш | test-fat16, test-mount; повторить с FAT_RAMMAN=1 |
 | RAM/BIOS/Y-код | test-ram-pages, test-ram-pages-bios, test-ram-pages-ycode, test-ram-manager |
 | Клавиатура | test-keyboard-rom, test-keyboard-bios |
 | Graphics/HAM/спрайты | test-gfx, test-ham-pal, test-ham-layers, test-clip-sprites |

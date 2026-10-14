@@ -62,7 +62,7 @@ static void sdk_frame(unsigned dp){
 int GAME_APP_MAIN(int argc,char**argv){
  if(argc!=4)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t size;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&size);require(size==ROM_BYTES+512,"ROM bundle");memcpy(config,rom,HEADER_BYTES);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);image=load(argv[1],&image_size);committed=1;
- MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();r=MC6800GetCpuRam();state=r[0xefcc]*256+r[0xefcd];pcb=r[0xec00]*256+r[0xec01];sp_before=SP;
+ MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();r=MC6800GetCpuRam();state=r[0xefcc]*256+r[0xefcd];pcb=r[0xec00]*256+r[0xec01];sp_before=SP;initial_banks=free_banks();
  for(unsigned k=0;k<8192;k++)pal[k]=saved_pal[k]=(k*11+7)&63;for(unsigned k=0;k<14;k++)ay[k]=saved_ay[k]=k&15;
  front=4;old_irq=r[0xefc8]*256+r[0xefc9];old_page=r[0xedf2]>>4;native_step_hook=game_observe;flip_hook=game_frame;
  // The previous process may have left disabled video with a sticky error.
@@ -181,11 +181,11 @@ int GAME_APP_MAIN(int argc,char**argv){
  app=frames=0;type_game();wait_frames(3);require(r[app+GAME_LIVES]==3&&r[app+GAME_REMAINING]==40&&!at(GAME_SCORE),"second run starts fresh");finish_ui();restored();
  keyboard_raw_missing=1;app=frames=0;type_game();prompt_wait();keyboard_raw_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"older FPGA gets a clear refusal with context cleanup");
  keyboard_capture_missing=1;app=frames=0;type_game();prompt_wait();keyboard_capture_missing=0;restored();require(!frames&&contains("needs raw PS/2 capture FPGA"),"old raw FIFO without capture is refused");
- require(free_banks()==111,"input refusal releases loaded music without UniShell assistance");
+ require(free_banks()==initial_banks,"input refusal releases loaded music without UniShell assistance");
  app=frames=0;type_game();wait_frames(3);for(unsigned k=0;k<65;k++)raw_byte(0x1c);prompt_wait();restored();require(!raw_count&&!raw_overflow,"raw overflow flushes safely and restores DOS");require(contains("OP=FE STATUS=02 RAW=40"),"failure identifies raw overflow and capture before cleanup");
- require(free_banks()==111,"runtime failure releases every application bank");
+ require(free_banks()==initial_banks,"runtime failure releases every application bank");
  fault_palette=1;app=frames=0;command("b:arkanoid");fault_palette=0;restored();
- require(!frames&&free_banks()==111,"OPEN failure releases already loaded music");
+ require(!frames&&free_banks()==initial_banks,"OPEN failure releases already loaded music");
  native_step_hook=observe;flip_hook=sdk_frame;command("b:sdktest");restored();require(sdk_frames==8&&contains("PASS: SDK tiles and scrolling"),"SDK map, all scroll directions, boundary no-op and invalid arguments");
  command("dir a:");command("dir b:");command("dir c:");printf("PASS ARKANOID %s: SDK/tile atlas, full-frame oracle, continuous held/released keys, edges/opposites/SPACE, moving-paddle angles/speed/clamps, collisions/lives, music/effects, ESC/relaunch/DIR (%u jobs)\n",argv[2],jobs);return 0;
 }

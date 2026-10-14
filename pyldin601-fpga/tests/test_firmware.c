@@ -24,9 +24,11 @@ static uint32_t menu_start_cycles[2],menu_end_cycles[2];
 static unsigned boot_speed,setup_script[64],setup_length,setup_position,setup_release,sd_writes;
 static unsigned sd_write_phase,sd_write_count,sd_write_lba,sd_write_crc,sd_received_crc;
 static unsigned sd_deny_write,setup_error_exit;
+static uint32_t sd_deny_write_lba=UINT32_MAX;
 static unsigned setup_frequency,setup_frequency_left;
 static unsigned setup_partition_steps,setup_partition_left;
 static unsigned boot_partition;
+static unsigned ram_hardware_missing;
 #ifndef LEGACY_FIXTURE
 #ifndef COMPACT_FIXTURE
 #define COMPACT_FIXTURE 1
@@ -152,9 +154,10 @@ static unsigned char transfer(unsigned char d){
   if(sd_write_phase==2){sd_write_data[sd_write_count++]=d;sd_write_crc^=d<<8;for(unsigned bit=0;bit<8;bit++)sd_write_crc=sd_write_crc&0x8000?(sd_write_crc<<1)^0x1021:sd_write_crc<<1;sd_write_crc&=65535;if(sd_write_count==512)sd_write_phase=3;return 255;}
   if(sd_write_phase==3){sd_received_crc=d<<8;sd_write_phase=4;return 255;}
   sd_received_crc|=d;if(sd_received_crc!=sd_write_crc||(uint64_t)sd_write_lba*512+512>image_size){fprintf(stderr,"bad CMD24 CRC/address\n");exit(1);}
-  if(!sd_deny_write){memcpy(image+sd_write_lba*512,sd_write_data,512);sd_writes++;}sd_write_phase=0;
-  queue_pos=0;queue_count=1;queue[0]=sd_deny_write?0x0d:5;
-  sd_busy_active=!sd_deny_write;sd_busy_remaining=sd_busy_reads?sd_busy_reads:2;sd_busy_tail=sd_busy_transition?(1u<<sd_busy_transition)-1:0;return 255;
+  unsigned denied=sd_deny_write||sd_write_lba==sd_deny_write_lba;
+  if(!denied){memcpy(image+sd_write_lba*512,sd_write_data,512);sd_writes++;}sd_write_phase=0;
+  queue_pos=0;queue_count=1;queue[0]=denied?0x0d:5;
+  sd_busy_active=!denied;sd_busy_remaining=sd_busy_reads?sd_busy_reads:2;sd_busy_tail=sd_busy_transition?(1u<<sd_busy_transition)-1:0;return 255;
  }
  if(!cmd_index){if((d&0xc0)!=0x40)return 255;cmd[cmd_index++]=d;return 255;}
  cmd[cmd_index++]=d;if(cmd_index==6){cmd_index=0;sd_command();}return 255;
@@ -171,8 +174,8 @@ int SuperIoReadByte(word a,byte*out){
 #ifdef COMPACT_FIXTURE
  if(a==0xe6f0){*out=page;return 1;}
  if(a==0xe6f1){*out=ram_group;return 1;}
- if(a==0xe6f2){*out='R';return 1;}
- if(a==0xe6f3){*out=111;return 1;}
+ if(a==0xe6f2){*out=ram_hardware_missing?0:'R';return 1;}
+ if(a==0xe6f3){*out=ram_hardware_missing?0:111;return 1;}
  if(committed&&a>=0xc000&&a<0xe000&&(page&15)>=1&&(page&15)<=6){
   unsigned bank=ram_group*6+(page&15)-1;
   *out=bank<111?physical[0x22000+bank*8192+(a&8191)]:255;return 1;

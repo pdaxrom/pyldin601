@@ -133,6 +133,50 @@ refresh_continue_7
     bcc refresh_geometry_start
     jmp refresh_bad
 refresh_geometry_start
+    ; Compare complete normalized geometry before the legacy metadata bytes.
+    ; Probe never modifies a mounted descriptor, even if rescan later fails.
+    ldx PS
+    ldaa #5
+    int $eb
+    tsta
+    beq refresh_normalized
+    jmp refresh_bad
+refresh_normalized
+    stx PA
+    ldx PP
+    ldab 3,x
+    ldaa #3
+    int $eb
+    tsta
+    beq refresh_descriptor
+    jmp refresh_bad
+refresh_descriptor
+    inx
+    inx
+    inx
+    inx
+    stx P0
+    ldx PA
+    inx
+    inx
+    inx
+    inx
+    stx PA
+    ldab #18
+refresh_full_geometry
+    ldx PA
+    ldaa 0,x
+    inx
+    stx PA
+    ldx P0
+    cmpa 0,x
+    beq refresh_full_same
+    jmp refresh_bad
+refresh_full_same
+    inx
+    stx P0
+    decb
+    bne refresh_full_geometry
     ldx PX
     stx PT
     ldaa PR+1
@@ -177,7 +221,7 @@ refresh_geometry_pair
 refresh_geometry_same
     inc PJ
     ldaa PJ
-    cmpa #11
+    cmpa #9
     bcs refresh_geometry
     ldx PP
     ldaa 3,x
@@ -191,6 +235,11 @@ refresh_geometry_same
     ldaa 5,x
     ldx PR
     staa 5,x
+    ; PP/PR are at record+8: preserve read-only alongside the drive/header.
+    ldx PP
+    ldaa 15,x
+    ldx PR
+    staa 15,x
 refresh_next
     inc PL
     jmp refresh_old
@@ -236,4 +285,4 @@ records_copy_loop
     rts
 
 geometry_fields
-    db 13,16,14,17,16,18,18,19,17,20,20,21,19,22,21,23,22,24,24,25,26,26
+    db 13,16,14,17,16,18,18,19,17,20,21,23,22,24,24,25,26,26

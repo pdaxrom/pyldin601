@@ -19,6 +19,7 @@ ram=bytearray(65536);ram[0x800:0x800+len(program)]=program;ram[0xc000]=0x27
 for model in ('BIOS','BIOS_A'):
     symbols=bios_symbols((root/f'build/partitions/{model}.ROM.LST').read_text(encoding='latin1'))
     ram[0xee6e:0xee70]=symbols['INT_37'].to_bytes(2,'big')
+    ram[0xee5a:0xee5c]=symbols['INT2D'].to_bytes(2,'big')
     (out/f'RAM-{model}.mem').write_text(''.join(f'{b:02x}\n' for b in ram))
     bios=bytearray((root/f'build/partitions/{model}.ROM').read_bytes())
     bios[-2:]=bytes.fromhex('0800')

@@ -256,11 +256,11 @@ static void pgm(const char *input,const char *output,const char *listing,const c
     if(fclose(f)) fail("PGM metadata write");
 }
 static void rom_index(const char *dir,const char *output) {
-    const char *names[]={"UNIBIOS.ROM","SD.ROM","SHELL.ROM","PARTS.ROM","RAMMAN.ROM","BIOS.ROM","BIOS_A.ROM"};
+    const char *names[]={"UNIBIOS.ROM","SD.ROM","SHELL.ROM","PARTS.ROM","RAMMAN.ROM","BIOS.ROM","BIOS_A.ROM","KERNEL.ROM"};
     FILE *f=open_file(output,"w"); fputs("{\"roms\":{",f); char path[512];
-    for(unsigned i=0;i<7;i++) {
+    for(unsigned i=0;i<8;i++) {
         snprintf(path,sizeof path,"%s/%s",dir,names[i]); size_t n;unsigned char *d=read_file(path,&n);
-        if(n!=(i<5?8192u:4096u)) fail("ROM size");
+        if(n!=((i<5||i==7)?8192u:4096u)) fail("ROM size");
         unsigned sum=0; for(size_t j=0;j<n;j++) sum+=d[j]; free(d);
         if(sum%256) fail("UniAS ROM CHECKSUM");
         fprintf(f,"%s\"%s\":%zu",i?",":"",names[i],n);

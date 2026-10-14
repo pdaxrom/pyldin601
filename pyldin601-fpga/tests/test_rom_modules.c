@@ -62,16 +62,17 @@ int main(int argc,char**argv){
    // Absent E0 must not affect GAMEBIOS COPY, clipping, text or music.
    word_at(0xefc0,0);r[0xedf0]&=15;
    if(cpu_hd){
+    unsigned initial_free=free_banks();
     front=4;for(unsigned k=0;k<8192;k++)pal[k]=saved_pal[k]=(k*17+5)&63;
     for(unsigned k=0;k<14;k++)ay[k]=saved_ay[k]=(k*5+11)&255;
     old_irq=native_value(0xefc8);old_page=r[0xedf2]>>4;
     native_step_hook=observe;open_context(3);
     gfx_test();audio_test();batch_test();call(2,0,0,0);restored();
-    require(free_banks()==111,"application CLOSE owns complete release");
+    require(free_banks()==initial_free,"application CLOSE owns complete release");
     const char*games[]={"b:arkanoid","b:xonix"};
     for(unsigned k=0;k<2;k++){
      fault_palette=1;command(games[k]);fault_palette=0;restored();
-     require(free_banks()==111,"both games release loaded music after OPEN failure without shell cleanup");
+     require(free_banks()==initial_free,"both games release loaded music after OPEN failure without shell cleanup");
     }
    }else call(0,0,0,2);
   }

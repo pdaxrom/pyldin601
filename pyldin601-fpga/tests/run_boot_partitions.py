@@ -13,11 +13,11 @@ def case(name,data,explicit,expected):
  print(f'PASS boot {name}: explicit={explicit}, partition={expected}',flush=True)
 case('legacy-fallback',image,0,2)
 case('explicit-primary',image,4,4)
-case('explicit-nonfat',image,1,0)
+case('explicit-bootstrap-fat16',image,1,1)
 active=bytearray(image);active[478]=128
 case('active-primary',active,0,3)
 active[478]=0;active[446]=128
-case('active-fat16-fallback',active,0,2)
+case('active-fat16',active,0,1)
 active[446]=0;active[34816*512+13]=0
 case('bad-A-fallback-B',active,0,3)
 logical=bytearray(image);p.put_entry(logical,0,3,15,40960,65536)

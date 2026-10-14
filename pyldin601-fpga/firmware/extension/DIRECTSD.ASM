@@ -37,6 +37,8 @@ FILL equ $ed78
     dw rawsd
     db $e7
     dw keyboard_gateway
+    db $e9
+    dw fatcore
     db 0
 version
     rts
@@ -413,7 +415,9 @@ crc_byte
     include SERVICES.ASM
     include GFXCLIP.ASM
     include KEYBOARD.ASM
-extension_end
+    include FATABI.INC
+    include FATCORE.ASM
+extension_main_end
     ds $da00-*,$ff
 crc_hi
     db $00,$10,$20,$30,$40,$50,$60,$70,$81,$91,$a1,$b1,$c1,$d1,$e1,$f1
@@ -449,6 +453,9 @@ crc_lo
     db $7d,$5c,$3f,$1e,$f9,$d8,$bb,$9a,$75,$54,$37,$16,$f1,$d0,$b3,$92
     db $2e,$0f,$6c,$4d,$aa,$8b,$e8,$c9,$26,$07,$64,$45,$a2,$83,$e0,$c1
     db $1f,$3e,$5d,$7c,$9b,$ba,$d9,$f8,$17,$36,$55,$74,$93,$b2,$d1,$f0
+    include FATOPEN.INC
+    include FATBUFFER.INC
+extension_end
     checksum
     ds $e000-*,$ff
     end

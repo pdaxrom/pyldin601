@@ -26,7 +26,7 @@ static int native_prompt(void){
  unsigned char*r=MC6800GetCpuRam();
  for(unsigned gap=4;gap<=12;gap++){
   unsigned pos=(cursor-gap*step+(step==2))&65535;
-  if(r[pos]=='A'&&r[(pos+step)&65535]==':'&&r[(pos+2*step)&65535]=='\\'&&r[(pos+3*step)&65535]=='>')return 1;
+  if(r[pos]=='A'+r[0xeb00]&&r[(pos+step)&65535]==':'&&r[(pos+2*step)&65535]=='\\'&&r[(pos+3*step)&65535]=='>')return 1;
  }
  return 0;
 }
@@ -76,7 +76,7 @@ static void direct_io(unsigned op,unsigned block_number,unsigned expected){
 #define HG_UNIDOS_MAIN main
 #endif
 int HG_UNIDOS_MAIN(int argc,char**argv){
- if(argc!=4&&argc!=5)return 2;hg_v2=argc==5&&!strcmp(argv[4],"v2");model_a=!strcmp(argv[3],"601a");MC6800SetMachine(PYLDIN_MACHINE_601);
+ if(argc!=4&&argc!=5&&argc!=6)return 2;hg_v2=argc>=5&&!strcmp(argv[4],"v2");model_a=!strcmp(argv[3],"601a");MC6800SetMachine(PYLDIN_MACHINE_601);
  size_t size;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&size);
  if(size!=(ROM_BYTES+512))return 1;memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
  image=load(argv[1],&image_size);host_image=load(argv[2],&host_size);
@@ -93,6 +93,19 @@ int HG_UNIDOS_MAIN(int argc,char**argv){
  char greeting[80];snprintf(greeting,sizeof(greeting),"HG 2.0 remote disk %c:",'A'+hg_drive);
  if(!contains(greeting)||!contains("host date/time synchronized")){dump();return 1;}
  if(r[0x1c]!=8||r[0x1d]!=10||r[0x1e]!=7||r[0x1f]!=0xea||r[0x1b]!=19||r[0x1a]!=14){fprintf(stderr,"HG date/time conversion mismatch: %02x %02x %02x %02x %02x %02x\n",r[0x1c],r[0x1d],r[0x1e],r[0x1f],r[0x1b],r[0x1a]);return 1;}
+ if(argc==6&&!strcmp(argv[5],"overwrite")){
+  size_t pgm_size;unsigned char *pgm=load("build/storage/FDISK.PGM",&pgm_size);HgFiles files={0};HgFile file={0};
+  strcpy(file.name,"FDISK.PGM");strcpy(file.host,"FDISK.PGM");file.attr=0x20;file.size=pgm_size;file.data=pgm;
+  if(hg_fat_files(host_image,host_size,&files)<0||hg_file_copy(&files,&file)<0||hg_fat_update(host_image,host_size,&files)<0)exit(1);hg_files_free(&files);
+  unsigned a_start=le32(image+470),a_bytes=le32(image+474)*512;unsigned char *a_before=malloc(a_bytes);memcpy(a_before,image+a_start*512,a_bytes);
+  command("e:");command("copy e:fdisk.pgm b:fdisk.pgm");
+  if(contains("File creation failure")||!contains("1 File(s) copied")||memcmp(a_before,image+a_start*512,a_bytes)){dump();fprintf(stderr,"HG overwrite failed or altered source A\n");return 1;}free(a_before);
+  unsigned b_start=le32(image+486),b_bytes=le32(image+490)*512;
+  files=(HgFiles){0};if(hg_fat_files(image+b_start*512,b_bytes,&files)<0)exit(1);HgFile *copied=hg_find(&files,"FDISK.PGM");
+  if(!copied||copied->size!=pgm_size||memcmp(copied->data,pgm,pgm_size))exit(1);hg_files_free(&files);free(pgm);
+  command("b:fdisk");if(!contains("ADD [LOGICAL]")||resets){dump();return 1;}
+  printf("PASS HG v%u overwrite %s: current HG drive, existing B:FDISK.PGM replaced byte-for-byte and executed, A FAT/data unchanged\n",hg_v2?2:1,model_a?"601A":"601");return 0;
+ }
  capture_hg();
  const char*commands[]={"dir e:","copy e:hello.txt a:hgtest.txt","copy e:last.txt a:last.txt","copy a:hgtest.txt e:back.txt","copy e:hello.txt e:temp.txt","del e:temp.txt","b:hgtime","dir e:"};
  for(unsigned n=0;n<sizeof(commands)/sizeof(commands[0]);n++){

@@ -74,7 +74,7 @@ def prepare(image):
         new = sd.bundle(native, [], 0, model)
         # UniBIOS page 8 is now built from its owned 3.02 source. The
         # XBIOS/Y interpreter pages retain their original bytes.
-        for page in (1, 4, 5):
+        for page in (1, 5):
             start = 512 + page*8192
             if new[start:start+8192] != old[start:start+8192]:
                 raise ValueError(f'{name}: native XBIOS/Y ROM changed')

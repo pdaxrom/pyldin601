@@ -404,7 +404,7 @@ volumes_loop
     jsr record_pointer
     ldx PR
     ldaa 9,x
-    cmpa #1
+    jsr supported_fat_type
     bne volumes_next
     jsr volume_read
     bcs volumes_next
@@ -413,14 +413,25 @@ volumes_loop
     ldx PR
     ldaa #1
     staa 21,x
-    ldx PS
-    ldaa 20,x
+    ldx PT
+    ; BPB-valid and type are independent of OEM/label and partition naming.
+    ldaa FH_BITS,x
+    ldx PR
+    staa 22,x
+    ldx PT
+    ldaa FH_TOTAL,x
+    oraa FH_TOTAL+1,x
+    beq volume_total16
+    ldaa #$ff
+    ldab #$ff
+    bra volume_total_store
+volume_total16
+    ldaa FH_TOTAL+2,x
+    ldab FH_TOTAL+3,x
+volume_total_store
     ldx PR
     staa 14,x
-    ldx PS
-    ldaa 19,x
-    ldx PR
-    staa 15,x
+    stab 15,x
 volumes_next
     inc PI
     bra volumes_loop
@@ -455,204 +466,86 @@ bpb_validate
     beq bpb_size
 bpb_native_signature
     cmpa #$a5
-    beq far_scan_17
-    jmp bpb_bad
-far_scan_17
+    bne bpb_signature_bad
     cmpb #$5a
-    beq far_scan_18
-    jmp bpb_bad
-far_scan_18
+    beq bpb_size
+bpb_signature_bad
+    sec
+    rts
 bpb_size
     ldx PS
-    tst 11,x
-    beq far_scan_19
-    jmp bpb_bad
-far_scan_19
-    ldaa 12,x
-    cmpa #2
-    beq far_scan_20
-    jmp bpb_bad
-far_scan_20
-    ldaa 13,x
-    bne far_scan_21
-    jmp bpb_bad
-far_scan_21
-    staa P0
-    deca
-    anda P0
-    beq far_scan_22
-    jmp bpb_bad
-far_scan_22
-    tst 14,x
-    bne far_scan_23
-    jmp bpb_bad
-far_scan_23
-    tst 15,x
-    beq far_scan_24
-    jmp bpb_bad
-far_scan_24
-    ldaa 16,x
-    bne far_scan_25
-    jmp bpb_bad
-far_scan_25
-    cmpa #2
-    bls far_scan_26
-    jmp bpb_bad
-far_scan_26
-    ldaa 17,x
-    oraa 18,x
-    bne far_scan_27
-    jmp bpb_bad
-far_scan_27
-    ldaa 19,x
-    oraa 20,x
-    bne far_scan_28
-    jmp bpb_bad
-far_scan_28
-    tst 22,x
-    bne far_scan_29
-    jmp bpb_bad
-far_scan_29
-    tst 23,x
-    beq far_scan_30
-    jmp bpb_bad
-far_scan_30
-    tst 24,x
-    bne far_scan_31
-    jmp bpb_bad
-far_scan_31
-    tst 25,x
-    beq far_scan_32
-    jmp bpb_bad
-far_scan_32
-    tst 26,x
-    bne far_scan_33
-    jmp bpb_bad
-far_scan_33
-    tst 27,x
-    beq far_scan_34
-    jmp bpb_bad
-far_scan_34
-    ; BPB total may not exceed its partition.
-    ldaa 19,x
-    staa P0+1
-    ldaa 20,x
-    staa P0
+    ldaa #5
+    int $eb
+    tsta
+    bne bpb_bad
+    stx PT
+    ; MBR type must agree with the actual cluster-count classification.
+    ldaa FH_BITS,x
     ldx PR
-    tst 7,x
-    bne bpb_total_ok
-    tst 6,x
-    bne bpb_total_ok
-    ldaa 5,x
-    cmpa P0
-    bcs bpb_bad
-    bhi bpb_total_ok
-    ldaa 4,x
-    cmpa P0+1
-    bcs bpb_bad
-bpb_total_ok
-    jmp bpb_arithmetic
+    ldab 9,x
+    cmpb #1
+    bne bpb_expect16
+    cmpa #12
+    bne bpb_bad
+    bra bpb_extent
+bpb_expect16
+    cmpa #16
+    bne bpb_bad
+bpb_extent
+    ldx PT
+    ldaa FH_TOTAL+3,x
+    ldx PR
+    suba 4,x
+    ldx PT
+    ldaa FH_TOTAL+2,x
+    ldx PR
+    sbca 5,x
+    ldx PT
+    ldaa FH_TOTAL+1,x
+    ldx PR
+    sbca 6,x
+    ldx PT
+    ldaa FH_TOTAL,x
+    ldx PR
+    sbca 7,x
+    bcs bpb_ok
+    ; Equality is allowed, exceeding the partition is not.
+    ldx PT
+    ldaa FH_TOTAL+3,x
+    ldx PR
+    cmpa 4,x
+    bne bpb_bad
+    ldx PT
+    ldaa FH_TOTAL+2,x
+    ldx PR
+    cmpa 5,x
+    bne bpb_bad
+    ldx PT
+    ldaa FH_TOTAL+1,x
+    ldx PR
+    cmpa 6,x
+    bne bpb_bad
+    ldx PT
+    ldaa FH_TOTAL,x
+    ldx PR
+    cmpa 7,x
+    bne bpb_bad
+bpb_ok
+    ldx PT
+    clc
+    rts
 bpb_bad
     sec
     rts
-bpb_arithmetic
-    ; ceil(root entries/16), then reserved + FAT copies*SPF.
-    ldx PS
-    ldaa 18,x
-    ldab 17,x
-    staa PT
-    stab PT+1
-    ldx PT
-    ldaa #16
-    clrb
-    int $29
-    stx PT
-    tstb
-    beq bpb_root_done
-    inx
-    stx PT
-bpb_root_done
-    ldx PS
-    ldaa 14,x
-    adda PT+1
-    staa PT+1
-    ldaa PT
-    adca #0
-    staa PT
-    ldab 16,x
-bpb_fat_overhead
-    ldaa PT+1
-    adda 22,x
-    staa PT+1
-    ldaa PT
-    adca #0
-    staa PT
-    decb
-    bne bpb_fat_overhead
-    ldaa P0+1
-    suba PT+1
-    staa PT+1
-    ldaa P0
-    sbca PT
-    staa PT
-    bcs bpb_bad
-    ldaa PT
-    oraa PT+1
-    bne far_scan_35
-    jmp bpb_bad
-far_scan_35
-    ldaa 13,x
-    ldx PT
-    clrb
-    int $29
-    stx PT
-    ldaa PT
-    cmpa #$0f
-    bcs bpb_clusters_ok
-    bls far_scan_36
-    jmp bpb_bad
-far_scan_36
-    ldaa PT+1
-    cmpa #$f5
-    bcs far_scan_37
-    jmp bpb_bad
-far_scan_37
-bpb_clusters_ok
-    cpx #0
-    bne far_scan_38
-    jmp bpb_bad
-far_scan_38
-    inx
-    inx
-    stx PT
-    ; ceil(3*(clusters+2)/1024) is the FAT's required sector count.
-    ldaa PT+1
-    adda PT+1
-    staa P0+1
-    ldaa PT
-    adca PT
-    staa P0
-    ldaa P0+1
-    adda PT+1
-    staa P0+1
-    ldaa P0
-    adca PT
-    staa P0
-    lsra
-    lsra
-    tab
-    ldaa P0
-    anda #3
-    oraa P0+1
-    beq bpb_fat_required
-    incb
-bpb_fat_required
-    ldx PS
-    cmpb 22,x
-    bls far_scan_39
-    jmp bpb_bad
-far_scan_39
-    clc
+supported_fat_type
+    cmpa #1
+    beq supported_fat_done
+    cmpa #4
+    beq supported_fat_done
+    cmpa #6
+    beq supported_fat_done
+    cmpa #$0e
+supported_fat_done
     rts
 
 ; Bounded visited-table list accepts backward chains and detects cycles even

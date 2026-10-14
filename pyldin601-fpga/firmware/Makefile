@@ -1,6 +1,8 @@
 # Run from the project root: make -f firmware/Makefile firmware UNIAS=/path/to/unias
 # Every instruction is assembled from checked-in firmware by UniAS.
 UNIAS ?= unias
+FAT_RAMMAN ?= 0
+FAT_FLAGS := $(if $(filter 1,$(FAT_RAMMAN)),-D FAT_RAMMAN,)
 CC ?= cc
 BUILD := build
 UNIAS_PATH := $(if $(filter /%,$(UNIAS)),$(UNIAS),$(shell command -v "$(UNIAS)"))
@@ -23,11 +25,12 @@ roms: $(BUILD)/firmware-data
 	cp firmware/extension/DIRECTSD.ASM firmware/extension/RAWSD.ASM firmware/extension/SERVICES.ASM firmware/extension/INDICATOR.ASM $(BUILD)/partitions/
 	cp firmware/bios/UNIDOS.ASM $(BUILD)/partitions/SHELL.ASM
 	cp firmware/bios/UNISHELL.ASM $(BUILD)/partitions/SHELLROM.ASM
+	cd $(BUILD)/partitions && sh $(RUN) KERNEL.ROM.log "$(UNIAS_PATH)" -l KERNEL.ROM.LST -o KERNEL.ROM U.ASM
 	cd $(BUILD)/partitions && sh $(RUN) SHELL.CMD.log "$(UNIAS_PATH)" -l SHELL.CMD.LST -o SHELL.CMD SHELL.ASM
 	$(DATA) shell $(BUILD)/partitions/SHELL.CMD $(BUILD)/partitions/SHELL.PACKED $(BUILD)/partitions/SHELLPACK.INC $(BUILD)/partitions/shell-pack.json
 	cd $(BUILD)/partitions && sh $(RUN) UNIBIOS.ROM.log "$(UNIAS_PATH)" -l UNIBIOS.ROM.LST -o UNIBIOS.ROM UNIBIOS.ASM
 	cd $(BUILD)/partitions && sh $(RUN) SHELL.ROM.log "$(UNIAS_PATH)" -l SHELL.ROM.LST -o SHELL.ROM SHELLROM.ASM
-	cd $(BUILD)/partitions && sh $(RUN) SD.ROM.log "$(UNIAS_PATH)" -D GFXCLIP_ROM -l SD.ROM.LST -o SD.ROM DIRECTSD.ASM
+	cd $(BUILD)/partitions && sh $(RUN) SD.ROM.log "$(UNIAS_PATH)" -D GFXCLIP_ROM $(FAT_FLAGS) -l SD.ROM.LST -o SD.ROM DIRECTSD.ASM
 	cd $(BUILD)/partitions && sh $(RUN) PARTS.ROM.log "$(UNIAS_PATH)" -l PARTS.ROM.LST -o PARTS.ROM PARTS.ASM
 	cd $(BUILD)/partitions && sh $(RUN) RAMMAN.ROM.log "$(UNIAS_PATH)" -D WITH_GAMEBIOS -l RAMMAN.ROM.LST -o RAMMAN.ROM RAMMAN.ASM
 	cd $(BUILD)/partitions && sh $(RUN) BIOS.ROM.log "$(UNIAS_PATH)" -l BIOS.ROM.LST -o BIOS.ROM BIOS.ASM
@@ -35,6 +38,7 @@ roms: $(BUILD)/firmware-data
 	$(DATA) rom-index $(BUILD)/partitions $(BUILD)/partitions/manifest.json
 	$(DATA) labels $(BUILD)/partitions/UNIBIOS.ROM.LST $(BUILD)/partitions/unibios_labels.h UB
 	$(DATA) labels $(BUILD)/partitions/SHELL.ROM.LST $(BUILD)/partitions/shell_labels.h SH
+	$(DATA) labels $(BUILD)/partitions/KERNEL.ROM.LST $(BUILD)/partitions/kernel_labels.h UK
 	rm -f $(BUILD)/partitions/SHELLHEAD.INC $(BUILD)/partitions/SHELLTAIL.INC
 
 bootstrap: $(BUILD)/firmware-data

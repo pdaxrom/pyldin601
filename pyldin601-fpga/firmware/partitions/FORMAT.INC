@@ -161,6 +161,8 @@ format_complete
     rts
 format_valid
     ldx PR
+    ldaa #12
+    staa 22,x
     ldaa #1
     staa 21,x
     ldx PS

@@ -1,9 +1,11 @@
-; Native MC6800 MBR/EBR editor. Addresses and sizes are decimal sectors.
+; Native MC6800 MBR/EBR editor. Friendly commands share the checked editor.
 ; Never alters a mounted volume's bounds. Every table write is read back,
 ; validated by the resident scanner, and rolled back if validation fails.
 start
     int $3b
     staa argc
+    jmp ui_start
+legacy_start
     cmpa #2
     bcc fd_device
     jmp usage
@@ -74,12 +76,19 @@ fd_logical
     stx pat
     ldx #argtext
     jsr match
-    bcs fd_usage
+    bcs fd_resize
     ldaa #1
     staa kind
     ldaa #1
     staa logical
     jmp create
+fd_resize
+    ldx #resize_name
+    stx pat
+    ldx #argtext
+    jsr match
+    bcs fd_usage
+    jmp resize
 fd_usage
     jmp usage
 get_record
@@ -272,6 +281,16 @@ list_drive
     jsr print_lba
     ldaa #' '
     int $22
+    jsr record_end
+    ldx #temp
+    stx ptr
+    ldx #ui_one
+    stx pat
+    jsr ui_sub4
+    ldx #temp
+    jsr print_lba
+    ldaa #' '
+    int $22
     ldx #record+4
     jsr print_lba
     ldx #newline
@@ -279,6 +298,16 @@ list_drive
     inc index
     jmp list_loop
 print_lba
+    tst ui_hex
+    bne print_lba_hex
+    jmp ui_print32
+print_lba_hex
+    stx ui_print_ptr
+    ldaa #'0'
+    int $22
+    ldaa #'x'
+    int $22
+    ldx ui_print_ptr
     ldaa 3,x
     jsr print_hex
     ldaa 2,x
@@ -291,6 +320,7 @@ part_argument
     ldaa argc
     cmpa #4
     bne part_arg_bad
+part_argument_token
     ldaa #3
     jsr argument
     ldx #argtext
@@ -417,10 +447,162 @@ extended_type
     cmpa #$85
 extended_return
     rts
+; Grow an existing primary extended container. Its start, every EBR and all
+; child volumes remain unchanged, including mounted children. Shrinking and
+; resizing a data volume are deliberately rejected before any sector write.
+resize
+    ldaa argc
+    cmpa #5
+    beq resize_arguments
+    jmp usage
+resize_arguments
+    jsr part_argument_token
+    bcc resize_target
+    jmp usage
+resize_target
+    ldaa target
+    beq resize_bad
+    cmpa #4
+    bhi resize_bad
+    jsr find_part
+    tsta
+    beq resize_found
+    jmp finish_result
+resize_bad
+    jmp create_bad
+resize_found
+    ldaa record+9
+    jsr extended_type
+    bne resize_bad
+    ldaa record+20
+    staa resize_slot
+    ldaa record
+    staa extbase
+    ldaa record+1
+    staa extbase+1
+    ldaa record+2
+    staa extbase+2
+    ldaa record+3
+    staa extbase+3
+    ldaa #4
+    jsr argument
+    ldx #argtext
+    jsr parse_decimal
+    bcc resize_count
+    jmp usage
+resize_count
+    ldaa number
+    suba record+4
+    ldaa number+1
+    sbca record+5
+    ldaa number+2
+    sbca record+6
+    ldaa number+3
+    sbca record+7
+    bcs resize_bad
+    ldaa extbase
+    adda number
+    staa last
+    ldaa extbase+1
+    adca number+1
+    staa last+1
+    ldaa extbase+2
+    adca number+2
+    staa last+2
+    ldaa extbase+3
+    adca number+3
+    staa last+3
+    bcs resize_bad
+    ldaa capacity
+    suba last
+    ldaa capacity+1
+    sbca last+1
+    ldaa capacity+2
+    sbca last+2
+    ldaa capacity+3
+    sbca last+3
+    bcc resize_ready
+    jmp create_bad
+resize_ready
+    jsr resize_container
+    jmp finish_result
+resize_container
+    clr index
+resize_check
+    jsr get_record
+    tsta
+    bne resize_write
+    ldaa record+8
+    cmpa target
+    beq resize_next
+    cmpa #5
+    bcc resize_next
+    jsr record_end
+    ldaa extbase
+    suba temp
+    ldaa extbase+1
+    sbca temp+1
+    ldaa extbase+2
+    sbca temp+2
+    ldaa extbase+3
+    sbca temp+3
+    bcc resize_next
+    ldaa record
+    suba last
+    ldaa record+1
+    sbca last+1
+    ldaa record+2
+    sbca last+2
+    ldaa record+3
+    sbca last+3
+    bcc resize_next
+    ldaa #4
+    rts
+resize_next
+    inc index
+    bra resize_check
+resize_write
+    clr descriptor+2
+    clr descriptor+3
+    clr descriptor+4
+    clr descriptor+5
+    jsr read_table
+    tsta
+    bne resize_error
+    ldaa resize_slot
+    staa slot
+    jsr entry_pointer
+    ldaa number
+    staa 12,x
+    ldaa number+1
+    staa 13,x
+    ldaa number+2
+    staa 14,x
+    ldaa number+3
+    staa 15,x
+    jsr write_table
+resize_error
+    rts
 create
     ldaa argc
     cmpa #6
     beq create_arguments
+    cmpa #7
+    bne create_usage
+    ldaa kind
+    cmpa #$0f
+    beq create_usage
+    ldaa #6
+    jsr argument
+    ldx #type16_name
+    stx pat
+    ldx #argtext
+    jsr match
+    bcs create_usage
+    ldaa #$0e
+    staa kind
+    bra create_arguments
+create_usage
     jmp usage
 create_arguments
     ldaa #3
@@ -482,6 +664,7 @@ fdisk_skip_003
     bcc fdisk_skip_004
     jmp create_bad
 fdisk_skip_004
+create_bounds
     ldaa number
     oraa number+1
     oraa number+2
@@ -537,6 +720,10 @@ fdisk_skip_009
     beq create_primary_extended
     ldaa #1
     staa found_extended
+    ldaa record+8
+    staa target
+    ldaa record+20
+    staa resize_slot
     ldaa record
     staa extbase
     ldaa record+1
@@ -676,10 +863,14 @@ fdisk_skip_016
 create_primary_write
     jsr write_table
 create_error
-    jmp finish_result
+    tst ui_return
+    beq create_finish
+    rts
+create_finish
+    jmp ui_finish
 create_bad
     ldaa #4
-    jmp finish_result
+    jmp create_error
 record_end
     ldaa record
     adda record+4
@@ -791,7 +982,10 @@ fdisk_skip_019
     ldaa extend+3
     sbca last+3
     bcc fdisk_skip_020
-    jmp create_bad
+    jsr logical_grow
+    tsta
+    beq fdisk_skip_020
+    jmp create_error
 fdisk_skip_020
     ldx #extbase
     jsr set_lba
@@ -919,7 +1113,57 @@ logical_fill
     jsr fill_entry
     jsr write_table
 logical_error
-    jmp finish_result
+    jmp ui_finish
+; LOGICAL can extend the existing container to its proposed data end. Reuse
+; the checked MBR-only grow path and restore the logical volume's own count.
+; A later EBR I/O failure may leave a larger, valid container, never smaller
+; child volumes or relocated data.
+logical_grow
+    ldaa number
+    staa logical_count
+    ldaa number+1
+    staa logical_count+1
+    ldaa number+2
+    staa logical_count+2
+    ldaa number+3
+    staa logical_count+3
+    ldaa last
+    suba extbase
+    staa number
+    ldaa last+1
+    sbca extbase+1
+    staa number+1
+    ldaa last+2
+    sbca extbase+2
+    staa number+2
+    ldaa last+3
+    sbca extbase+3
+    staa number+3
+    jsr resize_container
+    staa error
+    tsta
+    bne logical_grow_restore
+    ldaa last
+    staa extend
+    ldaa last+1
+    staa extend+1
+    ldaa last+2
+    staa extend+2
+    ldaa last+3
+    staa extend+3
+logical_grow_restore
+    ldaa logical_count
+    staa number
+    ldaa logical_count+1
+    staa number+1
+    ldaa logical_count+2
+    staa number+2
+    ldaa logical_count+3
+    staa number+3
+    ldaa error
+    rts
+    include FDISKUI.INC
+    include FDISKALLOC.INC
     include COMMON.INC
 sd_name db "SD0:",0
 list_name db "LIST",0
@@ -928,12 +1172,14 @@ delete_name db "DELETE",0
 create_name db "CREATE",0
 extended_name db "EXTENDED",0
 logical_name db "LOGICAL",0
-usage_msg db "FDISK SD0: [LIST]",13,10
-    db "FDISK SD0: ACTIVE <partition|0>",13,10
-    db "FDISK SD0: DELETE <partition>",13,10
-    db "FDISK SD0: CREATE|EXTENDED <slot> <start> <sectors>",13,10
-    db "FDISK SD0: LOGICAL <ebr> <start> <sectors>",13,10,0
-heading db "PART TYPE BOOT DRIVE START/SECTORS (hex)",13,10,0
+resize_name db "RESIZE",0
+usage_msg db "FDISK [/HEX] SD0: LIST",13,10
+    db "FDISK SD0: ADD [LOGICAL] +N[K|M|G]",13,10
+    db "FDISK SD0: ADD [LOGICAL] <begin> <end>",13,10
+    db "       [FAT12|FAT16|EXTENDED|0xNN]",13,10
+    db "FDISK SD0: DEL PART<number>",13,10
+    db "K default; end included; decimal/0x.",13,10,0
+heading db "PART TY B D START END SECTORS",13,10,0
 ok_msg db "Partition table updated.",13,10,0
 rollback_msg db "Rollback failed: restore SD backup before reboot.",13,10,0
 index db 0
@@ -944,6 +1190,8 @@ logical db 0
 found_extended db 0
 reuse_ebr db 0
 chain_count db 0
+resize_slot db 0
+logical_count ds 4
 capacity ds 4
 first ds 4
 last ds 4

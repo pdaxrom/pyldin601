@@ -61,6 +61,7 @@ start
     beq fail
     tst $0707
     beq fail
+    jsr fat_copy_check
     ldaa #$a5
     staa $070f
 halt
@@ -286,4 +287,53 @@ zero_group_ok
     jmp fail
 zero_return
     rts
+
+; The kernel's private fixed-ROM gateway must work with both CPU ISAs.
+; The simulated bank 110 contains AF. Check all 512 destination bytes,
+; then transfer them back; the HDL bench checks all bank-window writes.
+fat_copy_check
+    ldx #$f640
+    stx $efd0
+    ldx #$c400
+    stx $ead0
+    ldx #$e700
+    stx $ead2
+    ldaa #3
+    staa $ead4
+    ldaa #18
+    staa $ead5
+    ldx #$ead0
+    ldaa #4
+    int $e8
+    tsta
+    bne fat_copy_fail
+    ldx #$e700
+fat_compare
+    ldaa 0,x
+    cmpa #$af
+    bne fat_copy_fail
+    inx
+    cpx #$e900
+    bne fat_compare
+    ldx #$e700
+    stx $ead0
+    ldx #$c400
+    stx $ead2
+    ldx #$ead0
+    ldaa #4
+    int $e8
+    tsta
+    bne fat_copy_fail
+    ldaa $e6f0
+    cmpa #$a3
+    bne fat_copy_fail
+    ldaa $e6f1
+    cmpa #18
+    bne fat_copy_fail
+    tsx
+    cpx #$bffe
+    bne fat_copy_fail
+    rts
+fat_copy_fail
+    jmp fail
     end start

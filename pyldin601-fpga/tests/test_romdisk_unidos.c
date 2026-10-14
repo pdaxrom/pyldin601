@@ -16,8 +16,11 @@ static int contains(const char*text){
   if(!text[k])return 1;
  }return 0;
 }
+#ifndef DOS_PROMPT_CYCLES
+#define DOS_PROMPT_CYCLES 200000000
+#endif
 static void prompt_wait(void){
- uint64_t deadline=virtual_cycles+200000000;
+ uint64_t deadline=virtual_cycles+DOS_PROMPT_CYCLES;
  // Sample the same instruction after INT11 has popped its temporary A.
  // A range over the whole keyboard loop can report SP with one extra byte,
  // depending on instruction/PAL phase, despite a balanced DOS return.
@@ -29,9 +32,9 @@ static void command(const char*text){
  const char*letters="abcdefghijklmnopqrstuvwxyz";
  static const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
  for(;*text;text++){
-  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='/'?0x35:*text=='\\'?0x2b:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?0x0b:0;
+  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='+'?0x0d:*text=='/'?0x35:*text=='\\'?0x2b:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?0x0b:0;
   require(scan!=0,"test command has valid keys");
-  if(*text==':')KBDModKeyDown(2);key(scan);if(*text==':')KBDModKeyUp(2);
+  if(*text==':'||*text=='+')KBDModKeyDown(2);key(scan);if(*text==':'||*text=='+')KBDModKeyUp(2);
  }key(0x1c);prompt_wait();
 }
 static void rom_directory(void){
@@ -42,11 +45,14 @@ static void rom_directory(void){
  require(contains("UNARC")&&contains("BASIC"),"original ROM filenames");
 }
 static unsigned result_b,result_x;
+#ifndef DOS_API_CYCLES
+#define DOS_API_CYCLES 15000000
+#endif
 static unsigned invoke(unsigned op,unsigned a,unsigned b,unsigned x){
  unsigned pc0=PC,sp0=SP,a0=A,b0=B,x0=X,h0=h,i0=i,n0=n,z0=z,v0=v,c0=c,page0=page;
  unsigned char*r=MC6800GetCpuRam();r[0x210]=0x3f;r[0x211]=op;r[0x212]=1;
  PC=0x210;A=a;B=b;X=x;
- uint64_t deadline=virtual_cycles+15000000;
+ uint64_t deadline=virtual_cycles+DOS_API_CYCLES;
  do{until(virtual_cycles+1);require(virtual_cycles<deadline,"DOS API returns");}while(PC!=0x212);
  unsigned result=A;result_b=B;result_x=X;
  require(SP==sp0&&page==page0,"DOS API preserves stack and ROM page");

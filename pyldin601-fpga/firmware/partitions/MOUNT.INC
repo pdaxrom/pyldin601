@@ -1,4 +1,13 @@
+; The mount mode is private state, never inferred from an old caller's X.
 mount_number
+    jsr state_pointer
+    clr 45,x
+    bra mount_mode
+mount_readonly
+    jsr state_pointer
+    ldaa #1
+    staa 45,x
+mount_mode
     jsr find_number
     bcc mount_found
     rts
@@ -8,6 +17,15 @@ mount_found
     cmpa #$ff
     beq mount_new
     staa SWIB
+    ldaa 23,x
+    psha
+    jsr state_pointer
+    pula
+    cmpa 45,x
+    beq mount_existing_mode
+    ldaa #15
+    rts
+mount_existing_mode
     clra
     rts
 mount_new
@@ -15,9 +33,8 @@ mount_new
     clr 44,x
     ldx PR
     ldaa 9,x
-    cmpa #1
-    beq mount_branch_1
-    jmp mount_bad
+    jsr supported_fat_type
+    bne mount_bad
 mount_branch_1
     jsr volume_read
     bcc mount_branch_2
@@ -85,7 +102,15 @@ private_slot_pointer
     ldx PP
     rts
 mount_allocate
+    jsr file_header_pointer
+    cpx #0
+    bne mount_pooled
     ldx #605
+    ldaa FS_AREA+FS_BANK
+    cmpa #1
+    bne mount_allocate_size
+    ldx #93
+mount_allocate_size
     clrb
     int $2a
     cpx #0
@@ -94,13 +119,16 @@ mount_allocate
     rts
 mount_allocated
     stx P0
+    jsr state_pointer
+    inc 44,x
+    ldx P0
+mount_pooled
+    stx P0
     jsr private_slot_pointer
     ldaa P0
     staa 0,x
     ldaa P0+1
     staa 1,x
-    jsr state_pointer
-    inc 44,x
     ldx P0
     stx PT
     ldx PR
@@ -116,6 +144,18 @@ mount_allocated
     adca #0
     staa P0
     ldx PT
+    ldaa FS_AREA+FS_BANK
+    cmpa #1
+    bne mount_ordinary_buffer
+    ldaa #$e7
+    staa 7,x
+    clr 8,x
+    ldaa P0
+    staa 9,x
+    ldaa P0+1
+    staa 10,x
+    bra mount_have_header
+mount_ordinary_buffer
     ldaa P0
     staa 7,x
     ldaa P0+1
@@ -127,6 +167,12 @@ mount_allocated
     staa 10,x
     ldx PT
 mount_have_header
+    stx P0
+    jsr state_pointer
+    ldaa 45,x
+    ldx PR
+    staa 23,x
+    ldx P0
     stx PT
     ldx PR
     ldaa PT
@@ -185,18 +231,6 @@ mount_have_header
     ldx PT
     staa 20,x
     ldx PS
-    ldaa 20,x
-    ldx PT
-    staa 21,x
-    ldx PR
-    staa 14,x
-    ldx PS
-    ldaa 19,x
-    ldx PT
-    staa 22,x
-    ldx PR
-    staa 15,x
-    ldx PS
     ldaa 21,x
     ldx PT
     staa 23,x
@@ -212,11 +246,33 @@ mount_have_header
     ldaa 26,x
     ldx PT
     staa 26,x
+    ldx PR
+    ldaa 14,x
+    ldab 15,x
+    ldx PT
+    staa 21,x
+    stab 22,x
     ldab $e6f0
     andb #15
     int $5d
     tsta
     bne mount_install_failed
+    ldab PJ
+    ldx PS
+    ldaa #1
+    int $eb
+    tsta
+    bne mount_install_failed
+    ; Register the same protection bit with the native filesystem descriptor.
+    stx PA
+    ldx PR
+    tst 23,x
+    beq mount_registered
+    ldx PA
+    ldaa FH_FLAGS,x
+    oraa #FH_READONLY
+    staa FH_FLAGS,x
+mount_registered
     ; Only a new allocation changes residency; remount must not retain the
     ; calling utility on every invocation.
     jsr state_pointer
@@ -231,6 +287,7 @@ mount_keep_residency
     rts
 mount_install_failed
     ldx PR
+    clr 23,x
     ldaa #$ff
     staa 11,x
     ldaa #27
@@ -247,7 +304,7 @@ driver_transfer
     ; Preserve the caller's service variables explicitly across that callback.
     psha
     ldx #PI
-    ldab #12
+    ldab #17
 driver_save
     ldaa 0,x
     psha
@@ -261,14 +318,33 @@ driver_save
     ldaa PL
     psha
     tsx
-    ldaa 15,x
+    ldaa 20,x
     staa PL
     ldx $07
     stx PA
     ldaa 2,x
     staa PB
     jsr find_drive
-    bcs driver_result
+    bcc driver_found
+    jmp driver_result
+driver_found
+    ldx PR
+    tst 23,x
+    beq driver_access_ok
+    ldaa PL
+    cmpa #2
+    beq driver_protected
+    cmpa #9
+    bne driver_access_ok
+driver_protected
+    ldaa #3
+    jmp driver_result
+driver_access_ok
+    ldaa PL
+    cmpa #8
+    bcs driver_legacy
+    jmp driver_full
+driver_legacy
     ldx PA
     ldaa 3,x
     staa P0
@@ -325,8 +401,8 @@ driver_result
     staa P0+1
     pula
     staa P0
-    ldx #PB
-    ldab #12
+    ldx #PE+3
+    ldab #17
 driver_restore
     pula
     staa 0,x
@@ -344,6 +420,68 @@ driver_init
 driver_ok
     clc
     rts
+
+; INT E1 A=8/9: explicit 7-byte relative BE32 descriptor. Kernel INT EA
+; separately checks the BPB extent; this layer guards the physical partition.
+driver_full
+    suba #7
+    staa PL
+    ldx PA
+    ldaa 6,x
+    staa PE
+    ldaa 5,x
+    staa PE+1
+    ldaa 4,x
+    staa PE+2
+    ldaa 3,x
+    staa PE+3
+    ldx PR
+    ldaa PE
+    suba 4,x
+    ldaa PE+1
+    sbca 5,x
+    ldaa PE+2
+    sbca 6,x
+    ldaa PE+3
+    sbca 7,x
+    bcc driver_full_bad
+    jsr state_pointer
+    stx PP
+    ldx PA
+    ldaa 0,x
+    ldx PP
+    staa 0,x
+    ldx PA
+    ldaa 1,x
+    ldx PP
+    staa 1,x
+    ldx PR
+    ldaa PE
+    adda 0,x
+    ldx PP
+    staa 2,x
+    ldx PR
+    ldaa PE+1
+    adca 1,x
+    ldx PP
+    staa 3,x
+    ldx PR
+    ldaa PE+2
+    adca 2,x
+    ldx PP
+    staa 4,x
+    ldx PR
+    ldaa PE+3
+    adca 3,x
+    ldx PP
+    staa 5,x
+    bcs driver_full_bad
+    ldaa PL
+    int $e2
+    jmp driver_result
+driver_full_bad
+    ldaa #7
+    jmp driver_result
 
 ; Unmount refuses open files and the current drive. Header/buffers are kept
 ; for reuse, so remount neither leaks heap nor moves any running program.
@@ -376,9 +514,13 @@ unmount_find_slot
 unmount_slot
     clr 0,x
     clr 1,x
+    ldab PJ
+    ldaa #4
+    int $eb
     ldx PR
     ldaa #$ff
     staa 11,x
+    clr 23,x
     clra
 unmount_return
     rts
@@ -391,55 +533,7 @@ unmount_busy
 ; On the supported UniDOS kernel closed files commit directory/data buffers.
 ; Explicitly commit a dirty cached FAT to every FAT copy before invalidation.
 flush_header
-    stx PT
-    tst 12,x
-    bne flush_dirty
-    clra
-    rts
-flush_dirty
-    ldaa 18,x
-    staa PL
-    ldaa 17,x
-    staa P0+1
-    clr P0
-    ldaa 11,x
-    adda P0+1
-    staa P0+1
-    ldaa P0
-    adca #0
-    staa P0
-flush_fat_copy
-    jsr state_pointer
-    stx PP
-    ldx PT
-    ldaa 7,x
-    ldx PP
-    staa 0,x
-    ldx PT
-    ldaa 8,x
-    ldx PP
-    staa 1,x
-    ldaa PJ
-    staa 2,x
-    ldaa P0
-    staa 3,x
-    ldaa P0+1
-    staa 4,x
+    ldab PJ
     ldaa #2
-    int $40
-    tsta
-    bne flush_return
-    ldx PT
-    ldaa P0+1
-    adda 24,x
-    staa P0+1
-    ldaa P0
-    adca #0
-    staa P0
-    dec PL
-    bne flush_fat_copy
-    ldx PT
-    clr 12,x
-    clra
-flush_return
+    int $eb
     rts

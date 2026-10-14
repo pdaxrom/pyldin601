@@ -24,6 +24,7 @@ architecture test of tb_ram_pages_abi is
  signal group_number:natural range 0 to 18:=0;
  signal irq,nmi,hd_mode:std_logic:='0';signal nmi_cycles:natural:=0;
  signal page_reg:std_logic_vector(7 downto 0):=x"00";
+ signal fat_writes:natural:=0;
 begin
  clk<=not clk after 5 ns;reset<='0' after 45 ns;
  hd_mode<='1' when HD else '0';
@@ -54,6 +55,11 @@ begin
     elsif address=x"e6f1" then
      if unsigned(dout)<=18 then group_number<=to_integer(unsigned(dout));end if;
     else
+     if unsigned(address)>=16#c400# and unsigned(address)<16#c600# then
+      assert page_reg(3 downto 0)=x"3" and group_number=18 and dout=x"af"
+       report "private FAT bank transfer wrote wrong address/data/context" severity failure;
+      fat_writes<=fat_writes+1;
+     end if;
      ram(to_integer(unsigned(address)))<=dout;
      if address=x"0702" then nmi_cycles<=8;end if;
     end if;
@@ -63,7 +69,8 @@ begin
      assert page_reg=x"a3" and group_number=18 report "outer context lost" severity failure;
      assert ram(0)=x"00" report "nested SWI inDOS counter lost" severity failure;
      assert ram(16#708#)=x"01" report "native INT37 chain not exercised" severity failure;
-     report "PASS actual CPU/native "&MODEL&" E6F0/E6F1: nested SWI/IRQ/NMI, native INT37 chain, page-zero no switch, group-zero RAM/ROM vectors, registers and stack";
+     assert fat_writes=512 report "private FAT bank transfer lost bytes" severity failure;
+     report "PASS actual CPU/native "&MODEL&" E6F0/E6F1: nested SWI/IRQ/NMI, INT37, private FAT bank transfer, page-zero no switch, RAM/ROM vectors, registers and stack";
      finish;
     end if;
    end if;

@@ -2,7 +2,7 @@
 ; Uses DOS heap ownership, not borrowed DOS/video/keyboard zero-page registers.
 ; One physical SD0. Primary numbers 1..4, EBR numbers 5..36. Limit 32 records.
 ; Record (24 bytes): baseLE32,countLE32,number,type,active,drive(FF=unmounted),
-; headerBE16,totalBE16,tableLBA LE32,slot,valid,0,0.
+; headerBE16,totalBE16,tableLBA LE32,slot,valid,FATbits,read-only (0/1).
 SWIA equ 6
 SWIB equ 5
 HEAD_TABLE equ $eb03
@@ -27,6 +27,7 @@ VISITED_OFFSET equ 1408
 REC_OFFSET equ 512
 MBR_OFFSET equ 1280
 STATE_OFFSET equ 1344
+    include FATABI.INC
     org $c000
     dw $a55a
     db "SDPARTS "
@@ -43,6 +44,29 @@ initialize
     clr PF
     rts
 dispatch
+    cmpa #11
+    bcs dispatch_native
+    cmpa #13
+    bcc dispatch_native
+    jmp file_service
+dispatch_native
+    ; Sector callbacks can nest inside unmount/flush. Preserve service scratch
+    ; before the ordinary dispatcher assigns PA/PB.
+    cmpa #8
+    bne dispatch_full_write
+    jmp driver_transfer
+dispatch_full_write
+    cmpa #9
+    bne dispatch_ordinary
+    jmp driver_transfer
+dispatch_ordinary
+    cmpa #10
+    bne dispatch_existing
+    stx PA
+    stab PB
+    jsr format16_number
+    jmp result
+dispatch_existing
     stx PA
     stab PB
     tsta
@@ -51,6 +75,11 @@ dispatch
 parts_branch_1
     cmpa #1
     beq get_record
+    cmpa #13
+    bne dispatch_rw_mount
+    jsr mount_readonly
+    jmp result
+dispatch_rw_mount
     cmpa #2
     bne dispatch_unmount
     jsr mount_number
@@ -133,6 +162,11 @@ install_allocate
     ldaa #6
     rts
 install_driver
+    ; Optional banked FAT cache is selected only after all ROM services have
+    ; registered. Failure/unavailable hardware leaves ordinary buffers active.
+    ldaa #6
+    int $eb
+    jsr file_cache_initialize
     ldx PW
     cpx #0
     bne install_work
@@ -675,8 +709,10 @@ find_ok
     include SCAN.INC
     include MOUNT.INC
     include FORMAT.INC
+    include FORMAT16.INC
     include REFRESH.INC
     include BOOT.INC
+    include FILECACHE.INC
 parts_end
     checksum
     ds $e000-*,$ff

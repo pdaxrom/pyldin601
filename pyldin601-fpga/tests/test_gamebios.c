@@ -99,6 +99,7 @@ static unsigned service_invoke(unsigned service,unsigned a,unsigned b,unsigned x
  PC=pc0;A=a0;B=b0;X=x0;return result;
 }
 static unsigned game_invoke(unsigned a,unsigned b,unsigned x){return service_invoke(0xe6,a,b,x);}
+static unsigned initial_banks;
 static unsigned free_banks(void){require(service_invoke(0xe5,0,0,0)==1,"RAMMAN available");return result_b;}
 static void bank_move(unsigned sb,unsigned db,unsigned src,unsigned dst,unsigned bytes,unsigned status){
  r[0x7b00]=sb;r[0x7b01]=db;word_at(0x7b02,src);word_at(0x7b04,dst);word_at(0x7b06,bytes);
@@ -110,20 +111,21 @@ static void bank_move(unsigned sb,unsigned db,unsigned src,unsigned dst,unsigned
 static void bankcopy_test(void){
  require(service_invoke(0xe8,0,0,0)==1&&result_b==7&&result_x==8192,"native fixed-ROM copy service discovery");
  if(!cpu_hd){bank_move(255,255,0x8000,0x9000,1,3);return;}
- require(service_invoke(0xe5,1,111,0x7a00)==0,"own copy-test banks");
+ require(service_invoke(0xe5,1,initial_banks,0x7a00)==0,"own copy-test banks");
+ unsigned first=r[0x7a03],last=r[0x7a02+initial_banks];
  for(unsigned k=0;k<8192;k++)r[0x8000+k]=(k*17+k/31+3)&255;
  unsigned char expected[8192];memcpy(expected,r+0x8000,sizeof expected);
- bank_move(255,0,0x8000,0,8192,0);require(!memcmp(physical+0x22000,expected,8192),"ordinary RAM to bank");
- bank_move(0,110,0,0,8192,0);require(!memcmp(physical+0xfe000,expected,8192),"bank to bank across final partial group");
- memset(r+0x8000,0,8192);bank_move(110,255,0,0x8000,8192,0);require(!memcmp(r+0x8000,expected,8192),"bank to ordinary RAM");
- memmove(expected+1,expected,8191);bank_move(110,110,0,1,8191,0);require(!memcmp(physical+0xfe000,expected,8192),"backwards bank memmove");
- memmove(expected,expected+7,8185);bank_move(110,110,7,0,8185,0);require(!memcmp(physical+0xfe000,expected,8192),"forwards bank memmove");
+ bank_move(255,first,0x8000,0,8192,0);require(!memcmp(physical+0x22000+first*8192,expected,8192),"ordinary RAM to bank");
+ bank_move(first,last,0,0,8192,0);require(!memcmp(physical+0x22000+last*8192,expected,8192),"bank to bank across final partial group");
+ memset(r+0x8000,0,8192);bank_move(last,255,0,0x8000,8192,0);require(!memcmp(r+0x8000,expected,8192),"bank to ordinary RAM");
+ memmove(expected+1,expected,8191);bank_move(last,last,0,1,8191,0);require(!memcmp(physical+0x22000+last*8192,expected,8192),"backwards bank memmove");
+ memmove(expected,expected+7,8185);bank_move(last,last,7,0,8185,0);require(!memcmp(physical+0x22000+last*8192,expected,8192),"forwards bank memmove");
  bank_move(255,255,0x8000,0x9000,256,0);require(!memcmp(r+0x9000,r+0x8000,256),"ordinary RAM copy");
  unsigned char bytes[512];memcpy(bytes,r+0x8000,512);memmove(bytes+1,bytes,511);bank_move(255,255,0x8000,0x8001,511,0);require(!memcmp(bytes,r+0x8000,512),"overlapping ordinary RAM copy");
- bank_move(0,110,31,19,0,0);bank_move(0,110,8191,7,2,1);bank_move(0,110,7,8191,2,1);
- bank_move(111,110,0,0,1,1);bank_move(0,255,0,0xbdff,2,1);bank_move(255,0,0xfffe,0,4,1);bank_move(0,110,0,0,8193,1);
- require(!memcmp(physical+0xfe000,expected,8192),"invalid/zero copy writes nothing");
- require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==111,"copy service allocates no memory");
+ bank_move(first,last,31,19,0,0);bank_move(first,last,8191,7,2,1);bank_move(first,last,7,8191,2,1);
+ bank_move(111,last,0,0,1,1);bank_move(first,255,0,0xbdff,2,1);bank_move(255,first,0xfffe,0,4,1);bank_move(first,last,0,0,8193,1);
+ require(!memcmp(physical+0x22000+last*8192,expected,8192),"invalid/zero copy writes nothing");
+ require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==initial_banks,"copy service allocates no memory");
 }
 static unsigned call(unsigned op,unsigned b,unsigned x,unsigned expected){
  unsigned g=ram_group,old_i=i;unsigned a=game_invoke(op,b,x);
@@ -276,6 +278,7 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  MC6800Init();MC6800Reset();until(60000000);key(0x1c);key(0x1c);prompt_wait();r=MC6800GetCpuRam();
  state=r[0xefcc]*256+r[0xefcd];pcb=r[0xec00]*256+r[0xec01];sp_before=SP;require(state>=0xc000,"GAMEBIOS inactive in ROM without a heap allocation");
  native_step_hook=observe;watch_resets=1;call(0,0,0,2);require(result_b==63&&result_x==416,"discoverable ABI/features/context size");
+ initial_banks=free_banks();
  bankcopy_test();
  if(!cpu_hd){call(1,0,0x5000,3);command("dir c:");printf("PASS GAMEBIOS %s/MC6800 discovery, ISA refusal and native DOS\n",argv[2]);return 0;}
  front=4;for(unsigned k=0;k<8192;k++)pal[k]=saved_pal[k]=(k*17+k/32+5)&63;
@@ -284,15 +287,15 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  call(2,0,0,4);call(31,0,0,1);call(1,0,0xffff,1);
  word_at(0x5000,8608);r[0x5002]=1;r[0x5003]=3;call(1,0,0x5000,1);
  word_at(0x5000,416);r[0x5002]=2;r[0x5003]=3;fault_busy=1;call(1,0,0x5000,5);fault_busy=0;fault_audio=1;call(1,0,0x5000,2);fault_audio=0;
- require(free_banks()==111,"all banks initially free");
+ require(free_banks()==initial_banks,"application banks initially free");
  fault_palette=1;call(1,0,0x5000,2);fault_palette=0;restored();
- require(free_banks()==111,"pre-copy failure frees palette bank without modifying unsaved AY");
- open_context(2);require(free_banks()==111,"audio-only context allocates no palette bank");call(2,0,0,0);restored();
+ require(free_banks()==initial_banks,"pre-copy failure frees palette bank without modifying unsaved AY");
+ open_context(2);require(free_banks()==initial_banks,"audio-only context allocates no palette bank");call(2,0,0,0);restored();
  r[0x5003]=3;
- require(service_invoke(0xe5,1,111,0x7a00)==0,"exhaust RAM pool");
+ require(service_invoke(0xe5,1,initial_banks,0x7a00)==0,"exhaust RAM pool");
  call(1,0,0x5000,7);require(free_banks()==0&&!enabled&&!gfx[0],"failed OPEN retains hardware and existing allocation");
- require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==111,"release original full-pool lease");
- require(service_invoke(0xe5,1,110,0x7a00)==0,"force palette into final partial RAM group");
+ require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==initial_banks,"release original full-pool lease");
+ require(service_invoke(0xe5,1,initial_banks-1,0x7a00)==0,"force palette into final partial RAM group");
  memset(r+0x51a0,0xa5,256);open_context(3);
  require(r[0x5006]==1&&r[0x5007]==110&&r[0x5008]==1,"palette uses last RAMMAN bank");
  require(!memcmp(physical+0x22000+r[0x5007]*8192,saved_pal,8192),"complete banked palette backup");
@@ -302,7 +305,7 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  r[state+3]=1;call(3,1,0,5);require(r[state+3]==1,"nested lock retained");r[state+3]=0;
  gfx_test();audio_test();batch_test();call(2,0,0,0);restored();
  require(free_banks()==1,"CLOSE releases only palette bank");
- require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==111,"foreign-purpose lease retained through game");
+ require(service_invoke(0xe5,2,0,0x7a00)==0&&free_banks()==initial_banks,"foreign-purpose lease retained through game");
  // A failed raw job must not poison cleanup or the next video owner.
  open_context(3);call(3,1,0,0);
  hg_write_byte(0xe651,0xff);until(virtual_cycles+10);require(gfx_failed,"hardware command error latched");
@@ -315,7 +318,7 @@ int GAMEBIOS_MAIN(int argc,char**argv){
  open_context(3);call(3,1,0,0);call(2,0,0,0);restored();
  // A real PGM closes its own context before returning through native INT38.
  command("b:gameexit");restored();require(SP==sp_before,"application CLOSE and INT38 balance stack");
- require(free_banks()==111,"application releases its palette bank");
+ require(free_banks()==initial_banks,"application releases its palette bank");
  command("dir a:");command("dir b:");command("dir c:");require(SP==sp_before&&!resets&&!fdc_port_accesses,"native DOS works after repeated closes");
  printf("PASS GAMEBIOS %s/HD6303: context, palette, clipping/lines/text/scroll/HAM8, AY queue/notes/mixing/pause/rates and restored DOS (%u jobs)\n",argv[2],jobs);return 0;
 }

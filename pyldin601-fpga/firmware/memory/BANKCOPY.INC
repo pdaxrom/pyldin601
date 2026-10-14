@@ -10,6 +10,10 @@
     global bank_copy
     ds $f640-*,$ff
 bank_copy
+    cmpa #4
+    bne bc_public
+    jmp bc_system_fat
+bc_public
     tsta
     beq bc_info
     cmpa #4
@@ -326,3 +330,19 @@ bc_pal_done
     rts
 bc_arg_far
     jmp bc_arg
+
+; Private MC6800-compatible transfer of the kernel's fixed E700 FAT buffer.
+; Only the owned descriptor at EAD0 is accepted. RAMMAN supplies the lease;
+; the kernel checks hardware before using it. Public operations 0..3 retain
+; their former ABI and ISA requirements.
+bc_system_fat
+    cpx #$ead0
+    bne bc_arg_far
+    jmp native_fat_copy
+native_fat_copy_done
+    pula
+    staa $e6f1
+    pula
+    staa $e6f0
+    clr swia
+    rts

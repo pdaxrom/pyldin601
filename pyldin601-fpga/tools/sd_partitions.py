@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checked MBR/EBR access and the supported UniDOS FAT12 format.
+"""Checked MBR/EBR access and the supported UniDOS FAT12/FAT16 formats.
 
 Partition numbers are 1..4 for primary entries and 5 upwards in EBR order.
 This module operates on regular images; it never opens a physical device.
@@ -11,6 +11,7 @@ import time
 SECTOR = 512
 TOTAL = 32400
 EXTENDED = (0x05, 0x0f, 0x85)
+FAT_TYPES = (0x01, 0x04, 0x06, 0x0e)
 
 @dataclass(frozen=True)
 class Partition:
@@ -124,37 +125,44 @@ def fat12(label='P601 DATA', serial=None, hidden=0):
 
 
 def bpb(volume, partition_sectors=None):
-    """Only require fields representable by the native UniDOS driver header."""
+    """Normalize the native FPGA kernel's FAT12/FAT16 geometry limits."""
     if len(volume)<512 or volume[510:512] not in (b'\x55\xaa',b'\xa5\x5a'):
-        raise ValueError('invalid FAT12 signature')
+        raise ValueError('invalid FAT signature')
     size,spc,reserved,copies,root,total,media,spf,spt,heads = struct.unpack_from('<HBHBHHBHHH',volume,11)
     if size!=512 or spc not in (1,2,4,8,16,32,64,128):
         raise ValueError('invalid sector/cluster size')
-    if not 1<=reserved<=255 or copies not in (1,2) or not 1<=spf<=255 or not root or not total:
-        raise ValueError('unrepresentable FAT12 BPB')
-    if not 1<=spt<=255 or not 1<=heads<=255:
-        raise ValueError('unrepresentable geometry metadata')
+    total = total or struct.unpack_from('<I', volume, 32)[0]
+    if not reserved or copies not in (1,2) or not spf or not total or not 16<=root<=4080 or root%16:
+        raise ValueError('unsupported FAT BPB')
     overhead=reserved+copies*spf+(root+15)//16
     clusters=(total-overhead)//spc
-    if total<=overhead or not 1<=clusters<4085 or (clusters+2)*3>spf*1024:
-        raise ValueError('invalid FAT12 data/FAT bounds')
+    if total<=overhead or not 1<=clusters<=65524:
+        raise ValueError('invalid FAT data bounds')
+    bits = 12 if clusters<4085 else 16
+    if bits==16 and spc>64:
+        raise ValueError('FAT16 clusters exceed 32 KiB')
+    needed = ((clusters+2)*bits+7)//8
+    if needed>spf*512:
+        raise ValueError('FAT too small for data clusters')
     if partition_sectors is not None and total>partition_sectors:
         raise ValueError('volume exceeds partition')
-    return dict(sectors=total,sectors_per_cluster=spc,clusters=clusters,reserved=reserved,
+    return dict(fat_bits=bits,sectors=total,sectors_per_cluster=spc,clusters=clusters,reserved=reserved,
                 fat_copies=copies,sectors_per_fat=spf,root_entries=root,overhead=overhead)
 
 
 def choose_boot(parts, read, explicit=0):
-    """Explicit BIOS selection, then first active FAT12, then old A/B slots."""
+    """Explicit selection, then active FAT12/FAT16, then old A/B slots."""
     candidates = ([p for p in parts if p.number==explicit] if explicit else
-                  [p for p in parts if p.active and p.kind==1])
+                  [p for p in parts if p.active and p.kind in FAT_TYPES])
     if not explicit:
-        candidates += [p for n in (2,3) for p in parts if p.number==n and p.kind==1]
+        candidates += [p for n in (2,3) for p in parts if p.number==n and p.kind in FAT_TYPES]
     for p in candidates:
-        if p.kind!=1:
+        if p.kind not in FAT_TYPES:
             continue
         try:
-            bpb(read(p.start),p.sectors)
+            geometry=bpb(read(p.start),p.sectors)
+            if (p.kind==1)!=(geometry['fat_bits']==12):
+                continue
         except ValueError:
             continue
         return p.number

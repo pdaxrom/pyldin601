@@ -37,33 +37,16 @@ def unpack_file(path):
 
 
 def disk_info(data):
-    if len(data) < SECTOR or len(data) % SECTOR or len(data) > MAX_DISK_SIZE:
-        raise ValueError('disk must contain whole 512-byte sectors, at most 32400 sectors')
-    # Classic Pyldin boot sectors can end in A5 5A, not PC 55 AA.
-    if data[510:512] not in (b'\x55\xaa', b'\xa5\x5a'):
-        raise ValueError('missing FAT boot signature (55AA or classic A55A)')
-    size, spc, reserved, fats = u16(data, 11), data[13], u16(data, 14), data[16]
-    root, spf = u16(data, 17), u16(data, 22)
-    total = u16(data, 19) or u32(data, 32)
+    if len(data) < SECTOR or len(data) % SECTOR:
+        raise ValueError('disk must contain whole 512-byte sectors')
+    from sd_partitions import bpb
+    info = bpb(data, len(data)//SECTOR)
+    total = info['sectors']
     spt, heads = u16(data, 24), u16(data, 26)
-    if size != SECTOR or spc not in (1, 2, 4, 8, 16, 32, 64, 128):
-        raise ValueError('unsupported FAT sector/cluster size')
-    if not reserved or not fats or not root or not spf or not total:
-        raise ValueError('invalid FAT BPB')
-    overhead = reserved + fats * spf + (root * 32 + 511) // SECTOR
-    if total <= overhead or total > len(data) // SECTOR:
-        raise ValueError('BPB total sectors outside disk image')
-    clusters = (total - overhead) // spc
-    if not 1 <= clusters < 4085:
-        raise ValueError(f'expected FAT12, found {clusters} data clusters')
-    if spf * SECTOR < math.ceil((clusters + 2) * 3 / 2):
-        raise ValueError('FAT too small for data clusters')
-    if not 1 <= spt <= 255 or not 1 <= heads <= 255:
-        raise ValueError('geometry metadata requires 1..255 sectors/track and heads')
-    cylinders = (total + spt * heads - 1) // (spt * heads)
-    return dict(sectors=total, image_sectors=len(data)//SECTOR,
+    cylinders = (total + spt * heads - 1) // (spt * heads) if spt and heads else 0
+    return dict(**info, image_sectors=len(data)//SECTOR,
                 sectors_per_track=spt, heads=heads, cylinders=cylinders,
-                sectors_per_cluster=spc, clusters=clusters)
+                partition_type=1 if info['fat_bits']==12 else 0x0e)
 
 
 def blank_disk(size=1440*1024, spt=18, heads=2):
@@ -124,7 +107,7 @@ def bundle(files, drives, boot, model=0, legacy=False):
         from unias import ROOT
         bank=bytearray(files["ROM0.BIN"])
         bank[:8192]=(ROOT/"build/partitions/UNIBIOS.ROM").read_bytes()
-        for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(6,"RAMMAN.ROM"),(7,"SHELL.ROM")]:
+        for slot,name in [(2,"PARTS.ROM"),(3,"SD.ROM"),(4,"KERNEL.ROM"),(6,"RAMMAN.ROM"),(7,"SHELL.ROM")]:
             bank[slot*8192:(slot+1)*8192]=(ROOT/"build/partitions"/name).read_bytes()
         bios=(ROOT/"build/partitions"/("BIOS_A.ROM" if model else "BIOS.ROM")).read_bytes()
         payload=bytes(bank)+bios+files["FONT.BIN"]
@@ -223,6 +206,8 @@ def build(native, disks, boot=0, allow_large=False, bios_a=None, default_extensi
     drives = []
     for data in disks:
         info = disk_info(data)
+        if legacy and info['fat_bits']!=12:
+            raise ValueError('legacy controller requires FAT12')
         if legacy and not allow_large and (info['sectors']>2880 or info['cylinders']>80
                                 or info['sectors_per_track']>18 or info['heads']>2):
             raise ValueError('classic i8272 supports at most 80 cylinders, 2 heads, 18 sectors; '
@@ -254,7 +239,7 @@ def build(native, disks, boot=0, allow_large=False, bios_a=None, default_extensi
     image[510:512] = b'\x55\xaa'
     for i, (kind, lba, count) in enumerate(
         [(0x06, ALIGN, BOOT_SECTORS)] +
-        [(0x01, d['start_lba'], d['image_sectors']) for d in drives]
+        [(d['partition_type'], d['start_lba'], d['image_sectors']) for d in drives]
     ):
         entry = 446+i*16
         struct.pack_into('<B3sB3sII', image, entry, 0, b'\xfe\xff\xff', kind,
