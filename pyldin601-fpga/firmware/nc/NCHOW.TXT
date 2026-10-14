@@ -21,6 +21,11 @@ Free space remains in the bottom frame. The 80-column file list also has
 size/date columns. Text uses 26 NC rows, immediately followed by the BIOS
 clock; graphics retains 25 rows and displays 16 file rows instead of 17.
 The command prompt and function keys sit directly below the panels.
+The input caret stays in the command prompt, or moves into a modal input
+field while that dialog has focus. Long commands scroll horizontally to
+keep the end visible. Menus, buttons, progress windows and the viewer hide
+the input caret. Text uses the native hardware cursor; graphics draws its
+caret in the active field. The original cursor shape is restored on exit.
 
 KEYS
     Tab                 Switch panels

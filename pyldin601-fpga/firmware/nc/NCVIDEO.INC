@@ -1,3 +1,51 @@
+; Cursor focus follows NC's coordinates, independently of the DOS console.
+; Text uses the CRTC cursor. Packed graphics uses its software caret, since
+; a colour-graphics hardware cursor covers only half a character cell.
+caret_at
+    jsr position
+    ldaa mode
+    anda #3
+    bne caret_graphic
+    ldx outptr
+    tst $fff7
+    bmi caret_model_a
+    inx
+    inx
+    bra caret_write
+caret_model_a
+    tst mode
+    bne caret_write
+    inx
+    bra caret_write
+caret_graphic
+    jsr caret_hide
+    ldaa #'_'
+    jmp put
+; Parking outside the screen also hides the cursor when BIOS INT11 ORs in
+; the Cyrillic cursor blink bits ($60), which defeat cursor_start | $20.
+caret_hide
+    ldx #$3fff
+caret_write
+    stx add_pointer
+    tpa
+    psha
+    sei
+    ldaa $e600
+    psha
+    ldaa #14
+    staa $e600
+    ldaa add_pointer
+    staa $e601
+    ldaa #15
+    staa $e600
+    ldaa add_pointer+1
+    staa $e601
+    pula
+    staa $e600
+    pula
+    tap
+    rts
+
 ; Native text and packed graphics use the same ROM 8x8 glyphs, including the
 ; box-drawing set. Own glyph output avoids clipping/state in the DOS console.
 colour

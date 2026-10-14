@@ -22,6 +22,7 @@ viewer_redraw
     jmp redraw
 viewer_opened
     stab view_handle
+    jsr caret_hide
     ldx #view_position
     ldab #4
 viewer_zero

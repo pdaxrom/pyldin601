@@ -77,7 +77,7 @@ if not a.quick:
   subprocess.run([str(runner),str(out/'sd-many.img'),model,cpu,video,backend],cwd=ROOT,check=True)
 
 if not a.quick:
- for model,cpu,video in (('601','mc6800','0'),('601a','hd6303','4')):
+ for model,cpu,video in (('601','mc6800','0'),('601a','hd6303','4'),('601','mc6800','3'),('601a','hd6303','2')):
   subprocess.run([str(runner),str(out/'sd-disk-shell.img'),model,cpu,video,'disk'],cwd=ROOT,check=True)
  subprocess.run([str(runner),str(out/'sd-no-main.img'),'601','mc6800','0','no-main'],cwd=ROOT,check=True)
  for model,cpu in (('601','mc6800'),('601a','hd6303')):

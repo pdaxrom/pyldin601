@@ -16,7 +16,12 @@ def chunk(kind, payload):
 
 
 def render(metadata):
-    model_a, mode, base, stride = map(int, metadata.read_text().split())
+    state = list(map(int, metadata.read_text().split()))
+    model_a, mode, base, stride = state[:4]
+    # Show the visible phase of the native hardware caret in text snapshots.
+    cursor, cursor_start, cursor_end = state[4:] if len(state) > 4 else (-1, 32, 0)
+    if not model_a:
+        cursor -= 2
     height = 216 if mode in (0, 4) else 200
     ram = metadata.with_suffix('.bin').read_bytes()
     font = (OUT / 'font.bin').read_bytes()
@@ -33,6 +38,10 @@ def render(metadata):
                 char = ram[(address + (step == 2)) & 65535]
                 attr = ram[address] if step == 2 else 0xf0
                 dot = font[char * 8 + y % 8] & (128 >> (x % 8))
+                if (((address + (step == 2)) & 65535) == cursor
+                        and ((cursor_start >> 5) & 3) != 1
+                        and (cursor_start & 31) <= y % 8 <= (cursor_end & 31)):
+                    dot = not dot
                 colour = ((attr >> 4) & 7 if step == 2 else 15) if dot else attr & 15
             else:
                 bits = 2 if mode == 2 else 1

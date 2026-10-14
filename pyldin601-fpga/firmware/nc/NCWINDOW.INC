@@ -12,6 +12,7 @@ window_open
     staa window_inner
 window_draw
     stx window_title
+    jsr caret_hide
     ldaa window_top
     staa window_index
 window_frame_row
@@ -249,6 +250,7 @@ dialog_measured
     clr window_focus
     clr edit_offset
 dialog_draw
+    jsr caret_hide
     ldaa #$70
     jsr colour
     ldaa edit_cursor
@@ -282,6 +284,9 @@ dialog_visible
     ldaa #$03
     jsr colour
     jsr position
+    ldaa mode
+    anda #3
+    beq dialog_native_caret
     ldx #input
     ldab edit_cursor
     jsr add_b
@@ -290,6 +295,9 @@ dialog_visible
     ldaa #'_'
 dialog_caret
     jsr put
+    bra dialog_buttons_draw
+dialog_native_caret
+    jsr caret_at
 dialog_buttons_draw
     ldaa window_focus
     deca

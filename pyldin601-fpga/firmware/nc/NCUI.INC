@@ -650,9 +650,26 @@ render_command_line
     staa remaining
     ldaa #'>'
     jsr put_field
+    ; Reserve the caret cell and show the command's tail when it is longer
+    ; than the space after the prompt. Editing is append/backspace only.
+    dec remaining
     ldx #command_line
-    jsr field
-    rts
+    ldab command_length
+    subb remaining
+    bcc command_tail
+    clrb
+command_tail
+    jsr add_b
+    jsr text_field
+    ldaa columns
+    suba remaining
+    deca
+    staa command_caret
+    inc remaining
+    jsr padding
+    ldaa command_caret
+    staa ui_x
+    jmp caret_at
 ; X=32-bit little-endian integer -> zero-terminated decimal, no 64K truncation.
 decimal_le
     ldaa 3,x

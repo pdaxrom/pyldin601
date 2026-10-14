@@ -99,7 +99,7 @@ nc_long_ncmain_5_417
 nc_layout_ready
     ldaa $ed1d
     staa saved_cursor
-    oraa #$20
+    anda #$1f
     staa $ed1d
     int $6d
     staa columns

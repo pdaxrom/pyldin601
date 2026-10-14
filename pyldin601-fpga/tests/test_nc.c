@@ -12,6 +12,8 @@ static unsigned nc_base,core_base,core_entries,wait_entries,supervisor_sp,core_s
 static unsigned measure_key,measured_reads,measured_scans,measured_transfers,measured_glyphs;
 static unsigned input_boundary,modal_video,progress_checks,progress_captured;
 static void snapshot(unsigned video,const char*backend);
+static void check_command_caret(void);
+static void check_modal_caret(unsigned boundary);
 static uint64_t key_started,key_cycles;
 static unsigned char nc_sig[24],core_sig[24],nc_mask[24],core_mask[24],probe_sig[24],probe_mask[24];
 static unsigned ram_word(unsigned a){unsigned char*r=MC6800GetCpuRam();return r[a]*256+r[a+1];}
@@ -69,7 +71,7 @@ static void observe(void){
 }
 static void panels(unsigned after){
  uint64_t end=virtual_cycles+200000000;
- do{until(virtual_cycles+1009);if(wait_entries>after&&PC==(model_a?0xf397:0xf39d))return;}while(virtual_cycles<end);
+ do{until(virtual_cycles+1009);if(wait_entries>after&&PC==(model_a?0xf397:0xf39d)){check_command_caret();return;}}while(virtual_cycles<end);
  fprintf(stderr,"NC=%04x core=%04x loads=%u waits=%u owner=%04x req=%u last=%02x\n",nc_base,core_base,core_entries,wait_entries,core_base?ram_word(core_base+NCMAIN_OWNER):0,nc_base?MC6800GetCpuRam()[nc_base+NC_STATE+NC_S_REQUEST]:0,core_base?MC6800GetCpuRam()[core_base+NCMAIN_LAST_KEY]:0);
  require(0,"NC reaches panel keyboard loop");
 }
@@ -79,28 +81,58 @@ static void type(const char*text){
  for(;*text;text++){const char*p=strchr(letters,*text);unsigned s=p?scans[p-letters]:*text==':'?0x27:*text=='.'?0x34:*text=='\\'?0x2b:*text==' '?0x39:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?11:0;require(s,"input scan supported");if(*text==':')KBDModKeyDown(2);key(s);if(*text==':')KBDModKeyUp(2);}
 }
 static void loaded(unsigned count){uint64_t end=virtual_cycles+200000000;do{until(virtual_cycles+1009);if(core_entries>=count)return;}while(virtual_cycles<end);require(0,"NCMAIN executable reloaded");}
-static void graphic_glyph(unsigned col,unsigned row,unsigned code,unsigned foreground){
+static void graphic_cell(unsigned col,unsigned row,unsigned code,unsigned foreground,unsigned background){
  unsigned char*r=MC6800GetCpuRam();unsigned mode=r[core_base+NCMAIN_MODE],bits=mode==2?2:1,unit=8/bits,base=ram_word(core_base+NCMAIN_SCREEN_BASE);
  for(unsigned y=0;y<8;y++)for(unsigned x=0;x<8;x++){
   unsigned pixel_x=col*8+x,pixel_y=row*8+y;
   unsigned at=base+(pixel_y/8)*(model_a?640:320)+(pixel_x/unit)*8+pixel_y%8;
   unsigned sample=(r[at]>>(8-bits*(pixel_x%unit+1)))&((1u<<bits)-1);
   unsigned bit=(physical[0x11800+code*8+y]>>(7-x))&1;
-  require(sample==(bit?(bits==2?foreground:1):0),"native graphic glyph is complete at its actual panel position");
+  require(sample==(bit?foreground:background),"native graphic glyph is complete at its actual panel position");
  }
+}
+static void graphic_glyph(unsigned col,unsigned row,unsigned code,unsigned foreground){
+ graphic_cell(col,row,code,MC6800GetCpuRam()[core_base+NCMAIN_MODE]==2?foreground:1,0);
+}
+static void check_text_caret(unsigned col,unsigned row){
+ unsigned char*r=MC6800GetCpuRam();unsigned step=model_a&&!r[core_base+NCMAIN_MODE]?2:1;
+ unsigned expected=ram_word(core_base+NCMAIN_SCREEN_BASE)+row*crtc[1]+col*step+(step==2)+(model_a?0:2);
+ require(crtc[14]*256+crtc[15]==expected,"hardware caret follows the active input field, including native pitch and model offsets");
+ require((crtc[10]&0x60)!=0x20,"input caret is enabled while BIOS waits for a key");
+}
+static void check_command_caret(void){
+ unsigned char*r=MC6800GetCpuRam();unsigned cols=r[core_base+NCMAIN_COLUMNS],length=r[core_base+NCMAIN_COMMAND_LENGTH];
+ unsigned prompt=strlen((char*)r+ram_word(core_base+NCMAIN_PATHPTR));if(prompt>cols/2)prompt=cols/2;
+ unsigned room=cols-prompt-2,visible=length<room?length:room,col=prompt+1+visible,row=r[core_base+NCMAIN_UI_COMMAND];
+ if(r[core_base+NCMAIN_MODE]&3){
+  require(crtc[14]*256+crtc[15]==0x3fff,"graphics parks the hardware cursor outside the visible screen");
+  graphic_glyph(col,row,'_',3);
+ }else check_text_caret(col,row);
+}
+static void check_modal_caret(unsigned boundary){
+ unsigned char*r=MC6800GetCpuRam();
+ if(boundary==NCMAIN_DIALOG_KEY&&!r[core_base+NCMAIN_WINDOW_FOCUS]){
+  unsigned col=6+r[core_base+NCMAIN_EDIT_CURSOR]-r[core_base+NCMAIN_EDIT_OFFSET];
+  if(r[core_base+NCMAIN_MODE]&3){
+   unsigned code=r[core_base+NCMAIN_INPUT+r[core_base+NCMAIN_EDIT_CURSOR]];
+   if(!code)code='_';
+   graphic_cell(col,10,code,0,1);
+  }else{check_text_caret(col,10);return;}
+ }
+ require(crtc[14]*256+crtc[15]==0x3fff,"modal buttons, menus, messages and graphics never leave a hardware cursor in the panels or command line");
 }
 static void snapshot(unsigned video,const char*backend){
  unsigned char*r=MC6800GetCpuRam();char name[180];
  snprintf(name,sizeof name,"build/nc/screen-%s-%u-%s.bin",model_a?"601a":"601",video,backend);
  FILE*f=fopen(name,"wb");require(f&&fwrite(r,1,65536,f)==65536&&!fclose(f),"save NC framebuffer snapshot");
  snprintf(name,sizeof name,"build/nc/screen-%s-%u-%s.txt",model_a?"601a":"601",video,backend);
- f=fopen(name,"w");require(f!=NULL,"framebuffer metadata");fprintf(f,"%u %u %u %u\n",model_a,video,ram_word(core_base+NCMAIN_SCREEN_BASE),crtc[1]);fclose(f);
+ f=fopen(name,"w");require(f!=NULL,"framebuffer metadata");fprintf(f,"%u %u %u %u %u %u %u\n",model_a,video,ram_word(core_base+NCMAIN_SCREEN_BASE),crtc[1],crtc[14]*256+crtc[15],crtc[10],crtc[11]);fclose(f);
  f=fopen("build/nc/font.bin","wb");require(f&&fwrite(physical+0x11800,1,2048,f)==2048&&!fclose(f),"save actual native font");
 }
 static void panel_key(unsigned scan){unsigned after=wait_entries;key(scan);panels(after);}
 static void modal_wait(unsigned boundary){
  uint64_t end=virtual_cycles+200000000;
- do{until(virtual_cycles+1009);if(input_boundary==boundary&&PC==(model_a?0xf397:0xf39d))return;}while(virtual_cycles<end);
+ do{until(virtual_cycles+1009);if(input_boundary==boundary&&PC==(model_a?0xf397:0xf39d)){check_modal_caret(boundary);return;}}while(virtual_cycles<end);
  require(0,"modal window reaches its keyboard loop");
 }
 static void open_settings(void){
@@ -226,6 +258,27 @@ static void check_file_information(unsigned video){
  snapshot(video,"info");memcpy(entry,saved,sizeof saved);panel_key(0x50);panel_key(0x48);
 }
 
+static void check_input_focus(unsigned video){
+ unsigned char*r=MC6800GetCpuRam();unsigned old_blink=r[0xed1f];
+ // Cyrillic blink bits ($60) defeat cursor_start | $20; parking must still
+ // hide the hardware cursor in every modal window without text input.
+ r[0xed1f]=0x60;
+ const char*long_command="abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyza";
+ unsigned after=wait_entries;type(long_command);panels(after);
+ require(!strcmp((char*)r+core_base+NCMAIN_COMMAND_LINE,long_command),"horizontal command scrolling preserves the entire input");
+ require(r[core_base+NCMAIN_COMMAND_CARET]==r[core_base+NCMAIN_COLUMNS]-1,"long command caret remains visible in the final input column");
+ unsigned cols=r[core_base+NCMAIN_COLUMNS],prompt=strlen((char*)r+ram_word(core_base+NCMAIN_PATHPTR));
+ if(prompt>cols/2)prompt=cols/2;
+ unsigned room=cols-prompt-2;
+ expect_info(prompt+1,r[core_base+NCMAIN_UI_COMMAND],long_command+strlen(long_command)-room);
+ snapshot(video,"command-focus");
+ after=wait_entries;KBDModKeyDown(1);key(0x2e);KBDModKeyUp(1);panels(after);
+ after=wait_entries;key(0x41);modal_wait(NCMAIN_DIALOG_KEY);type("abc");modal_wait(NCMAIN_DIALOG_KEY);snapshot(video,"dialog-focus");
+ modal_key(0x0f,NCMAIN_DIALOG_KEY);modal_key(0x0f,NCMAIN_DIALOG_KEY);key(0x1c);panels(after);
+ after=wait_entries;key(0x43);modal_wait(NCMAIN_MENU_KEY);key(1);panels(after);
+ r[0xed1f]=old_blink;
+ after=wait_entries;key(1);panels(after);
+}
 int main(int argc,char**argv){
  if(argc!=5&&argc!=6)return 2;
  const char*backend=argc==6?argv[5]:"bank";
@@ -285,6 +338,7 @@ int main(int argc,char**argv){
  require(!strcmp((char*)r+core_base+NCMAIN_COMMAND_LINE,"a"),"native Backspace edits the command line");
  after=wait_entries;KBDModKeyDown(1);key(0x2e);KBDModKeyUp(1);panels(after);
  require(!r[core_base+NCMAIN_COMMAND_LENGTH]&&core_entries==1,"Ctrl+C clears command input without abandoning memory");
+ check_input_focus(video);
  after=wait_entries;
  type("b:ncprobe");key(0x1c);loaded(2);panels(after);
  require(probe_ok==1&&core_entries==2,"real external PGM runs with panel memory released, then NC reloads");

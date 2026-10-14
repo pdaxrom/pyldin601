@@ -136,7 +136,7 @@ command_length ds 1
 command_line ds 81
 input ds 81
 input_end ds 2
-input_left ds 1
+command_caret ds 1
 src ds 2
 dst ds 2
 ptr ds 2
