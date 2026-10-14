@@ -1036,7 +1036,9 @@ call_40
         stx fulltable+5
         ldaa call_a
         ldx #fulltable
+        inc FS_WRITE_CONTEXT
         int $ea
+        dec FS_WRITE_CONTEXT
 		staa	call_err
 		tsta
 		beq	exit_b
@@ -4973,46 +4975,32 @@ int_52		proc
         bcs error
         ldaa FH_SPC,x
         staa spc2
-        ldaa #16
-        int $e9
-        ldx FH_VALUE,x
-        inx
-        inx
-        stx free_n_clust
-
-		ldx	#2
-		stx	free_clust
-		asl	spc2
-loop
-		cpx	free_n_clust
-		beq	exit_loop
-
-		jsr	get_fat_field
-		bcs	error
-		cpx	#0
-		bne	inc_cnt
-
-		ldx	free_x
-		ldaa	spc2
-		adda	x, 2
-		staa	x,2
-        ldaa #0
+        ; Sector-wise count/cache lives in the partition ROM. Public output
+        ; remains BE32 bytes; multiply the BE16 cluster count only once.
+        ldaa #14
+        int $e1
+        tsta
+        bne error
+        ldaa FH_VALUE,x
+        ldab FH_VALUE+1,x
+        ldx free_x
+        staa 2,x
+        stab 3,x
+        ldaa #9
         ldab spc2
-        bne free_step_normal
-        ldaa #1
-free_step_normal
-		adca	x, 1
-		staa	x, 1
-		ldaa	#0
-		adca	x
-		staa	x
-inc_cnt
-		ldx	free_clust
-		inx
-		stx	free_clust
-		bra	loop
-exit_loop
-		clra
+free_shift_count
+        lsrb
+        beq free_shift
+        inca
+        bra free_shift_count
+free_shift
+        asl 3,x
+        rol 2,x
+        rol 1,x
+        rol 0,x
+        deca
+        bne free_shift
+        clra
 error		staa	swia
 		rts
 		endp

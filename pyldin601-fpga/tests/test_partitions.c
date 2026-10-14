@@ -29,7 +29,7 @@ int main(int argc,char**argv){
  unsigned char*vol=image+40960*512;require(le16(vol+19)==32400&&vol[13]==8&&le16(vol+22)==12&&le16(vol+17)==512,"exact FAT12 profile");
  require(!memcmp(vol+512,vol+13*512,12*512)&&vol[512]==0xf8,"both empty FATs agree");
  command("b:mount /t:fat12 sd0:part4");command("dir c:");require(contains("0 File(s)"),"newly formatted root usable");
- command("b:fdisk sd0:");require(contains("PART TYPE BOOT DRIVE"),"FDISK listing");
+ command("b:fdisk sd0:");require(contains("PART TY B D START END SECTORS"),"FDISK listing");
  command("b:fdisk sd0: delete 4");require(contains("SD: error $0F"),"FDISK rejects mounted deletion");
  command("b:umount c:");
  command("b:fdisk sd0: delete 4");require(image[446+48+4]==0,"FDISK deletes unmounted primary");

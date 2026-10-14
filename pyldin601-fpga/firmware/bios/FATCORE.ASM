@@ -3,6 +3,11 @@
 ; 4 flush. The descriptor and cache belong to the kernel, not this ROM.
 ; SWIX is the BIOS's saved incoming parameter, restored across nested SWIs.
 fatcore
+    cmpa #30
+    bne fc_dispatch_normal
+    jsr fc_cache
+    jmp fc_return
+fc_dispatch_normal
     cmpa #25
     bcs fc_dispatch_files
     jmp fc_kernel_service
@@ -139,40 +144,10 @@ fc_cc
 fc_bad
     ldaa #9
     rts
-fc_legacy
-    ldx $07
-    ldx FH_HEADER,x
-    ldaa 16,x
-    ldab 18,x
-    ldx $07
-    staa FH_SPC,x
-    stab FH_NOF,x
-    ldx FH_HEADER,x
-    ldaa 17,x
-    ldab 24,x
-    ldx $07
-    clr FH_RESERVED,x
-    staa FH_RESERVED+1,x
-    clr FH_SPF,x
-    stab FH_SPF+1,x
-    ldx FH_HEADER,x
-    ldaa 21,x
-    ldab 22,x
-    ldx $07
-    clr FH_TOTAL,x
-    clr FH_TOTAL+1,x
-    staa FH_TOTAL+2,x
-    stab FH_TOTAL+3,x
-    ldx FH_HEADER,x
-    ldaa 19,x
-    ldab 20,x
-    ldx $07
-    staa FH_ROOT,x
-    stab FH_ROOT+1,x
-    jmp fc_total_ready
-
 ; BPB normalization also derives all offsets/counts with checked arithmetic.
 fc_mount
+    ldaa #15
+    int $e1
     ldx $07
     ldx FH_IO,x
     tst 11,x
@@ -564,6 +539,20 @@ fc_long_21
 fc_cache_hit
     clra
 fc_cache_return
+    tsta
+    beq fc_cache_complete
+    ldx $07
+    ; A failed read may have overwritten the old sector's bytes. Preserve
+    ; dirty data after a failed flush, but never reuse a failed read as a hit.
+    tst FH_DIRTY,x
+    bne fc_cache_failed
+    clr FH_VALID,x
+fc_cache_failed
+    psha
+    ldaa #15
+    int $e1
+    pula
+fc_cache_complete
     rts
 fc_cache_error
     ldaa #10
@@ -853,6 +842,12 @@ fc_set
     beq fc_set_allowed
     rts
 fc_set_allowed
+    ldaa #16
+    int $e1
+    tsta
+    beq fc_set_prepared
+    jmp fc_set_prepare_error
+fc_set_prepared
     jsr fc_entry
     tsta
     beq fc_long_25
@@ -912,7 +907,7 @@ fc_set_first
     tsta
     beq fc_set_first_ready
     ins
-    rts
+    jmp fc_set_return
 fc_set_first_ready
     pula
     jsr fc_put
@@ -946,8 +941,19 @@ fc_set_high
 fc_set_write
     ldx BUF
     jsr fc_put
-    clra
+    ldx $07
+    ldaa #17
+    int $e1
 fc_set_return
+    tsta
+    beq fc_set_done
+fc_set_prepare_error
+    psha
+    ldx $07
+    ldaa #15
+    int $e1
+    pula
+fc_set_done
     rts
 fc_put
     staa 0,x
@@ -963,6 +969,7 @@ fc_flush
     ldx $07
     tst FH_DIRTY,x
     beq fc_flush_ok
+    inc FS_WRITE_CONTEXT
     ldaa FH_NOF,x
     staa FH_TMP+4,x
     clr FH_IO+3,x
@@ -985,7 +992,7 @@ fc_flush_copy
     ldaa #2
     int $ea
     tsta
-    bne fc_flush_return
+    bne fc_flush_active_return
     ldx $07
     dec FH_TMP+4,x
     beq fc_flush_done
@@ -1003,9 +1010,14 @@ fc_flush_done
     clr FH_DIRTY,x
     ldx FH_HEADER,x
     clr 12,x
+    clra
+fc_flush_active_return
+    dec FS_WRITE_CONTEXT
+    tsta
+    beq fc_flush_ok
+    jmp fc_cache_failed
 fc_flush_ok
     clra
-fc_flush_return
     rts
 
 ; Compute a complete volume-relative address; cluster numbers stay BE16.

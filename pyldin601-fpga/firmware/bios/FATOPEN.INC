@@ -114,6 +114,41 @@ fc_write_ok
     clra
     rts
 
+; Legacy BPB translation is outside the main algorithm/CRC-table area.
+fc_legacy
+    ldaa #15
+    int $e1
+    ldx $07
+    ldx FH_HEADER,x
+    ldaa 16,x
+    ldab 18,x
+    ldx $07
+    staa FH_SPC,x
+    stab FH_NOF,x
+    ldx FH_HEADER,x
+    ldaa 17,x
+    ldab 24,x
+    ldx $07
+    clr FH_RESERVED,x
+    staa FH_RESERVED+1,x
+    clr FH_SPF,x
+    stab FH_SPF+1,x
+    ldx FH_HEADER,x
+    ldaa 21,x
+    ldab 22,x
+    ldx $07
+    clr FH_TOTAL,x
+    clr FH_TOTAL+1,x
+    staa FH_TOTAL+2,x
+    stab FH_TOTAL+3,x
+    ldx FH_HEADER,x
+    ldaa 19,x
+    ldab 20,x
+    ldx $07
+    staa FH_ROOT,x
+    stab FH_ROOT+1,x
+    jmp fc_total_ready
+
 ; Keep these small kernel services after the CRC tables, leaving room in the
 ; main algorithm area for both ordinary and FAT_RAMMAN firmware variants.
 fc_kernel_service
@@ -137,7 +172,8 @@ fc_initialize_zero
     inx
     cpx #FS_AREA+FS_BYTES
     bne fc_initialize_zero
-    clra
+    ldaa #19
+    int $e1
     jmp fc_return
 fc_kernel_handle
     cmpa #28

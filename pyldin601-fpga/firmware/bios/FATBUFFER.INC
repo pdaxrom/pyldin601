@@ -120,7 +120,9 @@ fc_idle_flushed
     ldx $07
     ldx FH_HEADER,x
     tst 13,x
-    bne fc_idle_ok
+    beq fc_idle_active
+    jmp fc_idle_ok
+fc_idle_active
     ldx $07
     clr FH_TMP+5,x
 fc_idle_buffer
@@ -169,7 +171,9 @@ fc_idle_high
 fc_idle_mapped
     jsr fc_io_pointer
     ldaa #2
+    inc FS_WRITE_CONTEXT
     int $ea
+    dec FS_WRITE_CONTEXT
     tsta
     bne fc_idle_return
     jsr fc_idle_pointer
@@ -271,7 +275,9 @@ fc_directory_allocate
 fc_directory_buffer
     ldx #FS_AREA+FS_FILE_IO
     ldaa #2
+    inc FS_WRITE_CONTEXT
     int $ea
+    dec FS_WRITE_CONTEXT
     tsta
     beq fc_directory_written
     jmp fc_return

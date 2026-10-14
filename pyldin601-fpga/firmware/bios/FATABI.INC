@@ -42,7 +42,21 @@ FS_FILE_OWNER equ FS_FILE_FLAG+1
 FS_FILE_TARGET equ FS_FILE_FLAG+2
 FS_FILE_IO equ FS_FILE_FLAG+3
 FS_FILE_END equ FS_FILE_IO+7
-FS_BYTES equ FS_FILE_END
+; Eight BE16 free-cluster counts. FFFF means unknown (never a valid count).
+; The remaining 16 bytes are shared, non-reentrant filesystem workspace.
+FS_FREE_COUNTS equ FS_FILE_END
+FS_FREE_BASE equ FS_AREA+FS_FREE_COUNTS
+FS_FREE_LEFT equ FS_FREE_BASE+16
+FS_FREE_SUM equ FS_FREE_LEFT+2
+FS_FREE_OFFSET equ FS_FREE_LEFT+4
+FS_FREE_DESC equ FS_FREE_LEFT+6
+FS_FREE_NEW equ FS_FREE_LEFT+8
+FS_FREE_CURSOR equ FS_FREE_LEFT+10
+FS_WRITE_CONTEXT equ FS_FREE_LEFT+12
+; FS_FREE_LEFT+13 is reserved.
+FS_FREE_ACTION equ FS_FREE_LEFT+14
+FS_FREE_HIGH equ FS_FREE_LEFT+15
+FS_BYTES equ FS_FREE_COUNTS+32
 ; Reclaimed second file-data buffer: five permanent 93-byte SD headers.
 FS_HEADER_POOL equ $e205
 FS_HEADER_SIZE equ 93

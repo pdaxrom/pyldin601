@@ -168,6 +168,8 @@ fs_control_flush
     int $e9
     bra fs_control_result
 fs_control_remove
+    ldaa #15
+    int $e1
     ldaa #18
     int $e9
     clr FH_FLAGS,x

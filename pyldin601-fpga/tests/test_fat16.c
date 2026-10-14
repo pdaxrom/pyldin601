@@ -112,7 +112,10 @@ static void wide_fat12(void){
  require(!resets&&!fdc_port_accesses,"wide FAT12 makes no reset/FDC access");
  printf("PASS wide FAT12: BPB32, reserved=65535, SPF=512, SPC128, high sectors, split entries, write/truncate/rename/delete/mkdir/free-space\n");
 }
-int main(int argc,char**argv){
+#ifndef FAT16_MAIN
+#define FAT16_MAIN main
+#endif
+int FAT16_MAIN(int argc,char**argv){
  if(argc!=5&&argc!=6)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");sdsc=!strcmp(argv[4],"sdsc");
  MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  const char*rom_directory=getenv("FAT_TEST_ROMS");char rom_path[256];

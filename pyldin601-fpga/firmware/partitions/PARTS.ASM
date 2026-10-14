@@ -44,6 +44,12 @@ initialize
     clr PF
     rts
 dispatch
+    cmpa #14
+    bcs dispatch_files
+    cmpa #20
+    bcc dispatch_files
+    jmp space_dispatch
+dispatch_files
     cmpa #11
     bcs dispatch_native
     cmpa #13
@@ -713,6 +719,7 @@ find_ok
     include REFRESH.INC
     include BOOT.INC
     include FILECACHE.INC
+    include FATFREE.INC
 parts_end
     checksum
     ds $e000-*,$ff

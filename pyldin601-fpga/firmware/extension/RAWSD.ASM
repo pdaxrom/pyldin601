@@ -5,6 +5,41 @@
 ; X/B/page/SP are preserved by BIOS SWI. Caller interrupt mask is honored.
 CAPACITY equ $bf9c
 rawsd
+    jmp rawsd_prepare
+rawsd_external
+    ; A nested FAT flush can overwrite PARTS' shared physical descriptor.
+    ; Keep the caller's six bytes on the stack, without writing to its buffer.
+    ldx $07
+    ldab #6
+rawsd_copy_end
+    inx
+    decb
+    bne rawsd_copy_end
+    ldab #6
+rawsd_copy_back
+    dex
+    ldaa 0,x
+    psha
+    decb
+    bne rawsd_copy_back
+    ldaa #18
+    int $e1
+    tsta
+    beq rawsd_external_ready
+    staa SWIA
+    ldab #6
+rawsd_discard
+    ins
+    decb
+    bne rawsd_discard
+    rts
+rawsd_external_ready
+    tsx
+    stx PARAM
+    ldaa #$82
+    staa OP
+    jmp raw_rw
+rawsd_prepare
     stx PARAM
     staa OP
     tsta
@@ -27,7 +62,7 @@ raw_capacity_ok
     staa 2,x
     ldaa CAPACITY+3
     staa 3,x
-    bra raw_finish
+    jmp raw_finish
 raw_rw
     ldx PARAM
     ldaa 2,x
@@ -40,6 +75,14 @@ raw_rw
     staa LBA+3
     ldx 0,x
     stx BUF
+    ldaa OP
+    bpl raw_parameters_ready
+    ldab #6
+rawsd_parameters_discard
+    ins
+    decb
+    bne rawsd_parameters_discard
+raw_parameters_ready
     ; End-exclusive capacity comparison, with all four address bytes.
     ldaa LBA
     suba CAPACITY
@@ -49,7 +92,9 @@ raw_rw
     sbca CAPACITY+2
     ldaa LBA+3
     sbca CAPACITY+3
-    bcc raw_bad
+    bcs raw_sector_range
+    jmp raw_bad
+raw_sector_range
     ldaa BUF
     cmpa #1
     bcs raw_bad
@@ -70,6 +115,17 @@ raw_buffer_edge
     tst BUF+1
     bne raw_bad
 raw_buffer_ok
+    ; Validate the request before a preflush can write any dirty FAT.
+    ; Bit 7 survives the second parameter load, preventing another preflush.
+    ldaa OP
+    cmpa #2
+    bne raw_internal_ready
+    tst FS_WRITE_CONTEXT
+    bne raw_internal_ready
+    jmp rawsd_external
+raw_internal_ready
+    anda #$7f
+    staa OP
     ldaa $04
     bita #$10
     bne raw_masked
@@ -93,6 +149,10 @@ raw_finish
     jsr indicator
     ldaa STATUS
     beq raw_return
+    psha
+    ldaa #19
+    int $e1
+    pula
     cmpa #4
     beq raw_return
     cmpa #$10
