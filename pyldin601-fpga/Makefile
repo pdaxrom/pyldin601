@@ -137,6 +137,13 @@ memory-test: | $(BUILD)
 	$(MAKE) -f firmware/Makefile memory UNIAS="$(UNIAS)" CC="$(CC)"
 test-memory-app: fixtures memory-test
 	$(PYTHON) tests/run_memory_app.py --cc "$(CC)"
+.PHONY: nc-apps test-nc
+test: test-nc
+nc-apps: | $(BUILD)
+	$(MAKE) -f firmware/Makefile nc UNIAS="$(UNIAS)" CC="$(CC)"
+test-nc: fixtures nc-apps
+	$(PYTHON) tests/run_nc.py --cc "$(CC)"
+	$(PYTHON) tests/render_nc.py
 .PHONY: test-ram-manager
 test-ram-manager: fixtures memory-test
 	$(PYTHON) tests/run_ram_manager.py --unias "$(UNIAS)" --cc "$(CC)"

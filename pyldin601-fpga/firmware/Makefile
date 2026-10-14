@@ -9,8 +9,8 @@ UNIAS_PATH := $(if $(filter /%,$(UNIAS)),$(UNIAS),$(shell command -v "$(UNIAS)")
 RUN := $(abspath tools/run-unias.sh)
 DATA := $(abspath $(BUILD)/firmware-data)
 
-.PHONY: firmware roms bootstrap tables storage game audio gfx hg memory extension sram all
-all: firmware game audio gfx hg memory
+.PHONY: firmware roms bootstrap tables storage game audio gfx hg memory extension sram all nc
+all: firmware game audio gfx hg memory nc
 firmware: roms bootstrap tables storage
 $(BUILD)/firmware-data: tools/firmware_data.c
 	mkdir -p $(BUILD)
@@ -139,3 +139,13 @@ sram: $(BUILD)/firmware-data
 	cd $(BUILD)/sram-diagnostic && sh $(RUN) sram.log "$(UNIAS_PATH)" -l sram.LST -o sram.bin sram_test.asm
 	cp $(BUILD)/sram-diagnostic/sram.bin $(BUILD)/sram-test.bin
 	$(DATA) mem $(BUILD)/sram-test.bin $(BUILD)/sram-test.mem
+
+nc: $(BUILD)/firmware-data
+	mkdir -p $(BUILD)/nc
+	cp firmware/nc/* $(BUILD)/nc/
+	@set -e; for app in NC NCMAIN; do \
+	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
+	$(DATA) pgm $(BUILD)/nc/$$app.raw.PGM $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.json auto; \
+	$(DATA) labels $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.h $$app; done
+	$(DATA) index $(BUILD)/nc/manifest.json $(BUILD)/nc/NC.json $(BUILD)/nc/NCMAIN.json
+	rm -f $(BUILD)/nc/*.raw.PGM

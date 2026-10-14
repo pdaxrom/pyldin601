@@ -21,6 +21,17 @@ make fixtures UNIAS=/path/to/hd6303-toolchain/unias
 Отдельные цели: `make firmware`, `game-apps`, `audio-apps`, `gfx-apps`,
 `storage-apps`, `hg-apps` с тем же UNIAS. Память: отдельная цель
 `make -f firmware/Makefile memory UNIAS=/path/to/unias`.
+Файловый менеджер: `make nc-apps UNIAS=/path/to/unias`; `NC.PGM` и
+`NCMAIN.PGM` из `build/nc` должны находиться в одном каталоге.
+Запуск — `B:NC`, возврат из вложенного shell — `EXIT`.
+F9 открывает верхнее меню, F2 — меню команд. Настройки находятся в
+Options → Settings; Apply/Enter применяет изменения, Cancel/Esc отменяет.
+Под списком — две строки: имя/атрибуты и дата/время изменения/размер.
+Переходы скользящего кэша сохраняют соседние строки при прокрутке стрелками.
+RAMMAN хранит каталоги непосредственно в одном арендованном банке; без
+службы или свободного банка используется обычная ОЗУ. [Клавиши, работа с каталогами и ограничения](../firmware/nc/NCHOW.TXT).
+`make test-nc` также создаёт готовый `build/nc/sd-nc.img` с NC на B:,
+сохраняя остальные файлы и разделы исходного `images/sd.img`.
 Для JPEG/PNG конвертера `make ham8conv`; зависимости libjpeg/libpng
 описаны в [IMAGES.md](IMAGES.md). Полный маленький исходник и проверенная
 команда PGM-сборки находятся в [PROGRAMMING.md](PROGRAMMING.md#сборка-примера).
@@ -44,6 +55,7 @@ make fixtures UNIAS=/path/to/hd6303-toolchain/unias
 | GAMEBIOS/игры | test-gamebios, test-gamebios-rtl, test-xonix |
 | HG/форматы/инструменты | test-hg, test-python |
 | Сжатая оболочка | test-shell |
+| Commander: резидент/панели, меню/диалоги/настройки/прогресс, файловые команды, видеорежимы, RAMMAN/fallback | test-nc |
 | Дисковый сектор/разные оболочки/ROM fallback, cold/warm Reset | test-shell-boot |
 | Независимость ROM, отсутствие служб, перенос страниц | test-rom-modules |
 

@@ -1,0 +1,125 @@
+PYLDIN COMMANDER - FIRST VERSION
+
+Keep NC.PGM and NCMAIN.PGM in the same directory. Start NC, for example:
+    B:NC
+
+NC uses the current native BIOS video mode. Supported: 40/80-column text,
+601 monochrome graphics (40 columns), 601A four-colour graphics (40), and
+601A monochrome graphics (80). Narrow 10/20-column modes are rejected.
+40-column colour text and four-colour graphics use an NC-style blue/cyan
+palette; monochrome modes use a visible cursor marker. The original mode
+and palette are restored around external commands and on final exit.
+Frames use the native ROM box-drawing glyphs, including CF and D3 (the
+Pyldin Cyrillic encoding differs from PC character sets).
+Each panel has column headings and two selected-file information lines:
+name with RHSA attributes (read-only, hidden, system, archive; '-' is clear),
+then modification date, time and size. In 40 columns: DD.MM HH:MM and exact
+bytes when they fit; large values use truncated KiB/MiB with K/M suffixes.
+In 80 columns: DD.MM.YYYY HH:MM and the exact unsigned 32-bit byte count.
+UniDOS does not maintain a separate creation timestamp for its own files.
+Free space remains in the bottom frame. The 80-column file list also has
+size/date columns. Text uses 26 NC rows, immediately followed by the BIOS
+clock; graphics retains 25 rows and displays 16 file rows instead of 17.
+The command prompt and function keys sit directly below the panels.
+
+KEYS
+    Tab                 Switch panels
+    Arrows              Move selection
+    Home / End          First / last entry in the current catalogue window
+    PgUp / PgDn         Scroll; crossing a window boundary reads more entries
+    Insert              Mark / unmark and advance
+    Enter               Enter directory, run file, or execute command line
+    Backspace           Parent directory; edit when the command line is used
+    Ctrl+D              Choose the active panel's drive, A through H
+    Ctrl+R              Reread both directories
+    Ctrl+O              Unload panels and enter the real UniDOS shell
+    EXIT in shell       Reload panels
+    Esc / Ctrl+C        Clear command line or cancel a dialog/copy/view
+
+    F1                  Brief help
+    F2                  Open the Command menu
+    F3                  Streaming text viewer: PgUp/PgDn, Space, Home, Esc
+    F4                  Editor reserved for the next stage
+    F5                  Copy selected file/directory or marked group
+    F6                  Move / rename selected file/directory or marked group
+    F7                  Create directory
+    F8                  Delete selected file/directory or marked group
+    F9                  Open the top menu bar
+    F10                 Exit panels and supervisor, release all NC memory
+
+TOP MENUS AND WINDOWS
+The top bar contains Left, File, Command, Options and Right. In a menu use
+Left/Right to change groups, Up/Down or Tab to select, Enter to execute,
+or the displayed item number. Esc/Ctrl+C closes the menu. Left/Right menus
+choose a drive or reread the corresponding panel. Options opens Settings.
+
+Settings has four sort radio buttons (n/e/s/d: name/extension/size/date)
+and a hidden-file checkbox (h). Up/Down/Tab moves focus; Space selects or
+toggles. Enter or Apply commits all staged changes. Cancel/Esc discards
+them. Settings survive external programs and EXIT from the nested shell
+for the current NC session.
+
+Input dialogs support insertion, Left/Right, Home/End, Backspace, Delete
+and horizontal scrolling. Tab moves between input, OK and Cancel. Enter
+accepts input or activates the focused button; Esc/Ctrl+C cancels.
+Confirmation windows start on No: Y/N answers directly, Left/Right/Tab
+changes the selected button, Enter activates it. Help/errors use an OK
+window, closed with Enter/Esc/Ctrl+C.
+
+F5/F6 ask for a destination directory or filename. Default: other panel.
+Directories are copied/deleted recursively. Copy uses a temporary in the destination
+directory and retains the previous destination under a backup name until
+the completed file has been published. The progress window shows source,
+destination and actual bytes written / file size with a 32-bit progress
+bar. Directory traversal and deletion show activity and completed objects,
+without an estimated total. Esc/Ctrl+C aborts before the next 512-byte block.
+Same-volume file moves use UniDOS RENAME; cross-volume moves copy first.
+
+MEMORY AND LIMITS
+Only the small NC.PGM supervisor remains during EXEC or the nested shell.
+NCMAIN terminates, closes its handles and releases its optional RAM bank.
+Return reloads NCMAIN from its original absolute pathname, rereads both
+directories, and restores paths, catalogue windows, cursors and active panel.
+
+RAMMAN is optional. NC checks the vector and allocation result. One leased
+8K bank holds two directly accessed catalogues of up to 159 files each.
+Without RAMMAN or free banks, the same functions use a shared ordinary-RAM
+cache and reread the
+other catalogue when needed. No physical bank number is assumed free.
+
+Within a cached window, cursor movement and marking perform no disk reads,
+catalogue scans or RAMMAN cache transfers. Selection updates the markers,
+colours/pixels and two information lines. Graphics scrolling shifts existing
+panel pixels and draws the newly exposed row.
+Text scrolling rebuilds just the active panel: native text VRAM lies under
+the BIOS ROM read overlay. RAMMAN panel switches need no catalogue copies.
+
+The ordinary-RAM fallback holds 45 files; the RAMMAN cache holds 159 per
+panel. Larger directories use overlapping sorted windows. At a boundary,
+arrows still select the adjacent file and scroll exactly one row, preserving
+the visible neighbours. The '..' parent appears only at the directory start.
+Catalogue insertion uses binary search. Refills still enumerate the directory
+through UniDOS; their delay depends on directory size and storage speed.
+Unmark the current window before crossing a catalogue boundary.
+Marked groups are local to that window and
+are cleared after operations, sorting, reread, or an external command.
+Paths are limited to 63 bytes by the DOS interface; recursion to 24 levels.
+The viewer streams files using 32-bit offsets, retaining 64 previous screen
+positions. Home always returns to the start, even after a longer file.
+F2 does not yet load a configurable user-menu file. No built-in editor yet.
+
+BUILD AND TEST (from pyldin601-fpga)
+    make nc-apps UNIAS=/path/to/unias
+    make test-nc UNIAS=/path/to/unias
+
+Outputs: build/nc/NC.PGM, NCMAIN.PGM, NCHOW.TXT, listings and manifests.
+test-nc also builds build/nc/sd-nc.img with NC installed on B: while
+preserving the other files and partitions of images/sd.img. Boot this
+image and enter B:NC. The original images/sd.img is not modified.
+Tests use disposable SD images and actual BIOS/UniDOS/relocatable PGM files
+in the project's CPU reference harness. They do not write a physical card.
+Framebuffer PNGs include the panels, menus, dialogs, confirmations,
+settings and in-progress copying. These are digital references, not
+composite PAL simulations.
+Navigation tests count CPU cycles and disk/cache accesses, and compare
+incremental screen output with a complete render byte-for-byte.
