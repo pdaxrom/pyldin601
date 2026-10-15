@@ -90,6 +90,31 @@ UNICC/UNIAS/UNILD/UNIAR, целевой SYSTEM.H и C-примеры. Для к�
 SECTION для BSS: UniAS сразу выдаёт окончательный PGM без обработки на хосте.
 Результаты и `comparison.json` находятся в `build/cvm/native-assembly`.
 
+## Самокомпиляция UniCC под UniDOS
+
+`make test-unicc-selfhost CVM_TOOLCHAIN=/path/to/hd6303-toolchain` проверяет
+два поколения компилятора на 601/601А × MC6800/HD6303, с резидентным HG,
+`HANDLES 16` и выбранной ROM VM в RAMMAN. Исходник `SMALL-C/SMALLC.C`
+передаётся без изменений. В текущем каталоге должен быть FPGA-вариант
+`SYSTEM.H`; команды выполняются отдельно из основной оболочки UniDOS:
+
+```text
+UNICC -o UC1.ASM SMALLC.C
+UNIAS -o UC1.CMD UC1.ASM
+UC1.CMD -o UC2.ASM SMALLC.C
+UNIAS -o UC2.CMD UC2.ASM
+```
+
+Стенд требует побайтного равенства обоих ASM хостовому результату и обоих
+CMD исходному `UNICC.CMD`. Затем UC2 компилирует CVMTEST и три C-модуля;
+UniAS/UniLD собирают их, UniDOS запускает полученные CMD и PGM. Проверяются
+вывод `CVM TEST PASS` / `C MODULE PASS`, возврат SP и нулевой страницы,
+сохранность VM и отсутствие расширенных opcode в режиме MC6800.
+Исходники, файлы каждого поколения, журналы и `comparison.json` находятся
+в `build/cvm/selfhost`. Для выбора одного короткого запуска или параллельных
+конфигураций можно вызвать `tests/run_native_selfhost.py` с `--quick` или
+`--jobs 2`, передав тот же `--toolchain`.
+
 Перед большой нативной сборкой с вложенными include и листингом выполнить
 `HANDLES 16`, затем `RAMLOAD /CVM`: стандартных 10 дескрипторов недостаточно
 для второго прохода XONIX с одновременно открытыми входами, листингом,

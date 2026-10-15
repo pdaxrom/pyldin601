@@ -151,7 +151,7 @@ test-nc-editor: fixtures nc-apps
 	$(PYTHON) tests/render_nc.py
 .PHONY: test-ram-manager
 .PHONY: ramloader-apps test-ramloader
-.PHONY: cvm-apps test-cvm test-native-assembly test-native-firmware test-c-modules test-object-tools test-hg-object-tools
+.PHONY: cvm-apps test-cvm test-native-assembly test-native-firmware test-c-modules test-unicc-selfhost test-object-tools test-hg-object-tools
 test: test-cvm
 cvm-apps: ramloader-apps
 	$(PYTHON) tools/build_cvm.py --toolchain "$(CVM_TOOLCHAIN)"
@@ -167,6 +167,9 @@ test-native-firmware: fixtures cvm-apps hg-apps nc-apps ramloader-apps
 	$(PYTHON) tests/run_native_firmware.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test-c-modules: fixtures cvm-apps hg-apps
 	$(PYTHON) tests/run_c_modules.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+
+test-unicc-selfhost: fixtures cvm-apps hg-apps
+	$(PYTHON) tests/run_native_selfhost.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 
 test: test-ramloader
 ramloader-apps: | $(BUILD)
