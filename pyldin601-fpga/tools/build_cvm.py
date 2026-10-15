@@ -15,13 +15,15 @@ out = ROOT/'build/cvm'
 out.mkdir(parents=True, exist_ok=True)
 with (out/'toolchain-build.log').open('wb') as log:
     subprocess.run(['make', 'pyldin'], cwd=tc, stdout=log, stderr=subprocess.STDOUT, check=True)
-names = ['ZVM6303.ROM', 'ZVM6800.ROM', 'UNIAS.CMD', 'UNICC.CMD', 'UNILD.CMD', 'UNIAR.CMD', 'SYSTEM.H']
+names = ['ZVM6303.ROM', 'ZVM6800.ROM', 'UNIAS.CMD', 'UNICC.CMD', 'UNILD.CMD', 'UNIAR.CMD', 'SYSTEM.H',
+         'CVMDEF.INC', 'CVMABI.INC', 'CSTART.OBJ', 'CRT.LIB']
 for name in names:
     shutil.copyfile(tc/'pyldin'/name, out/name)
 for source in (ROOT/'firmware/cvm').iterdir():
     shutil.copyfile(source, out/source.name)
     names.append(source.name)
-for name in ('UNILD.C','UNIAR.C','TOOLIO.C'):
+for name in ('UNILD.C','UNIAR.C','TOOLIO.C','CVMOBJ.TXT',
+             'CSTART.ASM','CEND.ASM','CVCALL.ASM'):
     shutil.copyfile(tc/name, out/name)
     names.append(name)
 for name in ('HELLO', 'CVMTEST', 'NATIVE'):

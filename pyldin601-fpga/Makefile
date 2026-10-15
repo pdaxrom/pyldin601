@@ -151,7 +151,7 @@ test-nc-editor: fixtures nc-apps
 	$(PYTHON) tests/render_nc.py
 .PHONY: test-ram-manager
 .PHONY: ramloader-apps test-ramloader
-.PHONY: cvm-apps test-cvm test-native-assembly test-native-firmware test-object-tools test-hg-object-tools
+.PHONY: cvm-apps test-cvm test-native-assembly test-native-firmware test-c-modules test-object-tools test-hg-object-tools
 test: test-cvm
 cvm-apps: ramloader-apps
 	$(PYTHON) tools/build_cvm.py --toolchain "$(CVM_TOOLCHAIN)"
@@ -165,6 +165,9 @@ test-native-assembly: fixtures cvm-apps
 	$(PYTHON) tests/run_native_assembly.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test-native-firmware: fixtures cvm-apps hg-apps nc-apps ramloader-apps
 	$(PYTHON) tests/run_native_firmware.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+test-c-modules: fixtures cvm-apps hg-apps
+	$(PYTHON) tests/run_c_modules.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+
 test: test-ramloader
 ramloader-apps: | $(BUILD)
 	$(MAKE) -f firmware/Makefile ramloader UNIAS="$(UNIAS)" CC="$(CC)"
@@ -207,6 +210,10 @@ test-cpu: | $(BUILD)
 	$(CC) -O2 -I$(EMUSRC) tests/test_cpu_reference.c -o $(BUILD)/cpu_reference
 	$(BUILD)/cpu_reference $(BUILD)/cpu.bin $(BUILD)/cpu.expected.mem
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -a rtl/cpu6800.vhd tests/tb_cpu.vhd -e tb_cpu -r tb_cpu
+.PHONY: test-cpx
+test-cpx: | $(BUILD)
+	$(CC) -O2 -I$(EMUSRC) tests/test_cpu_reference.c -o $(BUILD)/cpx_reference
+	$(PYTHON) tests/run_cpx.py --nvc "$(NVC)" --reference $(BUILD)/cpx_reference
 fixtures: firmware
 	$(MAKE) -f firmware/Makefile extension UNIAS="$(UNIAS)" CC="$(CC)"
 	cp ../native-src/BIOS_A.ROM $(BUILD)/partitions/BIOS_A-BASE.ROM
@@ -302,7 +309,7 @@ diamond: firmware
 	LD_PRELOAD="$(DIAMOND_LIBSTDCPP)" "$(DIAMOND_HOME)/bin/lin64/diamondc" build-diamond.tcl
 
 .PHONY: test-hd6303
-test-hd6303: test-cpu test-hd6303-edges
+test-hd6303: test-cpu test-cpx test-hd6303-edges
 	$(BUILD)/cpu_reference $(BUILD)/cpu.bin $(BUILD)/classic-hd.expected.mem hd6303
 	cp $(BUILD)/cpu.mem $(BUILD)/classic-hd.mem
 	$(NVC) --std=2008 --work=work:$(BUILD)/cpu-test --ieee-warnings=off -e -gPREFIX=classic-hd -gHD=true tb_cpu -r tb_cpu

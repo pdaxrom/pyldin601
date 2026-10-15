@@ -25,7 +25,11 @@ static unsigned vm_group,vm_page;
 static unsigned stack_min;
 static uint64_t progress_at;
 static unsigned char hd_opcode[256];
+static unsigned vm_return_pc,vm_return_status;
 static void observe_assembly(void){
+ if(vm_return_pc && PC==vm_return_pc){vm_return_status=A;vm_return_pc=0;}
+ if(PC<0xbe00&&MC6800MemReadByte(PC)==0x3f&&MC6800MemReadByte(PC+1)==0xef&&A==1)
+  vm_return_pc=PC+2;
  if(ram_group==vm_group&&page==vm_page&&PC>=0xc000&&PC<0xe000&&SP<stack_min)stack_min=SP;
  if(!cpu_hd&&ram_group==vm_group&&page==vm_page&&PC>=0xc000&&PC<0xe000)
   require(!hd_opcode[MC6800MemReadByte(PC)],"MC6800 VM uses only classic CPU instructions");
@@ -88,13 +92,17 @@ int main(int argc,char**argv){
  while(fgets(line,sizeof line,commands)){
   line[strcspn(line,"\r\n")]=0;if(!line[0])continue;
   char *expected=strchr(line,'\t');if(expected)*expected++=0;
+  int expect_failure=line[0]=='!';
+  if(expect_failure)memmove(line,line+1,strlen(line));
+  vm_return_status=256;vm_return_pc=0;
   printf("Command: %s\n",line);fflush(stdout);
   memcpy(dp,MC6800GetCpuRam()+0xe0,32);
   stack_min=SP;
   uint64_t started=virtual_cycles;command(line);dump();
-  require(!contains("Error:")&&!contains("Insufficient memory")&&!contains("Too many simultaneous")&&!contains("unias: Cannot"),"native command completed");
+  if(expect_failure)require(vm_return_status==1,"native compiler returns failure through VM");
+  else require(!contains("Error:")&&!contains("Insufficient memory")&&!contains("Too many simultaneous")&&!contains("unias: Cannot"),"native command completed");
   if(expected)require(contains(expected),"expected command output");
-  if(!strncmp(line,"unicc ",6))require(contains("There were 0 errors"),"native compilation has no errors");
+  if(!expect_failure&&!strncmp(line,"unicc ",6))require(contains("There were 0 errors"),"native compilation has no errors");
   require(SP==sp,"tool restores DOS stack");
   if(strncmp(line,"ulink ",6))require(!memcmp(dp,MC6800GetCpuRam()+0xe0,32),"VM tool restores direct page");
 #ifdef NATIVE_TOOLS_HG

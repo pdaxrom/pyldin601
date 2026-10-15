@@ -45,6 +45,34 @@ static void arithmetic(void){
  }
  printf("PASS %u independent arithmetic cases\n",count);
 }
+static void function_calls(void){
+ unsigned char*r=MC6800GetCpuRam(),dp[32];memcpy(dp,r+0xe0,32);
+ unsigned sp=SP;const unsigned desc=0x3600,args=0x3700;
+ const unsigned char add[]={2,0,4,8,20,2,0,4,8,38,32};
+ memcpy(r+0x4000,add,sizeof add);
+ word_at(desc,0x4000);word_at(desc+2,4);word_at(desc+4,args);
+ word_at(args,0xff85);word_at(args+2,23);
+ require(invoke(0xef,2,0,desc)==0&&vm_word(desc+6)==0xff9c&&vm_word(desc+8)==0,"native function entry copies arguments in source order");
+ const unsigned badptr[]={0,0xfff8,0xbdf7};
+ for(unsigned k=0;k<3;k++)require(invoke(0xef,2,0,badptr[k])==3,"reject descriptor outside application RAM");
+ word_at(desc+2,1);require(invoke(0xef,2,0,desc)==255&&vm_word(desc+8)==255,"reject odd argument byte count");
+ word_at(desc+2,66);require(invoke(0xef,2,0,desc)==255,"reject oversized argument list");
+ word_at(desc+2,2);word_at(desc+4,0xffff);require(invoke(0xef,2,0,desc)==255,"reject argument address wrap");
+ word_at(desc,0);word_at(desc+2,0);require(invoke(0xef,2,0,desc)==255,"reject invalid function address");
+ word_at(desc,0x4000);word_at(desc+2,64);word_at(desc+4,args);r[0x4000]=32;
+ require(invoke(0xef,2,0,desc)==0&&vm_word(desc+6)==64,"function entry primary register is argument byte count");
+ word_at(desc+2,0);word_at(desc+4,0xffff);
+ require(invoke(0xef,2,0,desc)==0&&vm_word(desc+6)==0,"zero-argument call synthesizes no argc/argv");
+ const unsigned char exiting[]={0,0,7,20,0,0,2,28,0xc1,0x5c};
+ memcpy(r+0x4000,exiting,sizeof exiting);
+ require(invoke(0xef,2,0,desc)==7&&vm_word(desc+8)==7,"function exit returns to native caller");
+ const unsigned char loop[]={24,0x40,0};memcpy(r+0x4000,loop,sizeof loop);break_pending=1;
+ require(invoke(0xef,2,0,desc)==255&&!break_pending&&vm_word(desc+8)==255,"BREAK unwinds arbitrary-function entry");
+ r[0x4000]=255;require(invoke(0xef,2,0,desc)==255,"invalid function bytecode unwinds cleanly");
+ require(SP==sp&&!memcmp(dp,r+0xe0,32),"function entries restore caller stack and direct page");
+ puts("PASS native function ABI: argument order/limits, result, errors, exit, BREAK and context");
+}
+
 int main(int argc,char**argv){
  if(argc!=5)return 2;
  model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");
@@ -67,6 +95,7 @@ int main(int argc,char**argv){
  command("b:cvmtest");require(contains("CVM TEST PASS")&&!contains("CVM TEST FAIL"),"shared Small-C arithmetic, recursion, strings and file regression");
  command("b:native");require(contains("CVM SYSTEM PASS")&&contains("error $55"),"system PGM returns and cannot unload its active VM");
  arithmetic();
+ function_calls();
  // Parent bytecode calls a classic native inline routine which invokes a
  // second VM. Both interpreters must retain separate stacks/direct pages.
  const unsigned char parent[]={28,0x40,0x10,12,0x55,2,86,0x3f,0x38};

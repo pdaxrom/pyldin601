@@ -219,7 +219,10 @@ static INLINE void Bcpx(word a, word b)
 	else
 	    v = 0;
     } else {
-	int ans = (((a >> 8) - (b >> 8)) << 8) | ((a - b) & 255);
+	/* Independent byte comparisons: no borrow enters the high byte.
+	 * Mask before shifting so a negative difference is never shifted. */
+	unsigned high = ((a >> 8) - (b >> 8)) & 255;
+	word ans = (high << 8) | ((a - b) & 255);
 
 	TestWord(ans);
 

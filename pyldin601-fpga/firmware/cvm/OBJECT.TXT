@@ -47,3 +47,11 @@ NC object build: see NCSRC\NCBUILD.TXT and NCMAIN.LNK / NCEDIT.LNK.
 UniLD -m FILE.MAP writes a link map without modifying PGM output.
 UniLD -b -o NCEDIT.PGM NCELOAD.PGM NCECORE.PGM joins two standard PGMs.
 Use -b before input files. These options work on host and native UniDOS.
+
+Small-C modules: UNICC -c -o PART.ASM PART.C, then UNIAS -c.
+Keep CVMDEF.INC in the current directory. CSTART.OBJ goes first,
+CRT.LIB last: UNILD -o APP.PGM CSTART.OBJ MAIN.OBJ HELP.OBJ CRT.LIB
+File static names are private; extern symbols link across OBJ/LIB.
+CVMOBJ.TXT documents VM/native calls and the INT EF A=2 descriptor.
+COBJ\BUILD.TXT lists tested native build commands and examples.
+Reload ZCODEVM after updating both ROMs to enable native C callbacks.
