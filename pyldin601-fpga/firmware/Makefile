@@ -1,6 +1,7 @@
 # Run from the project root: make -f firmware/Makefile firmware UNIAS=/path/to/unias
 # Every instruction is assembled from checked-in firmware by UniAS.
-UNIAS ?= unias
+CVM_TOOLCHAIN ?= $(abspath ../../../FPGA/hd6303-toolchain)
+UNIAS ?= $(CVM_TOOLCHAIN)/unias
 FAT_RAMMAN ?= 0
 FAT_FLAGS := $(if $(filter 1,$(FAT_RAMMAN)),-D FAT_RAMMAN,)
 UNILD ?= $(dir $(UNIAS_PATH))unild
@@ -68,67 +69,60 @@ tables: $(BUILD)/firmware-data
 storage: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/storage
 	cp firmware/storage/* $(BUILD)/storage/
-	cd $(BUILD)/storage && sh $(RUN) MOUNT.PGM.log "$(UNIAS_PATH)" -l MOUNT.PGM.LST -o MOUNT.raw.PGM MOUNT.ASM
-	cd $(BUILD)/storage && sh $(RUN) FORMAT.PGM.log "$(UNIAS_PATH)" -D FORMAT_TOOL -l FORMAT.PGM.LST -o FORMAT.raw.PGM MOUNT.ASM
-	cd $(BUILD)/storage && sh $(RUN) UMOUNT.PGM.log "$(UNIAS_PATH)" -l UMOUNT.PGM.LST -o UMOUNT.raw.PGM UMOUNT.ASM
-	cd $(BUILD)/storage && sh $(RUN) FDISK.PGM.log "$(UNIAS_PATH)" -l FDISK.PGM.LST -o FDISK.raw.PGM FDISK.ASM
-	@set -e; for app in MOUNT FORMAT UMOUNT FDISK; do $(DATA) pgm $(BUILD)/storage/$$app.raw.PGM $(BUILD)/storage/$$app.PGM $(BUILD)/storage/$$app.PGM.LST $(BUILD)/storage/$$app.json 0; done
+	cd $(BUILD)/storage && sh $(RUN) MOUNT.PGM.log "$(UNIAS_PATH)" -l MOUNT.PGM.LST -o MOUNT.PGM MOUNT.ASM
+	cd $(BUILD)/storage && sh $(RUN) FORMAT.PGM.log "$(UNIAS_PATH)" -D FORMAT_TOOL -l FORMAT.PGM.LST -o FORMAT.PGM MOUNT.ASM
+	cd $(BUILD)/storage && sh $(RUN) UMOUNT.PGM.log "$(UNIAS_PATH)" -l UMOUNT.PGM.LST -o UMOUNT.PGM UMOUNT.ASM
+	cd $(BUILD)/storage && sh $(RUN) FDISK.PGM.log "$(UNIAS_PATH)" -l FDISK.PGM.LST -o FDISK.PGM FDISK.ASM
+	@set -e; for app in MOUNT FORMAT UMOUNT FDISK; do $(DATA) pgm-info $(BUILD)/storage/$$app.PGM $(BUILD)/storage/$$app.json; done
 	$(DATA) index $(BUILD)/storage/manifest.json $(addprefix $(BUILD)/storage/,MOUNT.json FORMAT.json UMOUNT.json FDISK.json)
-	rm -f $(BUILD)/storage/*.raw.PGM
 
 game: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/game
 	cp firmware/game/* $(BUILD)/game/
-	cd $(BUILD)/game && sh $(RUN) ARKANOID.PGM.log "$(UNIAS_PATH)" -D GAME_MUSIC -l ARKANOID.PGM.LST -o ARKANOID.raw.PGM ARKANOID.ASM
+	cd $(BUILD)/game && sh $(RUN) ARKANOID.PGM.log "$(UNIAS_PATH)" -D GAME_MUSIC -l ARKANOID.PGM.LST -o ARKANOID.PGM ARKANOID.ASM
 	cd $(BUILD)/game && sh $(RUN) XONIX.PGM.log "$(UNIAS_PATH)" -D GAME_MUSIC -l XONIX.PGM.LST -o XONIX.PGM XONIX.ASM
-	cd $(BUILD)/game && sh $(RUN) SDKTEST.PGM.log "$(UNIAS_PATH)" -l SDKTEST.PGM.LST -o SDKTEST.raw.PGM SDKTEST.ASM
-	@set -e; for app in ARKANOID SDKTEST; do $(DATA) pgm $(BUILD)/game/$$app.raw.PGM $(BUILD)/game/$$app.PGM $(BUILD)/game/$$app.PGM.LST $(BUILD)/game/$$app.json auto; done
-	$(DATA) pgm-info $(BUILD)/game/XONIX.PGM $(BUILD)/game/XONIX.json
+	cd $(BUILD)/game && sh $(RUN) SDKTEST.PGM.log "$(UNIAS_PATH)" -l SDKTEST.PGM.LST -o SDKTEST.PGM SDKTEST.ASM
+	$(DATA) pgm-info $(BUILD)/game/SDKTEST.PGM $(BUILD)/game/SDKTEST.json
+	@set -e; for app in ARKANOID XONIX; do $(DATA) pgm-info $(BUILD)/game/$$app.PGM $(BUILD)/game/$$app.json; done
 	$(DATA) labels $(BUILD)/game/ARKANOID.PGM.LST $(BUILD)/game/arkanoid_labels.h GAME
 	$(DATA) labels $(BUILD)/game/XONIX.PGM.LST $(BUILD)/game/xonix_labels.h XO
 	$(DATA) labels $(BUILD)/game/SDKTEST.PGM.LST $(BUILD)/game/sdktest_labels.h SDK
 	$(DATA) index $(BUILD)/game/manifest.json $(addprefix $(BUILD)/game/,ARKANOID.json SDKTEST.json XONIX.json)
-	rm -f $(BUILD)/game/*.raw.PGM
 
 audio: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/audio
 	cp firmware/audio/* firmware/gfx/DEMOGFX.INC firmware/gfx/PALCOEF.ASM firmware/gfx/GFXCLIP.ASM $(BUILD)/audio/
 	cd $(BUILD)/audio && sh $(RUN) DEMO.YM.log "$(UNIAS_PATH)" -l DEMO.YM.LST -o DEMO.YM DEMO.ASM
-	cd $(BUILD)/audio && sh $(RUN) YPLAY.PGM.log "$(UNIAS_PATH)" -l YPLAY.PGM.LST -o YPLAY.raw.PGM YPLAY.ASM
-	cd $(BUILD)/audio && sh $(RUN) GFXMUSIC.PGM.log "$(UNIAS_PATH)" -D GFXMUSIC_DEMO -l GFXMUSIC.PGM.LST -o GFXMUSIC.raw.PGM GFXMUSIC.ASM
-	$(DATA) pgm $(BUILD)/audio/YPLAY.raw.PGM $(BUILD)/audio/YPLAY.PGM $(BUILD)/audio/YPLAY.PGM.LST $(BUILD)/audio/manifest.json auto
-	$(DATA) pgm $(BUILD)/audio/GFXMUSIC.raw.PGM $(BUILD)/audio/GFXMUSIC.PGM $(BUILD)/audio/GFXMUSIC.PGM.LST $(BUILD)/audio/gfxmusic.json auto
+	cd $(BUILD)/audio && sh $(RUN) YPLAY.PGM.log "$(UNIAS_PATH)" -l YPLAY.PGM.LST -o YPLAY.PGM YPLAY.ASM
+	cd $(BUILD)/audio && sh $(RUN) GFXMUSIC.PGM.log "$(UNIAS_PATH)" -D GFXMUSIC_DEMO -l GFXMUSIC.PGM.LST -o GFXMUSIC.PGM GFXMUSIC.ASM
+	$(DATA) pgm-info $(BUILD)/audio/YPLAY.PGM $(BUILD)/audio/manifest.json
+	$(DATA) pgm-info $(BUILD)/audio/GFXMUSIC.PGM $(BUILD)/audio/gfxmusic.json
 	$(DATA) labels $(BUILD)/audio/YPLAY.PGM.LST $(BUILD)/audio/yplay_labels.h YP
 	$(DATA) labels $(BUILD)/audio/GFXMUSIC.PGM.LST $(BUILD)/audio/gfxmusic_labels.h YP
-	rm -f $(BUILD)/audio/*.raw.PGM
 
 gfx: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/gfx
 	cp firmware/gfx/* firmware/audio/AY.ASM firmware/audio/AYHOWTO.TXT $(BUILD)/gfx/
 	@set -e; for app in GFX VIEW SPRITES HAM CLIPSPR AY HVIEW; do \
-	(cd $(BUILD)/gfx && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
-	trim=0; case $$app in VIEW|HAM|HVIEW) trim=8192;; esac; \
-	$(DATA) pgm $(BUILD)/gfx/$$app.raw.PGM $(BUILD)/gfx/$$app.PGM $(BUILD)/gfx/$$app.LST $(BUILD)/gfx/$$app.json $$trim; done
-	rm -f $(BUILD)/gfx/*.raw.PGM
+	(cd $(BUILD)/gfx && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
+	$(DATA) pgm-info $(BUILD)/gfx/$$app.PGM $(BUILD)/gfx/$$app.json; done
 
 hg: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/hg
 	cp firmware/hg/* $(BUILD)/hg/
-	cd $(BUILD)/hg && sh $(RUN) HG.log "$(UNIAS_PATH)" -l HG.LST -o HG.raw.PGM HG.ASM
-	cd $(BUILD)/hg && sh $(RUN) HGTIME.log "$(UNIAS_PATH)" -D TIME_ONLY -l HGTIME.LST -o HGTIME.raw.PGM HG.ASM
-	@set -e; for app in HG HGTIME; do $(DATA) pgm $(BUILD)/hg/$$app.raw.PGM $(BUILD)/hg/$$app.PGM $(BUILD)/hg/$$app.LST $(BUILD)/hg/$$app.json 0; done
+	cd $(BUILD)/hg && sh $(RUN) HG.log "$(UNIAS_PATH)" -l HG.LST -o HG.PGM HG.ASM
+	cd $(BUILD)/hg && sh $(RUN) HGTIME.log "$(UNIAS_PATH)" -D TIME_ONLY -l HGTIME.LST -o HGTIME.PGM HG.ASM
+	@set -e; for app in HG HGTIME; do $(DATA) pgm-info $(BUILD)/hg/$$app.PGM $(BUILD)/hg/$$app.json; done
 	$(DATA) index $(BUILD)/hg/manifest.json $(BUILD)/hg/HG.json $(BUILD)/hg/HGTIME.json
-	rm -f $(BUILD)/hg/*.raw.PGM
 
 memory: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/memory-test
 	cp firmware/memory/RAMPAGE.ASM firmware/memory/RAMHOW.TXT $(BUILD)/memory-test/
-	cd $(BUILD)/memory-test && sh $(RUN) RAMPAGE.PGM.log "$(UNIAS_PATH)" -l RAMPAGE.PGM.LST -o RAMPAGE.raw.PGM RAMPAGE.ASM
-	cd $(BUILD)/memory-test && sh $(RUN) RAMALLOC.PGM.log "$(UNIAS_PATH)" -D ALLOCATED_TEST -l RAMALLOC.PGM.LST -o RAMALLOC.raw.PGM RAMPAGE.ASM
-	$(DATA) pgm $(BUILD)/memory-test/RAMPAGE.raw.PGM $(BUILD)/memory-test/RAMPAGE.PGM $(BUILD)/memory-test/RAMPAGE.PGM.LST $(BUILD)/memory-test/manifest.json 0
-	$(DATA) pgm $(BUILD)/memory-test/RAMALLOC.raw.PGM $(BUILD)/memory-test/RAMALLOC.PGM $(BUILD)/memory-test/RAMALLOC.PGM.LST $(BUILD)/memory-test/ramalloc.json 0
+	cd $(BUILD)/memory-test && sh $(RUN) RAMPAGE.PGM.log "$(UNIAS_PATH)" -l RAMPAGE.PGM.LST -o RAMPAGE.PGM RAMPAGE.ASM
+	cd $(BUILD)/memory-test && sh $(RUN) RAMALLOC.PGM.log "$(UNIAS_PATH)" -D ALLOCATED_TEST -l RAMALLOC.PGM.LST -o RAMALLOC.PGM RAMPAGE.ASM
+	$(DATA) pgm-info $(BUILD)/memory-test/RAMPAGE.PGM $(BUILD)/memory-test/manifest.json
+	$(DATA) pgm-info $(BUILD)/memory-test/RAMALLOC.PGM $(BUILD)/memory-test/ramalloc.json
 	$(DATA) labels $(BUILD)/memory-test/RAMPAGE.PGM.LST $(BUILD)/memory-test/rampage_labels.h RP
-	rm -f $(BUILD)/memory-test/*.raw.PGM
 
 extension: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/extension
@@ -146,28 +140,37 @@ sram: $(BUILD)/firmware-data
 nc: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/nc
 	cp firmware/nc/* $(BUILD)/nc/
-	@set -e; for app in NC NCMAIN NCEDIT NCELOAD; do \
-	defs=""; if [ "$$app" = NCEDIT ]; then defs="-D NC_EDITOR"; fi; \
-	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" $$defs -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
-	$(DATA) pgm $(BUILD)/nc/$$app.raw.PGM $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.json auto; \
+	@set -e; for app in NC NCELOAD; do \
+	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
+	$(DATA) pgm-info $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.json; \
 	$(DATA) labels $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.h $$app; done
-	python3 tools/nc_editor_pack.py
+	@set -e; for app in NCMAIN NCMCAT NCMUI NCMFILE NCCOM NCMSTR NCMV1 NCMV2 NCMV3 NCEND NCEDIT NCEFILE NCEUI NCENAV NCEBLOCK NCESTR NCEV1 NCEV2 NCEV3; do \
+	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -c -l $$app.LST -o $$app.OBJ $$app.ASM); done
+	cd $(BUILD)/nc && "$(UNIAR)" r NCUI.LIB NCCOM.OBJ
+	@set -e; for app in NCMAIN NCEDIT; do \
+	(cd $(BUILD)/nc && "$(UNILD)" -m $$app.MAP -o $$app.PGM @$$app.LNK); \
+	$(DATA) linked-labels $(BUILD)/nc/$$app.MAP $(BUILD)/nc/$$app.h $$app; \
+	$(DATA) pgm-info $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.json; done
+	cp $(BUILD)/nc/NCEDIT.PGM $(BUILD)/nc/NCECORE.PGM
+	cp $(BUILD)/nc/NCECORE.PGM $(BUILD)/nc/NCEDIT.core.PGM
+	cd $(BUILD)/nc && "$(UNILD)" -b -o NCEDIT.PGM NCELOAD.PGM NCECORE.PGM
+	$(DATA) pgm-bundle-info nc $(BUILD)/nc
 	$(DATA) index $(BUILD)/nc/manifest.json $(BUILD)/nc/NC.json $(BUILD)/nc/NCMAIN.json $(BUILD)/nc/NCEDIT.json
-	rm -f $(BUILD)/nc/*.raw.PGM
 
 ramloader: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/ramloader
 	cp firmware/ramloader/* $(BUILD)/ramloader/
 	@set -e; for app in RAMLOAD RAMCORE RAMCHECK; do \
-	(cd $(BUILD)/ramloader && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.raw.PGM $$app.ASM); \
-	$(DATA) pgm $(BUILD)/ramloader/$$app.raw.PGM $(BUILD)/ramloader/$$app.PGM $(BUILD)/ramloader/$$app.LST $(BUILD)/ramloader/$$app.json auto; \
+	(cd $(BUILD)/ramloader && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
+	$(DATA) pgm-info $(BUILD)/ramloader/$$app.PGM $(BUILD)/ramloader/$$app.json; \
 	$(DATA) labels $(BUILD)/ramloader/$$app.LST $(BUILD)/ramloader/$$app.h $$app; done
-	cp $(BUILD)/ramloader/RAMLOAD.PGM $(BUILD)/ramloader/RAMLOAD.prefix.PGM
+	cp $(BUILD)/ramloader/RAMLOAD.PGM $(BUILD)/ramloader/RAMPREF.PGM
+	cp $(BUILD)/ramloader/RAMPREF.PGM $(BUILD)/ramloader/RAMLOAD.prefix.PGM
 	cd $(BUILD)/ramloader && sh $(RUN) CRC16.log "$(UNIAS_PATH)" -l CRC16.LST -o CRC16.ROM CRC16.ASM
 	cd $(BUILD)/ramloader && sh $(RUN) CRCALT.log "$(UNIAS_PATH)" -D SECOND_MODULE -l CRCALT.LST -o CRCALT.ROM CRC16.ASM
-	python3 tools/ramloader_pack.py
+	cd $(BUILD)/ramloader && "$(UNILD)" -b -o RAMLOAD.PGM RAMPREF.PGM RAMCORE.PGM
+	$(DATA) pgm-bundle-info ramloader $(BUILD)/ramloader
 	$(DATA) index $(BUILD)/ramloader/manifest.json $(BUILD)/ramloader/RAMLOAD.json $(BUILD)/ramloader/RAMCORE.json $(BUILD)/ramloader/RAMCHECK.json
-	rm -f $(BUILD)/ramloader/*.raw.PGM
 
 # A real two-module XONIX build, also linked through a UniLIB archive.
 .PHONY: game-objects

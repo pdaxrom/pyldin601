@@ -98,8 +98,10 @@ note db 2,49             ; channel C, C5 (C1=1)
     dw 25                ; half a second at 50 Hz
     db 12
 failure db 'GFXAY: GAMEBIOS/input failed.',13,10,0
+    section
 bss_start
 opened ds 1
     include GAMESDTA.INC
 bss_end
+    ends
     end start

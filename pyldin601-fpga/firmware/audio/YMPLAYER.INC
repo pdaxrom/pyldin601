@@ -6,6 +6,12 @@ group equ $e6f1
 ay equ $e610
 audio equ $e690
 start
+    ldx #bss_start
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
     ldaa $e6a0
     bita #2
     bne cpu_ok

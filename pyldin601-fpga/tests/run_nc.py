@@ -14,20 +14,20 @@ p.add_argument('--quick',action='store_true')
 p.add_argument('--prepare-only',action='store_true')
 a=p.parse_args()
 out=ROOT/'build/nc'
-# Assemble the probe with the same production UniAS and PGM packer.
+# Assemble the probe with the same production UniAS direct PGM output.
 import shutil
 shutil.copyfile(ROOT/'tests/nc_probe.asm',out/'NCPROBE.ASM')
 from unias import assembler_path
 assembler=assembler_path()
-subprocess.run(['sh',str(ROOT/'tools/run-unias.sh'),'NCPROBE.log',assembler,'-l','NCPROBE.LST','-o','NCPROBE.raw.PGM','NCPROBE.ASM'],cwd=out,check=True)
-subprocess.run([str(ROOT/'build/firmware-data'),'pgm',str(out/'NCPROBE.raw.PGM'),str(out/'NCPROBE.PGM'),str(out/'NCPROBE.LST'),str(out/'NCPROBE.json'),'auto'],cwd=ROOT,check=True)
+subprocess.run(['sh',str(ROOT/'tools/run-unias.sh'),'NCPROBE.log',assembler,'-l','NCPROBE.LST','-o','NCPROBE.PGM','NCPROBE.ASM'],cwd=out,check=True)
+subprocess.run([str(ROOT/'build/firmware-data'),'pgm-info',str(out/'NCPROBE.PGM'),str(out/'NCPROBE.json')],cwd=ROOT,check=True)
 subprocess.run([str(ROOT/'build/firmware-data'),'labels',str(out/'NCPROBE.LST'),str(out/'NCPROBE.h'),'PROBE'],cwd=ROOT,check=True)
 shutil.copyfile(ROOT/'tests/nc_graph.asm',out/'NCGRAPH.ASM')
 for mode in (2,3):
  app=f'NCGRAF{mode}'
  flags=['-D','COLOUR'] if mode==2 else []
- subprocess.run(['sh',str(ROOT/'tools/run-unias.sh'),app+'.log',assembler,*flags,'-l',app+'.LST','-o',app+'.raw.PGM','NCGRAPH.ASM'],cwd=out,check=True)
- subprocess.run([str(ROOT/'build/firmware-data'),'pgm',str(out/(app+'.raw.PGM')),str(out/(app+'.PGM')),str(out/(app+'.LST')),str(out/(app+'.json')),'auto'],cwd=ROOT,check=True)
+ subprocess.run(['sh',str(ROOT/'tools/run-unias.sh'),app+'.log',assembler,*flags,'-l',app+'.LST','-o',app+'.PGM','NCGRAPH.ASM'],cwd=out,check=True)
+ subprocess.run([str(ROOT/'build/firmware-data'),'pgm-info',str(out/(app+'.PGM')),str(out/(app+'.json'))],cwd=ROOT,check=True)
 files={name:(out/name).read_bytes() for name in ('NC.PGM','NCMAIN.PGM','NCEDIT.PGM','NCPROBE.PGM','NCGRAF2.PGM','NCGRAF3.PGM')}
 files['HELLO.TXT']=(b'Pyldin Commander text viewer\r\n'+b'Line of text for paging.\r\n'*100)
 files['EMPTY.TXT']=b''

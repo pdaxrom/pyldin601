@@ -1,4 +1,4 @@
-"""UniAS PGM packaging must preserve code/relocations and reject invalid tails."""
+"""Data metadata and streamed application containers preserve UniAS outputs."""
 import hashlib
 import json
 import random
@@ -45,35 +45,23 @@ class FirmwareDataTests(unittest.TestCase):
                 self.assertEqual(source.read_bytes(),data)
                 self.assertTrue(all(not p.exists() for p in outputs))
 
-    def run_pgm(self, data, trim, succeeds):
-        with tempfile.TemporaryDirectory() as folder:
-            folder=Path(folder)
-            source=folder/'input.pgm';output=folder/'output.pgm';metadata=folder/'info.json'
-            source.write_bytes(data)
-            result=subprocess.run([str(TOOL),'pgm',str(source),str(output),
-                str(ROOT/'build/game/ARKANOID.PGM.LST'),str(metadata),trim],capture_output=True)
-            self.assertEqual(result.returncode==0,succeeds,result.stderr)
-            self.assertEqual(source.read_bytes(),data)
-            if not succeeds:
-                self.assertFalse(output.exists())
-                return None
-            info=json.loads(metadata.read_text())
-            self.assertEqual(info['sha256'],hashlib.sha256(output.read_bytes()).hexdigest())
-            return output.read_bytes()
-
-    def test_real_unias_bss_pack_is_exact(self):
+    def test_pgm_info_preserves_bss_and_rejects_invalid_relocations(self):
         expected=(ROOT/'build/game/ARKANOID.PGM').read_bytes()
-        fields=list(struct.unpack('>8H',expected[:16]));scratch=fields[5]
-        fields[3]+=scratch;fields[5]=0
-        raw=struct.pack('>8H',*fields)+expected[16:]+bytes(scratch)
-        self.assertEqual(self.run_pgm(raw,'auto',True),expected)
-        damaged=raw[:-1]+b'\x01'
-        self.run_pgm(damaged,'auto',False)
-
-    def test_relocation_past_code_is_rejected(self):
-        data=bytearray((ROOT/'build/game/ARKANOID.PGM').read_bytes())
-        data[16:18]=data[6:8]
-        self.run_pgm(data,'0',False)
+        with tempfile.TemporaryDirectory() as folder:
+            folder=Path(folder);source=folder/'app.pgm';metadata=folder/'info.json'
+            source.write_bytes(expected)
+            subprocess.run([str(TOOL),'pgm-info',str(source),str(metadata)],check=True)
+            self.assertEqual(source.read_bytes(),expected)
+            info=json.loads(metadata.read_text())
+            self.assertEqual(info['bss'],3662)
+            self.assertEqual(info['bytes'],len(expected))
+            self.assertEqual(info['sha256'],hashlib.sha256(expected).hexdigest())
+            damaged=bytearray(expected);damaged[16:18]=damaged[6:8]
+            source.write_bytes(damaged);metadata.unlink()
+            result=subprocess.run([str(TOOL),'pgm-info',str(source),str(metadata)],capture_output=True)
+            self.assertNotEqual(result.returncode,0)
+            self.assertEqual(source.read_bytes(),damaged)
+            self.assertFalse(metadata.exists())
 
     def test_ps2_missing_and_duplicate_codes(self):
         with tempfile.TemporaryDirectory() as folder:

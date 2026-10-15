@@ -28,7 +28,6 @@ static unsigned number(const char *s) {
     if(!*s||*end||n>0x10000000UL) fail("invalid size"); return (unsigned)n;
 }
 static unsigned be16(const unsigned char *p) { return (p[0]<<8)|p[1]; }
-static void put16(unsigned char *p,unsigned n) { p[0]=(unsigned char)(n>>8); p[1]=(unsigned char)n; }
 static void include_bytes(FILE *f,const unsigned char *p,size_t size) {
     for(size_t i=0;i<size;i++) {
         if(i%16==0) fputs("    db ",f);
@@ -235,25 +234,139 @@ static void labels(const char *listing,const char *output,const char *prefix) {
     }
     if(fclose(f)) fail("labels write");
 }
-static void pgm(const char *input,const char *output,const char *listing,const char *metadata,const char *trim) {
+static void pgm_info(const char *input,const char *metadata) {
     size_t size; unsigned char *data=read_file(input,&size);
     if(size<16||be16(data)!=0xa55a) fail("PGM header");
     unsigned count=be16(data+2),offset=be16(data+4),length=be16(data+6),entry=be16(data+8),bss=be16(data+10);
     if(offset!=16+2*count||size!=offset+length||entry>=length) fail("PGM layout");
-    unsigned scratch=0;
-    if(!strcmp(trim,"auto")) { read_symbols(listing); scratch=symbol_value("BSS_END")-symbol_value("BSS_START"); }
-    else scratch=number(trim);
-    if(scratch) {
-        if(bss||scratch>=length) fail("PGM BSS extent");
-        for(size_t i=size-scratch;i<size;i++) if(data[i]) fail("initialized PGM BSS");
-        length-=scratch; size-=scratch; bss=scratch; put16(data+6,length); put16(data+10,bss);
-    }
     for(unsigned i=0;i<count;i++) if(be16(data+16+2*i)+1>=length) fail("PGM relocation outside code");
-    if(output) write_file(output,data,size);
     char digest[65]; sha256(data,size,digest); free(data);
     FILE *f=open_file(metadata,"w");
     fprintf(f,"{\"bytes\":%zu,\"code\":%u,\"bss\":%u,\"ram_bytes\":%u,\"relocations\":%u,\"sha256\":\"%s\"}\n",size,length,bss,length+bss,count,digest);
     if(fclose(f)) fail("PGM metadata write");
+}
+/* These containers keep two complete UniAS PGM streams. They neither link
+ * instructions nor rewrite headers/BSS: the native prefix streams the child. */
+static void app_path(char *path,size_t size,const char *dir,const char *name) {
+    if(snprintf(path,size,"%s/%s",dir,name)<0||strlen(dir)+strlen(name)+2>size)
+        fail("application path too long");
+}
+static unsigned char *app_read(const char *dir,const char *name,size_t *size) {
+    char path[1024];app_path(path,sizeof path,dir,name);return read_file(path,size);
+}
+static void pgm_check(const unsigned char *p,size_t size) {
+    if(size<16||be16(p)!=0xa55a||be16(p+4)!=16+2*be16(p+2)
+       ||size!=be16(p+4)+be16(p+6)||be16(p+8)>=be16(p+6)
+       ||be16(p+6)+be16(p+10)>=0xbe00) fail("invalid application PGM");
+    for(unsigned i=0;i<be16(p+2);i++)
+        if(be16(p+16+2*i)+1>=be16(p+6)) fail("application relocation outside code");
+}
+static void pgm_bundle_info(const char *kind,const char *dir) {
+    int editor=!strcmp(kind,"nc"),ramloader=!strcmp(kind,"ramloader");
+    if(!editor&&!ramloader) fail("unknown PGM container");
+    size_t prefix_size,core_size;
+    unsigned char *prefix=app_read(dir,editor?"NCELOAD.PGM":"RAMPREF.PGM",&prefix_size);
+    unsigned char *core=app_read(dir,editor?"NCECORE.PGM":"RAMCORE.PGM",&core_size);
+    pgm_check(prefix,prefix_size);pgm_check(core,core_size);
+    if(ramloader&&be16(core+8)!=0) fail("RAMCORE entry must be zero");
+    unsigned code=be16((editor?core:prefix)+6),bss=be16((editor?core:prefix)+10);
+    unsigned relocations=be16((editor?core:prefix)+2);
+    size_t size=prefix_size+core_size;
+    size_t actual_size;unsigned char *combined=app_read(dir,editor?"NCEDIT.PGM":"RAMLOAD.PGM",&actual_size);
+    if(actual_size!=size||memcmp(combined,prefix,prefix_size)||memcmp(combined+prefix_size,core,core_size))
+        fail("UniLD PGM container differs from its inputs");
+    char digest[65],path[1024];sha256(combined,size,digest);
+    app_path(path,sizeof path,dir,editor?"NCEDIT.json":"RAMLOAD.json");
+    FILE *f=open_file(path,"w");
+    fprintf(f,"{\"bytes\":%zu,\"code\":%u,\"bss\":%u,\"ram_bytes\":%u,\"relocations\":%u,\"sha256\":\"%s\",\"streamed_relocations\":true",
+            size,code,bss,code+bss,relocations,digest);
+    unsigned core_ram=be16(core+6)+be16(core+10),prefix_ram=be16(prefix+6)+be16(prefix+10);
+    if(editor) fprintf(f,",\"loader_ram_bytes\":%u,\"total_ram_bytes\":%u",prefix_ram,core_ram+prefix_ram);
+    else {
+        app_path(path,sizeof path,dir,"RAMLOAD.LST");read_symbols(path);
+        fprintf(f,",\"resident_payload_bytes\":%u,\"working_ram_bytes\":%u,\"module_slots\":4,\"exports_per_module\":8",
+                symbol_value("BSS_END")-symbol_value("RESIDENT_START"),core_ram+prefix_ram);
+    }
+    fputs("}\n",f);if(fclose(f)) fail("application metadata write");
+    if(ramloader) {
+        app_path(path,sizeof path,dir,"roms.json");f=open_file(path,"w");fputs("{",f);
+        const char *names[]={"CRC16.ROM","CRCALT.ROM"};
+        for(unsigned k=0;k<2;k++) {
+            size_t n;unsigned char *rom=app_read(dir,names[k],&n);unsigned sum=0;
+            for(size_t i=0;i<n;i++) sum+=rom[i];
+            if(n!=8192||sum%256) fail("ramloader ROM checksum");
+            sha256(rom,n,digest);free(rom);
+            fprintf(f,"%s\"%s\":{\"bytes\":%zu,\"sha256\":\"%s\"}",k?",":"",names[k],n,digest);
+        }
+        fputs("}\n",f);if(fclose(f)) fail("ramloader ROM metadata write");
+    }
+    free(prefix);free(core);free(combined);
+}
+/* Debug/test symbols follow the actual UniLD map. No executable is generated
+ * here; module-local listings supply private labels absent from OBJ exports. */
+static void linked_labels(const char *map,const char *output,const char *prefix) {
+    struct module { char name[16];unsigned code,length,bss,extent; };
+    static struct module modules[256];static struct symbol merged[8192];
+    unsigned module_count=0,merged_count=0,absolute_count=0;
+    char absolutes[128][128],dir[1024],path[1024],line[1024],name[128],op[32];
+    if(strlen(map)>=sizeof dir) fail("map path too long");
+    strcpy(dir,map);char *slash=strrchr(dir,'/');if(slash)*slash=0;else strcpy(dir,".");
+    FILE *f=open_file(map,"r");
+    while(fgets(line,sizeof line,f)) {
+        struct module *m=&modules[module_count];
+        if(sscanf(line,"M %15s %u %u %u %u",m->name,&m->code,&m->length,&m->bss,&m->extent)!=5) continue;
+        if(++module_count==256) fail("map module capacity");
+    }
+    fclose(f);if(!module_count) fail("empty UniLD map");
+    const char *headers[]={"NCABI.INC","NCBOX.INC"};
+    for(unsigned k=0;k<2;k++) {
+        app_path(path,sizeof path,dir,headers[k]);f=open_file(path,"r");
+        while(fgets(line,sizeof line,f)) {
+            if(sscanf(line,"%127s %31s",name,op)!=2||strcmp(op,"equ")) continue;
+            for(char *p=name;*p;p++) *p=(char)toupper((unsigned char)*p);
+            if(absolute_count==128) fail("absolute symbol capacity");
+            strcpy(absolutes[absolute_count++],name);
+        }
+        fclose(f);
+    }
+    for(unsigned k=0;k<module_count;k++) {
+        char externs[255][128],file[32];unsigned extern_count=0;
+        snprintf(file,sizeof file,"%s.ASM",modules[k].name);app_path(path,sizeof path,dir,file);f=open_file(path,"r");
+        while(fgets(line,sizeof line,f)) {
+            if(sscanf(line,"%31s %127s",op,name)!=2) continue;
+            for(char *p=name;*p;p++) *p=(char)toupper((unsigned char)*p);
+            if(!strcmp(op,".define")) {
+                if(absolute_count==128) fail("absolute symbol capacity");
+                strcpy(absolutes[absolute_count++],name);continue;
+            }
+            if(strcmp(op,"extern")) continue;
+            if(extern_count==255) fail("external symbol capacity");
+            strcpy(externs[extern_count++],name);
+        }
+        fclose(f);
+        snprintf(file,sizeof file,"%s.LST",modules[k].name);app_path(path,sizeof path,dir,file);read_symbols(path);
+        for(unsigned i=0;i<symbol_count;i++) {
+            int external=0,absolute=0;
+            for(unsigned j=0;j<extern_count;j++) if(!strcmp(symbols[i].name,externs[j])) external=1;
+            if(external) continue;
+            for(unsigned j=0;j<absolute_count;j++) if(!strcmp(symbols[i].name,absolutes[j])) absolute=1;
+            unsigned value=symbols[i].value;
+            if(!absolute) value=value>=modules[k].length?modules[k].bss+value-modules[k].length:modules[k].code+value;
+            unsigned j;for(j=0;j<merged_count;j++) if(!strcmp(merged[j].name,symbols[i].name)) break;
+            if(j<merged_count) {
+                if(merged[j].value!=value) {
+                    fprintf(stderr,"%s in %s: %04X != %04X\n",symbols[i].name,modules[k].name,merged[j].value,value);
+                    fail("conflicting linked debug symbols");
+                }
+                continue;
+            }
+            if(merged_count==8192) fail("linked symbol capacity");
+            strcpy(merged[merged_count].name,symbols[i].name);merged[merged_count++].value=value;
+        }
+    }
+    f=open_file(output,"w");
+    for(unsigned i=0;i<merged_count;i++) fprintf(f,"#define %s_%s 0x%04X\n",prefix,merged[i].name,merged[i].value);
+    if(fclose(f)) fail("linked labels write");
 }
 static void rom_index(const char *dir,const char *output) {
     const char *names[]={"UNIBIOS.ROM","SD.ROM","SHELL.ROM","PARTS.ROM","RAMMAN.ROM","BIOS.ROM","BIOS_A.ROM","KERNEL.ROM"};
@@ -340,8 +453,9 @@ static void ay(const char *output,const char *init_output) {
 int main(int argc,char **argv) {
     if(argc<2)fail("command required");
     if(!strcmp(argv[1],"labels")&&(argc==4||argc==5)){labels(argv[2],argv[3],argc==5?argv[4]:NULL);return 0;}
-    if(!strcmp(argv[1],"pgm-info")&&argc==4){pgm(argv[2],NULL,NULL,argv[3],"0");return 0;}
-    if(!strcmp(argv[1],"pgm")&&argc==7){pgm(argv[2],argv[3],argv[4],argv[5],argv[6]);return 0;}
+    if(!strcmp(argv[1],"linked-labels")&&argc==5){linked_labels(argv[2],argv[3],argv[4]);return 0;}
+    if(!strcmp(argv[1],"pgm-info")&&argc==4){pgm_info(argv[2],argv[3]);return 0;}
+    if(!strcmp(argv[1],"pgm-bundle-info")&&argc==4){pgm_bundle_info(argv[2],argv[3]);return 0;}
     if(!strcmp(argv[1],"rom-index")&&argc==4){rom_index(argv[2],argv[3]);return 0;}
     if(!strcmp(argv[1],"index")&&argc>=4){app_index(argc,argv);return 0;}
     if(!strcmp(argv[1],"ps2")&&(argc==4||argc==5)){ps2(argv[2],argv[3],argc==5?argv[4]:NULL);return 0;}

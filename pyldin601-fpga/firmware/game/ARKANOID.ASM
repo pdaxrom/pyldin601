@@ -1277,6 +1277,7 @@ done_text db 'ARKANOID: returned to UniDOS.',13,10,0
 bounce_y
     ; Upward component for |VX|=0..704, step 16 in signed Q8.8.
     include BOUNCEY.INC
+    section
 bss_start
 last_operation ds 1
 failure_status ds 1
@@ -1332,4 +1333,5 @@ world ds 1000
     include HISDATA.INC
     include GAMESDTA.INC
 bss_end
+    ends
     end start

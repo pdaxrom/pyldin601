@@ -110,9 +110,11 @@ world
 directions db 1,0,3,2,0,0,0
 passed_text db 'PASS: SDK tiles and scrolling',13,10,0
 failed_text db 'FAIL: SDK tiles and scrolling',13,10,0
+    section
 bss_start
 tile_id ds 1
 phase ds 1
     include GAMESDTA.INC
 bss_end
+    ends
     end start

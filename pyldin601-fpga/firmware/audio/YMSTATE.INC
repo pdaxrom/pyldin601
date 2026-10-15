@@ -9,20 +9,26 @@ skip_count dw 0
 string_count db 0
 shift_count db 0
 remainder db 0
+    section
 division ds 4
 offset ds 4
 data_offset ds 4
 seek_delta ds 4
 computed ds 4
+    ends
 table_pointer dw 0
 output_pointer dw 0
 pointer_count db 0
+    section
 ym_pointers ds 56
+    ends
 psg_delay dw 0
 psg_register db 0
 command_budget db 0
 loop_guard db 0
+    section
 compact_size ds 4
 compact_touched ds 14
+    ends
 compact_register db 0
 compact_delay db 0

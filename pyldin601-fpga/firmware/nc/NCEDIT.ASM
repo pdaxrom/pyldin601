@@ -1,6 +1,44 @@
-; Pyldin Commander's streamed editor. MC6800 ISA and public UniDOS calls.
+; NCEDIT: Editor startup and command dispatch.
+    .define NC_EDITOR
     include NCABI.INC
     include NCBOX.INC
+    public owner
+    extern add_b
+    extern base_path
+    extern body_rows
+    extern bss_end
+    extern columns
+    extern copy_z
+    extern dst
+    extern editor_cac_de58
+    extern editor_close
+    extern editor_open
+    extern editor_redraw
+    extern eol_bytes
+    extern eol_length
+    extern error
+    extern file_positions
+    extern filename
+    extern input
+    extern mode
+    extern original_attr
+    extern saved_cursor
+    extern saved_valid
+    extern screen_base
+    extern src
+    extern standalone_cbac
+    extern text_stride
+    extern ui_command
+    extern ui_keys
+    extern v_block_st_90
+    extern v_eol_byte_1
+    extern v_screen_b_1
+
+    section
+bss_start
+owner ds 2
+    ends
+; Pyldin Commander's streamed editor. MC6800 ISA and public UniDOS calls.
 start
     bra editor_start
     db 'NCE1'
@@ -98,7 +136,7 @@ editor_layout
     ldaa #13
     staa eol_bytes
     ldaa #10
-    staa eol_bytes+1
+    staa v_eol_byte_1
     ldaa mode
     cmpa #2
     bne editor_pitch
@@ -126,7 +164,7 @@ editor_pitch
     ldaa #13
     staa $e600
     ldaa $e601
-    staa screen_base+1
+    staa v_screen_b_1
 editor_pitch_done
     pula
     staa $e600
@@ -140,7 +178,7 @@ editor_pitch_done
     tst $fff7
     bmi block_video_ready
 block_video_mono
-    inc block_state+90
+    inc v_block_st_90
 block_video_ready
     ldx #ignore_break
     clrb
@@ -150,7 +188,7 @@ block_video_ready
     clrb
     ldaa #7
     int $2f
-    jsr editor_cache_open
+    jsr editor_cac_de58
     jsr editor_open
     tsta
     beq editor_ready
@@ -161,7 +199,7 @@ editor_ready
     staa saved_valid
     jmp editor_redraw
 editor_bad_parent
-    ldx #standalone_message
+    ldx #standalone_cbac
     int $23
     int $38
 ignore_break
@@ -170,25 +208,4 @@ fail_io
     ldaa #3
     staa $06
     rts
-    include NCE32.INC
-    include NCECACHE.INC
-    include NCEPIECE.INC
-    include NCEFILES.INC
-    include NCEHISTORY.INC
-    include NCUTIL.INC
-    include NCOCTETS.INC
-    include NCECOPY.INC
-    include NCVIDEO.INC
-    include NCFIELDS.INC
-    include NCNUMBER.INC
-    include NCWINDOW.INC
-    include NCEUI.INC
-    include NCESCAN.INC
-    include NCENAV.INC
-    include NCEHORIZ.INC
-    include NCEUNDOUI.INC
-    include NCESAVE.INC
-    include NCESEARCH.INC
-    include NCEBLOCK.INC
-    include NCEDATA.INC
     end start

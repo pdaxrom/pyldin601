@@ -1,9 +1,152 @@
+; NCEUI: Editor rendering, viewport copying and status.
+    .define NC_EDITOR
+    include NCABI.INC
+    include NCBOX.INC
+    public build_line
+    public build_view
+    public copy_bytes
+    public editor_error
+    public editor_finish
+    public editor_redraw
+    public editor_restore
+    public end_pointer
+    public left_colum_1c1a
+    public left_pointer
+    public line_pointer
+    public paint_line
+    public redraw
+    public screen_pointer
+    extern add_b
+    extern apply_phase
+    extern base_closed
+    extern block_cach_8b13
+    extern block_canc_33d4
+    extern block_finish
+    extern block_label
+    extern block_mark_dc41
+    extern block_put
+    extern block_row
+    extern body_rows
+    extern build_full
+    extern caret_at
+    extern caret_char
+    extern caret_hide
+    extern caret_x
+    extern caret_y
+    extern colour
+    extern columns
+    extern copy_n
+    extern copy_octets
+    extern copy_tail
+    extern cursor_row
+    extern cursor_seen
+    extern decimal_number
+    extern e_column
+    extern e_cursor
+    extern editor_close
+    extern editor_dispatch
+    extern editor_ini_76b1
+    extern editor_key_002a
+    extern editor_key_4267
+    extern editor_poll
+    extern eol_bytes
+    extern eol_length
+    extern error
+    extern error_key
+    extern field
+    extern filename
+    extern history_resume
+    extern horizontal
+    extern ink
+    extern insert_label
+    extern key_exit
+    extern last_key
+    extern line_ends
+    extern line_left
+    extern line_left__56a0
+    extern line_offsets
+    extern line_text
+    extern line_valid
+    extern mode
+    extern modified
+    extern new_line
+    extern number
+    extern number_text
+    extern overwrite
+    extern overwrite_label
+    extern position
+    extern put
+    extern put_field
+    extern q_cmp
+    extern q_dec
+    extern q_inc
+    extern q_load
+    extern q_store
+    extern q_sub
+    extern remaining
+    extern render_eof
+    extern render_row
+    extern reopen_base
+    extern restore_ptr
+    extern restore_row
+    extern retry_text
+    extern retry_title
+    extern scan_line_tail
+    extern screen_chars
+    extern screen_top
+    extern split_bytes
+    extern stream_init
+    extern stream_next
+    extern text_field
+    extern ui_keys
+    extern ui_x
+    extern ui_y
+    extern v_block_st_105
+    extern v_block_st_106
+    extern v_block_st_107
+    extern v_block_st_24
+    extern v_block_st_28
+    extern v_block_st_29
+    extern v_block_st_30
+    extern v_block_st_31
+    extern v_block_st_32
+    extern v_block_st_33
+    extern v_block_st_34
+    extern v_block_st_35
+    extern v_block_st_36
+    extern v_block_st_90
+    extern v_block_st_91
+    extern v_eol_byte_1
+    extern v_q_3
+    extern v_split_by_1
+    extern v_view_sc_1313
+    extern v_view_sc_402d
+    extern v_view_sc_56a1
+    extern v_view_sca_0
+    extern v_view_sca_1
+    extern v_view_sca_10
+    extern v_view_sca_14
+    extern v_view_sca_18
+    extern v_view_sca_19
+    extern v_view_sca_2
+    extern v_view_sca_20
+    extern v_view_sca_24
+    extern v_view_sca_25
+    extern v_view_sca_27
+    extern v_view_sca_29
+    extern v_view_sca_30
+    extern v_view_sca_6
+    extern view_valid
+    extern where
+    extern window_open
+    extern window_wrap
+
 ; The display cache is ordinary RAM because native text VRAM reads see ROM.
 ; Full view discovery indexes just the visible logical lines. Edits within a
 ; line repaint only its visible slice, using the cached horizontal anchor.
 redraw
 editor_redraw
-    clr block_state+105
+    clr v_block_st_105
     ldx #screen_chars
     ldaa #$ff
     ldab #240
@@ -35,7 +178,7 @@ invalidate_octet
     jsr editor_caret
 editor_key
     ldaa #1
-    staa editor_initialized
+    staa editor_ini_76b1
     int $11
     staa last_key
     jsr editor_uncaret
@@ -44,7 +187,7 @@ editor_finish
     tsta
     beq *+5
     jmp editor_error
-    tst block_state+28
+    tst v_block_st_28
     beq *+5
     jmp editor_restore
     jsr block_finish
@@ -54,8 +197,8 @@ editor_finish
 editor_error
     cmpa #$ff
     bne editor_io_error
-    jsr block_cancel_release
-    tst editor_initialized
+    jsr block_canc_33d4
+    tst editor_ini_76b1
     bne *+5
     jmp editor_close
     tst view_valid
@@ -106,16 +249,16 @@ editor_pending_retry
     bne editor_error
     jmp editor_redraw
 editor_header
-    tst block_state+105
+    tst v_block_st_105
     beq editor_header_full
     ldaa modified
-    cmpa block_state+106
+    cmpa v_block_st_106
     bne editor_header_full
     ldaa overwrite
-    cmpa block_state+107
+    cmpa v_block_st_107
     bne editor_header_full
-    ldaa block_state+24
-    cmpa block_state+35
+    ldaa v_block_st_24
+    cmpa v_block_st_35
     bne editor_header_full
     ; Filename and mode are stable while typing; repaint only the column.
     ldaa columns
@@ -129,14 +272,14 @@ editor_header
     staa remaining
     bra header_column
 editor_header_full
-    ldaa block_state+24
-    staa block_state+35
+    ldaa v_block_st_24
+    staa v_block_st_35
     ldaa #1
-    staa block_state+105
+    staa v_block_st_105
     ldaa modified
-    staa block_state+106
+    staa v_block_st_106
     ldaa overwrite
-    staa block_state+107
+    staa v_block_st_107
     clr ui_x
     clr ui_y
     ldaa #$03
@@ -160,7 +303,7 @@ header_mark
     beq header_mode
     ldx #overwrite_label
 header_mode
-    tst block_state+24
+    tst v_block_st_24
     beq *+5
     ldx #block_label
     jsr text_field
@@ -181,11 +324,11 @@ editor_footer
     ldaa #$03
     jsr colour
     jsr position
-    ldx #editor_keys_short
+    ldx #editor_key_002a
     ldaa columns
     cmpa #80
     bcs footer_text
-    ldx #editor_keys_long
+    ldx #editor_key_4267
 footer_text
     jmp line_text
 ; A row, X = requested BE32 line metadata entry.
@@ -199,7 +342,7 @@ left_pointer
     ldx #line_left
     bra row_word_pointer
 left_column_pointer
-    ldx #line_left_column
+    ldx #line_left__56a0
 row_word_pointer
     tab
     aslb
@@ -266,17 +409,17 @@ build_blank
     inx
     decb
     bne build_blank
-    clr view_scan+0
-    clr view_scan+1
+    clr v_view_sca_0
+    clr v_view_sca_1
     tst build_full
     beq build_partial
-    clr view_scan+2
-    clr view_scan+2+1
-    clr view_scan+2+2
-    clr view_scan+2+3
+    clr v_view_sca_2
+    clr v_view_sc_56a1
+    clr v_view_sc_1313
+    clr v_view_sc_402d
     ldx #where
     jsr q_load
-    ldx #view_scan+6
+    ldx #v_view_sca_6
     jsr q_store
     tst render_eof
     beq *+5
@@ -297,9 +440,9 @@ build_partial
     ldaa render_row
     jsr left_column_pointer
     jsr q_load
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_store
-    clr view_scan+1
+    clr v_view_sca_1
 build_stream
     jsr stream_init
     bcc *+5
@@ -311,7 +454,7 @@ build_character
     ldx #e_cursor
     jsr q_cmp
     bne build_read
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_load
     ldx #e_column
     jsr q_store
@@ -322,16 +465,16 @@ build_character
 build_read
     ldx #where
     jsr q_load
-    ldx #view_scan+10
+    ldx #v_view_sca_10
     jsr q_store
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_load
-    ldx #view_scan+14
+    ldx #v_view_sca_14
     jsr q_store
     jsr stream_next
     bcc *+5
     jmp build_eof
-    staa view_scan+18
+    staa v_view_sca_18
     cmpa #13
     bne *+5
     jmp build_cr
@@ -347,15 +490,15 @@ build_read
 build_control
     ldaa #'.'
 build_emit_char
-    staa view_scan+19
+    staa v_view_sca_19
     jsr build_emit
     bra build_continue
 build_tab
     ldaa #' '
-    staa view_scan+19
+    staa v_view_sca_19
 build_tab_space
     jsr build_emit
-    ldaa view_scan+2+3
+    ldaa v_view_sc_402d
     anda #7
     bne build_tab_space
 build_continue
@@ -365,7 +508,7 @@ build_continue
     rts
     tst build_full
     beq build_partial_limit
-    ldaa view_scan+0
+    ldaa v_view_sca_0
     cmpa columns
     bcs build_more_chars
     jsr scan_line_tail
@@ -375,54 +518,54 @@ build_continue
 build_more_chars
     jmp build_character
 build_partial_limit
-    ldaa view_scan+0
+    ldaa v_view_sca_0
     cmpa columns
     bcs build_more_chars
     clra
     rts
 
 build_emit
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_load
     ldx #horizontal
     jsr q_cmp
     bcs build_advance_column
-    ldaa view_scan+0
+    ldaa v_view_sca_0
     cmpa columns
     bcc build_advance_column
-    tst view_scan+1
+    tst v_view_sca_1
     bne build_emit_store
     ldaa render_row
     jsr left_pointer
-    ldx #view_scan+10
+    ldx #v_view_sca_10
     jsr q_load
     ldaa render_row
     jsr left_pointer
     jsr q_store
-    ldx #view_scan+14
+    ldx #v_view_sca_14
     jsr q_load
     ldaa render_row
     jsr left_column_pointer
     jsr q_store
-    inc view_scan+1
+    inc v_view_sca_1
 build_emit_store
-    ldab view_scan+0
+    ldab v_view_sca_0
     ldx #new_line
     jsr add_b
-    ldaa view_scan+19
+    ldaa v_view_sca_19
     staa 0,x
-    inc view_scan+0
+    inc v_view_sca_0
 build_advance_column
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_load
     jsr q_inc
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_store
     rts
 build_cr
-    ldx #view_scan+10
+    ldx #v_view_sca_10
     jsr q_load
-    ldx #view_scan+20
+    ldx #v_view_sca_20
     jsr q_store
     jsr stream_next
     bcc build_cr_next
@@ -438,7 +581,7 @@ build_cr_next
     ldx #where
     jsr q_store
 build_cr_alone
-    tst view_scan+24
+    tst v_view_sca_24
     bne build_newline
     ldaa #1
     staa eol_length
@@ -446,28 +589,28 @@ build_cr_alone
     staa eol_bytes
     bra build_detected
 build_crlf
-    tst view_scan+24
+    tst v_view_sca_24
     bne build_newline
     ldaa #2
     staa eol_length
     ldaa #13
     staa eol_bytes
     ldaa #10
-    staa eol_bytes+1
+    staa v_eol_byte_1
     bra build_detected
 build_lf
-    ldx #view_scan+10
+    ldx #v_view_sca_10
     jsr q_load
-    ldx #view_scan+20
+    ldx #v_view_sca_20
     jsr q_store
-    tst view_scan+24
+    tst v_view_sca_24
     bne build_newline
     ldaa #1
     staa eol_length
     ldaa #10
     staa eol_bytes
 build_detected
-    inc view_scan+24
+    inc v_view_sca_24
 build_newline
     bra build_store_end
 build_eof
@@ -476,7 +619,7 @@ build_eof
     jmp build_return
     ldx #where
     jsr q_load
-    ldx #view_scan+20
+    ldx #v_view_sca_20
     jsr q_store
     inc render_eof
     ldx #where
@@ -484,7 +627,7 @@ build_eof
     ldx #e_cursor
     jsr q_cmp
     bne build_store_end
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_load
     ldx #e_column
     jsr q_store
@@ -493,20 +636,20 @@ build_eof
     ldaa #1
     staa cursor_seen
 build_store_end
-    tst view_scan+1
+    tst v_view_sca_1
     bne build_anchor_ready
-    ldx #view_scan+20
+    ldx #v_view_sca_20
     jsr q_load
     ldaa render_row
     jsr left_pointer
     jsr q_store
-    ldx #view_scan+2
+    ldx #v_view_sca_2
     jsr q_load
     ldaa render_row
     jsr left_column_pointer
     jsr q_store
 build_anchor_ready
-    ldx #view_scan+20
+    ldx #v_view_sca_20
     jsr q_load
     ldaa render_row
     jsr end_pointer
@@ -520,109 +663,109 @@ build_inactive
     clr 0,x
     ldx #where
     jsr q_load
-    ldx #view_scan+20
+    ldx #v_view_sca_20
     jsr q_store
-    clr view_scan+2
-    clr view_scan+2+1
-    clr view_scan+2+2
-    clr view_scan+2+3
+    clr v_view_sca_2
+    clr v_view_sc_56a1
+    clr v_view_sc_1313
+    clr v_view_sc_402d
     jmp build_store_end
 paint_line
     jsr block_row
-    jsr block_mark_pointer
+    jsr block_mark_dc41
     ldaa 0,x
-    staa block_state+31
+    staa v_block_st_31
     ldaa 1,x
-    staa block_state+32
-    ldaa block_state+29
+    staa v_block_st_32
+    ldaa v_block_st_29
     staa 0,x
-    ldaa block_state+30
+    ldaa v_block_st_30
     staa 1,x
     jsr screen_pointer
-    stx view_scan+25
+    stx v_view_sca_25
     ldx #new_line
-    stx view_scan+27
+    stx v_view_sca_27
     clr ui_x
     ldaa render_row
     inca
     staa ui_y
-    clr view_scan+30
-    ldaa block_state+30
-    oraa block_state+32
-    staa block_state+91
+    clr v_view_sca_30
+    ldaa v_block_st_30
+    oraa v_block_st_32
+    staa v_block_st_91
     ldaa #$71
-    staa block_state+33
+    staa v_block_st_33
 paint_cell
-    ldx view_scan+27
+    ldx v_view_sca_27
     ldaa 0,x
     inx
-    stx view_scan+27
-    staa view_scan+29
-    tst block_state+91
+    stx v_view_sca_27
+    staa v_view_sca_29
+    tst v_block_st_91
     bne paint_cell_marked
-    ldx view_scan+25
+    ldx v_view_sca_25
     cmpa 0,x
     beq paint_same
     bra paint_changed
 paint_cell_marked
     ldaa #$71
-    staa block_state+33
-    staa block_state+34
+    staa v_block_st_33
+    staa v_block_st_34
     ldaa ui_x
-    cmpa block_state+29
+    cmpa v_block_st_29
     bcs paint_old_ink
-    cmpa block_state+30
+    cmpa v_block_st_30
     bcc paint_old_ink
     ldaa #$03
-    staa block_state+33
+    staa v_block_st_33
 paint_old_ink
     ldaa ui_x
-    cmpa block_state+31
+    cmpa v_block_st_31
     bcs paint_compare
-    cmpa block_state+32
+    cmpa v_block_st_32
     bcc paint_compare
     ldaa #$03
-    staa block_state+34
+    staa v_block_st_34
 paint_compare
-    ldx view_scan+25
-    ldaa view_scan+29
+    ldx v_view_sca_25
+    ldaa v_view_sca_29
     cmpa 0,x
     bne paint_changed
-    ldaa block_state+33
-    cmpa block_state+34
+    ldaa v_block_st_33
+    cmpa v_block_st_34
     bne paint_changed
     cmpa #$03
     bne paint_same
-    tst block_state+90
+    tst v_block_st_90
     beq paint_same
-    ldaa block_state+29
-    cmpa block_state+31
+    ldaa v_block_st_29
+    cmpa v_block_st_31
     bne paint_changed
-    ldaa block_state+30
-    cmpa block_state+32
+    ldaa v_block_st_30
+    cmpa v_block_st_32
     beq paint_same
 paint_changed
-    ldaa view_scan+29
+    ldaa v_view_sca_29
     staa 0,x
-    tst view_scan+30
+    tst v_view_sca_30
     bne paint_put
     jsr position
 paint_put
-    ldaa block_state+33
+    ldaa v_block_st_33
     cmpa ink
     beq *+5
     jsr colour
-    ldaa view_scan+29
+    ldaa v_view_sca_29
     jsr block_put
     ldaa #1
-    staa view_scan+30
+    staa v_view_sca_30
     bra paint_advance
 paint_same
-    clr view_scan+30
+    clr v_view_sca_30
 paint_advance
-    ldx view_scan+25
+    ldx v_view_sca_25
     inx
-    stx view_scan+25
+    stx v_view_sca_25
     inc ui_x
     ldaa ui_x
     cmpa columns
@@ -635,7 +778,7 @@ editor_caret
     jsr q_load
     ldx #horizontal
     jsr q_sub
-    ldaa q+3
+    ldaa v_q_3
     staa caret_x
     ldaa cursor_row
     inca
@@ -657,8 +800,8 @@ editor_graphic_caret
     jsr add_b
     ldaa 0,x
     staa caret_char
-    jsr block_cached_ink
-    staa block_state+36
+    jsr block_cach_8b13
+    staa v_block_st_36
     eora #$72
     jsr colour
     jsr position
@@ -668,7 +811,7 @@ editor_uncaret
     ldaa mode
     anda #3
     beq editor_native_uncaret
-    ldaa block_state+36
+    ldaa v_block_st_36
     jsr colour
     ldaa caret_x
     staa ui_x
@@ -682,8 +825,8 @@ editor_native_uncaret
 
 ; Modal underlays come from the display cache, without rescanning long lines.
 editor_restore
-    clr block_state+28
-    clr block_state+105
+    clr v_block_st_28
+    clr v_block_st_105
     clr restore_row
 restore_body_row
     ldaa restore_row
@@ -698,7 +841,7 @@ restore_body_row
     jsr colour
     jsr position
 restore_body_cell
-    jsr block_cached_ink
+    jsr block_cach_8b13
     jsr colour
     ldx restore_ptr
     ldaa 0,x
@@ -716,3 +859,26 @@ restore_body_cell
     jsr editor_footer
     clra
     jmp editor_finish
+; Copy at most 512 ordinary/banked bytes, with a fast eight-byte body.
+copy_bytes
+    ldaa v_split_by_1
+    anda #7
+    staa copy_tail
+    ldaa split_bytes
+    ldab v_split_by_1
+    lsra
+    rorb
+    lsra
+    rorb
+    lsra
+    rorb
+    tba
+    jsr copy_octets
+    ldab copy_tail
+    tstb
+    beq copy_bytes_done
+    jmp copy_n
+copy_bytes_done
+    rts
+left_colum_1c1a equ left_column_pointer
+    end

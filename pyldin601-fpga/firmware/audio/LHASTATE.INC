@@ -1,8 +1,10 @@
 lha_method db 0
 crc dw 0
 expected_crc dw 0
+    section
 packed_left ds 4
 output_left ds 4
+    ends
 block_left dw 0
 dictionary_position dw 0
 match_position dw 0

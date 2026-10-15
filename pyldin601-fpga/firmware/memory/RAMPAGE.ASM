@@ -3,7 +3,19 @@
 ; Real relocatable UniDOS PGM. The 50-Hz probe chains the native timer.
 page equ $e6f0
 group equ $e6f1
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
     ldaa $e6f2
     cmpa #'R'
     bne unsupported
@@ -351,7 +363,9 @@ seed db 0
 expected db 0
 actual db 0
     .ifdef ALLOCATED_TEST
+    section
 memory_lease ds 11
+    ends
 no_free_memory db 'RAMALLOC: cannot allocate 8 banks.',13,10,0
 intro db 'RAMALLOC: 8 allocated banks = 64 KiB.',13,10,'ESC aborts; other banks retained.',13,10,0
 pass_msg db 'PASS: RAM allocator, 64 KiB, SWI/IRQ. IRQs=',0
@@ -374,4 +388,7 @@ aborted db 13,10,'RAMPAGE: aborted.',13,10,0
 need_memory db 'RAMPAGE: update paged RAM FPGA/BIOS.',13,10,0
 foreign_timer db 'RAMPAGE: custom INT05; remove hook.',13,10,0
 newline db 13,10,0
+    section
+bss_end
+    ends
     end start

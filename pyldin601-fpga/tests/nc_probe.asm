@@ -36,7 +36,9 @@ failed
     int $23
     int $38
 message db 'NCPROBE: NCMAIN was not released!',0
+    section
 bss_start
 old_top ds 2
 bss_end
+    ends
     end start

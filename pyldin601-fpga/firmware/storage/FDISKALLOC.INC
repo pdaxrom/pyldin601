@@ -639,11 +639,17 @@ ui_print_advance
     bne ui_print_digit
     rts
 ui_mode db 0
+    section
 ui_empty_table ds 4
+    ends
 ui_diff db 0
+    section
 ui_need ds 4
+    ends
 ui_round db $ff,7,0,0
+    section
 ui_print_value ds 4
+    ends
 ui_power dw 0
 ui_digit db 0
 ui_started db 0

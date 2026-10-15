@@ -385,28 +385,42 @@ loader_conflict
     ldaa #80
     int $38
 conflict_message db 'RAMLOAD: INT EC already in use.',13,10,0
-load_previous ds 2
-load_dot ds 1
-load_argument ds 81
-load_path ds 81
-load_buffer ds 64
-load_open ds 4
-load_io ds 4
-load_handle ds 1
-load_live ds 1
-load_payload ds 2
-load_position ds 4
-load_records ds 2
-load_code_offset ds 2
-load_code_size ds 2
-load_reloc_limit ds 2
-load_entry ds 2
-load_ram ds 2
-load_base ds 2
-load_ptr ds 2
-load_target ds 2
-load_block_records ds 1
-load_error ds 1
+; Initialized prefix workspace is released with the disposable loader.
+load_previous db 0,0
+load_dot db 0
+load_argument db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0
+load_path db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0
+load_buffer db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+load_open db 0,0,0,0
+load_io db 0,0,0,0
+load_handle db 0
+load_live db 0
+load_payload db 0,0
+load_position db 0,0,0,0
+load_records db 0,0
+load_code_offset db 0,0
+load_code_size db 0,0
+load_reloc_limit db 0,0
+load_entry db 0,0
+load_ram db 0,0
+load_base db 0,0
+load_ptr db 0,0
+load_target db 0,0
+load_block_records db 0
+load_error db 0
 ; Everything before this label is discarded on the first successful load.
 ; Resident code never references the disposable prefix or the core allocation.
 resident_start
@@ -503,9 +517,10 @@ gate_template
     dw 0,0
     db 0
 module_return_address dw module_return
-control
-    ds 11
+    section
 bss_start
+control ds 11
 registry ds RL_SLOTS*RL_RECORD
 bss_end
+    ends
     end start

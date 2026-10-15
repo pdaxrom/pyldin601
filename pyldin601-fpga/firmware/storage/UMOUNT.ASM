@@ -1,4 +1,16 @@
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
     int $3b
     cmpa #2
     beq get_target
@@ -33,3 +45,7 @@ valid_target
     include COMMON.INC
 usage_msg db "UMOUNT SD0:PARTn | A:..H:",13,10,0
 ok_msg db "Unmounted.",13,10,0
+    section
+bss_end
+    ends
+    end start

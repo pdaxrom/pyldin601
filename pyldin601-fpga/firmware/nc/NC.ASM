@@ -251,6 +251,7 @@ main_name db 'NCMAIN.PGM',0
 msg_error db 10,'NC: ',0
 msg_key db 10,'Press a key to return to NC.',0
 msg_mode db 10,'NC requires at least 40 columns.',10,0
+    section
 bss_start
 state ds S_SIZE
 argument ds 81
@@ -263,4 +264,5 @@ drive ds 1
 scan_index ds 1
 name_offset ds 1
 bss_end
+    ends
     end start

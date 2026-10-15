@@ -398,16 +398,17 @@ cp docs/examples/GFXAY.ASM firmware/game/GAMEBIOS.INC \
    firmware/game/GAMESDK.ASM firmware/game/GAMESDTA.INC build/programming/
 (cd build/programming && sh ../../tools/run-unias.sh GFXAY.log \
   /Users/sash/Work/FPGA/hd6303-toolchain/unias \
-  -l GFXAY.LST -o GFXAY.raw.PGM GFXAY.ASM)
-build/firmware-data pgm build/programming/GFXAY.raw.PGM \
-  build/programming/GFXAY.PGM build/programming/GFXAY.LST \
-  build/programming/GFXAY.json auto
+  -l GFXAY.LST -o GFXAY.PGM GFXAY.ASM)
+build/firmware-data pgm-info build/programming/GFXAY.PGM \
+  build/programming/GFXAY.json
 ```
 
-C-инструмент формирует PGM из результата UniAS, удаляет сохранённый хвост
-BSS и проверяет relocation/размеры; машинные инструкции создаёт UniAS.
-В конце исходника нужны `bss_start`, `bss_end`, `end start`. Адреса данных
-задавать настоящими метками для relocation, не числовыми EQU-адресами.
+UniAS сразу выдаёт готовый PGM с relocation и длиной BSS в заголовке.
+Неинициализированные данные заключать в `SECTION` / `ENDS`, завершать
+программу `END start`. Перед использованием BSS обнулить его: UniDOS
+резервирует память, но не очищает её. Метки данных сохраняют relocation;
+числовые EQU-адреса вместо меток использовать нельзя.
+Команда `pgm-info` только проверяет файл и записывает метаданные.
 Итоговый GFXAY.PGM можно скопировать на SD или HG. Требуются HD6303,
 GAMEBIOS, raw PS/2 capture и согласованная FPGA; SPACE играет C5 на канале C
 в течение 25 музыкальных тиков, ESC возвращает UniDOS.

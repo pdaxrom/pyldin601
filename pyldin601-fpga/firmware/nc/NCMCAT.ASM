@@ -1,3 +1,156 @@
+; NCMCAT: Directory catalogue, bank cache and return state.
+    include NCABI.INC
+    include NCBOX.INC
+    public cache_close
+    public cache_open
+    public choose_panel
+    public editor_sta_3f23
+    public entry_pointer
+    public mark_pointer
+    public page_flag__1353
+    public page_pivot_7800
+    public record_name
+    public restore_edited
+    public selected
+    public selected_path
+    public set_workin_d418
+    public store_cursor
+    extern active
+    extern add_b
+    extern bank_valid
+    extern cache_group
+    extern cache_leas_2b52
+    extern cache_lease
+    extern cache_old_group
+    extern cache_old_page
+    extern cache_owner
+    extern cache_valid
+    extern cacheptr
+    extern candidate
+    extern cmp_attr
+    extern cmp_char
+    extern cmp_count
+    extern cmp_left
+    extern cmp_offset
+    extern cmp_result
+    extern cmp_right
+    extern cmp_step
+    extern copy_n
+    extern copy_z
+    extern counts
+    extern cursors
+    extern dir_entry
+    extern directory_error
+    extern dst
+    extern edited_name_ptr
+    extern edited_retry
+    extern entries_left
+    extern entry_capacity
+    extern find_state
+    extern find_table
+    extern had_overflow
+    extern has_next
+    extern has_previous
+    extern insert_high
+    extern insert_index
+    extern insert_mid
+    extern mark_count
+    extern mark_index
+    extern mark_value
+    extern marks_left
+    extern marks_ptr
+    extern marks_right
+    extern name_index
+    extern name_record
+    extern owner
+    extern paging_dir_e8bd
+    extern panel
+    extern pathptr
+    extern pcount
+    extern pcur
+    extern pivotptr
+    extern previous_cursor
+    extern previous_top
+    extern ptop
+    extern ptr
+    extern query_free_e16e
+    extern requested_panel
+    extern search_path
+    extern shift_index
+    extern source_path
+    extern src
+    extern stat_entry
+    extern stat_path
+    extern tops
+    extern ui_rows
+    extern v_cache_le_3
+    extern v_cacheptr_1
+    extern v_candida_af21
+    extern v_candida_c0ff
+    extern v_candida_cb55
+    extern v_candidat_12
+    extern v_dir_entr_22
+    extern v_dir_entr_24
+    extern v_dir_entr_28
+    extern v_find_tab_2
+    extern v_find_tab_4
+    extern v_ptr_1
+    extern v_stat_ent_22
+    extern v_stat_ent_24
+    extern v_stat_ent_28
+    extern wildcard
+
+; One leased 8K bank contains two directly accessed 4K catalogue windows.
+; Every DOS interrupt and font/IRQ mapping restores the NC bank selectors.
+cache_open
+    ldaa #ENTRY_COUNT
+    staa entry_capacity
+    ldaa #$e5
+    int $2e
+    cpx #0
+    beq cache_unavailable
+    ldaa #1
+    ldab #1
+    ldx #cache_lease
+    int $e5
+    tsta
+    bne cache_unavailable
+    inc cache_leas_2b52
+    ldaa #BANK_COUNT
+    staa entry_capacity
+    ldaa $e6f1
+    staa cache_old_group
+    ldaa $e6f0
+    staa cache_old_page
+    clr cache_group
+    ldaa v_cache_le_3
+cache_divide
+    cmpa #6
+    bcs cache_remainder
+    suba #6
+    inc cache_group
+    bra cache_divide
+cache_remainder
+    inca
+cache_map
+    staa $e6f0
+    ldaa cache_group
+    staa $e6f1
+cache_unavailable
+    rts
+cache_close
+    tst cache_leas_2b52
+    beq cache_close_done
+    ldaa cache_old_group
+    staa $e6f1
+    ldaa cache_old_page
+    staa $e6f0
+    ldaa #2
+    ldx #cache_lease
+    int $e5
+    clr cache_leas_2b52
+cache_close_done
+    rts
 ; A=panel. All pointers are process-local or explicitly parent-owned.
 choose_panel
     anda #1
@@ -6,7 +159,7 @@ choose_panel
     beq choose_no_save
     cmpa cache_owner
     beq choose_no_save
-    tst cache_lease_open
+    tst cache_leas_2b52
     bne choose_no_save
     jsr save_marks
 choose_no_save
@@ -28,7 +181,7 @@ choose_no_save
     ldaa 0,x
     staa ptop
     ldx #entries_left
-    tst cache_lease_open
+    tst cache_leas_2b52
     beq choose_cache
     ldx #$c000
     tst panel
@@ -55,7 +208,7 @@ choose_reload
     staa cache_owner
     ldaa #1
     staa cache_valid
-    tst cache_lease_open
+    tst cache_leas_2b52
     beq choose_read
     ldab panel
     ldx #bank_valid
@@ -65,7 +218,7 @@ choose_reload
     bra choose_ready
 choose_read
     jsr read_directory
-    tst cache_lease_open
+    tst cache_leas_2b52
     beq choose_ready
     ldab panel
     ldx #bank_valid
@@ -138,7 +291,7 @@ read_directory
     clr had_overflow
     jsr page_flag_pointer
     ldaa 0,x
-    staa paging_direction
+    staa paging_dir_e8bd
     jsr page_pivot_pointer
     stx pivotptr
     ldx pathptr
@@ -152,9 +305,9 @@ read_directory
     ldx #find_state
     stx find_table
     ldx #dir_entry
-    stx find_table+2
+    stx v_find_tab_2
     ldx #search_path
-    stx find_table+4
+    stx v_find_tab_4
     ldx cacheptr
     ldab #ENTRY_SIZE
 rd_clear_parent
@@ -203,15 +356,15 @@ rd_entry
     ldab #E_SIZE
     jsr add_b
     stx dst
-    ldx #dir_entry+28
+    ldx #v_dir_entr_28
     stx src
     ldab #4
     jsr copy_n
-    ldx #dir_entry+24
+    ldx #v_dir_entr_24
     stx src
     ldab #2
     jsr copy_n
-    ldx #dir_entry+22
+    ldx #v_dir_entr_22
     stx src
     ldab #2
     jsr copy_n
@@ -236,11 +389,11 @@ rd_ok
     ldx #has_previous
     jsr add_b
     clr 0,x
-    tst paging_direction
+    tst paging_dir_e8bd
     beq rd_forward_flags
     ldaa #1
     staa 0,x
-    ldaa paging_direction
+    ldaa paging_dir_e8bd
     cmpa #2
     bne rd_forward_flags
     ldaa had_overflow
@@ -267,7 +420,7 @@ rd_marks
     staa pcur
 rd_cursor
     jsr store_cursor
-    jmp query_free_space
+    jmp query_free_e16e
 entry_pointer
     ; 24 bytes per record = index * 8 + index * 16.
     clrb
@@ -277,15 +430,15 @@ entry_pointer
     rolb
     asla
     rolb
-    staa ptr+1
+    staa v_ptr_1
     stab ptr
     asla
     rolb
-    adda ptr+1
+    adda v_ptr_1
     adcb ptr
-    adda cacheptr+1
+    adda v_cacheptr_1
     adcb cacheptr
-    staa ptr+1
+    staa v_ptr_1
     stab ptr
     ldx ptr
     rts
@@ -304,7 +457,7 @@ selected_none
 ; greatest entries before it. The full directory is always enumerated.
 ; This works in ordinary RAM too, without a catalogue-size limit or E5 lease.
 catalog_insert
-    tst paging_direction
+    tst paging_dir_e8bd
     beq insert_capacity
     ldx #candidate
     stx cmp_left
@@ -312,13 +465,13 @@ catalog_insert
     stx cmp_right
     jsr compare_entries
     bcc insert_pivot_less
-    ldaa paging_direction
+    ldaa paging_dir_e8bd
     cmpa #2
     bne *+5
     jmp insert_done
     bra insert_capacity
 insert_pivot_less
-    ldaa paging_direction
+    ldaa paging_dir_e8bd
     cmpa #3
     bne insert_pivot_strict
     tst cmp_result
@@ -338,7 +491,7 @@ insert_capacity
     bcs insert_find
     ldaa #1
     staa had_overflow
-    ldaa paging_direction
+    ldaa paging_dir_e8bd
     cmpa #2
     bne insert_forward_full
     ldaa #1
@@ -632,6 +785,135 @@ set_working_directory
     int $46
 work_done
     rts
-    include NCUTIL.INC
 
-    include NCOCTETS.INC
+; Keep the edited filename selected, including after size/date sorting moves it
+; outside the old catalogue window. Direction 3 is an inclusive forward pivot.
+editor_state_name
+    ldx owner
+    ldab #255
+    jsr add_b
+    ldab #132
+    jmp add_b
+restore_edited
+    jsr editor_state_name
+    tst 0,x
+    bne *+5
+    jmp edited_return
+    stx edited_name_ptr
+    ldaa active
+    jsr choose_panel
+    ldaa pcur
+    staa previous_cursor
+    ldaa ptop
+    staa previous_top
+    clr edited_retry
+edited_scan
+    clr pcur
+edited_entry
+    ldaa pcur
+    cmpa pcount
+    bcc edited_not_cached
+    jsr entry_pointer
+    stx cmp_left
+    ldx edited_name_ptr
+    stx cmp_right
+    clrb
+    ldaa #11
+    jsr cmp_bytes
+    tst cmp_result
+    bne *+5
+    jmp edited_found
+    inc pcur
+    bra edited_entry
+edited_not_cached
+    tst edited_retry
+    beq *+5
+    jmp edited_restore_cursor
+    inc edited_retry
+    ldx owner
+    ldab #S_COMMAND
+    jsr add_b
+    jsr stat_path
+    tsta
+    beq *+5
+    jmp edited_restore_cursor
+    ldx #stat_entry
+    stx src
+    ldx #candidate
+    stx dst
+    ldab #13
+    jsr copy_n
+    clr v_candidat_12
+    ldx #v_stat_ent_28
+    stx src
+    ldx #v_candida_af21
+    stx dst
+    ldab #4
+    jsr copy_n
+    ldx #v_stat_ent_24
+    stx src
+    ldx #v_candida_c0ff
+    stx dst
+    ldab #2
+    jsr copy_n
+    ldx #v_stat_ent_22
+    stx src
+    ldx #v_candida_cb55
+    stx dst
+    ldab #2
+    jsr copy_n
+    jsr page_pivot_pointer
+    stx dst
+    ldx #candidate
+    stx src
+    ldab #ENTRY_SIZE
+    jsr copy_n
+    jsr page_flag_pointer
+    ldaa #3
+    staa 0,x
+    clr cache_valid
+    ldaa panel
+    ldab panel
+    ldx #bank_valid
+    jsr add_b
+    clr 0,x
+    jsr choose_panel
+    ldaa #1
+    staa ptop
+    jmp edited_scan
+edited_found
+    ldaa pcur
+    cmpa ptop
+    bcs edited_top
+    ldaa ptop
+    adda ui_rows
+    cmpa pcur
+    bhi edited_store
+    ldaa pcur
+    suba ui_rows
+    inca
+edited_top
+    staa ptop
+edited_store
+    jsr store_cursor
+    ldx #tops
+    ldab panel
+    jsr add_b
+    ldaa ptop
+    staa 0,x
+    bra edited_clear
+edited_restore_cursor
+    ldaa previous_cursor
+    staa pcur
+    ldaa previous_top
+    staa ptop
+edited_clear
+    ldx edited_name_ptr
+    clr 0,x
+edited_return
+    rts
+editor_sta_3f23 equ editor_state_name
+page_flag__1353 equ page_flag_pointer
+page_pivot_7800 equ page_pivot_pointer
+set_workin_d418 equ set_working_directory
+    end

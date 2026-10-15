@@ -34,3 +34,16 @@ One OBJ and total code+BSS <=65535; LIB may exceed 64 KiB.
 Original ULINK has defects with absolute PUBLIC values and preallocating
 PGM relocations for library members (also with original UniLIB output).
 UniLD handles these cases correctly. Its files retain the standard format.
+
+After replacing VM ROM files in an already mounted HG directory:
+  RAMLOAD /U ZCODEVM
+  RAMLOAD /CVM
+Alternatively reset and repeat the normal HG/VM setup before NC.
+UniAS uses 13000 bytes of conventional symbol storage and up to 4848 bytes
+inside the existing VM bank. No additional RAMMAN bank is allocated.
+Copy the updated UNIAS.CMD AND both ZVM ROM files together.
+
+NC object build: see NCSRC\NCBUILD.TXT and NCMAIN.LNK / NCEDIT.LNK.
+UniLD -m FILE.MAP writes a link map without modifying PGM output.
+UniLD -b -o NCEDIT.PGM NCELOAD.PGM NCECORE.PGM joins two standard PGMs.
+Use -b before input files. These options work on host and native UniDOS.

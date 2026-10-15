@@ -520,6 +520,7 @@ ui_records db 0
 ui_shift db 0
 ui_token_ptr dw 0
 ui_print_ptr dw 0
+    section
 ui_size ds 4
 ui_part_out ds 4
 ui_begin ds 4
@@ -531,6 +532,7 @@ ui_extbase ds 4
 ui_extend ds 4
 ui_table ds 4
 ui_next ds 4
+    ends
 ui_reuse db 0
 ui_tables db 0
 ui_one db 1,0,0,0

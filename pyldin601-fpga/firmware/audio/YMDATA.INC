@@ -52,32 +52,40 @@ saved_page db 0
 saved_group db 0
 old_timer dw 0
 audio_owned db 0
+    section
 saved_divider ds 4
 saved_period ds 4
 timer_period ds 4
+    ends
 timer_remainder dw 0
 irq_ticks dw 0
 rate dw 50
 clock_factor dw 289
 io_table dw 0,0
+    section
 file_size ds 4
 file_left ds 4
 song_size ds 4
+    ends
 available dw 0
 input_pointer dw 0
 write_pointer db 0,0,$c0,0
 read_pointer db 0,0,$c0,0
 map_index db 0
 vtx_mode db 0
+    section
 read_left ds 4
+    ends
 access_pointer dw 0
 header_pointer dw 0
 header_count db 0
+    section
 raw_frame ds 14
+    ends
 compare dw 0
     include YMSTATE.INC
     include LHASTATE.INC
-bss_start
+    section
 memory_lease ds 114
 bank_groups ds 111
 bank_pages ds 111

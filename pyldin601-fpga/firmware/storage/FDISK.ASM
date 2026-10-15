@@ -1,7 +1,19 @@
 ; Native MC6800 MBR/EBR editor. Friendly commands share the checked editor.
 ; Never alters a mounted volume's bounds. Every table write is read back,
 ; validated by the resident scanner, and rolled back if validation fails.
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
     int $3b
     staa argc
     jmp ui_start
@@ -1191,6 +1203,7 @@ found_extended db 0
 reuse_ebr db 0
 chain_count db 0
 resize_slot db 0
+    section
 logical_count ds 4
 capacity ds 4
 first ds 4
@@ -1199,9 +1212,16 @@ extbase ds 4
 extend ds 4
 ebr ds 4
 last_table ds 4
+    ends
 count dw 0
+    section
 descriptor ds 6
 sector ds 512
 backup ds 512
 verify ds 512
 mbr_saved ds 512
+    ends
+    section
+bss_end
+    ends
+    end start

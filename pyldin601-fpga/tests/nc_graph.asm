@@ -20,6 +20,8 @@ failed
     int $38
 command db 'B:NC.PGM',0
 message db 'NC graphics fixture: allocation failed.',0
+    section
 bss_start
 bss_end
+    ends
     end start

@@ -8,7 +8,19 @@ controlreg = $e672
 idreg = $e673
 swia = 6
 
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
         ldaa idreg
         cmpa #'H'
         beq hardware_ok
@@ -180,8 +192,10 @@ drive_letter db 'C:',13,10,0
 disk_failed db 'HG: host unavailable or invalid FAT12 disk.',13,10,0
 old_drive db 0
 drive db 0
+    section
 dirbuf ds 66
 fatbuf ds 512
+    ends
         .endif
 
 ; One full-duplex byte stream. Discard RX during TX and vice versa.
@@ -669,14 +683,22 @@ sum dw 0
 timeout db 0
 output_byte db 0
 io_error db 0
+    section
 time_data ds 6
+    ends
 year dw 0
 month db 0
 day db 0
+    section
 ticks ds 4
 divisor ds 4
 temporary ds 4
+    ends
 hours db 0
 minutes db 0
 seconds db 0
 clock_value dw 0
+    section
+bss_end
+    ends
+    end start

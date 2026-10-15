@@ -210,6 +210,15 @@ BUILD AND TEST (from pyldin601-fpga)
     make test-nc UNIAS=/path/to/unias
     make test-nc-editor UNIAS=/path/to/unias
 
+NCMAIN and NCEDIT are linked from separate OBJ modules. Shared display
+and dialog routines are in NCUI.LIB, built by UniAR. NCMAIN.LNK and
+NCEDIT.LNK list the input modules; NCBUILD.TXT contains every command
+for the same build on a host or native UniDOS. No enlarged host symbol
+pool or PGM BSS trimming is needed. Use HANDLES 16 before RAMLOAD /CVM.
+NCEDIT's two standard PGM streams are joined with UniLD -b.
+    make test-native-firmware CVM_TOOLCHAIN=/path/to/hd6303-toolchain
+compares native objects, library, PGMs and maps with the cross build.
+
 Outputs: build/nc/NC.PGM, NCMAIN.PGM, NCEDIT.PGM, NCHOW.TXT, listings
 and manifests. NCEDIT.PGM includes its loader; NCEDIT.core.PGM is a build
 artifact used by tests, not an additional file to install.

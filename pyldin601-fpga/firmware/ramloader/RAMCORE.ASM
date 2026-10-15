@@ -1044,6 +1044,7 @@ page_msg db ' p=',0
 newline db 13,10,0
 error_msg db 'RAMLOAD: error $',0
 usage_msg db 'RAMLOAD file.ROM | /CVM | /L | /U NAME',13,10,0
+    section
 bss_start
 saved_break ds 3
 saved_io ds 3
@@ -1080,4 +1081,5 @@ remaining ds 2
 header ds 64
 buffer ds 512
 bss_end
+    ends
     end

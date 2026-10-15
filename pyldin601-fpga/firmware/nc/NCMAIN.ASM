@@ -1,5 +1,104 @@
-; Pyldin Commander panels. MC6800 ISA, real UniDOS filesystem and loader.
+; NCMAIN: Panel startup, command loop and dispatch.
     include NCABI.INC
+    include NCBOX.INC
+    public edit_file
+    public enter
+    public leave
+    public owner
+    public redraw
+    public refresh
+    public shell_request
+    extern active
+    extern add_b
+    extern bank_valid
+    extern bss_end
+    extern cache_close
+    extern cache_open
+    extern cache_valid
+    extern choose_panel
+    extern columns
+    extern command_length
+    extern command_line
+    extern copy_n
+    extern copy_z
+    extern cursors
+    extern delta
+    extern draw_panel
+    extern drive_left
+    extern drive_right
+    extern dst
+    extern editor_sta_3f23
+    extern entry_capacity
+    extern entry_pointer
+    extern error
+    extern file_action
+    extern has_next
+    extern has_previous
+    extern help
+    extern input
+    extern last_key
+    extern make_directory
+    extern mark_index
+    extern mark_pointer
+    extern marks_left
+    extern marks_page_text
+    extern marks_ptr
+    extern menu
+    extern message
+    extern mode
+    extern next_cursor
+    extern open_menu
+    extern original_attr
+    extern page_flag__1353
+    extern page_pivot_7800
+    extern page_request
+    extern panel
+    extern panel_width
+    extern path_length
+    extern pathptr
+    extern pcount
+    extern pcur
+    extern previous_cursor
+    extern previous_top
+    extern ptop
+    extern render
+    extern render_act_cbe7
+    extern render_com_7e25
+    extern render_pan_c869
+    extern render_prepare
+    extern request
+    extern restore_edited
+    extern saved_cursor
+    extern screen_base
+    extern selected
+    extern selected_path
+    extern set_workin_d418
+    extern source_path
+    extern src
+    extern standalone_cbac
+    extern store_cursor
+    extern switch_panel
+    extern text_stride
+    extern tops
+    extern ui_bottom
+    extern ui_command
+    extern ui_end
+    extern ui_info
+    extern ui_keys
+    extern ui_rows
+    extern update_cursor
+    extern v_bank_val_1
+    extern v_cursors_1
+    extern v_marks_r_97b9
+    extern v_screen_b_1
+    extern v_tops_1
+    extern viewer
+
+    section
+bss_start
+owner ds 2
+    ends
+; Pyldin Commander panels. MC6800 ISA, real UniDOS filesystem and loader.
 start
     ldx #bss_start
 nc_zero
@@ -62,11 +161,11 @@ nc_shift
     ldaa S_CURSOR,x
     staa cursors
     ldaa S_CURSOR+1,x
-    staa cursors+1
+    staa v_cursors_1
     ldaa S_TOP,x
     staa tops
     ldaa S_TOP+1,x
-    staa tops+1
+    staa v_tops_1
     int $13
     staa mode
     stab original_attr
@@ -129,7 +228,7 @@ nc_keep_palette
     ldaa #13
     staa $e600
     ldaa $e601
-    staa screen_base+1
+    staa v_screen_b_1
 nc_crtc_done
     pula
     staa $e600
@@ -153,7 +252,7 @@ nc_crtc_done
     jsr restore_edited
     jmp redraw
 bad_parent
-    ldx #standalone_message
+    ldx #standalone_cbac
     int $23
     int $38
 redraw
@@ -318,7 +417,7 @@ key_not_backspace
     inc command_length
     jmp command_redraw
 command_redraw
-    jsr render_command_line
+    jsr render_com_7e25
     jmp wait_key
 wait_key_jump
     jmp wait_key
@@ -418,11 +517,11 @@ page_previous_inside
 page_boundary
     jsr entry_pointer
     stx src
-    jsr page_pivot_pointer
+    jsr page_pivot_7800
     stx dst
     ldab #ENTRY_SIZE
     jsr copy_n
-    jsr page_flag_pointer
+    jsr page_flag__1353
     ldaa page_request
     staa 0,x
     ldaa panel
@@ -461,8 +560,8 @@ page_new_cursor
     ldaa active
     staa draw_panel
     jsr render_prepare
-    jsr render_panel_body
-    jsr render_active_info
+    jsr render_pan_c869
+    jsr render_act_cbe7
     jmp wait_key
 
 set_cursor
@@ -496,11 +595,11 @@ refresh
 refresh_marks
     clr 0,x
     inx
-    cpx #marks_right+BANK_COUNT
+    cpx #v_marks_r_97b9
     bne refresh_marks
     clr cache_valid
     clr bank_valid
-    clr bank_valid+1
+    clr v_bank_val_1
     clra
     jsr choose_panel
     ldaa #1
@@ -517,7 +616,7 @@ edit_file
     beq *+5
     jmp redraw
     stx src
-    jsr editor_state_name
+    jsr editor_sta_3f23
     stx dst
     ldab #11
     jsr copy_n
@@ -534,7 +633,7 @@ edit_file
 shell_request
     ldaa active
     jsr choose_panel
-    jsr set_working_directory
+    jsr set_workin_d418
     tsta
     beq shell_ready
     jsr error
@@ -547,7 +646,7 @@ enter
     beq enter_file
     ldaa active
     jsr choose_panel
-    jsr set_working_directory
+    jsr set_workin_d418
     tsta
     beq command_ready
     jsr error
@@ -580,7 +679,7 @@ enter_file
 enter_empty
     jmp redraw
 launch_file
-    jsr set_working_directory
+    jsr set_workin_d418
     tsta
     beq launch_directory_ready
     jsr error
@@ -612,7 +711,7 @@ parent_back
     bne parent_back
     clr 1,x
 parent_done
-    jsr page_flag_pointer
+    jsr page_flag__1353
     clr 0,x
     clr pcur
     ldaa active
@@ -624,7 +723,7 @@ path_to_panel
     bcs panel_path_invalid
     cmpb #62
     bhi panel_path_invalid
-    jsr page_flag_pointer
+    jsr page_flag__1353
     clr 0,x
     ldx src
     stx src
@@ -650,11 +749,11 @@ leave
     staa S_ACTIVE,x
     ldaa cursors
     staa S_CURSOR,x
-    ldaa cursors+1
+    ldaa v_cursors_1
     staa S_CURSOR+1,x
     ldaa tops
     staa S_TOP,x
-    ldaa tops+1
+    ldaa v_tops_1
     staa S_TOP+1,x
     ldaa request
     staa S_REQUEST,x
@@ -681,13 +780,4 @@ fail_io
     ldaa #3
     staa $06
     rts
-    include NCCACHE.INC
-    include NCCAT.INC
-    include NCRETURN.INC
-    include NCUI.INC
-    include NCFAST.INC
-    include NCPROGRESS.INC
-    include NCFILES.INC
-    include NCVIEW.INC
-    include NCDATA.INC
     end start

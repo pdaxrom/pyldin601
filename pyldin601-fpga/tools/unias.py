@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def assembler_path(unias=None):
-    name = unias or os.environ.get('UNIAS', 'unias')
+    toolchain = Path(os.environ.get('CVM_TOOLCHAIN', ROOT.parents[2]/'FPGA/hd6303-toolchain'))
+    name = unias or os.environ.get('UNIAS', str(toolchain/'unias'))
     found = shutil.which(name)
     if found:
         return found
@@ -37,7 +38,7 @@ def assemble(unias, out, source, output, defines=()):
 
 def bios_symbols(listing):
     return {name: int(value, 16) for name, value in
-            re.findall(r'^([A-Z_][A-Z0-9_]*) =\$([0-9A-F]+)$', listing, re.M)}
+            re.findall(r'^([A-Z_][A-Z0-9_]*) =\$([0-9A-Fa-f]+)$', listing, re.M)}
 
 
 def data_source(data):

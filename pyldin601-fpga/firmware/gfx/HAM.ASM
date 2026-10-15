@@ -13,7 +13,19 @@ height=$e65c
 palhi=$e65d
 ident=$e65e
 palctl=$e65f
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
         ldaa $e6a0
         bita #2
         bne cpu_ok
@@ -297,4 +309,10 @@ product dw 0
 gain_pointer dw 0
 coefficients
         include PALCOEF.ASM
+    section
 backup ds 8192
+    ends
+    section
+bss_end
+    ends
+    end start

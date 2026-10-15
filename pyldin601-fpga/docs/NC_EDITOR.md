@@ -21,8 +21,9 @@ allocates the editor with 256-byte alignment, reads the code, applies
 relocations in 64-byte batches, closes the file, and jumps to the editor.
 This avoids a transient low-RAM allocation for the entire relocation table
 while graphics video RAM is allocated. Both allocations belong to the native
-child and are released by DOS on its exit. `tools/nc_editor_pack.py` packages
-the two standard PGM files and updates the delivered file's manifest hash.
+child and are released by DOS on its exit. UniLD `-b` joins the two standard
+PGM files without changing either header or relocation table. This command
+runs identically on the host and under native UniDOS.
 
 The editor uses about 26 KiB of ordinary RAM, including its loader, code,
 viewport character cache, metadata and I/O buffers. Document length and edit
@@ -159,3 +160,22 @@ return, and memory/stack/bank cleanup. Editor input tests use an independent Set
 ROM keyboard translator. The legacy latch is disconnected. Pixel checks
 compare the caret with the actual ROM glyph. Rendered snapshots are digital video references, not PAL
 or physical-board validation.
+
+## Object build
+
+NCMAIN and NCEDIT are assembled independently from the modules in
+`firmware/nc`. NCMAIN owns the command loop; NCMCAT handles the catalogue,
+NCMUI the panels and menus, and NCMFILE file operations and viewing.
+NCEDIT owns editor startup; NCEFILE handles cached file pieces and saving,
+NCEUI rendering, NCENAV navigation/search, and NCEBLOCK block operations.
+NCMSTR/NCESTR contain initialized data; NCMV1–3/NCEV1–3 contain BSS.
+NCCOM provides shared UI/video utilities through NCUI.LIB. NCEND owns the
+last BSS byte. The entry objects own the first BSS bytes, so the existing
+UniCROSS OBJ format can distinguish both boundaries without new flags.
+
+Use `make -f firmware/Makefile nc` for the complete cross build. For a native
+build copy all NC sources to one directory, run `HANDLES 16` before loading
+the VM, and follow `NCBUILD.TXT`. UniAS, UniLD and UniAR use identical
+limits and object formats on both hosts. No PGM BSS postprocessing occurs.
+The build's `linked-labels` command only creates test/debug headers from
+UniAS listings and a UniLD map; it never changes the program.

@@ -263,6 +263,7 @@ loader_report
     int $20
     int $38
 load_message db 10,'NC editor: ',0
+    section
 bss_start
 load_path ds 81
 load_buffer ds 64
@@ -284,4 +285,5 @@ load_target ds 2
 load_block_records ds 1
 load_error ds 1
 bss_end
+    ends
     end start

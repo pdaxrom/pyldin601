@@ -16,7 +16,19 @@ height = $e65c
 ident = $e65e
 version = $e65f
 
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
         ldaa $e6a0
         bita #2
         bne cpu_ok
@@ -417,9 +429,11 @@ circle db 12,8,10,12,8,16,6,20,5,22,4,24,3,26,2,28
        db 0,32,0,32,0,32,0,32,1,30,1,30,1,30,2,28
        db 2,28,3,26,4,24,5,22,6,20,8,16,10,12,12,8
 initial_motion dw -16,-16,2,1,304,184,-3,-2,140,85,-4,3
+    section
 motion ds 24
 previous ds 24
 valid ds 2
+    ends
 hidden db 0
 ball db 0
 atlas_x db 0
@@ -430,3 +444,7 @@ row_base dw 0
 position dw 0
 
         include GFXCLIP.ASM
+    section
+bss_end
+    ends
+    end start

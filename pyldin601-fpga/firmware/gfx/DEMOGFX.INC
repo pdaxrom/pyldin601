@@ -365,9 +365,11 @@ lg_circle db 12,8,12,8,8,16,8,16,4,24,4,24,4,24,4,24
        db 0,32,0,32,0,32,0,32,0,32,0,32,0,32,0,32
        db 4,24,4,24,4,24,4,24,8,16,8,16,12,8,12,8
 lg_initial_motion dw -16,-16,4,1,304,184,-4,-2,140,85,-4,3
+    section
 lg_motion ds 24
 lg_previous ds 24
 lg_valid ds 2
+    ends
 lg_hidden db 0
 lg_ball db 0
 lg_atlas_x db 0

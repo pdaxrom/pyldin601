@@ -15,7 +15,19 @@ palette_high = $e65d
 palette_control = $e65f
 cpuconfig = $e6a0
 
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
         ; Keep this guard MC6800-compatible, before the first extended opcode.
         ldaa cpuconfig
         bita #2
@@ -605,9 +617,11 @@ video_changed db 0
 image_width dw 0
 image_height dw 0
 line_stride dw 0
+    section
 file_size ds 4
 seek_pos ds 4
 data_left ds 4
+    ends
 available dw 0
 input_pointer dw 0
 row_address dw 0
@@ -630,8 +644,14 @@ background db 0
 darkest dw 0
 accumulator dw 0
 product dw 0
+    section
 filename ds 81
 pcx_header ds 128
 raw_palette ds 769
 input_buffer ds 512
 palette_backup ds 8192
+    ends
+    section
+bss_end
+    ends
+    end start

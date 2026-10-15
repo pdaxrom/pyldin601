@@ -1,4 +1,16 @@
+    section
+bss_start
+    ends
 start
+    ldx #bss_start
+    cpx #bss_end
+    beq app_bss_ready
+app_zero_bss
+    clr 0,x
+    inx
+    cpx #bss_end
+    bne app_zero_bss
+app_bss_ready
     .ifdef FORMAT_TOOL
     ldaa #12
     staa fs_type
@@ -252,3 +264,7 @@ result_drive db 0
     .endif
 fs_type db 0
 scan_index db 0
+    section
+bss_end
+    ends
+    end start

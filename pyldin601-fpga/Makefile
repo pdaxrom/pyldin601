@@ -5,7 +5,8 @@ NVC ?= nvc
 CC ?= cc
 NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
-UNIAS ?= unias
+CVM_TOOLCHAIN ?= $(abspath ../../../FPGA/hd6303-toolchain)
+UNIAS ?= $(CVM_TOOLCHAIN)/unias
 export UNIAS
 FAT_RAMMAN ?= 0
 export FAT_RAMMAN
@@ -150,17 +151,20 @@ test-nc-editor: fixtures nc-apps
 	$(PYTHON) tests/render_nc.py
 .PHONY: test-ram-manager
 .PHONY: ramloader-apps test-ramloader
-.PHONY: cvm-apps test-cvm test-native-assembly test-object-tools
-CVM_TOOLCHAIN ?= $(abspath ../../../FPGA/hd6303-toolchain)
+.PHONY: cvm-apps test-cvm test-native-assembly test-native-firmware test-object-tools test-hg-object-tools
 test: test-cvm
 cvm-apps: ramloader-apps
 	$(PYTHON) tools/build_cvm.py --toolchain "$(CVM_TOOLCHAIN)"
 test-cvm: fixtures cvm-apps
 	$(PYTHON) tests/run_cvm.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+test-hg-object-tools: fixtures cvm-apps hg-apps
+	$(PYTHON) tests/run_hg_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test-object-tools: fixtures cvm-apps romdisk-extract
 	$(PYTHON) tests/run_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test-native-assembly: fixtures cvm-apps
 	$(PYTHON) tests/run_native_assembly.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+test-native-firmware: fixtures cvm-apps hg-apps nc-apps ramloader-apps
+	$(PYTHON) tests/run_native_firmware.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test: test-ramloader
 ramloader-apps: | $(BUILD)
 	$(MAKE) -f firmware/Makefile ramloader UNIAS="$(UNIAS)" CC="$(CC)"

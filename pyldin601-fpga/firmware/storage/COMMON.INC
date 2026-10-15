@@ -230,15 +230,19 @@ usage
     int $38
 ptr dw 0
 pat dw 0
+    section
 number ds 4
 temp ds 4
+    ends
 digits db 0
 digit db 0
 part db 0
 error db 0
 argc db 0
+    section
 argtext ds 81
 record ds 24
+    ends
 device_name db "SD0:PART"
 type_name db "/T:FAT12",0
 type16_name db "/T:FAT16",0

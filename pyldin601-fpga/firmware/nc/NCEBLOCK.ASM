@@ -1,3 +1,153 @@
+; NCEBLOCK: Text selection, clipboard and block editing.
+    .define NC_EDITOR
+    include NCABI.INC
+    include NCBOX.INC
+    public block_cach_8b13
+    public block_canc_33d4
+    public block_clos_a41c
+    public block_copy_b900
+    public block_dispatch
+    public block_finish
+    public block_mark_dc41
+    public block_put
+    public block_row
+    public v_block_st_100
+    public v_block_st_101
+    public v_block_st_102
+    public v_block_st_103
+    public v_block_st_104
+    public v_block_st_105
+    public v_block_st_106
+    public v_block_st_107
+    public v_block_st_108
+    public v_block_st_24
+    public v_block_st_28
+    public v_block_st_29
+    public v_block_st_30
+    public v_block_st_31
+    public v_block_st_32
+    public v_block_st_33
+    public v_block_st_34
+    public v_block_st_35
+    public v_block_st_36
+    public v_block_st_72
+    public v_block_st_73
+    public v_block_st_74
+    public v_block_st_75
+    public v_block_st_90
+    public v_block_st_91
+    public v_block_st_96
+    extern add_b
+    extern add_byte
+    extern add_tail
+    extern block_dirty
+    extern block_get
+    extern block_left
+    extern body_rows
+    extern change_at
+    extern change_bytes
+    extern change_delete
+    extern change_group
+    extern change_new_3955
+    extern change_prepare
+    extern columns
+    extern const32
+    extern copy_bytes
+    extern copy_n
+    extern copy_z
+    extern desired_valid
+    extern doc_size
+    extern dst
+    extern e_column
+    extern e_cursor
+    extern editor_error
+    extern editor_nat_5e73
+    extern editor_poll
+    extern editor_res_c671
+    extern editor_stat
+    extern end_pointer
+    extern eol_bytes
+    extern eol_length
+    extern filename
+    extern find_line_start
+    extern group_open
+    extern hex_digit
+    extern history_cursor
+    extern history_mode
+    extern history_target
+    extern horizontal
+    extern ink
+    extern io_table
+    extern key_ignored
+    extern last_key
+    extern line_pointer
+    extern line_valid
+    extern move_docum_6b40
+    extern nav_start
+    extern new_line
+    extern open_table
+    extern output_char
+    extern owner
+    extern paint_line
+    extern pending_record
+    extern poll_count
+    extern put
+    extern q
+    extern q_add
+    extern q_cmp
+    extern q_load
+    extern q_store
+    extern q_sub
+    extern q_test
+    extern rebuild_cursor
+    extern render_row
+    extern save_attempt
+    extern save_buffer
+    extern save_done
+    extern save_handle
+    extern save_meter_802e
+    extern save_next
+    extern save_open
+    extern save_progress
+    extern save_strea_2340
+    extern save_tail
+    extern save_target
+    extern save_temp
+    extern screen_pointer
+    extern screen_top
+    extern split_bytes
+    extern src
+    extern stream_block
+    extern stream_init
+    extern stream_left
+    extern stream_ptr
+    extern ui_x
+    extern v_block_le_1
+    extern v_change_b_1
+    extern v_eol_byte_1
+    extern v_horizont_1
+    extern v_horizont_2
+    extern v_horizont_3
+    extern v_io_table_2
+    extern v_open_tab_2
+    extern v_pending__12
+    extern v_pending__16
+    extern v_pending__20
+    extern v_pending__24
+    extern v_pending__28
+    extern v_pending__29
+    extern v_pending__4
+    extern v_pending__8
+    extern v_q_1
+    extern v_q_2
+    extern v_q_3
+    extern v_stream_l_1
+    extern where
+    extern window_line
+    extern window_open
+    extern window_title
+    extern work_open
+
 ; Linear selection and disk clipboard. Only visible row intervals live in RAM.
 ; block_state layout (BE32 unless noted):
 ; 0 anchor,4 anchor column,8 start,12 end,16 start column,20 end column;
@@ -107,7 +257,7 @@ block_empty_edit
 block_clear_key
     jsr selection_clear
 block_native_key
-    jmp editor_native_dispatch
+    jmp editor_nat_5e73
 block_navigation
     clr block_state+37
     ; Read the current FPGA keyboard state only when its v2 raw interface and
@@ -208,7 +358,7 @@ block_all_zero
     bne block_all_zero
     clr block_state+25
     inc block_state+26
-    jmp move_document_end
+    jmp move_docum_6b40
 block_normalize
     ldx #block_state
     jsr q_load
@@ -303,10 +453,10 @@ block_visible_column
     jsr q_sub
     bcs block_column_zero
     ldaa q
-    oraa q+1
-    oraa q+2
+    oraa v_q_1
+    oraa v_q_2
     bne block_column_full
-    ldaa q+3
+    ldaa v_q_3
     cmpa columns
     bcs block_row_done
 block_column_full
@@ -405,7 +555,7 @@ block_clip_pointer
     jmp add_b
 block_copy_key
     jsr block_copy
-    jmp editor_result_redraw
+    jmp editor_res_c671
 block_copy
     jsr block_close_pending
     tsta
@@ -485,7 +635,7 @@ block_clip_create
     ldx #save_temp
     stx open_table
     ldx #0
-    stx open_table+2
+    stx v_open_tab_2
     clra
     ldx #open_table
     int $4b
@@ -502,7 +652,7 @@ block_clip_create
     ldx #filename
     ldaa #8
     jsr window_line
-    jmp save_stream_begin
+    jmp save_strea_2340
 ; Retry a pending native close before reusing the shared transfer handle.
 ; Kind 2 is a clipboard reader, whose source must never be deleted.
 block_close_pending
@@ -569,8 +719,8 @@ block_erase_key
 block_enter_key
     ldaa eol_bytes
     staa change_bytes
-    ldaa eol_bytes+1
-    staa change_bytes+1
+    ldaa v_eol_byte_1
+    staa v_change_b_1
     ldaa eol_length
     bra block_small_key
 block_tab_key
@@ -601,7 +751,7 @@ block_small_key
     ldaa block_state+88
     cmpa #2
     bne block_replace_key
-    ldaa change_bytes+1
+    ldaa v_change_b_1
     jsr add_byte
     tsta
     beq *+5
@@ -614,9 +764,9 @@ block_replace_key
     jsr selection_clear
     clr desired_valid
     clr horizontal
-    clr horizontal+1
-    clr horizontal+2
-    clr horizontal+3
+    clr v_horizont_1
+    clr v_horizont_2
+    clr v_horizont_3
     ldx #e_cursor
     jsr q_load
     ldx #nav_start
@@ -645,7 +795,7 @@ block_paste_key
     jmp block_native_ignored
     stx open_table
     ldx #0
-    stx open_table+2
+    stx v_open_tab_2
     ldaa #1
     ldx #open_table
     int $4a
@@ -681,7 +831,7 @@ block_paste_read
     beq block_paste_close
     jsr block_take
     ldx block_state+64
-    stx io_table+2
+    stx v_io_table_2
     ldx #save_buffer
     stx io_table
     ldaa save_handle
@@ -782,34 +932,34 @@ block_replace_selected
     jsr q_store
     ldx #block_state+48
     jsr q_load
-    ldx #pending_record+4
+    ldx #v_pending__4
     jsr q_store
     ldx #block_state+60
     jsr q_load
-    ldx #pending_record+8
+    ldx #v_pending__8
     jsr q_store
     ldx #block_state+76
     jsr q_load
-    ldx #pending_record+12
+    ldx #v_pending__12
     jsr q_store
     ldx #block_state+80
     jsr q_load
-    ldx #pending_record+16
+    ldx #v_pending__16
     jsr q_store
     ldx #block_state+84
     jsr q_load
-    ldx #pending_record+20
+    ldx #v_pending__20
     jsr q_store
     ldx #block_state+8
     jsr q_load
     ldx #block_state+80
     jsr q_add
-    ldx #pending_record+24
+    ldx #v_pending__24
     jsr q_store
     clr change_group
-    clr pending_record+28
+    clr v_pending__28
     ldaa #1
-    staa pending_record+29
+    staa v_pending__29
     clr history_mode
     ldx #history_cursor
     jsr q_load
@@ -817,7 +967,7 @@ block_replace_selected
     jsr q_add
     ldx #history_target
     jsr q_store
-    jmp change_new_record
+    jmp change_new_3955
 block_full
     ldaa #12
 block_replace_return
@@ -850,7 +1000,7 @@ block_snapshot_more
     ldaa stream_left
     cmpa block_state+64
     bne block_snapshot_compare
-    ldaa stream_left+1
+    ldaa v_stream_l_1
     cmpa block_state+65
 block_snapshot_compare
     bcc block_snapshot_copy
@@ -883,14 +1033,14 @@ block_take
     ldx #512
     stx block_state+64
     ldaa q
-    oraa q+1
+    oraa v_q_1
     beq *+5
     jmp block_replace_return
-    ldaa q+2
+    ldaa v_q_2
     cmpa #2
     bcs *+5
     jmp block_replace_return
-    ldx q+2
+    ldx v_q_2
     stx block_state+64
     rts
 block_append
@@ -914,7 +1064,7 @@ block_append_more
     ldaa block_left
     cmpa block_state+70
     bne block_append_compare
-    ldaa block_left+1
+    ldaa v_block_le_1
     cmpa block_state+71
 block_append_compare
     bcc block_append_copy
@@ -986,9 +1136,9 @@ block_meter
     ldx #block_state+56
     jsr q_load
     ldaa q
-    oraa q+1
+    oraa v_q_1
     bne block_meter_open
-    ldaa q+2
+    ldaa v_q_2
     cmpa #2
     bcs block_cancel_done
 block_meter_open
@@ -1004,7 +1154,7 @@ block_meter_open
     ldx #filename
     ldaa #8
     jsr window_line
-    jmp save_meter_begin
+    jmp save_meter_802e
 ; A held cancellation key must not also clear the block and then exit the
 ; editor. Drain only Esc/Ctrl+C repeats until native BIOS observes release;
 ; leave a different queued key available for the normal input loop.
@@ -1034,3 +1184,39 @@ block_copy_title db 'Copy block',0
 
 block_paste_title db 'Paste block',0
 block_edit_title db 'Edit block',0
+    section
+block_state ds 112
+block_marks ds 48
+    ends
+block_cach_8b13 equ block_cached_ink
+block_canc_33d4 equ block_cancel_release
+block_clos_a41c equ block_close_pending
+block_copy_b900 equ block_copy_commit
+block_mark_dc41 equ block_mark_pointer
+v_block_st_100 equ block_state+100
+v_block_st_101 equ block_state+101
+v_block_st_102 equ block_state+102
+v_block_st_103 equ block_state+103
+v_block_st_104 equ block_state+104
+v_block_st_105 equ block_state+105
+v_block_st_106 equ block_state+106
+v_block_st_107 equ block_state+107
+v_block_st_108 equ block_state+108
+v_block_st_24 equ block_state+24
+v_block_st_28 equ block_state+28
+v_block_st_29 equ block_state+29
+v_block_st_30 equ block_state+30
+v_block_st_31 equ block_state+31
+v_block_st_32 equ block_state+32
+v_block_st_33 equ block_state+33
+v_block_st_34 equ block_state+34
+v_block_st_35 equ block_state+35
+v_block_st_36 equ block_state+36
+v_block_st_72 equ block_state+72
+v_block_st_73 equ block_state+73
+v_block_st_74 equ block_state+74
+v_block_st_75 equ block_state+75
+v_block_st_90 equ block_state+90
+v_block_st_91 equ block_state+91
+v_block_st_96 equ block_state+96
+    end

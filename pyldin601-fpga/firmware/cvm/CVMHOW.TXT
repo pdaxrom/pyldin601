@@ -57,3 +57,11 @@ UniLD /c creates CMD at $0100, /p aligns modules to pages.
 UniAR operations: r replace/create, a add, d delete, t list, x extract.
 Names PUBLIC/EXTERN: 15 characters; member names: 8; paths: 31.
 EXTERN must be a bare operand, without arithmetic. Both tools accept @list.
+
+After replacing VM ROM files in an already mounted HG directory:
+  RAMLOAD /U ZCODEVM
+  RAMLOAD /CVM
+Alternatively reset and repeat the normal HG/VM setup before NC.
+UniAS uses 13000 bytes of conventional symbol storage and up to 4848 bytes
+inside the existing VM bank. No additional RAMMAN bank is allocated.
+Copy the updated UNIAS.CMD AND both ZVM ROM files together.

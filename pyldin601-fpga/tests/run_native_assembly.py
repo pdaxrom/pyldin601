@@ -69,7 +69,7 @@ image = (ROOT/'images/sd.img').read_bytes()
 cvm = ROOT/'build/cvm'
 tools = {n:(cvm/n).read_bytes() for n in ('ZVM6800.ROM','ZVM6303.ROM','UNIAS.CMD')}
 tools['RAMLOAD.PGM'] = (ROOT/'build/ramloader/RAMLOAD.PGM').read_bytes()
-assert tools['UNIAS.CMD'][64:] == (toolchain/'AS03.CMD').read_bytes()[64:], 'native and cross UniAS must use the same bytecode after the platform stub'
+assert tools['UNIAS.CMD'] == (toolchain/'pyldin/UNIAS.CMD').read_bytes(), 'use the native assembler built from the canonical AS03.ASM'
 mains = {n:short_sources.pop(n) for n in ('BIOS.ASM','BIOS_A.ASM','XONIX.ASM')}
 image, _ = install(image, tools|mains|short_sources, replace=True)
 image_path = out/'sd-test.img'
@@ -81,7 +81,8 @@ subprocess.run([a.cc,'-O2','-I../pyldin601/src','tests/test_native_assembly.c',
 report = {'execution':'native UNIAS.CMD on reference CPU with real BIOS/UniDOS and RAMMAN',
           'define':['GAME_MUSIC'],
           'cross_unias_sha256':hashlib.sha256((toolchain/'unias').read_bytes()).hexdigest(),
-          'shared_unias_bytecode_sha256':hashlib.sha256(tools['UNIAS.CMD'][64:]).hexdigest(),
+          'assembler_asm_sha256':hashlib.sha256((toolchain/'AS03.ASM').read_bytes()).hexdigest(),
+          'native_unias_sha256':hashlib.sha256(tools['UNIAS.CMD']).hexdigest(),
           'tools':{n:hashlib.sha256(d).hexdigest() for n,d in tools.items()},
           'sources':{n:{'bytes':len(d),'sha256':hashlib.sha256(d).hexdigest(),
                        'native_name':aliases[n]} for n,d in sources.items()},

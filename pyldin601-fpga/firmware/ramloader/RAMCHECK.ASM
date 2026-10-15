@@ -34,6 +34,8 @@ text db '123456789'
 missing db 'Load CRC16.ROM with RAMLOAD first.',13,10,0
 passed db 'PASS: banked ROM CRC16 = 29B1',13,10,0
 error db 'FAIL: banked ROM CRC16',13,10,0
+    section
 bss_start
 bss_end
+    ends
     end
