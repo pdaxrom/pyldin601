@@ -7,7 +7,8 @@ use std.env.all;
 use work.cpu_interrupt_labels.all;
 
 entity tb_cpu_interrupts is
- generic(SCENARIO:natural:=0;IRQ_DELAY:natural:=0;HD:boolean:=false);
+ generic(SCENARIO:natural:=0;IRQ_DELAY:natural:=0;HD:boolean:=false;
+         FETCH_OPCODE:natural:=16#de#);
 end;
 architecture test of tb_cpu_interrupts is
  type bytes is array(0 to 65535)of std_logic_vector(7 downto 0);
@@ -18,6 +19,9 @@ architecture test of tb_cpu_interrupts is
   for n in data'range loop readline(f,l);hread(l,v);data(n):=v;end loop;
   -- Scenario 3 accepts IRQ while fetching a WAI that has not been executed.
   if SCENARIO=3 then data(to_integer(unsigned(service_pc))):=x"3e";end if;
+  if SCENARIO>=7 then
+   data(to_integer(unsigned(service_pc))):=std_logic_vector(to_unsigned(FETCH_OPCODE,8));
+  end if;
   if SCENARIO=5 or SCENARIO=6 then
    data(to_integer(unsigned(service_pc))):=x"3e";
    data(to_integer(unsigned(service_pc))+1):=x"01";
@@ -48,6 +52,20 @@ begin
    if decode='1' and registers(71 downto 56)=x"1000" then
     assert registers(4)='1' report "Reset did not mask IRQ" severity failure;
    end if;
+   if SCENARIO>=7 and decode='1' and registers(71 downto 56)=x"2100" then
+    assert registers(55 downto 40)=x"8ff9" and
+      registers(39 downto 24)=x"5678" and registers(23 downto 16)=x"21" and
+      registers(15 downto 8)=x"34" and registers(7 downto 0)=x"f1"
+      report "Unexecuted opcode changed IRQ/NMI entry registers: "&to_hstring(registers)
+      severity failure;
+    assert memory(16#8ffa#)=x"e1" and memory(16#8ffb#)=x"34" and
+      memory(16#8ffc#)=x"21" and memory(16#8ffd#)=x"56" and memory(16#8ffe#)=x"78" and
+      memory(16#8fff#)&memory(16#9000#)=service_pc
+      report "Unexecuted opcode changed IRQ/NMI saved frame" severity failure;
+    report "PASS interrupt boundary prefetched opcode "&to_hstring(to_unsigned(FETCH_OPCODE,8))&
+      " scenario "&natural'image(SCENARIO);
+    finish;
+   end if;
    if not injected and (SCENARIO=0 or SCENARIO=5 or SCENARIO=6) then
     if not armed and decode='1' and registers(71 downto 56)=service_pc then
      armed:=true;remaining:=IRQ_DELAY;
@@ -58,6 +76,12 @@ begin
     end if;
    elsif not injected and SCENARIO>=1 and SCENARIO<=3 then
     if vma='1' and rw='1' and address=service_pc then irq<='1';injected<=true;end if;
+   elsif not injected and SCENARIO=7 then
+    if vma='1' and rw='1' and address=service_pc then irq<='1';injected<=true;end if;
+   elsif not injected and SCENARIO=8 then
+    if decode='1' and unsigned(registers(71 downto 56))=unsigned(service_pc)-1 then
+     nmi<='1';injected<=true;
+    end if;
    end if;
    if SCENARIO=5 and injected and not irq_seen then
     wait_cycles:=wait_cycles+1;

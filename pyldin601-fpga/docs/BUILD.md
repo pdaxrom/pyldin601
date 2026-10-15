@@ -109,9 +109,9 @@ make test-ham-layers test-xonix UNIAS=/path/to/hd6303-toolchain/unias
 
 Lattice Diamond 3.14, project `pyldin601_classic.ldf`, constraints
 `pyldin601_classic.lpf`, device LCMXO2-7000HC-4TG144I.
-Текущая graphics v6 использует PAR seed 7 и проходит setup/hold:
+Текущая graphics v6 с исправлением IRQ/NMI использует PAR seed 8 и проходит setup/hold:
 negative slack=0, unconstrained paths=0. Использование:
-5323 LUT, 2672 slices, 2159 registers, 23 EBR, 1 PLL.
+5338 LUT, 2677 slices, 2160 registers, 23 EBR, 1 PLL.
 PAL/AY EBR wiring и INITVAL проверяются отдельными checkers в tests.
 Журналы synthesis/MAP/PAR/TRACE и JED остаются в build.
 Не заменять SRAM-10/27-нс ограничения ослабленными для получения PASS.

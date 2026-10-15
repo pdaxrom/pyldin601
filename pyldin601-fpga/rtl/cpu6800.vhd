@@ -1059,7 +1059,10 @@ process( state, op_code, op_hd, illegal_op, cc, ea, iv, irq, nmi_req, nmi_ack, h
 			 --
           when vect_lo_state =>
 			    -- default the registers
-             op_ctrl    <= latch_op;
+             -- IRQ/NMI may have fetched an opcode without executing it.
+             -- fetch_state commits the preceding instruction, so discard
+             -- that prefetch before fetching the first handler instruction.
+             op_ctrl    <= reset_op;
 				 nmi_ctrl   <= latch_nmi;
              acca_ctrl  <= latch_acca;
              accb_ctrl  <= latch_accb;
