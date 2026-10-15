@@ -11,6 +11,8 @@ RAMCHECK must print:
 
 Use your actual drive letter instead of E:.
 /L or LIST lists installed ROMs; /U NAME or UNLOAD NAME unloads one.
+/CVM chooses ZVM6800.ROM or ZVM6303.ROM beside RAMLOAD.PGM by FPGA CPU mode.
+An installed VM is validated and reused. Unload it as ZCODEVM.
 NAME is the eight-character name inside the ROM header.
 The first successful LOAD installs the resident registry. Later commands
 can run from NC or a nested shell. The registry remains until Reset.

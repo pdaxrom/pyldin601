@@ -44,6 +44,10 @@ one_arg
     ldx #list_word
     jsr equal_arg
     beq list
+    ldx #cvm_arg
+    jsr equal_arg
+    bne *+5
+    jmp select_cvm
     jmp load_rom
 two_args
     ldaa #1
@@ -98,6 +102,106 @@ fail_io
     ldaa #3
     staa $06
     rts
+select_cvm
+    ; The CPU choice and path handling use only classic MC6800 instructions.
+    ldaa #$ef
+    int $2e
+    cpx #0
+    beq cvm_path
+    stx target
+    clr slot
+cvm_find_loaded
+    jsr record_at
+    ldaa R_FLAGS,x
+    cmpa #1
+    bne cvm_loaded_next
+    ldx #cvm_name_text
+    stx src
+    jsr compare_name
+    bne cvm_loaded_next
+    ldx record
+    ldab #R_GATES
+    jsr add_b
+    cpx target
+    beq cvm_loaded_info
+    jmp cvm_conflict
+cvm_loaded_next
+    inc slot
+    ldaa slot
+    cmpa #RL_SLOTS
+    bcs cvm_find_loaded
+    jmp cvm_conflict
+cvm_loaded_info
+    clra
+    int $ef
+    cmpa #1
+    bne cvm_conflict
+    cpx #$5a56
+    bne cvm_conflict
+    stab offset
+    ldaa $e6a0
+    anda #2
+    lsra
+    cmpa offset
+    bne cvm_conflict
+    ldx #cvm_ready
+    int $23
+    jmp done
+cvm_conflict
+    ldaa #82
+    jmp fail
+cvm_path
+    ldx context
+    ldx C_PATH,x
+    stx src
+    ldx #argtext
+    stx dst
+    stx selected
+    clr offset
+    clr selected_slot
+cvm_copy_path
+    ldx src
+    ldaa 0,x
+    inx
+    stx src
+    ldx dst
+    staa 0,x
+    tsta
+    beq cvm_filename
+    inx
+    stx dst
+    cmpa #':'
+    beq cvm_component
+    cmpa #'\'
+    bne cvm_path_next
+cvm_component
+    stx selected
+    ldaa offset
+    inca
+    staa selected_slot
+cvm_path_next
+    inc offset
+    ldaa offset
+    cmpa #79
+    bcs cvm_copy_path
+    jmp bad_rom
+cvm_filename
+    ldaa selected_slot
+    cmpa #69
+    bcs *+5
+    jmp bad_rom
+    ldx #cvm_mc
+    ldaa $e6a0
+    bita #2
+    beq cvm_name
+    ldx #cvm_hd
+cvm_name
+    stx src
+    ldx selected
+    stx dst
+    ldab #12
+    jsr copy_n
+    jmp load_rom
 load_rom
     ; The native permanent allocator is a high-water mark. Do not pin a
     ; caller such as NC with the initial registry: install from the root shell.
@@ -923,6 +1027,11 @@ usage
     jmp done
 list_arg db '/L',0
 list_word db 'LIST',0
+cvm_arg db '/CVM',0
+cvm_mc db 'ZVM6800.ROM',0
+cvm_hd db 'ZVM6303.ROM',0
+cvm_ready db 'ZCodeVM already loaded.',13,10,0
+cvm_name_text db 'ZCODEVM '
 unload_arg db '/U',0
 unload_word db 'UNLOAD',0
 list_msg db 'RAMLOAD: loaded ROMs',13,10,0
@@ -934,7 +1043,7 @@ group_msg db ' g=',0
 page_msg db ' p=',0
 newline db 13,10,0
 error_msg db 'RAMLOAD: error $',0
-usage_msg db 'RAMLOAD file.ROM | /L | /U NAME',13,10,0
+usage_msg db 'RAMLOAD file.ROM | /CVM | /L | /U NAME',13,10,0
 bss_start
 saved_break ds 3
 saved_io ds 3

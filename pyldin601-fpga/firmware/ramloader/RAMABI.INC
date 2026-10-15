@@ -23,3 +23,4 @@ C_GATEWAY equ 4
 C_KEEP equ 6
 C_FIRST equ 7
 C_ERROR equ 8
+C_PATH equ 9

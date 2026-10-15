@@ -3,6 +3,8 @@
 UNIAS ?= unias
 FAT_RAMMAN ?= 0
 FAT_FLAGS := $(if $(filter 1,$(FAT_RAMMAN)),-D FAT_RAMMAN,)
+UNILD ?= $(dir $(UNIAS_PATH))unild
+UNIAR ?= $(dir $(UNIAS_PATH))uniar
 CC ?= cc
 BUILD := build
 UNIAS_PATH := $(if $(filter /%,$(UNIAS)),$(UNIAS),$(shell command -v "$(UNIAS)"))
@@ -78,9 +80,10 @@ game: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/game
 	cp firmware/game/* $(BUILD)/game/
 	cd $(BUILD)/game && sh $(RUN) ARKANOID.PGM.log "$(UNIAS_PATH)" -D GAME_MUSIC -l ARKANOID.PGM.LST -o ARKANOID.raw.PGM ARKANOID.ASM
-	cd $(BUILD)/game && sh $(RUN) XONIX.PGM.log "$(UNIAS_PATH)" -D GAME_MUSIC -l XONIX.PGM.LST -o XONIX.raw.PGM XONIX.ASM
+	cd $(BUILD)/game && sh $(RUN) XONIX.PGM.log "$(UNIAS_PATH)" -D GAME_MUSIC -l XONIX.PGM.LST -o XONIX.PGM XONIX.ASM
 	cd $(BUILD)/game && sh $(RUN) SDKTEST.PGM.log "$(UNIAS_PATH)" -l SDKTEST.PGM.LST -o SDKTEST.raw.PGM SDKTEST.ASM
-	@set -e; for app in ARKANOID XONIX SDKTEST; do $(DATA) pgm $(BUILD)/game/$$app.raw.PGM $(BUILD)/game/$$app.PGM $(BUILD)/game/$$app.PGM.LST $(BUILD)/game/$$app.json auto; done
+	@set -e; for app in ARKANOID SDKTEST; do $(DATA) pgm $(BUILD)/game/$$app.raw.PGM $(BUILD)/game/$$app.PGM $(BUILD)/game/$$app.PGM.LST $(BUILD)/game/$$app.json auto; done
+	$(DATA) pgm-info $(BUILD)/game/XONIX.PGM $(BUILD)/game/XONIX.json
 	$(DATA) labels $(BUILD)/game/ARKANOID.PGM.LST $(BUILD)/game/arkanoid_labels.h GAME
 	$(DATA) labels $(BUILD)/game/XONIX.PGM.LST $(BUILD)/game/xonix_labels.h XO
 	$(DATA) labels $(BUILD)/game/SDKTEST.PGM.LST $(BUILD)/game/sdktest_labels.h SDK
@@ -165,3 +168,15 @@ ramloader: $(BUILD)/firmware-data
 	python3 tools/ramloader_pack.py
 	$(DATA) index $(BUILD)/ramloader/manifest.json $(BUILD)/ramloader/RAMLOAD.json $(BUILD)/ramloader/RAMCORE.json $(BUILD)/ramloader/RAMCHECK.json
 	rm -f $(BUILD)/ramloader/*.raw.PGM
+
+# A real two-module XONIX build, also linked through a UniLIB archive.
+.PHONY: game-objects
+game-objects:
+	mkdir -p $(BUILD)/game-objects
+	cp firmware/game/*.ASM firmware/game/*.INC $(BUILD)/game-objects/
+	cd $(BUILD)/game-objects && sh $(RUN) XOMAIN.log "$(UNIAS_PATH)" -c -D GAME_MUSIC -l XOMAIN.LST -o XOMAIN.OBJ XOMAIN.ASM
+	cd $(BUILD)/game-objects && sh $(RUN) XOCFG.log "$(UNIAS_PATH)" -c -D GAME_MUSIC -o XOCFG.OBJ XOCFG.ASM
+	cd $(BUILD)/game-objects && "$(UNILD)" -o XOOBJ.PGM XOMAIN.OBJ XOCFG.OBJ
+	cd $(BUILD)/game-objects && "$(UNIAR)" r XCFG.LIB XOCFG.OBJ
+	cd $(BUILD)/game-objects && "$(UNILD)" -o XOLIB.PGM XOMAIN.OBJ XCFG.LIB
+	cmp $(BUILD)/game-objects/XOOBJ.PGM $(BUILD)/game-objects/XOLIB.PGM

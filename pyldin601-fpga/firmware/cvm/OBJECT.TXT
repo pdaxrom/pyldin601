@@ -1,0 +1,36 @@
+UniAS / UniLD / UniAR for pyldin601-fpga
+
+HANDLES 16 then RAMLOAD /CVM, from the main UniDOS shell before NC.
+Keep both VM ROMs and RAMLOAD.PGM beside the tools.
+
+UNIAS -c -o MAIN.OBJ MAIN.ASM
+UNIAS -c -o HELP.OBJ HELP.ASM
+UNILD -o APP.PGM MAIN.OBJ HELP.OBJ
+APP.PGM
+UNIAR r UTIL.LIB HELP.OBJ
+UNILD -o APP.PGM MAIN.OBJ UTIL.LIB
+APP.PGM
+Expected: OBJECT PASS, both times.
+UNIAR t UTIL.LIB
+UNIAR x UTIL.LIB HELP
+UNIAR d UTIL.LIB HELP
+
+Native rebuilding of the linker/librarian from included Small-C sources:
+UNICC -o LDNAT.ASM UNILD.C
+UNIAS -o LDNAT.CMD LDNAT.ASM
+UNICC -o ARNAT.ASM UNIAR.C
+UNIAS -o ARNAT.CMD ARNAT.ASM
+LDNAT -o APP.PGM MAIN.OBJ HELP.OBJ
+ARNAT r UTIL.LIB HELP.OBJ
+
+UniAS writes final PGM, including BSS; no host conversion.
+SECTION without an address starts BSS; ENDS returns to code.
+MAIN or END label sets the entry. Bare EXTERN operands only.
+UniLD: OBJ v0/v1, original LIB; /c CMD at $0100, /p page alignment.
+UniAR: original UniLIB container, not Unix ar. r/a/d/t/x operations.
+Both: @list response files. PUBLIC/EXTERN names <=15, paths <=31.
+One OBJ and total code+BSS <=65535; LIB may exceed 64 KiB.
+
+Original ULINK has defects with absolute PUBLIC values and preallocating
+PGM relocations for library members (also with original UniLIB output).
+UniLD handles these cases correctly. Its files retain the standard format.

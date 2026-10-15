@@ -19,22 +19,25 @@ static int contains(const char*text){
 #ifndef DOS_PROMPT_CYCLES
 #define DOS_PROMPT_CYCLES 200000000
 #endif
+static const char*dos_prompt_text="A:\\>";
 static void prompt_wait(void){
  uint64_t deadline=virtual_cycles+DOS_PROMPT_CYCLES;
  // Sample the same instruction after INT11 has popped its temporary A.
  // A range over the whole keyboard loop can report SP with one extra byte,
  // depending on instruction/PAL phase, despite a balanced DOS return.
  // Avoid sampling at a fixed phase of the 20,000-cycle PAL interrupt.
- do{until(virtual_cycles+1009);if(PC==(model_a?0xf397:0xf39d)&&contains("A:\\>"))return;}while(virtual_cycles<deadline);
+ do{until(virtual_cycles+1009);if(PC==(model_a?0xf397:0xf39d)&&contains(dos_prompt_text))return;}while(virtual_cycles<deadline);
  require(0,"command returned to DOS prompt");
 }
 static void command(const char*text){
  const char*letters="abcdefghijklmnopqrstuvwxyz";
  static const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
  for(;*text;text++){
-  const char*p=strchr(letters,*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='+'?0x0d:*text=='/'?0x35:*text=='\\'?0x2b:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?0x0b:0;
+  unsigned upper=*text>='A'&&*text<='Z';
+  const char*p=strchr(letters,upper?*text+32:*text);unsigned scan=p?scans[p-letters]:*text=='.'?0x34:*text==' '?0x39:*text==':'?0x27:*text=='+'?0x0d:*text=='/'?0x35:*text=='-'||*text=='_'?0x0c:*text=='\\'?0x2b:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?0x0b:0;
   require(scan!=0,"test command has valid keys");
-  if(*text==':'||*text=='+')KBDModKeyDown(2);key(scan);if(*text==':'||*text=='+')KBDModKeyUp(2);
+  unsigned shift=upper||*text==':'||*text=='+'||*text=='_';
+  if(shift)KBDModKeyDown(2);key(scan);if(shift)KBDModKeyUp(2);
  }key(0x1c);prompt_wait();
 }
 static void rom_directory(void){

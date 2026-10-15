@@ -7,8 +7,8 @@ xc_load
     ldx #xo_config_name
     jsr hs_asset_path
     stx xc_ot
-    clr xc_ot+2
-    clr xc_ot+3
+    clr xc_ot2
+    clr xc_ot3
     ldx #xc_ot
     ldaa #1
     int $4a
@@ -35,7 +35,7 @@ xc_open
     ldd xc_sz
     beq *+5
     jmp xc_error
-    ldd xc_sz+2
+    ldd xc_sz2
     std xc_left
     subd #4096
     bls *+5
@@ -151,7 +151,7 @@ xc_get
 xc_full
     ldd #512
 xc_refill
-    std xc_io+2
+    std xc_io2
     ldd #hi_buf
     std xc_io
     ldaa xc_h
@@ -160,7 +160,7 @@ xc_refill
     tsta
     beq *+5
     jmp xc_error
-    cpx xc_io+2
+    cpx xc_io2
     beq *+5
     jmp xc_error
     stx xc_av

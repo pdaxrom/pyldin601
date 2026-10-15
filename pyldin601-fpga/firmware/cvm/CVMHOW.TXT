@@ -1,0 +1,59 @@
+Small-C VM for pyldin601-fpga
+
+Copy this directory as a unit. RAMLOAD.PGM must stay beside both ROMs.
+No FPGA or system ROM update is needed if RAMMAN PIN/UNPIN is installed.
+
+From the MAIN UniDOS shell, before NC (replace E: with your HG drive):
+  E:
+  CD \CVM
+  HANDLES 16
+  RAMLOAD /CVM
+
+The loader chooses ZVM6800.ROM or ZVM6303.ROM from the running CPU mode.
+Only one 8-KiB RAMMAN bank is occupied. Repeated /CVM reuses the module.
+The shared ramloader registry occupies about 1.1 KiB conventional RAM.
+
+  HELLO
+  CVMTEST
+
+Expected: CVM HELLO PASS and CVM TEST PASS.
+
+Native compilation, from this directory so SYSTEM.H can be found:
+  UNICC HELLO.C
+  UNIAS HELLO.ASM
+  HELLO
+
+HANDLES 16 reserves 354 extra bytes before loading the resident VM.
+The standard 10 handles are insufficient for large UniAS builds with
+nested includes, a listing, temporary code and a relocatable PGM output.
+
+Both CPUs run the SAME CMD bytecode. Only the ROM interpreter differs.
+Native inline assembly must itself match the selected CPU.
+Small-C source lines must fit 79 columns. Backslash escapes in string
+literals are not expanded by this compiler; use character values for LF.
+
+  RAMLOAD /L
+  RAMLOAD /U ZCODEVM
+
+Load again after Reset. First installation from NC is rejected ($56),
+to avoid making its parent programs resident. Later loads are permitted.
+BREAK, VM errors and exit() restore vectors, stack and direct-page state.
+An executing VM cannot be unloaded. UniDOS rejects nested absolute CMD
+programs; system() can run internal commands and relocatable PGM files.
+
+Object modules and original UniLIB archives:
+  UNIAS -c -o MAIN.OBJ MAIN.ASM
+  UNIAS -c -o HELP.OBJ HELP.ASM
+  UNILD -o APP.PGM MAIN.OBJ HELP.OBJ
+  APP.PGM
+  UNIAR r UTIL.LIB HELP.OBJ
+  UNIAR t UTIL.LIB
+  UNILD -o APP.PGM MAIN.OBJ UTIL.LIB
+
+MAIN.ASM and HELP.ASM are the included runnable example (OBJECT PASS).
+UniAS now writes final PGM headers/BSS without a host conversion step.
+SECTION without an address starts BSS; ENDS returns to code.
+UniLD /c creates CMD at $0100, /p aligns modules to pages.
+UniAR operations: r replace/create, a add, d delete, t list, x extract.
+Names PUBLIC/EXTERN: 15 characters; member names: 8; paths: 31.
+EXTERN must be a bare operand, without arithmetic. Both tools accept @list.

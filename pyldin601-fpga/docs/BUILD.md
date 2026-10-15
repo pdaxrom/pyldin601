@@ -27,6 +27,11 @@ make fixtures UNIAS=/path/to/hd6303-toolchain/unias
 вызов через SWI после выхода загрузчика. Нужен обновлённый ROM RAMMAN,
 первая установка выполняется из основной оболочки до NC.
 [Команды, ABI и ресурсы](RAMLOADER.md).
+Small-C: `make cvm-apps CVM_TOOLCHAIN=/path/to/hd6303-toolchain`,
+проверки — `make test-cvm` с тем же путём. `make test-native-assembly`
+сравнивает кроссовую и нативную сборки BIOS/BIOS_A/XONIX на обеих CPU VM.
+Обе VM выбираются командой
+`RAMLOAD /CVM`; [цепочка сборки и ограничения](CVM.md).
 Файловый менеджер: `make nc-apps UNIAS=/path/to/unias`; `NC.PGM`,
 `NCMAIN.PGM` и `NCEDIT.PGM` из `build/nc` должны находиться в одном каталоге.
 При обновлении заменять все три файла вместе.

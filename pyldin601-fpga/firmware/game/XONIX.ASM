@@ -1,5 +1,31 @@
 ; HD6303 Xonix: native HAM8 image, clipped tile blits, flood fill, AY.
 ; Map 40x25: 0 water, 1 land, 2 live cut, 4 enemy-reachable water.
+    .ifdef XONIX_OBJECT
+    extern xc_load
+    public xc_ot2
+    public xc_ot3
+    public xc_sz2
+    public xc_io2
+
+    public hi_buf
+    public hs_asset_path
+    public xc_av
+    public xc_c
+    public xc_dst
+    public xc_h
+    public xc_io
+    public xc_left
+    public xc_len
+    public xc_n
+    public xc_names
+    public xc_op
+    public xc_ot
+    public xc_ptr
+    public xc_sp
+    public xc_sz
+    public xo_config_name
+    public xo_picture_name
+    .endif
     include GAMEBIOS.INC
 hs_id equ 2
 start
@@ -1098,7 +1124,9 @@ hs_failure
     include MUSAPI.ASM
     include GAMEMUS.ASM
     include HIMAGE.ASM
+    .ifndef XONIX_OBJECT
     include XCFG.ASM
+    .endif
 hs_title db 'PYLDIN XONIX',0
 hs_primary_name db 'XONSCORE.DAT',0
 hs_backup_name db 'XONSCORE.BAK',0
@@ -1120,6 +1148,7 @@ xo_digit_atlas db 0,3
 xo_digits db '0123456789',0
 xo_hud_text db 'XONIX  SCORE00000 LIFE 3 LV 01',0
 xo_note db 2,0,0,0,12
+    section
 bss_start
 xo_rect ds 8
 xo_copy ds 11
@@ -1143,11 +1172,15 @@ xl_width ds 2
 xl_cancel ds 1
 xl_name ds 33
 xc_sp ds 2
-xc_ot ds 4
-xc_io ds 4
+xc_ot ds 2
+xc_ot2 ds 1
+xc_ot3 ds 1
+xc_io ds 2
+xc_io2 ds 2
 xc_h ds 1
 xc_op ds 1
-xc_sz ds 4
+xc_sz ds 2
+xc_sz2 ds 2
 xc_left ds 2
 xc_av ds 2
 xc_ptr ds 2
@@ -1185,4 +1218,5 @@ xo_queue ds 2000
     include HIMDATA.INC
     include GAMESDTA.INC
 bss_end
+    ends
     end start

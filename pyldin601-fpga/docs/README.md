@@ -11,6 +11,7 @@
 | [MEMORY.md](MEMORY.md) | Физическая карта, RAM/ROM overlay, E6F0/E6F1, IRQ/SWI |
 | [FIRMWARE.md](FIRMWARE.md) | BIOS из исходников, состав страниц, UniShell compression |
 | [RAMLOADER.md](RAMLOADER.md) | ramloader: загрузка ROM в RAMMAN, SWI-шлюзы, закрепление и выгрузка |
+| [CVM.md](CVM.md) | Small-C: две ROM VM, выбор CPU, host/native UniCC и UniAS |
 | [FPGA-BIOS.md](FPGA-BIOS.md) | ROM INT E0/E1/E2/E3 и приватная клавиатурная служба |
 | [RAM-MANAGER.md](RAM-MANAGER.md) | INT E5, банки, cookie/PCB ownership |
 | [GAMEBIOS.md](GAMEBIOS.md) | INT E6 ABI 2, компактный контекст, графика/текст/AY |

@@ -11,7 +11,10 @@ static int hg_transport_write(uint16_t a,unsigned char d);
 #endif
 #define GAME_APP_MAIN unused_app_main
 #include "test_game_app.c"
-#include "../build/game/xonix_labels.h"
+#ifndef XONIX_LABELS
+#define XONIX_LABELS "../build/game/xonix_labels.h"
+#endif
+#include XONIX_LABELS
 #ifdef ARCADE_HG
 #include "hg_transport.h"
 static HgVolume arcade_volume;

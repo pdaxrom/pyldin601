@@ -114,6 +114,8 @@ loader_path_end
     clr 4,x
 loader_path_ready
     ldx #load_path
+    stx control+C_PATH
+    ldx #load_path
     stx load_open
     ldx #0
     stx load_open+2
@@ -502,7 +504,7 @@ gate_template
     db 0
 module_return_address dw module_return
 control
-    ds 9
+    ds 11
 bss_start
 registry ds RL_SLOTS*RL_RECORD
 bss_end

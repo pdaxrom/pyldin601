@@ -249,7 +249,7 @@ static void pgm(const char *input,const char *output,const char *listing,const c
         length-=scratch; size-=scratch; bss=scratch; put16(data+6,length); put16(data+10,bss);
     }
     for(unsigned i=0;i<count;i++) if(be16(data+16+2*i)+1>=length) fail("PGM relocation outside code");
-    write_file(output,data,size);
+    if(output) write_file(output,data,size);
     char digest[65]; sha256(data,size,digest); free(data);
     FILE *f=open_file(metadata,"w");
     fprintf(f,"{\"bytes\":%zu,\"code\":%u,\"bss\":%u,\"ram_bytes\":%u,\"relocations\":%u,\"sha256\":\"%s\"}\n",size,length,bss,length+bss,count,digest);
@@ -340,6 +340,7 @@ static void ay(const char *output,const char *init_output) {
 int main(int argc,char **argv) {
     if(argc<2)fail("command required");
     if(!strcmp(argv[1],"labels")&&(argc==4||argc==5)){labels(argv[2],argv[3],argc==5?argv[4]:NULL);return 0;}
+    if(!strcmp(argv[1],"pgm-info")&&argc==4){pgm(argv[2],NULL,NULL,argv[3],"0");return 0;}
     if(!strcmp(argv[1],"pgm")&&argc==7){pgm(argv[2],argv[3],argv[4],argv[5],argv[6]);return 0;}
     if(!strcmp(argv[1],"rom-index")&&argc==4){rom_index(argv[2],argv[3]);return 0;}
     if(!strcmp(argv[1],"index")&&argc>=4){app_index(argc,argv);return 0;}

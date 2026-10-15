@@ -150,6 +150,17 @@ test-nc-editor: fixtures nc-apps
 	$(PYTHON) tests/render_nc.py
 .PHONY: test-ram-manager
 .PHONY: ramloader-apps test-ramloader
+.PHONY: cvm-apps test-cvm test-native-assembly test-object-tools
+CVM_TOOLCHAIN ?= $(abspath ../../../FPGA/hd6303-toolchain)
+test: test-cvm
+cvm-apps: ramloader-apps
+	$(PYTHON) tools/build_cvm.py --toolchain "$(CVM_TOOLCHAIN)"
+test-cvm: fixtures cvm-apps
+	$(PYTHON) tests/run_cvm.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+test-object-tools: fixtures cvm-apps romdisk-extract
+	$(PYTHON) tests/run_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+test-native-assembly: fixtures cvm-apps
+	$(PYTHON) tests/run_native_assembly.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test: test-ramloader
 ramloader-apps: | $(BUILD)
 	$(MAKE) -f firmware/Makefile ramloader UNIAS="$(UNIAS)" CC="$(CC)"
@@ -479,3 +490,7 @@ test-boot-partitions: fixtures
 	$(PYTHON) tests/prepare_partitions.py
 	$(CC) -O2 -I$(EMUSRC) tests/test_boot_partitions.c -o $(BUILD)/test_boot_partitions
 	$(PYTHON) tests/run_boot_partitions.py
+
+.PHONY: game-objects
+game-objects:
+	$(MAKE) -f firmware/Makefile game-objects UNIAS="$(UNIAS)"
