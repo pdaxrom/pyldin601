@@ -6,7 +6,12 @@ static unsigned test_file_io,test_file_data;
 #define DOS_API_CYCLES 200000000
 #define PAINT_UI_MAIN unused_paint_ui_main
 #define PAINT_UI_HEADER "../build/paint/PAINTF.h"
+#define PAINT_OVERLAY_HEADER "../build/paint/PAINTIO.h"
 #include "test_paint_ui.c"
+#undef PUI_FILE_FETCH
+#undef PUI_FILE_STORE
+#define PUI_FILE_FETCH PIO_FILE_FETCH
+#define PUI_FILE_STORE PIO_FILE_STORE
 static unsigned cancel_save,cancel_seen,cancel_open,open_cancel_seen,fail_publish,publish_failed;
 static void files_observe(void){
  ui_observe();

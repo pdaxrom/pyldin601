@@ -29,6 +29,12 @@ ok_cancel__0523 dw ok_button,cancel_button
 yes_no_buttons dw yes_button,no_button
 help_text db 'L draw; R erase; middle pick. F2 Save F3 Open F4 Colour F5 Tool '
     db 'F6 New F7/^Z Undo F8/^Y Redo F9 Menu F10 Exit. +/- size. '
+    .ifdef PNT_EDIT
+    db 'Z zoom; G grid; IJKL pan; S select; ^C/^X/^V copy/cut/paste. '
+    .endif
+    .ifdef PNT_FILES
+    db 'Z zoom; G grid; IJKL pan; S select; ^C/^X/^V copy/cut/paste. '
+    .endif
     db 'Arrows/Space draw without mouse.',0
 p_save_title db 'Save image',0
 p_open_title db 'Open PCX / HAM8 IFF',0
@@ -50,9 +56,16 @@ format_four db '3  320x200 four colours',0
 format_indexed db '4  320x200 256 colours',0
 format_ham db '5  320x200 HAM8 RGB666',0
 p_tool_list dw tool_brush,tool_line,tool_rect,tool_fill,tool_pick
+    .ifdef PNT_EDIT
+    dw tool_select
+    .endif
+    .ifdef PNT_FILES
+    dw tool_select
+    .endif
 tool_brush db '1  Freehand brush',0
 tool_line db '2  Line',0
 tool_rect db '3  Rectangle',0
 tool_fill db '4  Filled rectangle',0
 tool_pick db '5  Pick colour',0
+tool_select db '6  Select rectangle',0
     end

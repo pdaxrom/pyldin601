@@ -278,9 +278,17 @@ static void pgm_bundle_info(const char *kind,const char *dir) {
     if(ramloader&&be16(core+8)!=0) fail("RAMCORE entry must be zero");
     unsigned code=be16(((editor||paint)?core:prefix)+6),bss=be16(((editor||paint)?core:prefix)+10);
     unsigned relocations=be16(((editor||paint)?core:prefix)+2);
-    size_t size=prefix_size+core_size;
+    size_t overlay_size=0;unsigned char *overlay=NULL;
+    if(paint) {
+        overlay=app_read(dir,"PNTFIO.PGM",&overlay_size);pgm_check(overlay,overlay_size);
+        if(core_size+overlay_size>49152) fail("Paint overlays exceed the GPU cache");
+        if(be16(core+6)!=be16(overlay+6)||be16(core+10)!=be16(overlay+10))
+            fail("Paint overlay code/BSS extents differ");
+    }
+    size_t size=prefix_size+core_size+overlay_size;
     size_t actual_size;unsigned char *combined=app_read(dir,output_name,&actual_size);
-    if(actual_size!=size||memcmp(combined,prefix,prefix_size)||memcmp(combined+prefix_size,core,core_size))
+    if(actual_size!=size||memcmp(combined,prefix,prefix_size)||memcmp(combined+prefix_size,core,core_size)||
+       (paint&&memcmp(combined+prefix_size+core_size,overlay,overlay_size)))
         fail("UniLD PGM container differs from its inputs");
     char digest[65],path[1024];sha256(combined,size,digest);
     app_path(path,sizeof path,dir,paint?"PAINT.json":editor?"NCEDIT.json":"RAMLOAD.json");
@@ -296,7 +304,7 @@ static void pgm_bundle_info(const char *kind,const char *dir) {
             unsigned ram=be16(p+6)+be16(p+10);if(ram>8192) fail("Paint backend exceeds one RAMMAN page");
             if(ram>maximum) maximum=ram;free(p);
         }
-        fprintf(f,",\"loader_ram_bytes\":%u,\"loader_reused_bytes\":512,\"base_ram_bytes\":%u,\"ordinary_backend_peak_bytes\":%u,\"total_ram_bytes\":%u,\"text_screen_bytes_601\":8000,\"text_screen_bytes_601a\":16000,\"native_screen_alignment_bytes\":7,\"native_screen_reused\":true",prefix_ram,core_ram+prefix_ram,maximum,core_ram+prefix_ram+maximum+255);
+        fprintf(f,",\"overlay_count\":2,\"overlay_cache_base\":1916928,\"overlay_cache_bytes\":%zu,\"loader_ram_bytes\":%u,\"loader_reused_bytes\":512,\"base_ram_bytes\":%u,\"ordinary_backend_peak_bytes\":%u,\"total_ram_bytes\":%u,\"text_screen_bytes_601\":8000,\"text_screen_bytes_601a\":16000,\"native_screen_alignment_bytes\":7,\"native_screen_reused\":true",core_size+overlay_size,prefix_ram,core_ram+prefix_ram,maximum,core_ram+prefix_ram+maximum+255);
     } else {
         app_path(path,sizeof path,dir,"RAMLOAD.LST");read_symbols(path);
         fprintf(f,",\"resident_payload_bytes\":%u,\"working_ram_bytes\":%u,\"module_slots\":4,\"exports_per_module\":8",

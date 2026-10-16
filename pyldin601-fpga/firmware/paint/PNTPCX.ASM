@@ -26,6 +26,7 @@
     extern file_fetch
     extern file_row
     extern paint_idle
+    public pcx_bits
     section
 pcx_bits ds 1
 pcx_planes ds 1
@@ -50,6 +51,7 @@ pcx_palette_end ds 4
 pcx_temp ds 1
 pcx_kind ds 1
     ends
+    .ifndef PNT_EDIT
 pcx_read
     ldx #128
     stx io_count
@@ -769,4 +771,10 @@ pcx_rle_literal
     clra
     rts
 palette_suffix db 0,0,3,1
+    .else
+pcx_read
+pcx_write
+    ldaa #65
+    rts
+    .endif
     end

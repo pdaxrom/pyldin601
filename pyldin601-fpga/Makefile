@@ -549,7 +549,7 @@ input-apps: | $(BUILD)
 test: test-uart-app
 test-uart-app: fixtures input-apps
 	$(PYTHON) tests/run_uart_app.py --cc "$(CC)"
-.PHONY: paint-apps test-paint test-paint-backends test-paint-loader test-paint-canvas test-paint-files test-paint-ui test-paint-hg
+.PHONY: paint-apps test-paint test-paint-backends test-paint-loader test-paint-canvas test-paint-files test-paint-ui test-paint-hg test-paint-overlays
 test: test-paint
 paint-apps: | $(BUILD)
 	$(MAKE) -f firmware/Makefile paint UNIAS="$(UNIAS)" CC="$(CC)"
@@ -562,6 +562,8 @@ test-paint: fixtures paint-apps hg-apps
 	$(PYTHON) tests/run_paint_ui.py --cc "$(CC)"
 	$(PYTHON) tests/run_paint_dialog_video.py --iverilog "$(IVERILOG)" --vvp "$(VVP)"
 	$(PYTHON) tests/run_paint_hg.py --cc "$(CC)"
+	$(PYTHON) tests/build_paint_overlays.py
+	$(PYTHON) tests/run_paint_overlays.py
 test-paint-backends: fixtures paint-apps
 	$(PYTHON) tests/run_paint_backends.py --cc "$(CC)"
 test-paint-loader: fixtures paint-apps
@@ -575,3 +577,6 @@ test-paint-ui: fixtures paint-apps
 	$(PYTHON) tests/run_paint_dialog_video.py --iverilog "$(IVERILOG)" --vvp "$(VVP)"
 test-paint-hg: fixtures paint-apps hg-apps
 	$(PYTHON) tests/run_paint_hg.py --cc "$(CC)"
+test-paint-overlays: fixtures
+	$(PYTHON) tests/build_paint_overlays.py
+	$(PYTHON) tests/run_paint_overlays.py

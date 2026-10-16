@@ -4,6 +4,11 @@
     include PNTDEF.INC
     include DMA.INC
     public file_load
+    .ifdef PNT_EDIT
+    extern p_over_arg
+    extern p_over_call
+    extern draw_finish
+    .endif
     public file_save
     extern file_header
     extern file_input
@@ -80,6 +85,9 @@
     extern src
     extern dst
     extern ok_cancel__0523
+    .ifdef PNT_FILES
+    extern p_clip_valid
+    .endif
     section
 file_row ds 1
 file_open ds 4
@@ -116,10 +124,15 @@ file_fg_best ds 1
 file_fg_limit ds 1
 file_fg_index ds 1
     ends
+    .ifndef PNT_EDIT
 file_config
     jsr canvas_config
     tsta
     bne file_config_return
+    .ifdef PNT_FILES
+    ; Open stages its rows in the clipboard pages; invalidate before writing.
+    clr p_clip_valid
+    .endif
     ldaa #P_LOAD_PAGE
     staa p_doc_page
     clra
@@ -482,13 +495,27 @@ path_scan
     ldaa 0,x
     beq path_end
     cmpa #'*'
-    beq path_invalid
+    bne *+5
+    jmp path_invalid
     cmpa #'?'
-    beq path_invalid
+    bne *+5
+    jmp path_invalid
     cmpa #'\'
     beq path_component
     cmpa #':'
     bne path_dot
+    ; A colon belongs only to an initial drive letter. Reject malformed
+    ; editable defaults before UniDOS creates a temporary directory entry.
+    ldaa file_length
+    cmpa #1
+    bne path_invalid
+    ldaa input
+    anda #$df
+    cmpa #'A'
+    bcs path_invalid
+    cmpa #'Z'
+    bhi path_invalid
+    ldaa #':'
 path_component
     clr file_dot
 path_dot
@@ -977,4 +1004,30 @@ default_pcx db 'UNTITLED.PCX',0
 default_iff db 'UNTITLED.IFF',0
 native_four db 21,21,63,21,63,63,63,21,63,63,63,63
 file_zero db 0,0,0,0
+    .else
+file_config
+file_store
+file_fetch
+    ldaa #65
+    rts
+file_load
+    staa p_over_arg
+    clrb
+    bra file_switch
+file_save
+    ldaa #2
+    staa p_over_arg
+    ldab #1
+file_switch
+    stab file_mode
+    jsr draw_finish
+    tsta
+    bne file_switch_ret
+    ldab file_mode
+    ldaa #1
+    ldx p_over_call
+    jmp 0,x
+file_switch_ret
+    rts
+    .endif
     end

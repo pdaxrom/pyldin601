@@ -1,4 +1,10 @@
 ; Paint native entry, resource lifetime and event dispatch. MC6800 ISA.
+    .ifdef PNT_EDIT
+    .define PNT_OVL
+    .endif
+    .ifdef PNT_FILES
+    .define PNT_OVL
+    .endif
     include PNTDEF.INC
     include DMA.INC
     public bss_start
@@ -57,6 +63,7 @@
     extern p_brush
     extern p_error
     extern p_ui_active
+    extern p_ui_menu
     extern p_ignore
     extern p_queue
     extern p_queue_head
@@ -123,6 +130,22 @@
     extern ui_confirm
     extern file_load
     extern file_save
+    .ifdef PNT_OVL
+    extern v_file_buffer_1
+    extern p_over_call
+    extern p_over_arg
+    extern pcx_bits
+    extern iff_form_end
+    extern draw_error
+    extern part_y
+    extern view_refresh
+    extern view_event
+    extern view_key
+    extern view_reset
+    extern view_touch
+    extern view_action
+    extern p_view_shift
+    .endif
     section
 bss_start
 main_live ds 1
@@ -138,8 +161,71 @@ frame_page ds 1
 main_result ds 1
     ends
 start
-    bra initialize
+    bra overlay_entry
     db 'PNT1'
+overlay_entry
+    .ifdef PNT_OVL
+    cmpa #1
+    bcc *+5
+    jmp bad_loader
+    cmpa #$c0
+    bcs *+5
+    jmp bad_loader
+    staa main_temp
+    stab main_temp+1
+    ldx main_temp
+    ldaa 6,x
+    cmpa #'O'
+    beq *+5
+    jmp bad_loader
+    ldaa 7,x
+    cmpa #'V'
+    beq *+5
+    jmp bad_loader
+    ldaa 8,x
+    cmpa #'L'
+    beq *+5
+    jmp bad_loader
+    ldaa 9,x
+    cmpa #'1'
+    beq *+5
+    jmp bad_loader
+    ldaa 4,x
+    beq overlay_initial
+    cmpa #1
+    bne overlay_files
+    ldaa 5,x
+    bne overlay_edit
+    ldab p_over_arg
+    cmpb #2
+    beq overlay_edit
+    jsr view_reset
+overlay_edit
+    tst main_live
+    bne overlay_action
+    tsta
+    beq *+5
+    jsr ui_error
+    jmp paint_ready
+overlay_action
+    jmp main_action
+overlay_files
+    ldaa 5,x
+    bne overlay_save
+    ldaa p_over_arg
+    jsr file_load
+    bra overlay_done
+overlay_save
+    jsr file_save
+overlay_done
+    tab
+    clra
+    ldx p_over_call
+    jmp 0,x
+overlay_initial
+    ldaa main_temp
+    ldab main_temp+1
+    .endif
 initialize
     cmpa #1
     bcs bad_loader
@@ -163,6 +249,15 @@ main_zero
     stab 1,x
     pula
     staa 0,x
+    .ifdef PNT_OVL
+    ldx p_file_buffer
+    ldaa 0,x
+    ldab 1,x
+    staa p_file_buffer
+    stab v_file_buffer_1
+    ldx 2,x
+    stx p_over_call
+    .endif
     ldaa #0
     ldx #p_app_path
     int $3c
@@ -323,7 +418,6 @@ main_frame_ready
     tsta
     beq *+5
     jmp main_init_error
-    inc main_live
     ldaa #1
     ldx #p_filename
     int $3c
@@ -335,6 +429,7 @@ main_frame_ready
     beq paint_ready
     jsr ui_error
 paint_ready
+    inc main_live
     ldaa #1
     staa p_ignore
 main_loop
@@ -372,13 +467,19 @@ main_queue
     anda #15
     staa p_queue_head
     dec p_queue_count
-    jsr draw_event
+    jsr paint_draw
     tsta
     bne *+5
     jmp main_loop
     jsr ui_error
     bra main_loop
 main_wait
+    .ifdef PNT_OVL
+    jsr view_refresh
+    tsta
+    beq *+5
+    jsr ui_error
+    .endif
     ldaa #0
     jsr mouse_wait
 main_dispatch
@@ -457,8 +558,13 @@ main_redo
     jsr canvas_undo
 main_action
     tsta
-    bne *+5
+    bne main_action_bad
+    .ifdef PNT_OVL
+    jsr view_action
+    .endif
+    clr p_error
     jmp main_loop
+main_action_bad
     jsr ui_error
     jmp main_loop
 main_menu
@@ -522,6 +628,9 @@ paint_new
 new_return
     rts
 new_available
+    .ifdef PNT_OVL
+    jsr view_reset
+    .endif
     clr $e650
     jsr palette_default
     ldaa p_kind
@@ -802,7 +911,11 @@ event_modal
     bhi event_ignore
     ldaa mouse_row
     suba #8
+    .ifdef PNT_OVL
+    cmpa p_ui_menu
+    .else
     cmpa #5
+    .endif
     bcc event_ignore
     adda #'1'
     rts
@@ -830,6 +943,12 @@ paint_pointer
     staa $e6bf
     rts
 main_keyboard
+    .ifdef PNT_OVL
+    jsr view_key
+    bcc key_normal
+    jmp main_action
+key_normal
+    .endif
     cmpa #' '
     bne key_left
     ldaa main_key_buttons
@@ -876,13 +995,28 @@ key_draw
     staa p_event_y
     ldaa main_key_buttons
     staa p_event_buttons
-    jsr draw_event
+    jsr paint_draw
     jmp main_action
 key_other
     jmp main_loop
+paint_draw
+    .ifdef PNT_OVL
+    jsr view_event
+    tsta
+    beq paint_draw_normal
+    clra
+    rts
+paint_draw_normal
+    .endif
+    jsr draw_event
+    rts
 paint_arrow
     db $40,0,0,0,$50,0,0,0,$64,0,0,0,$69,0,0,0
     db $6a,$40,0,0,$6a,$90,0,0,$6a,$a4,0,0,$6a,$a9,0,0
     db $6a,$aa,$40,0,$6a,$aa,$90,0,$6a,$95,$50,0,$69,$64,0,0
     db $64,$69,0,0,$50,$1a,$40,0,$40,$06,$90,0,0,$01,$50,0
+    .ifdef PNT_OVL
+    ; Force identical BSS modules/order even when their code is absent.
+    dw pcx_bits,iff_form_end,draw_error,part_y,p_view_shift
+    .endif
     end start

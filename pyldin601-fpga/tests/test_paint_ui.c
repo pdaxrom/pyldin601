@@ -12,6 +12,12 @@ static int hg_transport_write(uint16_t,unsigned char);
 #define PAINT_UI_HEADER "../build/paint/PUI.h"
 #endif
 #include PAINT_UI_HEADER
+#ifdef PAINT_OVERLAY_HEADER
+#include PAINT_OVERLAY_HEADER
+#include "../build/paint/PNTOVL.h"
+#define PAINT_ALT_MOUSE_WAIT PIO_MOUSE_WAIT
+#define PAINT_OVERLAY_IS_FILE (ramword(base+PUI_P_OVER_CALL)&&r[ramword(base+PUI_P_OVER_CALL)-POV_LOADER_SWITCH+POV_LOAD_API+4]==2)
+#endif
 #ifndef PAINT_EXTERNAL_TRANSPORT
 static int hg_transport_read(uint16_t a,unsigned char*out){return mouse_ui_read_byte(a,out);}
 static int hg_transport_write(uint16_t a,unsigned char b){return mouse_ui_write_byte(a,b);}
@@ -45,7 +51,11 @@ static void ui_observe(void){
 static void wait_context(unsigned context){
  uint64_t end=virtual_cycles+200000000;
  do{until(virtual_cycles+1);
-  if(ready&&r[base+PUI_MOUSE_CONTEXT]==context&&PC>=base+PUI_MOUSE_WAIT&&PC<base+PUI_MOUSE_WAIT+112){
+  unsigned wait_entry=PUI_MOUSE_WAIT;
+#ifdef PAINT_ALT_MOUSE_WAIT
+  if(PAINT_OVERLAY_IS_FILE)wait_entry=PAINT_ALT_MOUSE_WAIT;
+#endif
+  if(ready&&r[base+PUI_MOUSE_CONTEXT]==context&&PC>=base+wait_entry&&PC<base+wait_entry+112){
    if(r[base+PUI_P_UI_ACTIVE]&&!gfx[0])require(displayed_frame()==ramword(base+PUI_P_FRAME),"every modal uses the actual aligned CRTC framebuffer");
    return;
   }

@@ -87,6 +87,9 @@
     public p_module_tail
     public p_filename
     public p_file_buffer
+    public v_file_buffer_1
+    public p_over_call
+    public p_over_arg
     public backend_buffer
     public pal_wave
     public input
@@ -183,6 +186,8 @@ p_module_path ds 146
 p_module_tail ds 2
 p_filename ds 81
 p_file_buffer ds 2
+p_over_call ds 2
+p_over_arg ds 1
 ; Drawing spans and file names/header have disjoint lifetimes: every modal
 ; file operation first finishes the stroke, and each stroke resets all spans.
 p_work ds 800
@@ -269,4 +274,5 @@ v_params_13 equ p_params+13
 p_palette_end equ p_palette+P_PALETTE_BYTES
     public p_enc_tail
 p_enc_tail equ p_encoded+320
+v_file_buffer_1 equ p_file_buffer+1
     end

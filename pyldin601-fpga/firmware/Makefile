@@ -191,24 +191,13 @@ game-objects:
 input: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/input
 	cp firmware/input/* $(BUILD)/input/
-	cd $(BUILD)/input && sh $(RUN) UART.log "$(UNIAS_PATH)" -l UART.LST -o UART.PGM UART.ASM
+	@set -e; for app in UART UARTTEST; do \
+	(cd $(BUILD)/input && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
+	$(DATA) labels $(BUILD)/input/$$app.LST $(BUILD)/input/$$app.h $$app; done
 	$(DATA) pgm-info $(BUILD)/input/UART.PGM $(BUILD)/input/UART.json
 	$(DATA) labels $(BUILD)/input/UART.LST $(BUILD)/input/UART.h UART
 
 paint: $(BUILD)/firmware-data
-	mkdir -p $(BUILD)/paint
-	cp firmware/paint/* firmware/memory/DMA.INC firmware/gfx/PALCOEF.ASM firmware/input/MOUSE.ASM $(BUILD)/paint/
-	cp firmware/nc/NCCOM.ASM firmware/nc/NCKEY.ASM firmware/nc/NCABI.INC firmware/nc/NCBOX.INC $(BUILD)/paint/
-	@set -e; for app in PNTNAT PNTRGB PNTHAM; do \
-	(cd $(BUILD)/paint && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
-	$(DATA) pgm-info $(BUILD)/paint/$$app.PGM $(BUILD)/paint/$$app.json; done
-	@set -e; for app in PNTMAIN PNTUI PNTCANV PNTDRAW PNTPART PNTPAL PNTDMA PNTLOAD PNTMOD PNTIO PNTPCX PNTIFF PNTFILE PNTDATA PNTSTATE PNTSTR PNTEND PNTCOM NCKEY; do \
-	(cd $(BUILD)/paint && sh $(RUN) $$app.log "$(UNIAS_PATH)" -c -l $$app.LST -o $$app.OBJ $$app.ASM); done
-	cd $(BUILD)/paint && sh $(RUN) MOUSE.log "$(UNIAS_PATH)" -c -D MOUSE_OBJECT -l MOUSE.LST -o MOUSE.OBJ MOUSE.ASM
-	rm -f $(BUILD)/paint/PNTCOM.LIB
-	cd $(BUILD)/paint && "$(UNIAR)" r PNTCOM.LIB PNTCOM.OBJ NCKEY.OBJ MOUSE.OBJ
-	cd $(BUILD)/paint && sh $(RUN) PNTBOOT.log "$(UNIAS_PATH)" -l PNTBOOT.LST -o PNTBOOT.PGM PNTBOOT.ASM
-	cd $(BUILD)/paint && "$(UNILD)" -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK
-	cd $(BUILD)/paint && "$(UNILD)" -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM
+	UNIAS="$(UNIAS_PATH)" UNILD="$(UNILD)" UNIAR="$(UNIAR)" PAINT_BUILD_OUT="$(abspath $(BUILD)/paint)" python3 tools/build_paint.py
 	$(DATA) public-labels $(BUILD)/paint/PAINT.MAP $(BUILD)/paint/PAINT.h PNT
 	$(DATA) pgm-bundle-info paint $(BUILD)/paint

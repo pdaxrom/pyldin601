@@ -43,3 +43,16 @@ Native screen, PAL table, mouse pins, pointer and allocated banks are
 restored/released on exit. The current image is lost after confirmed exit.
 Backends are cached for this session after validation; replacing their
 files takes effect when Paint is restarted.
+
+Zoom and selection
+Z cycles 1x / 2x / 4x / 8x around the pointer. I/J/K/L pan up/left/down/right.
+G toggles the pixel grid; it appears when a pixel is at least four screen
+samples wide (4x/8x for 320-wide images, 8x for 640-wide mono).
+S or F5 -> 6 selects a rectangle by dragging the left button. Right button
+clears the selection. B returns to the brush. Ctrl+A selects the whole image.
+Ctrl+C copies; Ctrl+X cuts with the background colour; Ctrl+V pastes at the
+pointer and clips at image edges. Ctrl+D clears the selection.
+F9 also offers Zoom / Copy / Paste / Clear selection.
+Selection and zoom do not change the saved image. Cut/Paste each have one
+Undo/Redo step. Opening or creating an image clears the Paint clipboard.
+The 640-wide image enters 2x when selecting so individual pixels stay visible.

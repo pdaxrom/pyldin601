@@ -62,15 +62,18 @@ commands += ['uniar r NCUI.LIB NCCOM.OBJ NCKEY.OBJ MOUSE.OBJ',
              'unild -b -o NCEDIT.PGM NCELOAD.PGM NCECORE.PGM']
 expected += ['NCUI.LIB', 'NCMAIN.PGM', 'NCMAIN.MAP', 'NCECORE.PGM',
              'NCEDIT.MAP', 'NCEDIT.PGM']
-for path in sorted((ROOT/'firmware/paint').glob('*.ASM')):
-    if path.stem not in ('PNTNAT', 'PNTRGB', 'PNTHAM', 'PNTBOOT'):
-        assemble(path, path.stem+'.OBJ', '-c')
-assemble(ROOT/'firmware/paint/PNTBOOT.ASM')
-sources['PAINT.LNK'] = (ROOT/'firmware/paint/PAINT.LNK').read_bytes()
+from build_paint import MODULES, VARIANTS
+for name in MODULES+['PNTCOM','PNTEND']:
+    for suffix, flag in ([('EDO','PNT_EDIT'),('FIO','PNT_FILES')] if name in VARIANTS else [('OBJ','PNT_EDIT')]):
+        assemble(ROOT/f'firmware/paint/{name}.ASM', name+'.'+suffix, '-c -D '+flag)
+assemble(ROOT/'firmware/paint/PNTOVL.ASM', 'PNTBOOT.PGM')
+for name in ('PAINT.LNK','PNTFIO.LNK'):
+    sources[name]=(ROOT/'firmware/paint'/name).read_bytes()
 commands += ['uniar r PNTCOM.LIB PNTCOM.OBJ NCKEY.OBJ MOUSE.OBJ',
-             'unild -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK',
-             'unild -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM']
-expected += ['PNTCOM.LIB', 'PAINT.MAP', 'PNTCORE.PGM', 'PAINT.PGM']
+             'unild -z 17000 -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK',
+             'unild -z 17000 -m PNTFIO.MAP -o PNTFIO.PGM @PNTFIO.LNK',
+             'unild -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM PNTFIO.PGM']
+expected += ['PNTCOM.LIB','PAINT.MAP','PNTFIO.MAP','PNTCORE.PGM','PNTFIO.PGM','PAINT.PGM']
 for directory, names in (
     ('game', ('ARKANOID', 'XONIX', 'SDKTEST')),
     ('gfx', ('VIEW', 'HVIEW', 'HAM', 'SPRITES', 'CLIPSPR')),
@@ -78,7 +81,7 @@ for directory, names in (
     ('hg', ('HG',)),
     ('storage', ('MOUNT', 'UMOUNT', 'FDISK')),
     ('memory', ('RAMPAGE',)),
-    ('input', ('UART',)),
+    ('input', ('UART', 'UARTTEST')),
     ('paint', ('PNTNAT', 'PNTRGB', 'PNTHAM')),
     ('ramloader', ('RAMLOAD', 'RAMCORE', 'RAMCHECK')),
 ):

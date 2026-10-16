@@ -62,6 +62,8 @@
     public canvas_snapshot
     public canvas_undo
     public canvas_modified
+    public row_document
+    public row_address
     extern paint_dma
     extern dma_reset
     extern dma_run

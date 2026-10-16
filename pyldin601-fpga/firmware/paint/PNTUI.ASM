@@ -1,5 +1,11 @@
 ; Modal native windows share NC's ROM font, line editor and mouse focus.
 ; The image survives in GPU SRAM, or in a DMA snapshot of its native frame.
+    .ifdef PNT_EDIT
+    .define PNT_OVL
+    .endif
+    .ifdef PNT_FILES
+    .define PNT_OVL
+    .endif
     include PNTDEF.INC
     include DMA.INC
     public ui_enter
@@ -68,6 +74,9 @@
     extern confirm
     extern caret_hide
     extern add_b
+    .ifdef PNT_OVL
+    extern view_touch
+    .endif
     section
 choice_list ds 2
 choice_title ds 2
@@ -99,6 +108,9 @@ ui_enter_begin
     clr p_queue_head
     ldaa #1
     staa p_ignore
+    .ifdef PNT_OVL
+    jsr view_touch
+    .endif
     clr p_ui_underlay
     tst p_preview_ext
     bne ui_native_screen
@@ -157,7 +169,20 @@ ui_leave_return
 ; X=caption, choice_list points to five strings; selected index 0..4.
 ui_choice
     stx choice_title
-    ldaa #1
+    ldaa #5
+    staa choice_count
+    .ifdef PNT_OVL
+    ldx choice_list
+    cpx #p_tool_list
+    bne choice_not_tool
+    ldaa #6
+choice_not_tool
+    cpx #menu_list
+    bne choice_limit
+    ldaa #9
+choice_limit
+    staa choice_count
+    .endif
     staa p_ui_menu
 choice_draw
     ldx choice_title
@@ -182,7 +207,7 @@ choice_ink
     jsr window_line
     inc choice_row
     ldaa choice_row
-    cmpa #5
+    cmpa choice_count
     bne choice_line
 choice_key
     ldaa #5
@@ -198,7 +223,7 @@ choice_key
     cmpa #$c3
     beq choice_down
     suba #'1'
-    cmpa #5
+    cmpa choice_count
     bcc choice_key
     staa choice_index
 choice_accept
@@ -212,7 +237,7 @@ choice_cancel
 choice_up
     tst choice_index
     bne choice_previous
-    ldaa #5
+    ldaa choice_count
     staa choice_index
 choice_previous
     dec choice_index
@@ -220,8 +245,9 @@ choice_previous
 choice_down
     inc choice_index
     ldaa choice_index
-    cmpa #5
-    bcs choice_draw
+    cmpa choice_count
+    bcc *+5
+    jmp choice_draw
     clr choice_index
     jmp choice_draw
 ui_new
@@ -282,6 +308,17 @@ ui_menu
     jsr ui_choice_leave
     cmpa #$ff
     beq menu_return
+    .ifdef PNT_OVL
+    cmpa #5
+    bcs menu_function
+    suba #5
+    tab
+    ldx #menu_extra_keys
+    jsr add_b
+    ldaa 0,x
+    rts
+menu_function
+    .endif
     adda #$ca
 menu_return
     rts
@@ -704,6 +741,14 @@ grid_hit_ready
     clc
     rts
 menu_list dw menu_save,menu_open,p_colour_title,p_tool_title,p_format_title
+    .ifdef PNT_OVL
+    dw menu_zoom,menu_copy,menu_paste,menu_clear
+menu_zoom db '6  Zoom 1x / 2x / 4x / 8x',0
+menu_copy db '7  Copy selection',0
+menu_paste db '8  Paste at pointer',0
+menu_clear db '9  Clear selection',0
+menu_extra_keys db 'z',3,22,4
+    .endif
 menu_save db '1  Save image',0
 menu_open db '2  Open image',0
     end

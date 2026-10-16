@@ -40,6 +40,7 @@
     extern p_x1
     extern p_y1
     extern spans
+    public draw_error
     section
 draw_error ds 1
 ham_dirty_left ds 2
@@ -76,7 +77,9 @@ span_pointer ds 2
 span_y ds 1
 span_x ds 2
 fill_rectangle ds 7
+draw_x_base ds 2
     ends
+    .ifndef PNT_FILES
 draw_flush
     tst p_row_dirty
     beq flush_ok
@@ -158,9 +161,6 @@ pixel_offset
     staa draw_pointer
     ldx draw_pointer
     rts
-    section
-draw_x_base ds 2
-    ends
 pixel
     ldaa draw_y
     jsr ensure_row
@@ -822,4 +822,12 @@ event_return
     staa p_prev_buttons
     ldaa draw_error
     rts
+    .else
+draw_flush
+draw_finish
+draw_event
+draw_pick
+    clra
+    rts
+    .endif
     end

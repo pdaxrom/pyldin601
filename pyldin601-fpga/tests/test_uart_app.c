@@ -9,6 +9,7 @@ static int hg_write_byte(unsigned short,unsigned char);
 #include "test_romdisk_unidos.c"
 #undef ROMDISK_MAIN
 #include "../build/input/UART.h"
+#ifndef UART_MMIO_CUSTOM
 static unsigned present=1,baud=7,configured,control,rx_count,rx_head,error_flags,tx_count;
 static unsigned char rx[64],tx[128];static uint64_t tx_ready;
 static int hg_read_byte(unsigned short a,unsigned char*out){
@@ -27,11 +28,13 @@ static int hg_write_byte(unsigned short a,unsigned char d){
  case 3:require(virtual_cycles>=tx_ready&&tx_count<sizeof tx,"terminal waits for TX holding capacity");tx[tx_count++]=d;tx_ready=virtual_cycles+30000;break;
  }return 1;
 }
+#endif
 static void type_text(const char*s){
  const char*letters="abcdefghijklmnopqrstuvwxyz";
  const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
  for(;*s;s++){const char*p=strchr(letters,*s);unsigned scan=p?scans[p-letters]:*s==':'?0x27:*s==' '?0x39:*s>='1'&&*s<='9'?*s-'1'+2:*s=='0'?11:0;require(scan,"UART test command character");if(*s==':')KBDModKeyDown(2);key(scan);if(*s==':')KBDModKeyUp(2);}
 }
+#ifndef UART_MMIO_CUSTOM
 int main(int argc,char**argv){
  if(argc!=5)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");const char*rate=argv[4];
  if(!strcmp(rate,"missing"))present=0;
@@ -64,3 +67,4 @@ int main(int argc,char**argv){
  require(SP==original_sp&&MC6800GetCpuRam()[0xee1e]*256+MC6800GetCpuRam()[0xee1f]==original_himem,"terminal exits without stack/heap leaks");
  printf("PASS native UART %s/%s rate=%s: CLI, RX, TX backpressure/order, local echo, errors, cleanup\n",argv[2],argv[3],rate);return 0;
 }
+#endif

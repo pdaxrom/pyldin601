@@ -3,6 +3,7 @@
 #define PAINT_EXTERNAL_TRANSPORT 1
 #define PAINT_UI_MAIN unused_paint_ui_main
 #define PAINT_UI_HEADER "../build/paint/PAINTF.h"
+#define PAINT_OVERLAY_HEADER "../build/paint/PAINTIO.h"
 #include "test_paint_ui.c"
 #include "../host/hg/hg.h"
 #define hg_transport_read paint_host_read

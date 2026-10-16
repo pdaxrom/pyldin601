@@ -29,6 +29,7 @@
     extern file_row
     extern backend_encode
     extern paint_idle
+    public iff_form_end
     section
 iff_form_end ds 4
 iff_chunk_end ds 4
@@ -59,6 +60,7 @@ iff_group ds 1
 iff_bits ds 1
 iff_shift ds 1
     ends
+    .ifndef PNT_EDIT
 iff_copy
     stx iff_copy_src
     ldaa 0,x
@@ -761,4 +763,10 @@ iff_footer
     dw 0,4,0,$0800
     db 'BODY'
     dw 0,64000
+    .else
+iff_read
+iff_write
+    ldaa #65
+    rts
+    .endif
     end

@@ -8,9 +8,11 @@ from sd_partitions import scan
 from unias import assembler_path
 from paint_pcx_fixture import make_fixtures,decode
 from paint_iff_fixture import make_iff_fixtures,decode as decode_iff
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--cc',default='cc');p.add_argument('--quick',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--cc',default='cc');p.add_argument('--quick',action='store_true');p.add_argument('--case',nargs=4,metavar=('MODEL','CPU','VIDEO','BACKEND'));a=p.parse_args()
 out=ROOT/'build/paint'
 subprocess.run([str(ROOT/'build/firmware-data'),'public-labels',str(out/'PAINT.MAP'),str(out/'PAINTF.h'),'PUI'],cwd=ROOT,check=True)
+subprocess.run([str(ROOT/'build/firmware-data'),'public-labels',str(out/'PNTFIO.MAP'),str(out/'PAINTIO.h'),'PIO'],check=True)
+subprocess.run([str(ROOT/'build/firmware-data'),'labels',str(out/'PNTOVL.LST'),str(out/'PNTOVL.h'),'POV'],check=True)
 source=(ROOT/'tests/paint_graph.asm').read_text().replace('PAINTUI.PGM','PAINT.PGM');(out/'PFGRAPH.ASM').write_text(source)
 with (out/'PFGRAPH.log').open('wb') as log:subprocess.run([assembler_path(),'-o','PFGRAPH.PGM','PFGRAPH.ASM'],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
 with (out/'PFGRAF2.log').open('wb') as log:subprocess.run([assembler_path(),'-D','COLOUR','-o','PFGRAF2.PGM','PFGRAPH.ASM'],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
@@ -27,6 +29,7 @@ if not a.quick:
  cases += [('601a',c,'2','banked') for c in ('mc6800','hd6303')]
  cases += [('601','hd6303','0','arg'),('601','mc6800','0','bad'),('601a','hd6303','3','bad')]
  cases += [('601','hd6303','0','full'),('601a','mc6800','3','full')]
+if a.case:cases=[tuple(a.case)]
 for model,cpu,video,backend in cases:
  subprocess.run([str(runner),str(out/('files-bad-module.img' if backend=='bad' else 'files-sd.img')),model,cpu,video,backend],cwd=ROOT,check=True)
  if backend=='bad':continue

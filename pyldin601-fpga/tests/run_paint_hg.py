@@ -7,6 +7,8 @@ from unias import assembler_path
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--cc',default='cc');p.add_argument('--quick',action='store_true');p.add_argument('--nc-only',action='store_true');a=p.parse_args()
 out=ROOT/'build/paint'
 subprocess.run([str(ROOT/'build/firmware-data'),'public-labels',str(out/'PAINT.MAP'),str(out/'PAINTF.h'),'PUI'],check=True)
+subprocess.run([str(ROOT/'build/firmware-data'),'public-labels',str(out/'PNTFIO.MAP'),str(out/'PAINTIO.h'),'PIO'],check=True)
+subprocess.run([str(ROOT/'build/firmware-data'),'labels',str(out/'PNTOVL.LST'),str(out/'PNTOVL.h'),'POV'],check=True)
 source=(ROOT/'tests/paint_graph.asm').read_text().replace('B:PAINTUI.PGM','PAINT.PGM');(out/'PGHG.ASM').write_text(source)
 with (out/'PGHG.log').open('wb') as log:subprocess.run([assembler_path(),'-o','PGHG.PGM','PGHG.ASM'],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
 (out/'PGLOW.ASM').write_text("start\n    ldx #22000\n    clrb\n    int $2a\n    ldx #command\n    int $39\n    int $38\ncommand db 'PAINT.PGM',0\n    end start\n")

@@ -17,6 +17,7 @@
     extern paint_dma
     extern dma_reset
     extern dma_run
+    public part_y
     section
 part_y ds 1
 part_pos ds 2
@@ -33,6 +34,7 @@ part_product ds 1
 part_copy_src ds 2
 part_copy_dst ds 2
     ends
+    .ifndef PNT_FILES
 ham_row_show
     staa part_y
     ldx #p_enc_tail
@@ -333,4 +335,9 @@ part_copy
     staa DMA_WIDTH+1,x
     ldaa #DMA_COPY
     jmp dma_run
+    .else
+ham_row_show
+    clra
+    rts
+    .endif
     end
