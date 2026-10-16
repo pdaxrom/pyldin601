@@ -45,6 +45,9 @@ if {[catch {
         {FREQUENCY NET "cpu_clk" 8.000000 MHz ;}
         {MULTICYCLE FROM CLKNET "cpu_clk" TO CLKNET "clk" 2.000000 X ;}
         {MULTICYCLE FROM CLKNET "cpu_clk" TO CLKNET "clk_fast" 4.000000 X ;}
+        {MULTICYCLE FROM CELL "system/gfx/dma/cfg_*" TO CLKNET "clk_fast" 4.000000 X ;}
+        {MULTICYCLE FROM CELL "system/gfx/dma/pal_byte*" TO CLKNET "clk" 2.000000 X ;}
+        {MULTICYCLE FROM CELL "system/gfx/dma/pal_writing*" TO CLKNET "clk" 2.000000 X ;}
         {MAXDELAY FROM CELL "system/runtime_memory/cpu_result*" TO CELL "cpu/*" 27.000000 ns DATAPATH_ONLY ;}
         {MAXDELAY FROM CELL "system/ram_pages/page_base*" TO CELL "*runtime_memory*" 35.000000 ns DATAPATH_ONLY ;}
         {CLOCK_TO_OUT PORT "SRAM_ADDR[*]" 6.000000 ns CLKNET "clk_fast" ;}

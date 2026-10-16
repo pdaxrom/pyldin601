@@ -59,6 +59,11 @@ if not a.quick:
  cases += [(m,c,v,'block') for m in ('601','601a') for c in ('mc6800','hd6303') for v in (('0','3') if m=='601' else ('0','4','2','3'))]
  cases += [('601','mc6800','0','block-missing'),('601a','hd6303','2','block-missing')]
  cases += [('601','mc6800','0','bank'),('601','mc6800','0','busy'),('601','mc6800','0','offset'),('601','mc6800','0','missing'),('601a','hd6303','2','missing'),('601a','mc6800','3','missing')]
- cases += [('601','mc6800','0',name) for name in ('large','long','raw','edge','empty','keys','block-large','block-large-missing','block-faults','readonly','faults','full','sort-return','missing-editor','bad-editor')]
+ cases += [('601','mc6800','0',name) for name in ('large','long','long-missing','raw','edge','empty','keys','block-large','block-large-missing','block-faults','readonly','faults','full','sort-return','missing-editor','bad-editor')]
+ cases += [('601a','mc6800','3','block-large'),('601a','mc6800','3','long-missing')]
 for model,cpu,video,kind in cases:
  subprocess.run([str(runner),str(out/({'full':'sd-editor-full.img','missing-editor':'sd-editor-missing.img','bad-editor':'sd-editor-bad.img'}.get(kind,'sd-editor.img'))),model,cpu,video,kind],cwd=ROOT,check=True)
+
+if not a.quick:
+ for model,cpu,video in [('601','mc6800','0'),('601','hd6303','3'),('601a','mc6800','4'),('601a','hd6303','2')]:
+  subprocess.run([str(runner),str(out/'sd-editor.img'),model,cpu,video,'mouse'],cwd=ROOT,check=True)

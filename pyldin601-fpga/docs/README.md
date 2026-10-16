@@ -15,6 +15,7 @@
 | [FPGA-BIOS.md](FPGA-BIOS.md) | ROM INT E0/E1/E2/E3 и приватная клавиатурная служба |
 | [RAM-MANAGER.md](RAM-MANAGER.md) | INT E5, банки, cookie/PCB ownership |
 | [GAMEBIOS.md](GAMEBIOS.md) | INT E6 ABI 2, компактный контекст, графика/текст/AY |
+| [DMA.md](DMA.md) | Общий физический DMA/блиттер, палитра и совместимость |
 | [BANKCOPY.md](BANKCOPY.md) | INT E8 постоянного BIOS, копирование RAM/банков/PAL |
 | [PROGRAMMING.md](PROGRAMMING.md) | Рисование/музыка, двойной буфер, полный UniAS пример |
 | [GRAPHICS.md](GRAPHICS.md) | Framebuffer, blitter и PAL-порт |
@@ -22,7 +23,9 @@
 | [AY.md](AY.md) | Tone/noise/envelope, divider и audio timer |
 | [MUSIC.md](MUSIC.md) | YPLAY, YM/PSG/VTX/LHA, память и графика |
 | [IMAGES.md](IMAGES.md) | JPEG/PNG→HAM8, HVIEW, PCX VIEW |
+| [PAINT.md](PAINT.md) | Новый редактор для 601/601А: мышь, PCX/ILBM, модули, Undo/Redo |
 | [KEYBOARD.md](KEYBOARD.md) | PS/2 перевод в ROM, native repeat и raw capture |
+| [INPUT.md](INPUT.md) | Программный порт мыши PS/2, загружаемый указатель, UART FTDI B |
 | [CPU.md](CPU.md) | ISA, дополнительные инструкции HD6303, пределы эмуляции |
 | [SD-CARD.md](SD-CARD.md) | Разметка загрузочной карты, профили FAT |
 | [STORAGE.md](STORAGE.md) | SD/MBR/EBR, FDISK/FORMAT/MOUNT/UMOUNT |

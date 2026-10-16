@@ -44,6 +44,9 @@ Ctrl+F1/Ctrl+F2 открывают список доступных дисков 
 Переходы скользящего кэша сохраняют соседние строки при прокрутке стрелками.
 RAMMAN хранит каталоги непосредственно в одном арендованном банке; без
 службы или свободного банка используется обычная ОЗУ.
+В текущей FPGA NC также опрашивает мышь: панели, меню, диски, диалоги,
+позиционирование текста и выделение перетаскиванием. Инициализация PS/2
+программная; резидентная часть NC не меняется. [Порт и указатель](INPUT.md).
 F4 выгружает панели и загружает потоковый редактор. F2 сохраняет,
 Shift+F2 — «Сохранить как», F7/Shift+F7 — поиск/повтор, Ctrl+Z/Y — Undo/Redo,
 Esc/F10 возвращает панели. F3 или Shift+навигация выделяет текст,
@@ -83,12 +86,15 @@ Undo/Redo, ошибки диска, read-only, заполненный диск,
 | RAM/BIOS/Y-код | test-ram-pages, test-ram-pages-bios, test-ram-pages-ycode, test-ram-manager |
 | ROM в RAMMAN: загрузка/выгрузка, SWI, IRQ, владение и откат | test-ramloader |
 | Клавиатура | test-keyboard-rom, test-keyboard-bios |
+| PS/2 мышь, загружаемый указатель, UART и native терминал | test-peripherals, test-mouse-driver, test-uart-app |
 | Graphics/HAM/спрайты | test-gfx, test-ham-pal, test-ham-layers, test-clip-sprites |
 | AY/записи/IRQ | test-ay, test-audio-app, test-audio-irq |
 | GAMEBIOS/игры | test-gamebios, test-gamebios-rtl, test-xonix |
 | HG/форматы/инструменты | test-hg, test-python |
+| Общий физический DMA, PAL, совместимость блиттера, SRAM-10/IRQ и native BIOS | test-dma, test-dma-skew, test-dma-bios, test-dma-bios-rtl |
 | Сжатая оболочка | test-shell |
 | Commander: резидент/панели, файловые команды, меню/диалоги/настройки/прогресс, видеорежимы, RAMMAN/fallback и потоковый редактор F4 | test-nc, test-nc-editor |
+| PAINT: кодировщики, потоковая загрузка, холст/DMA/Undo, окна, PCX/ILBM, ошибки диска и настоящий резидент HG | test-paint (отдельные test-paint-* описаны в PAINT.md) |
 | Дисковый сектор/разные оболочки/ROM fallback, cold/warm Reset | test-shell-boot |
 | Независимость ROM, отсутствие служб, перенос страниц | test-rom-modules |
 
@@ -109,9 +115,10 @@ make test-ham-layers test-xonix UNIAS=/path/to/hd6303-toolchain/unias
 
 Lattice Diamond 3.14, project `pyldin601_classic.ldf`, constraints
 `pyldin601_classic.lpf`, device LCMXO2-7000HC-4TG144I.
-Текущая graphics v6 с исправлением IRQ/NMI использует PAR seed 8 и проходит setup/hold:
+Текущая сборка с DMA, мышью, загружаемым указателем и UART
+использует PAR seed 8 и проходит setup/hold:
 negative slack=0, unconstrained paths=0. Использование:
-5338 LUT, 2677 slices, 2160 registers, 23 EBR, 1 PLL.
+6674 LUT, 3359 slices, 3044 PFU registers, 24 EBR, 1 PLL.
 PAL/AY EBR wiring и INITVAL проверяются отдельными checkers в tests.
 Журналы synthesis/MAP/PAR/TRACE и JED остаются в build.
 Не заменять SRAM-10/27-нс ограничения ослабленными для получения PASS.

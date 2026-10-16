@@ -85,7 +85,11 @@ def inspect(path):
             assert bit not in planes
             if props['_primitive'] == 'DP8KC':
                 pins = props['_pins']
-                assert pins['DIB1'] in (f'cpu_out[{bit}]', f'palette_data[{bit}]'), 'incorrect x1 CPU data pin'
+                # Synplify names optimized CPU/DMA mux branches _i_mN/dup.
+                # Preserve the bit-index check; only the net's stem may vary.
+                data_pin = pins['DIB1']
+                assert data_pin in (f'cpu_out[{bit}]', f'palette_data[{bit}]') or re.fullmatch(
+                    rf'palette_bus_data(?:_i_m[0-9]+)*(?:dup)?\[{bit}\]', data_pin), 'incorrect x1 CPU/DMA data pin'
                 assert pins['DOA0'] == f'value[{bit}]' and pins['DOB0'] == f'palette_result[{bit}]'
                 for n in range(13):
                     assert pins[f'ADB{n}'] == f'palette_address[{n}]'

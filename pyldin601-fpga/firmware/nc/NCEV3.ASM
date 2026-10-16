@@ -6,45 +6,28 @@
     public base_is_backup
     public base_path
     public build_full
-    public caret_char
-    public caret_x
-    public caret_y
     public change_lin_2598
     public copy_blocks
-    public copy_tail
     public cursor_row
     public cursor_seen
-    public deleted_char
     public desired_column
     public desired_valid
     public edit_delta
     public editor_ini_76b1
-    public error_key
-    public exit_draw
     public exit_focus
     public full_table
-    public half_columns
     public last_key
     public latest_backup
     public metadata_row
     public nav_column
-    public nav_end
-    public nav_line
-    public nav_position
-    public nav_probe
-    public nav_saved
     public nav_start
     public overwrite
-    public page_remaining
     public path_char
     public path_tail
     public poll_count
     public rename_call
     public rename_table
-    public render_eof
     public render_row
-    public restore_ptr
-    public restore_row
     public save_attempt
     public save_attributes
     public save_backu_94f9
@@ -52,6 +35,7 @@
     public save_bar_index
     public save_bar_width
     public save_buffer
+    public split_buffer
     public save_cells
     public save_chunk
     public save_done
@@ -68,15 +52,6 @@
     public save_take
     public save_target
     public save_temp
-    public search_amount
-    public search_char
-    public search_i
-    public search_j
-    public search_length
-    public search_skip
-    public search_start
-    public search_text
-    public search_wrapped
     public split_has__2828
     public split_neig_366a
     public split_neighbor
@@ -96,7 +71,6 @@
     public v_save_don_3
     public v_save_len_1
     public v_save_tak_1
-    public view_valid
 
     section
 last_key ds 1
@@ -104,7 +78,7 @@ overwrite ds 1
 render_row ds 1
 cursor_row ds 1
 cursor_seen ds 1
-render_eof ds 1
+
 build_full ds 1
 ; view_scan+0 = render_x
 ; view_scan+1 = anchor_set
@@ -120,21 +94,21 @@ build_full ds 1
 ; view_scan+27 = paint_text
 ; view_scan+29 = paint_char
 ; view_scan+30 = paint_run
-caret_x ds 1
-caret_y ds 1
-caret_char ds 1
+
+
+
 desired_valid ds 1
 desired_column ds 4
-nav_line ds 4
-nav_position ds 4
+
+
 nav_start ds 4
-nav_end ds 4
-nav_probe ds 4
-nav_saved ds 4
+
+
+
 nav_column ds 4
-page_remaining ds 1
-half_columns ds 4
-deleted_char ds 1
+
+
+
 edit_delta ds 4
 metadata_row ds 1
 poll_count ds 1
@@ -167,18 +141,20 @@ path_char ds 1
 full_table ds 4
 rename_table ds 4
 rename_call ds 4
+; Leaf splitting and streamed Save/clipboard staging never nest. Inserting
+; staged bytes starts only after all payload has been appended to ADD.
+split_buffer
 save_buffer ds 512
-search_text ds 80
-search_length ds 1
-search_skip ds 1
-search_j ds 1
-search_i ds 1
-search_char ds 1
-search_start ds 4
-search_wrapped ds 1
-search_amount ds 4
-exit_draw ds 1
-error_key ds 1
+
+
+
+
+
+
+
+
+
+
 split_has_neighbor ds 1
 split_neighbor ds 2
 split_neighbor_slot ds 1
@@ -190,12 +166,12 @@ split_neighbor_slot ds 1
 ; view_anchor+17 = anchor_error
 editor_initialized ds 1
 copy_blocks ds 1
-copy_tail ds 1
+
 save_take ds 2
 save_chunk ds 4
-view_valid ds 1
-restore_row ds 1
-restore_ptr ds 2
+
+
+
 change_linebreak ds 1
 ; view_tail+0 = scan_take
 ; view_tail+2 = scan_run_start

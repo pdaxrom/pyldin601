@@ -9,7 +9,7 @@ module tb_pal_ham #(parameter FAST_OFFSET=0, parameter FULL=1,parameter LAYER=0)
  reg[17:0]direct_rgb=0;
  wire[5:0]dac,result;wire read_mode;
  classic_pal_encoder #(.GFX(1)) dut(clk,reset,sync,burst,alternate,4'd0,dac,
-  extended,code,wr,address,data,read_mode,result,fast,direct_rgb);
+  extended,code,wr,address,data,read_mode,result,fast,direct_rgb,2'b0);
  reg[5:0]components[0:6143],indexed[0:8191],legacy[0:1023];
  reg[31:0]phase=0;integer format=0,r=0,g=0,b=0,p,c,v,want,previous=0,previous2=0;
  integer checks=0,ham8_colours=0;reg checking=0;

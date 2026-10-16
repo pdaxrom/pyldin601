@@ -15,7 +15,6 @@ static void native_copy_without_extensions(void){
          "native E8 exists independently of ROM extensions");
  require((r[0xedf4]>>4)==0&&native_value(0xefd0)>=0xf000,
          "E8 registered in fixed BIOS before extension initialization");
- if(!cpu_hd)return;
  for(unsigned k=0;k<32;k++)r[0x8000+k]=k*7+3;
  unsigned char expected[32];memcpy(expected,r+0x8000,32);
  unsigned saved_page=page,saved_group=ram_group;page=6;ram_group=18;

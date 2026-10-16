@@ -17,6 +17,10 @@ architecture test of tb_gamebios is
  signal palette:bytes(0 to 8191):=(others=>x"09");
  signal ay:bytes(0 to 13):=(others=>x"00");
  signal gfx:bytes(0 to 15):=(others=>x"00");
+ signal dma_parameters:bytes(0 to 18):=(others=>x"00");
+ signal dma_index:natural range 0 to 31:=0;
+ function word24(p:bytes;at:natural)return natural is
+ begin return to_integer(unsigned(p(at)))+256*to_integer(unsigned(p(at+1)))+65536*to_integer(unsigned(p(at+2)));end;
  signal gfx_failed:std_logic:='1';
  signal clk:std_logic:='0';signal reset:std_logic:='1';signal rw,vma,irq,hd_mode:std_logic;
  signal address:std_logic_vector(15 downto 0);signal din,dout,page:std_logic_vector(7 downto 0):=x"00";
@@ -39,6 +43,10 @@ begin
   elsif a=16#e6f1# then din<=std_logic_vector(to_unsigned(group_number,8));
   elsif a=16#e6f2# then din<=x"52";
   elsif a=16#e6f3# then din<=x"6f";
+  elsif a=16#e6e0# then din<=x"01";
+  elsif a=16#e6e1# then din<=x"44";
+  elsif a=16#e6e2# then din<=std_logic_vector(to_unsigned(dma_index,8));
+  elsif a=16#e6e3# then din<=x"ff";if dma_index<19 then din<=dma_parameters(dma_index);end if;
   elsif a=16#e6a0# then din<=x"82";if not HD then din<=x"80";end if;
   elsif a=16#e691# then din<=x"59";
   elsif a=16#e690# then din<=x"00";if enabled then din(0)<='1';end if;if pending then din(7)<='1';end if;
@@ -55,7 +63,7 @@ begin
   end if;
  end process;
  process
-  variable a,p,k,w,h,src,dst:natural;variable q:unsigned(31 downto 0);variable original_irq:std_logic_vector(15 downto 0);variable original_page:std_logic_vector(3 downto 0);
+  variable a,p,k,w,h,src,dst,mode,length:natural;variable datum:std_logic_vector(7 downto 0);variable q:unsigned(31 downto 0);variable original_irq:std_logic_vector(15 downto 0);variable original_page:std_logic_vector(3 downto 0);
  begin
   wait until rising_edge(clk);
   if reset='1' then original_irq:=old_irq;original_page:=old_irq_page;
@@ -68,6 +76,26 @@ begin
     a:=to_integer(unsigned(address));p:=to_integer(unsigned(dout));
     if a=16#e6f0# then page<=dout;
     elsif a=16#e6f1# then group_number<=p;
+    elsif a=16#e6e2# then dma_index<=p mod 32;
+    elsif a=16#e6e3# then
+     if dma_index<19 then dma_parameters(dma_index)<=dout;end if;
+     dma_index<=(dma_index+1)mod 32;if dma_index=18 then dma_index<=0;end if;
+    elsif a=16#e6e1# then
+     -- Independent whole-transfer snapshot oracle. Production DMA/pad/CDC
+     -- timing is tested separately by tb_dma and tb_dma_bios.
+     src:=word24(dma_parameters,0);dst:=word24(dma_parameters,3);
+     length:=word24(dma_parameters,6);mode:=to_integer(unsigned(dma_parameters(17)));
+     assert p=2 and length<=8192 and dma_parameters(9)=x"01" and dma_parameters(10)=x"00" and mode<=2
+      and word24(dma_parameters,11)=0 and word24(dma_parameters,14)=0 report "invalid BIOS DMA descriptor" severity failure;
+     for n in 0 to length-1 loop
+      if mode=1 then assert src=16#e65e# report "DMA palette source" severity failure;datum:=palette((paladdr+n)mod 8192);
+      elsif src<65536 then datum:=ram(src+n);
+      else assert src>=16#22000# and src+n<16#100000# report "DMA bank source" severity failure;datum:=banks(src+n-16#22000#);end if;
+      if mode=2 then assert dst=16#e65e# report "DMA palette destination" severity failure;palette((paladdr+n)mod 8192)<="00"&datum(5 downto 0);
+      elsif dst<65536 then ram(dst+n)<=datum;
+      else assert dst>=16#22000# and dst+n<16#100000# report "DMA bank destination" severity failure;banks(dst+n-16#22000#)<=datum;end if;
+     end loop;
+     if mode/=0 then paladdr<=(paladdr+length)mod 8192;end if;
     elsif a>=16#e610# and a<=16#e61d# then ay(a-16#e610#)<=dout;
     elsif a=16#e690# then enabled<=dout(0)='1';if dout(1)='1' then pending<=false;end if;if dout(0)='0' or dout(2)='1' then music_counter<=0;pending<=false;end if;
     elsif a>=16#e692# and a<=16#e695# then q:=to_unsigned(period_shadow,32);k:=8*(16#e695#-a);q(k+7 downto k):=unsigned(dout);period_shadow<=to_integer(q);

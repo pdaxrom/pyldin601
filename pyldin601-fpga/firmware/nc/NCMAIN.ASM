@@ -8,6 +8,13 @@
     public redraw
     public refresh
     public shell_request
+    extern mouse_wait
+    extern mouse_init
+    extern mouse_close
+    extern mouse_height
+    extern mouse_show
+    extern mouse_action
+    extern mouse_activate
     extern active
     extern add_b
     extern bank_valid
@@ -244,6 +251,15 @@ nc_crtc_done
     clrb
     ldaa #7
     int $2f
+    jsr mouse_init
+    ldaa ui_keys
+    inca
+    asla
+    asla
+    asla
+    staa mouse_height
+    ldaa #$80
+    staa mouse_show
     jsr cache_open
     clra
     jsr choose_panel
@@ -259,8 +275,23 @@ redraw
     jsr render
 wait_key
     ; Stable test/debug boundary: no open handles or transient stack frames.
-    int $11
+    ldaa #0
+    jsr mouse_wait
     staa last_key
+    cmpa #$fe
+    bne mouse_not_event
+    ldaa mouse_action
+    cmpa #2
+    bne mouse_select_file
+    jmp open_menu
+mouse_select_file
+    jsr mouse_activate
+    ldaa mouse_action
+    cmpa #3
+    bne *+5
+    jmp enter
+    jmp redraw
+mouse_not_event
     cmpa #15
     bne key_not_shell
     jmp shell_request
@@ -744,6 +775,7 @@ panel_path_invalid
     rts
 leave
     staa request
+    jsr mouse_close
     ldx owner
     ldaa active
     staa S_ACTIVE,x

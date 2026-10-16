@@ -77,6 +77,19 @@ CLOCK_TO_OUT PORT "SRAM_WE" 6 ns CLKNET "clk_fast";
 INPUT_SETUP PORT "SRAM_DATA[*]" 8 ns HOLD 0 ns CLKNET "clk_fast";
 # Specific preferences follow broad ones: later MAXDELAY wins in TRACE.
 MAXDELAY FROM CELL "system/*" TO CELL "cpu/*" 50 ns DATAPATH_ONLY;
+# Shared DMA: held command bundles are sampled only after four fast clocks.
+MULTICYCLE FROM CELL "system/gfx/dma/cfg_*" TO CLKNET "clk_fast" 4 X;
+BLOCK PATH TO CELL "system/gfx/dma/reset_sync[0]";
+BLOCK PATH TO CELL "system/gfx/dma/new_sync[0]";
+BLOCK PATH TO CELL "system/gfx/dma/legacy_sync[0]";
+BLOCK PATH TO CELL "system/gfx/dma/done_sync[0]";
+BLOCK PATH TO CELL "system/gfx/dma/error_sync[0]";
+BLOCK PATH TO CELL "system/gfx/dma/pal_sync[0]";
+BLOCK PATH TO CELL "system/gfx/dma/pal_done_sync[0]";
+# Palette bundle is held from request through ACK, with three 24-MHz token
+# stages before capture. These exceptions do not cover SRAM or CPU paths.
+MULTICYCLE FROM CELL "system/gfx/dma/pal_byte*" TO CLKNET "clk" 2 X;
+MULTICYCLE FROM CELL "system/gfx/dma/pal_writing*" TO CLKNET "clk" 2 X;
 # Earliest CPU result arrives >=31.25 ns before CPU capture.
 MAXDELAY FROM CELL "system/runtime_memory/cpu_result*" TO CELL "cpu/*" 27 ns DATAPATH_ONLY;
 # Non-SRAM outputs remain clocked by the 24 MHz system domain.
@@ -87,6 +100,8 @@ INPUT_SETUP PORT "miso" 10 ns HOLD 5 ns CLKNET "clk";
 # These asynchronous inputs only feed their first synchronizer stages.
 BLOCK PATH FROM PORT "ps2clk";
 BLOCK PATH FROM PORT "ps2dat";
+BLOCK PATH FROM PORT "mouseclk";
+BLOCK PATH FROM PORT "mousedat";
 BLOCK PATH FROM PORT "btn_resetn";
 # Diagnostic UART RX only feeds the first stage of its synchronizer.
 BLOCK PATH FROM PORT "rxd";
@@ -108,6 +123,10 @@ LOCATE COMP "ps2clk" SITE "2";
 IOBUF PORT "ps2clk" IO_TYPE=LVCMOS33 PULLMODE=UP;
 LOCATE COMP "clk_ext" SITE "3";
 IOBUF PORT "clk_ext" IO_TYPE=LVCMOS33 PULLMODE=NONE;
+LOCATE COMP "mouseclk" SITE "4";
+IOBUF PORT "mouseclk" IO_TYPE=LVCMOS33 PULLMODE=UP;
+LOCATE COMP "mousedat" SITE "5";
+IOBUF PORT "mousedat" IO_TYPE=LVCMOS33 PULLMODE=UP;
 LOCATE COMP "audio[0]" SITE "21";
 IOBUF PORT "audio[0]" IO_TYPE=LVCMOS33 PULLMODE=NONE;
 LOCATE COMP "audio[1]" SITE "22";

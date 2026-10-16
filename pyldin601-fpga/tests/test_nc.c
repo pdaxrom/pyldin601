@@ -1,9 +1,20 @@
 // Actual native BIOS/UniDOS and assembled relocatable NC, private SD only.
+#ifndef HG_FIXTURE
+#define HG_FIXTURE 1
+#define TEST_MOUSE_PANEL_HOOKS 1
+static int hg_read_byte(unsigned short,unsigned char*);
+static int hg_write_byte(unsigned short,unsigned char);
+#endif
 #define COMPACT_FIXTURE 1
 #define DIRECT_SD_FIXTURE 1
 #define ROMDISK_MAIN unused_romdisk_main
 #include "test_romdisk_unidos.c"
 #undef ROMDISK_MAIN
+#include "mouse_ui_model.h"
+#ifdef TEST_MOUSE_PANEL_HOOKS
+static int hg_read_byte(unsigned short a,unsigned char*out){return mouse_ui_read_byte(a,out);}
+static int hg_write_byte(unsigned short a,unsigned char d){return mouse_ui_write_byte(a,d);}
+#endif
 #include "../build/nc/NC.h"
 #include "../build/nc/NCMAIN.h"
 #include "../build/nc/NCPROBE.h"
@@ -49,7 +60,7 @@ static void observe(void){
   }
  }
  if(measure_key&&core_base){
-  if(PC==core_base+NCMAIN_WAIT_KEY+2&&!key_started)key_started=virtual_cycles;
+  if(PC==core_base+NCMAIN_MOUSE_KEY_READY&&!key_started)key_started=virtual_cycles;
   if(key_started&&!key_cycles){
    if(PC==core_base+NCMAIN_READ_DIRECTORY)measured_scans++;
    if(PC==core_base+NCMAIN_CACHE_MAP)measured_transfers++;
@@ -76,7 +87,7 @@ static void observe(void){
 }
 static void panels(unsigned after){
  uint64_t end=virtual_cycles+200000000;
- do{until(virtual_cycles+1009);if(wait_entries>after&&PC==(model_a?0xf397:0xf39d)){check_command_caret();return;}}while(virtual_cycles<end);
+ do{until(virtual_cycles+(mouse_ui_enabled?1:1009));if(wait_entries>after&&PC==core_base+NCMAIN_MOUSE_KEY_POLL){check_command_caret();return;}}while(virtual_cycles<end);
  fprintf(stderr,"NC=%04x core=%04x loads=%u waits=%u owner=%04x req=%u last=%02x\n",nc_base,core_base,core_entries,wait_entries,core_base?ram_word(core_base+NCMAIN_OWNER):0,nc_base?MC6800GetCpuRam()[nc_base+NC_STATE+NC_S_REQUEST]:0,core_base?MC6800GetCpuRam()[core_base+NCMAIN_LAST_KEY]:0);
  require(0,"NC reaches panel keyboard loop");
 }
@@ -139,7 +150,7 @@ static void snapshot(unsigned video,const char*backend){
 static void panel_key(unsigned scan){unsigned after=wait_entries;key(scan);panels(after);}
 static void modal_wait(unsigned boundary){
  uint64_t end=virtual_cycles+200000000;
- do{until(virtual_cycles+1009);if(input_boundary==boundary&&PC==(model_a?0xf397:0xf39d)){check_modal_caret(boundary);return;}}while(virtual_cycles<end);
+ do{until(virtual_cycles+1009);if(input_boundary==boundary&&PC==core_base+NCMAIN_MOUSE_KEY_POLL){check_modal_caret(boundary);return;}}while(virtual_cycles<end);
  require(0,"modal window reaches its keyboard loop");
 }
 static void open_settings(void){
@@ -368,6 +379,62 @@ static void check_input_focus(unsigned video){
  r[0xed1f]=old_blink;
  after=wait_entries;key(1);panels(after);
 }
+static void mouse_panel_event(unsigned col,unsigned row,unsigned buttons){
+ unsigned cols=MC6800GetCpuRam()[core_base+NCMAIN_COLUMNS];
+ mouse_ui_place(core_base,NCMAIN_MOUSE_PRESENT,NCMAIN_MOUSE_X,NCMAIN_MOUSE_Y,col,row,cols,buttons);
+ uint64_t end=virtual_cycles+200000000;
+ do{until(virtual_cycles+1009);if(!mouse_ui_count&&PC==core_base+NCMAIN_MOUSE_KEY_POLL)return;}while(virtual_cycles<end);
+ require(0,"mouse hit returns to the application input loop");
+}
+static void mouse_panel_tests(void){
+ unsigned char*r=MC6800GetCpuRam();unsigned cols=r[core_base+NCMAIN_COLUMNS],half=cols/2;
+ mouse_panel_event(5,4,0);
+ if(r[core_base+NCMAIN_MODE]&3)require(crtc[14]*256+crtc[15]==0x3fff,"graphics sprite leaves the native caret parked");
+ else check_text_caret(5,4);
+ mouse_panel_event(5,NCMAIN_UI_FIRST+1,1);
+ require(r[core_base+NCMAIN_ACTIVE]==0&&r[core_base+NCMAIN_PCUR]==r[core_base+NCMAIN_PTOP]+1,"mouse selects the visible file in the left panel");
+ mouse_panel_event(5,NCMAIN_UI_FIRST+1,0);
+ mouse_panel_event(half+5,NCMAIN_UI_FIRST+2,1);
+ require(r[core_base+NCMAIN_ACTIVE]==1&&r[core_base+NCMAIN_PCUR]==r[core_base+NCMAIN_PTOP]+2,"mouse switches panel and selects by visible row");
+ mouse_panel_event(half+5,NCMAIN_UI_FIRST+2,0);
+ mouse_panel_event(r[core_base+NCMAIN_MENU_SLOT]*3+1,0,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==5&&r[core_base+NCMAIN_MENU_GROUP]==3,"mouse opens the exact top-menu group");
+ unsigned left=r[core_base+NCMAIN_WINDOW_LEFT];
+ mouse_panel_event(left+2,2,0);mouse_panel_event(left+2,2,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==6,"mouse activates a menu item and opens Settings");
+ unsigned hidden=r[core_base+NCMAIN_DRAFT_HIDDEN],saved=r[nc_base+NC_STATE+NC_S_HIDDEN];
+ mouse_panel_event(8,12,0);mouse_panel_event(8,12,1);
+ require(r[core_base+NCMAIN_DRAFT_HIDDEN]==(hidden^1),"mouse toggles a staged Settings checkbox");
+ mouse_panel_event(half+3,16,0);mouse_panel_event(half+3,16,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==0&&r[nc_base+NC_STATE+NC_S_HIDDEN]==saved,"mouse Cancel discards Settings and restores panel focus");
+ mouse_panel_event(half+3,16,0);
+ key(0x41);modal_wait(NCMAIN_DIALOG_KEY);type("abc");modal_wait(NCMAIN_DIALOG_KEY);
+ mouse_panel_event(7,10,1);
+ require(r[core_base+NCMAIN_EDIT_CURSOR]==1&&!r[core_base+NCMAIN_WINDOW_FOCUS],"mouse positions the input-field caret");
+ check_modal_caret(NCMAIN_DIALOG_KEY);
+ mouse_panel_event(half+3,16,0);mouse_panel_event(half+3,16,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==0,"mouse Cancel closes an input dialog");
+ mouse_panel_event(half+3,16,0);
+ // A panel header opens its own available-drive list; choose the first entry.
+ mouse_panel_event(half+3,1,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==7,"mouse panel header opens the drive picker");
+ left=r[core_base+NCMAIN_WINDOW_LEFT];mouse_panel_event(left+2,8,0);mouse_panel_event(left+2,8,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==0,"mouse chooses an enumerated drive");
+ mouse_panel_event(left+2,8,0);drive_b();select_name("TREE    ");
+ unsigned click_row=NCMAIN_UI_FIRST+r[core_base+NCMAIN_PCUR]-r[core_base+NCMAIN_PTOP];
+ r[0x19]=1;r[0x18]=10;mouse_panel_event(half+5,click_row,1);mouse_panel_event(half+5,click_row,0);
+ r[0x19]=1;r[0x18]=20;mouse_panel_event(half+5,click_row,1);
+ require(strstr((char*)r+ram_word(core_base+NCMAIN_PATHPTR),"TREE")!=NULL,"mouse double-click opens the selected directory");
+ mouse_panel_event(half+5,click_row,0);panel_key(0x0e);
+ mouse_panel_event(1,r[core_base+NCMAIN_UI_KEYS],1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==4,"mouse function-key strip invokes Help");
+ mouse_panel_event(7,16,0);mouse_panel_event(7,16,1);
+ require(r[core_base+NCMAIN_MOUSE_CONTEXT]==0,"mouse closes the Help message");
+ mouse_panel_event(7,16,0);
+ // Keyboard input resumes ownership of the command-line caret after pointing.
+ panel_key(0x50);check_command_caret();
+ puts("PASS NC mouse: native cursor/graphics independence, both panels, top menu, Settings checkbox/Cancel, dialog cursor/Cancel, drive picker, double-click, function-key strip, keyboard focus");
+}
 #ifndef NC_MAIN
 #define NC_MAIN main
 #endif
@@ -408,7 +475,7 @@ int NC_MAIN(int argc,char**argv){
  require((video&3)||(contains("Left")&&contains("Command")&&contains("Options")),"functional top menu drawn");
  require((video&3)||(!contains("Tab panel")&&contains("Name")&&contains("free")),"MC layout has headings and per-panel information without a hint row");
  unsigned char*r=MC6800GetCpuRam();
- require(r[core_base+NCMAIN_CACHE_LEASE_OPEN]==(!strcmp(backend,"bank")||!strcmp(backend,"many-bank")||!strcmp(backend,"offset")||!strcmp(backend,"disk")||!strcmp(backend,"ready")),"RAMMAN optional: absent vector and allocation failure use ordinary RAM");
+ require(r[core_base+NCMAIN_CACHE_LEASE_OPEN]==(!strcmp(backend,"bank")||!strcmp(backend,"mouse")||!strcmp(backend,"many-bank")||!strcmp(backend,"offset")||!strcmp(backend,"disk")||!strcmp(backend,"ready")),"RAMMAN optional: absent vector and allocation failure use ordinary RAM");
  if(!strcmp(backend,"offset"))require(r[core_base+NCMAIN_CACHE_GROUP]>0,"leased catalogue works outside the first six-bank group");
  require(ram_word(core_base+NCMAIN_OWNER)==nc_base+NC_STATE,"panel receives parent-owned ABI state");
  require(ram_word(0xee1a)==original_resident,"NC does not permanently mark memory resident");
@@ -416,6 +483,11 @@ int NC_MAIN(int argc,char**argv){
  if(model_a&&video==0){
   unsigned base=ram_word(core_base+NCMAIN_SCREEN_BASE);
   require(r[base]==0x03&&r[base+4*80+2]==0x71,"NC cyan headings and blue panel colour attributes");
+ }
+ if(!strcmp(backend,"mouse")){
+  drive_b();mouse_panel_tests();key(0x44);prompt_wait();
+  require(SP==original_sp&&ram_word(0xee1e)==original_himem&&!mouse_ui_lines&&!(mouse_ui_index&128),"mouse panel exit releases pins, pointer, heap and stack");
+  return 0;
  }
  if(!strcmp(backend,"ready")){
   drive_b();snapshot(video,backend);

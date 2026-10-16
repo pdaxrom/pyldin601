@@ -1,0 +1,45 @@
+PAINT - native Pyldin-601 / 601A graphics editor
+
+Copy PAINT.PGM, PNTNAT.PGM, PNTRGB.PGM and PNTHAM.PGM into one directory.
+Run PAINT or PAINT filename.PCX / filename.IFF. No CVM is required.
+Current FPGA graphics v6+, flat DMA ABI1 and the PS/2 mouse port are used.
+RAMMAN is optional: native backends use an owned bank or ordinary RAM.
+
+Formats (F6 New):
+  320x200 monochrome; 640x200 monochrome (601A only);
+  320x200 four colours; 320x200 indexed 256 colours; 320x200 HAM8.
+The old GD.CMD is a separate program for the original 601.
+
+Mouse: left draws; right erases; middle picks the canonical pixel colour.
+F1 Help     F2 Save      F3 Open       F4 Colour     F5 Tool
+F6 New      F7 Undo      F8 Redo       F9 Menu       F10 Exit
+Ctrl+Z / Ctrl+Y also undo / redo. +/- changes square brush size (1..16).
+Tools: freehand brush, line, rectangle, filled rectangle, colour picker.
+Line and rectangle start on button press and commit on release.
+Arrows move the pointer; Space toggles drawing without a mouse.
+
+F4: indexed palette grid, arrows/Enter or a mouse click choose foreground.
+In 256-colour mode, click a square in the 16x16 grid to accept it and return
+to drawing. Escape keeps the previous colour. F5 selects tools, not colour.
+HAM8 uses six hexadecimal digits RRGGBB, each component 00..3F.
+For example 3F0000 is red, 003F00 green, 00003F blue, 3F3F3F white.
+Esc/right-click cancel a modal window. Dialog input owns the typing focus.
+
+PCX reads 1-bit planar (1..4 planes), packed 2-bit, or indexed 8-bit RLE.
+Save writes monochrome, two-plane four-colour, or 8-bit indexed PCX.
+HAM8 reads IFF ILBM with CMAP/CAMG, raw or ByteRun1 eight-plane BODY.
+HAM8 Save writes a standard uncompressed ILBM with the displayed encoding.
+HAM encoding can approximate the canonical RGB colour; IFF stores that
+visible HAM result. PCX retains every index and the RGB666 palette.
+
+Open stages the complete decoded image before replacing the current one.
+Save writes and closes a unique PNTxxxx.TMP, backs up an existing target,
+and renames the completed temporary file into place. Escape or the Cancel
+button stops streaming before publication. Failure keeps the original.
+If a disk error prevents rollback, the original remains as PNTxxxx.BAK.
+
+Undo/Redo retains one complete stroke in separate graphics SRAM.
+Native screen, PAL table, mouse pins, pointer and allocated banks are
+restored/released on exit. The current image is lost after confirmed exit.
+Backends are cached for this session after validation; replacing their
+files takes effect when Paint is restarted.

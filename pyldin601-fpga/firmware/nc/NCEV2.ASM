@@ -64,7 +64,6 @@
     public screen_top
     public search_pre_0813
     public shift_end
-    public split_buffer
     public split_bytes
     public split_count
     public split_index
@@ -123,7 +122,6 @@ piece_in ds 4
 piece_index ds 1
 entry_ptr ds 2
 shift_end ds 2
-split_buffer ds 256
 split_count ds 1
 split_bytes ds 2
 split_next ds 4
@@ -189,7 +187,7 @@ apply_error ds 1
 saved_history ds 4
 saved_valid ds 1
 modified ds 1
-screen_chars ds 1920
+screen_chars ds 2
 new_line ds 80
 line_offsets ds 100
 line_ends ds 96

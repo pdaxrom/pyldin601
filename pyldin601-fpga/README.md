@@ -9,10 +9,13 @@ Lattice MachXO2-7000HC, с выбором модели 601/601А и MC6800/HD630
 
 - 320×200 с 256 программируемыми цветами и HAM8;
 - HAM8-фон с RGB222 наложением без изменения цвета справа от объектов;
-- аппаратный FILL/COPY/прозрачный COPY и VBL-переключение страниц;
+- общий DMA/блиттер: физическая SRAM, палитра, FILL/COPY/прозрачный COPY и VBL;
 - GAMEBIOS: графика, текст, спрайты с обрезкой, очередь AY и нотные эффекты;
 - AY-3-8910 с программируемым master и независимым музыкальным IRQ;
 - PS/2, ROM-перевод в старые клавиатурные коды, native repeat и raw capture;
+- отдельная PS/2 мышь с программной инициализацией и загружаемым указателем 16×16;
+- UART второго канала FTDI, 150..115200 бод, native-терминал UART.PGM;
+- нативный PAINT: мышь, PCX, HAM8 ILBM, пять форматов холста и Undo/Redo;
 - нативные SD-разделы FAT12/FAT16 с 32-битными секторами, MBR/extended EBR и HG-диск папки хоста.
 
 ROM/RAM-диски и i8272 удалены. UniDOS находится в ROM; его оболочка
@@ -28,6 +31,8 @@ HD6303-компьютер Lilith — отдельный проект, ISA зде
 - [Все новые регистры и их семантика](docs/REGISTERS.md).
 - [Подробный процесс загрузки, настройки и Reset](docs/BOOT.md).
 - [Программирование графики и музыки](docs/PROGRAMMING.md).
+- [Мышь, аппаратный указатель и UART](docs/INPUT.md).
+- [Графический редактор PAINT](docs/PAINT.md).
 - [GAMEBIOS ABI](docs/GAMEBIOS.md), [карта памяти](docs/MEMORY.md).
 - [SD-карта](docs/SD-CARD.md), [утилиты разделов](docs/STORAGE.md).
 - [Исходники BIOS и ROM-страницы](docs/FIRMWARE.md).
@@ -70,7 +75,8 @@ make -f firmware/Makefile all UNIAS=/path/to/hd6303-toolchain/unias
 make test UNIAS=/path/to/hd6303-toolchain/unias
 ```
 
-Текущая graphics v6: 5323/6864 LUT, 23/26 EBR, 1/2 PLL;
+Текущая сборка с DMA, мышью, указателем и UART: 6674/6864 LUT,
+3359/3432 slices, 24/26 EBR, 1/2 PLL;
 PLL даёт system 24 МГц и SRAM 96 МГц. Подробные ограничения и отдельные
 цели проверки — [BUILD.md](docs/BUILD.md). Происхождение CPU-ядра и
 лицензия сохранены в [vendor](vendor/README.md).

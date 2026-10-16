@@ -2,7 +2,7 @@
 // uJ11 encoder. Here the 16 IRGB colours use a synchronous waveform ROM:
 // no multipliers. HAM reuses the indexed table at 96 MHz; all outputs
 // share three 24 MHz pipeline stages, including sync and burst.
-module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",parameter GFX=0) (
+module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",parameter GFX=0,parameter POINTER=0) (
     input wire clk,reset,
     input wire sync,burst,alternate,
     input wire [3:0] colour,
@@ -10,7 +10,7 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
     input wire extended,input wire[7:0] rgb332,
     input wire palette_write,input wire[3:0]palette_register,input wire[7:0]palette_data,
     output wire palette_read_mode,output wire[5:0]palette_result,
-    input wire fast,input wire[17:0]rgb666
+    input wire fast,input wire[17:0]rgb666,input wire[1:0]pointer
 );
     // round(2^32 * 4433618.75 / 24000000), frequency error +0.002286 Hz.
     reg [31:0] phase;
@@ -70,7 +70,10 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
         // A half-cycle buffer transfers the completed sum back to 24 MHz;
         // this also works when the two rising clock edges coincide.
         reg last_token;reg[1:0]slot;
-        reg[5:0]red_sample,green_sample,ham_sample;
+        // Bias red in slot 1, add green in slot 2 and blue in slot 3.
+        // Same modulo-64 result and latency, one short adder per 96-MHz edge.
+        reg[5:0]red_sample,red_green,ham_sample;
+        wire[5:0]ham_sum=red_green+value;
         wire start_sample=sample_token!=last_token;
         wire[1:0]read_slot=slot;
         wire[12:0]read_address=!ham_mode?{picture_index,picture_phase}:
@@ -78,16 +81,16 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
             read_slot==2?{2'd2,ham_b,picture_phase}:{2'd0,ham_r,picture_phase};
         always @(posedge fast)value<=table_rgb[read_address];
         always @(posedge fast)begin
-            if(reset)begin last_token<=0;slot<=0;red_sample<=0;green_sample<=0;ham_sample<=15;end
+            if(reset)begin last_token<=0;slot<=0;red_sample<=0;red_green<=0;ham_sample<=15;end
             else begin
                 last_token<=sample_token;
                 if(start_sample)slot<=1;
                 else begin
                     if(slot!=0)slot<=slot+1'b1;
                     case(slot)
-                        1:red_sample<=value;
-                        2:green_sample<=value;
-                        3:ham_sample<=({2'b0,red_sample}+{2'b0,green_sample}+{2'b0,value})-8'd10;
+                        1:red_sample<=value-6'd10;
+                        2:red_green<=red_sample+value;
+                        3:ham_sample<=ham_sum[5:0];
                     endcase
                 end
             end
@@ -129,6 +132,11 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
     end endgenerate
     reg[1:0]sync_delayed,extended_delayed,ham_delayed;
     reg[5:0]native_buffer;
+    reg[1:0]pointer_first,pointer_second;
+    always @(posedge clk)begin
+        if(reset)begin pointer_first<=0;pointer_second<=0;end
+        else begin pointer_first<=pointer;pointer_second<=pointer_first;end
+    end
     // Keep the ROM output free of reset and muxes to infer synchronous EBR.
     always @(posedge clk)sample<=waveform[address];
     always @(posedge clk)begin
@@ -146,7 +154,8 @@ module classic_pal_encoder #(parameter WAVEFORM_FILE="rtl/pal_waveform.mem",para
     // clock-to-output constraint. Sync, burst and picture share this stage.
     always @(posedge clk)begin
         if(reset)dac<=0;
-        else dac<=sync_delayed[1] ? 6'd0 : extended_delayed[1]?
+        else dac<=sync_delayed[1] ? 6'd0 : POINTER&&pointer_second!=0?
+            (pointer_second==1?6'd15:pointer_second==2?6'd49:6'd32):extended_delayed[1]?
             (ham_delayed[1]?ham_sample_buffer:indexed_sample):native_buffer;
     end
 endmodule

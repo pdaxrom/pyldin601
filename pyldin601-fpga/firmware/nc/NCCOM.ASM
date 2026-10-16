@@ -7,12 +7,20 @@
     public colour
     public confirm
     public copy_n
+    .ifndef NC_PAINT
     public copy_octets
+    .endif
     public copy_z
+    .ifndef NC_PAINT
     public decimal_le
+    .endif
+    .ifndef NC_PAINT
     public decimal_number
+    .endif
     public dialog
+    .ifndef NC_PAINT
     public divide_number
+    .endif
     public end_z
     public error
     public field
@@ -30,6 +38,7 @@
     public window_line
     public window_open
     public window_wrap
+    extern mouse_wait
     extern add_pointer
     extern button_focus
     extern button_table
@@ -99,6 +108,7 @@
 ; a colour-graphics hardware cursor covers only half a character cell.
 caret_at
     jsr position
+    .ifndef NC_PAINT
     ldaa mode
     anda #3
     bne caret_graphic
@@ -113,6 +123,7 @@ caret_model_a
     bne caret_write
     inx
     bra caret_write
+    .endif
 caret_graphic
     jsr caret_hide
     ldaa #'_'
@@ -146,6 +157,7 @@ caret_write
 ; box-drawing set. Own glyph output avoids clipping/state in the DOS console.
 colour
     staa ink
+    .ifndef NC_PAINT
     ldx #pixels_paper
     cmpa #$07
     beq colour_table
@@ -162,9 +174,11 @@ colour_selection
     ldx #pixels_selected
 colour_table
     stx gfx_table
+    .endif
     rts
 
 position
+    .ifndef NC_PAINT
     ldaa mode
     anda #3
     bne position_graphics
@@ -196,6 +210,7 @@ position_add
     jsr add_b
     stx outptr
     rts
+    .endif
 position_graphics
     ; Each character row is 320 bytes (601) or 640 (601A).
     ldaa ui_y
@@ -232,6 +247,7 @@ position_graphic_row
     rolb
     asla
     rolb
+    .ifndef NC_PAINT
     psha
     ldaa mode
     cmpa #2
@@ -239,6 +255,7 @@ position_graphic_row
     bne position_graphic_col
     asla
     rolb
+    .endif
 position_graphic_col
     adda v_outptr_1
     adcb outptr
@@ -247,6 +264,7 @@ position_graphic_col
     rts
 put
     staa output_char
+    .ifndef NC_PAINT
     ldaa mode
     anda #3
     bne put_graphic
@@ -264,6 +282,7 @@ put_native
     inx
     stx outptr
     rts
+    .endif
 put_graphic
     ldaa output_char
     cmpa #32
@@ -308,9 +327,11 @@ put_font
     staa $e6f1
     ldaa font_saved_page
     staa $e6f0
+    .ifndef NC_PAINT
     ldaa mode
     cmpa #2
     beq put_four_colours
+    .endif
     ldx outptr
     ldaa ink
     cmpa #$07
@@ -367,6 +388,7 @@ put_advance_eight
     stx outptr
     rts
 
+    .ifndef NC_PAINT
 put_four_colours
     clr glyph_row
 put_colour_row
@@ -411,6 +433,7 @@ pack_pixels
     asl glyph_bits
     asl glyph_bits
     rts
+    .endif
 ; Blanks dominate panel padding. Fill their pixels without reading the font.
 put_blank
     clra
@@ -439,6 +462,9 @@ put_blank_value
     staa 5,x
     staa 6,x
     staa 7,x
+    .ifdef NC_PAINT
+    jmp put_advance_eight
+    .else
     ldab mode
     cmpb #2
     beq *+5
@@ -463,6 +489,7 @@ pixels_selected
     db $55,$54,$51,$50,$45,$44,$41,$40,$15,$14,$11,$10,$05,$04,$01,$00
 pixels_paper
     db $ff,$fc,$f3,$f0,$cf,$cc,$c3,$c0,$3f,$3c,$33,$30,$0f,$0c,$03,$00
+    .endif
 add_b
     tstb
     beq add_done
@@ -514,6 +541,7 @@ copy_n
     rts
 ; A = number of eight-byte groups (zero is empty). Separate pointers permit
 ; banked cache transfers and overlapping panel-row copies on an MC6800.
+    .ifndef NC_PAINT
 copy_octets
     staa copy_blocks
     tsta
@@ -559,6 +587,7 @@ copy_target_advanced
     bne copy_octet
 copy_octets_done
     rts
+    .endif
 line_text
     ldaa columns
     staa remaining
@@ -778,7 +807,8 @@ message
     ldaa #16
     jsr window_line
 message_key
-    int $11
+    ldaa #4
+    jsr mouse_wait
     cmpa #27
     beq message_done
     cmpa #3
@@ -805,7 +835,8 @@ confirm_draw
     ldx #yes_no_buttons
     jsr window_buttons
 confirm_key
-    int $11
+    ldaa #3
+    jsr mouse_wait
     cmpa #27
     beq confirm_no
     cmpa #3
@@ -916,7 +947,11 @@ dialog_buttons_draw
     ldx #ok_cancel__0523
     jsr window_buttons
 dialog_key
-    int $11
+    ldaa #2
+    jsr mouse_wait
+    cmpa #$fe
+    bne *+5
+    jmp dialog_draw
     cmpa #27
     beq dialog_cancel
     cmpa #3
@@ -1041,6 +1076,7 @@ help
     jsr message
     jmp redraw
 ; X=32-bit little-endian integer -> zero-terminated decimal, no 64K truncation.
+    .ifndef NC_PAINT
 decimal_le
     ldaa 3,x
     staa number
@@ -1102,6 +1138,7 @@ decimal_less
     decb
     bne decimal_byte
     rts
+    .endif
     section
 glyph ds 8
 glyph_ptr ds 2

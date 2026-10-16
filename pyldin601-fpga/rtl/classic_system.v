@@ -5,6 +5,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  output wire cpu_clk,cpu_reset,cpu_hold,cpu_irq,output wire[7:0]cpu_in,
  output wire[8:0]seg_led_h,seg_led_l,output wire[2:0]led_rgb,
  input wire rxd,output wire txd,input wire ps2clk,ps2dat,
+ input wire mouseclk,mousedat,output wire mouse_clock_low,mouse_data_low,
  output wire mss,msck,mosi,input wire miso,
  output wire[19:0]SRAM_ADDR,inout wire[15:0]SRAM_DATA,
  output wire SRAM_CE,SRAM_OE,SRAM_WE,SRAM_UB,SRAM_LB,
@@ -105,19 +106,22 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire boot_io=(boot_mode||(cpu_rw&&(cpu_addr==16'he6a0||cpu_addr==16'he6a2||cpu_addr==16'he6ae)))&&cpu_addr[15:4]==12'he6a;
  wire spi_io=cpu_addr>=16'he660&&cpu_addr<=16'he664;
  wire hg_io=cpu_addr[15:2]==14'h399c;
+ wire dma_io=cpu_addr[15:2]==14'h39b8;
  wire gfx_io=cpu_addr[15:4]==12'he65;
  wire ay_io=cpu_addr[15:4]==12'he61;
  wire audio_control_io=cpu_addr[15:4]==12'he69;
  wire crtc_io=cpu_addr==16'he600||cpu_addr==16'he601||cpu_addr==16'he604||cpu_addr==16'he605;
  wire keyboard_io=cpu_addr==16'he628||cpu_addr==16'he62a||cpu_addr==16'he62e;
  wire keyboard_raw_io=cpu_addr[15:3]==13'h1cd6;
+ wire mouse_io=cpu_addr[15:3]==13'h1cd7;
+ wire uart_io=cpu_addr[15:2]==14'h3991;
  wire timer_io=cpu_addr==16'he62b;
  wire page_io=cpu_addr>=16'he6f0&&cpu_addr<=16'he6f3;
  wire simple_io=cpu_addr==16'he629||cpu_addr>=16'he680&&cpu_addr<=16'he683
    ||cpu_addr==16'he632||cpu_addr==16'he634||cpu_addr==16'he635;
  wire rom_read=boot_mode&&cpu_rw&&(cpu_addr[15:12]==4'hd||cpu_addr[15:12]==4'hf);
  wire[20:0]legacy_address,mapped_address;wire ignored_io,invalid_ram_window;
- wire peripheral=boot_io||spi_io||hg_io||gfx_io||ay_io||audio_control_io||crtc_io||keyboard_io||keyboard_raw_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
+ wire peripheral=boot_io||spi_io||hg_io||gfx_io||dma_io||ay_io||audio_control_io||crtc_io||keyboard_io||keyboard_raw_io||mouse_io||uart_io||timer_io||simple_io||page_io||invalid_ram_window||rom_read;
  wire[7:0]ay_result;wire ay_audio;
  wire[7:0]audio_control_result;wire divider_update,divider_seen;wire[31:0]divider_value;
  reg[7:0]page,mode;reg caps_off,speaker;
@@ -131,7 +135,7 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   bus_write&&cpu_addr==16'he6f1&&!boot_mode,cpu_out,cpu_addr,page,legacy_address,
   ram_page_result,mapped_address,invalid_ram_window);
  wire[7:0]kbd_data,kbd_status,kbd_raw_byte,kbd_raw_result;wire kbd_raw_valid;
-  ps2_byte_receiver ps2_receiver(clk,cpu_reset,ps2clk,ps2dat,kbd_raw_valid,kbd_raw_byte);
+  ps2_byte_receiver ps2_receiver(clk,cpu_reset,ps2clk,ps2dat,kbd_raw_valid,kbd_raw_byte,);
   classic_keyboard keyboard(clk,cpu_reset,kbd_capture,
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
   bus_write&&cpu_addr==16'he628,bus_write&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
@@ -139,6 +143,12 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  classic_ps2_raw keyboard_raw(clk,cpu_reset,kbd_raw_valid,kbd_raw_byte,
   bus_read&&keyboard_raw_io,bus_write&&keyboard_raw_io,cpu_addr[2:0],cpu_out,kbd_raw_result,
   bus_write&&cpu_addr==16'he650&&cpu_out[2:0]==0,kbd_capture,kbd_consumed,kbd_raw_irq);
+ wire[7:0]mouse_result,uart_result;
+ wire[7:0]pointer_result;
+ classic_mouse mouse(clk,cpu_reset,bus_read&&mouse_io,bus_write&&mouse_io,
+  cpu_addr[2:0],cpu_out,mouse_result,mouseclk,mousedat,mouse_clock_low,mouse_data_low);
+ classic_uart uart(clk,cpu_reset,bus_read&&uart_io,bus_write&&uart_io,
+  cpu_addr[1:0],cpu_out,uart_result,rxd,txd);
  wire[7:0]hg_result;
  classic_hg host_link(clk,cpu_reset,bus_read&&hg_io,bus_write&&hg_io,
   cpu_addr[1:0],cpu_out,hg_result,hg_tms,hg_tck,hg_tdi,hg_tdo,hg_tdo_enable);
@@ -172,14 +182,22 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
  wire[17:0]gfx_rgb;
  wire[20:0]gfx_address;wire[15:0]gfx_data,gfx_memory_result;
  wire palette_read_mode;wire[5:0]palette_result;
+ wire[7:0]dma_result;wire palette_owned,dma_palette_write;wire[3:0]dma_palette_register;wire[7:0]dma_palette_data;
+ wire cpu_palette_write=bus_write&&gfx_io&&(!palette_owned||!(cpu_addr[3:0]==2||cpu_addr[3:0]>=13));
+ wire palette_bus_write=dma_palette_write||cpu_palette_write;
+ wire[3:0]palette_bus_register=dma_palette_write?dma_palette_register:cpu_addr[3:0];
+ (* syn_keep=1 *) wire[7:0]palette_bus_data=dma_palette_write?dma_palette_data:cpu_out;
  classic_gfx gfx(clk,clk_fast,cpu_reset,bus_write&&gfx_io,cpu_addr[3:0],cpu_out,gfx_result,gfx_enabled,
   gfx_line_request,gfx_line_y,gfx_vblank,gfx_pixel_x,gfx_pixel_bank,gfx_pixel,
-  gfx_request,gfx_write,gfx_word,gfx_address,gfx_data,gfx_ready,gfx_done,gfx_memory_result,gfx_rgb);
- classic_video #(.GFX(1)) video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
+  gfx_request,gfx_write,gfx_word,gfx_address,gfx_data,gfx_ready,gfx_done,gfx_memory_result,gfx_rgb,
+  bus_read&&dma_io,bus_write&&dma_io,cpu_addr[1:0],dma_result,
+  palette_owned,dma_palette_write,dma_palette_register,dma_palette_data,palette_result,palette_read_mode);
+ classic_video #(.GFX(1),.POINTER(1)) video(clk,cpu_reset,bus_read&&crtc_io,bus_write&&crtc_io,cpu_addr[0],cpu_out,
   video_result,mode,font_write,boot_address[10:0],boot_data,
   video_request,video_address,video_accept,video_done,runtime_video_data,tvout,video_tick,video_model_a,
   gfx_enabled,gfx_pixel,gfx_line_request,gfx_vblank,gfx_line_y,gfx_pixel_x,gfx_pixel_bank,
-  bus_write&&gfx_io,cpu_addr[3:0],cpu_out,palette_read_mode,palette_result,clk_fast,gfx_rgb);
+  palette_bus_write,palette_bus_register,palette_bus_data,palette_read_mode,palette_result,clk_fast,gfx_rgb,
+  bus_write&&mouse_io&&cpu_addr[2:1]==3,cpu_addr[0],cpu_out,pointer_result);
  // One optimized physical SRAM sequencer for bootstrap, CPU and video.
  // Registered requests cross to 96 MHz; completions remain until consumed.
  wire fast_video_accept,fast_video_done,fast_boot_accept,fast_boot_done;
@@ -235,11 +253,14 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
   else if(hg_io)peripheral_data=hg_result;
   else if(ay_io)peripheral_data=ay_result;
   else if(audio_control_io)peripheral_data=audio_control_result;
+  else if(dma_io)peripheral_data=dma_result;
   else if(gfx_io)peripheral_data=cpu_addr[3:0]==14&&palette_read_mode?{2'b0,palette_result}:gfx_result;
   else if(crtc_io)peripheral_data=video_result;
   else if(keyboard_io)peripheral_data=cpu_addr==16'he628 ? kbd_data:kbd_status|8'h37|(caps_off?8'h08:0);
   // Raw DATA consumes only its own FIFO, never the native keyboard IRQ.
   else if(keyboard_raw_io)peripheral_data=kbd_raw_result;
+  else if(mouse_io)peripheral_data=cpu_addr[2:1]==3?pointer_result:mouse_result;
+  else if(uart_io)peripheral_data=uart_result;
   else if(timer_io)peripheral_data=8'h37|(tick_pending?8'h80:0)|(speaker?8'h08:0);
   else if(page_io)peripheral_data=cpu_addr==16'he6f0 ? page:ram_page_result;
   // UniBIOS reads DRB before modifying video or LAT/CYR bits.
@@ -266,8 +287,6 @@ module classic_system #(parameter BOOT_FILE="build/boot.mem",parameter BOOT_DIV=
    endcase
   end
  end
- // UART is unused in the normal machine; keep the board TX pin idle.
- assign txd=1'b1;
  assign audio={2{ay_audio}};
  classic_frequency_display display(clk,cold_reset,speed,boot_mode,seg_led_h,seg_led_l);
  // Active-low cathodes: pin39 red, pin41 green, pin42 blue.

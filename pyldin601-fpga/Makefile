@@ -14,6 +14,22 @@ HD_TEST_SD ?= build/sd-models/sd-after.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
 BENCHES := hg frequency_controls timer_tick audio_control memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_raw ps2_raw video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
+BENCHES += uart mouse pointer video_pointer
+.PHONY: test-peripherals
+test: test-peripherals
+test-peripherals: | $(BUILD)
+	$(IVERILOG) -g2012 -s tb_uart -o $(BUILD)/tb_uart $(RTL) tests/tb_uart.v
+	$(VVP) $(BUILD)/tb_uart
+	$(IVERILOG) -g2012 -s tb_mouse -o $(BUILD)/tb_mouse $(RTL) tests/tb_mouse.v
+	$(VVP) $(BUILD)/tb_mouse
+	$(IVERILOG) -g2012 -s tb_pointer -o $(BUILD)/tb_pointer $(RTL) tests/tb_pointer.v
+	$(VVP) $(BUILD)/tb_pointer
+	$(IVERILOG) -g2012 -s tb_video_pointer -o $(BUILD)/tb_video_pointer $(RTL) tests/pal_viewport_reference.v tests/tb_video_pointer.v
+	$(VVP) $(BUILD)/tb_video_pointer
+.PHONY: test-mouse-driver
+test: test-mouse-driver
+test-mouse-driver: | $(BUILD)
+	$(PYTHON) tests/run_mouse_driver.py --nvc "$(NVC)"
 .PHONY: test firmware test-python test-rtl test-cpu fixtures test-firmware test-system image test-board-syntax test-handoff test-stage1 sram-diagnostic test-sram-diagnostic
 .PHONY: test-native-stability test-stage1-a
 .PHONY: test-runtime-irq
@@ -508,3 +524,54 @@ test-boot-partitions: fixtures
 .PHONY: game-objects
 game-objects:
 	$(MAKE) -f firmware/Makefile game-objects UNIAS="$(UNIAS)"
+
+# Shared physical DMA keeps the legacy blitter ABI and CPU memory slots.
+.PHONY: test-dma test-dma-skew test-dma-bios test-dma-bios-rtl
+test: test-dma test-dma-skew test-dma-bios test-dma-bios-rtl
+test-dma: firmware
+	$(IVERILOG) -g2012 -s tb_dma -o $(BUILD)/tb_dma $(RTL) tests/pal_viewport_reference.v tests/tb_dma.v
+	$(VVP) $(BUILD)/tb_dma
+test-dma-skew: firmware
+	$(IVERILOG) -g2012 -s tb_dma -Ptb_dma.ADDR_DELAY=1 -Ptb_dma.DATA_DELAY=1 -Ptb_dma.CONTROL_DELAY=1 -Ptb_dma.WE_RISE=0 -Ptb_dma.WE_FALL=10 -Ptb_dma.FAST_OFFSET=5.208 -o $(BUILD)/tb_dma-skew $(RTL) tests/pal_viewport_reference.v tests/tb_dma.v
+	$(VVP) $(BUILD)/tb_dma-skew
+test-dma-bios: fixtures memory-test
+	$(PYTHON) tests/prepare_dma_app.py
+	$(CC) -O2 -I$(EMUSRC) tests/test_dma_bios.c -o $(BUILD)/test_dma_bios
+	@set -e; for model in 601 601a; do for cpu in mc6800 hd6303; do $(BUILD)/test_dma_bios $(BUILD)/dma-bios/app-sd.img $$model $$cpu; done; done
+test-dma-bios-rtl: fixtures
+	$(PYTHON) tests/run_dma_bios.py --nvc "$(NVC)"
+	$(PYTHON) tests/check_dma_mask_regression.py --nvc "$(NVC)"
+
+.PHONY: input-apps
+input-apps: | $(BUILD)
+	$(MAKE) -f firmware/Makefile input UNIAS="$(UNIAS)" CC="$(CC)"
+.PHONY: test-uart-app
+test: test-uart-app
+test-uart-app: fixtures input-apps
+	$(PYTHON) tests/run_uart_app.py --cc "$(CC)"
+.PHONY: paint-apps test-paint test-paint-backends test-paint-loader test-paint-canvas test-paint-files test-paint-ui test-paint-hg
+test: test-paint
+paint-apps: | $(BUILD)
+	$(MAKE) -f firmware/Makefile paint UNIAS="$(UNIAS)" CC="$(CC)"
+# These runners share object/debug files; run them sequentially as one suite.
+test-paint: fixtures paint-apps hg-apps
+	$(PYTHON) tests/run_paint_backends.py --cc "$(CC)"
+	$(PYTHON) tests/run_paint_loader.py --cc "$(CC)"
+	$(PYTHON) tests/run_paint_canvas.py --cc "$(CC)"
+	$(PYTHON) tests/run_paint_files.py --cc "$(CC)"
+	$(PYTHON) tests/run_paint_ui.py --cc "$(CC)"
+	$(PYTHON) tests/run_paint_dialog_video.py --iverilog "$(IVERILOG)" --vvp "$(VVP)"
+	$(PYTHON) tests/run_paint_hg.py --cc "$(CC)"
+test-paint-backends: fixtures paint-apps
+	$(PYTHON) tests/run_paint_backends.py --cc "$(CC)"
+test-paint-loader: fixtures paint-apps
+	$(PYTHON) tests/run_paint_loader.py --cc "$(CC)"
+test-paint-canvas: fixtures paint-apps
+	$(PYTHON) tests/run_paint_canvas.py --cc "$(CC)"
+test-paint-files: fixtures paint-apps
+	$(PYTHON) tests/run_paint_files.py --cc "$(CC)"
+test-paint-ui: fixtures paint-apps
+	$(PYTHON) tests/run_paint_ui.py --cc "$(CC)"
+	$(PYTHON) tests/run_paint_dialog_video.py --iverilog "$(IVERILOG)" --vvp "$(VVP)"
+test-paint-hg: fixtures paint-apps hg-apps
+	$(PYTHON) tests/run_paint_hg.py --cc "$(CC)"

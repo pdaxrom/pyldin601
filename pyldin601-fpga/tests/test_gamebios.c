@@ -9,6 +9,9 @@ static int hg_write_byte(uint16_t a,unsigned char d);
 #include "test_romdisk_unidos.c"
 #undef ROMDISK_MAIN
 
+static int dma_read(uint16_t,unsigned char*),dma_write(uint16_t,unsigned char);
+static int (*dma_mmio_read)(uint16_t,unsigned char*)=dma_read;
+static int (*dma_mmio_write)(uint16_t,unsigned char)=dma_write;
 static unsigned char gfx[16],pal[8192],saved_pal[8192],ay[16],saved_ay[16];
 static unsigned paladdr,readback,front,enabled,pending,overrun,envelopes,jobs;
 static uint32_t period=960000,period_shadow=960000,divider=0x03000000,divider_shadow=0x03000000;
@@ -30,6 +33,7 @@ static void audio_update(void){
 }
 static void observe(void){if(r){unsigned vector=r[0xefcc]*256+r[0xefcd];if(vector>=0x100&&vector+384<=0xbe00)state=vector;}audio_update();if(!i&&pending)MC6800SetInterrupt(1);}
 static int hg_read_byte(uint16_t a,unsigned char*out){
+ if(dma_mmio_read&&dma_mmio_read(a,out))return 1;
 #ifdef ARCADE_HG
  if(hg_transport_read(a,out))return 1;
 #endif
@@ -46,6 +50,7 @@ static int hg_read_byte(uint16_t a,unsigned char*out){
  return 0;
 }
 static int hg_write_byte(uint16_t a,unsigned char d){
+ if(dma_mmio_write&&dma_mmio_write(a,d))return 1;
 #ifdef ARCADE_HG
  if(hg_transport_write(a,d))return 1;
 #endif
@@ -88,6 +93,7 @@ static int hg_write_byte(uint16_t a,unsigned char d){
  }else require(0,"supported command");
  gfx_ready=virtual_cycles+w*height/8+10;return 1;
 }
+#include "dma_model.h"
 static unsigned service_invoke(unsigned service,unsigned a,unsigned b,unsigned x){
  unsigned pc0=PC,sp0=SP,a0=A,b0=B,x0=X,h0=h,i0=i,n0=n,z0=z,v0=v,c0=c,page0=page;
  r[0x210]=0x3f;r[0x211]=service;r[0x212]=1;PC=0x210;A=a;B=b;X=x;
@@ -110,7 +116,6 @@ static void bank_move(unsigned sb,unsigned db,unsigned src,unsigned dst,unsigned
 }
 static void bankcopy_test(void){
  require(service_invoke(0xe8,0,0,0)==1&&result_b==7&&result_x==8192,"native fixed-ROM copy service discovery");
- if(!cpu_hd){bank_move(255,255,0x8000,0x9000,1,3);return;}
  require(service_invoke(0xe5,1,initial_banks,0x7a00)==0,"own copy-test banks");
  unsigned first=r[0x7a03],last=r[0x7a02+initial_banks];
  for(unsigned k=0;k<8192;k++)r[0x8000+k]=(k*17+k/31+3)&255;
@@ -271,6 +276,7 @@ static void batch_test(void){
 #define GAMEBIOS_MAIN main
 #endif
 int GAMEBIOS_MAIN(int argc,char**argv){
+ dma_mmio_read=dma_read;dma_mmio_write=dma_write;
  if(argc!=4)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");
  MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);require(n==ROM_BYTES+512,"paired ROM fixture");

@@ -1,6 +1,7 @@
 ; NCMUI: Panel rendering, menus, settings, drive choice and progress.
     include NCABI.INC
     include NCBOX.INC
+    public drive_number
     public drive_left
     public drive_right
     public menu
@@ -24,6 +25,7 @@
     public settings
     public switch_panel
     public update_cursor
+    extern mouse_wait
     extern active
     extern add_b
     extern apply_canc_22f2
@@ -1551,7 +1553,11 @@ menu_draw_all
     cmpa menu_count
     bcs menu_draw_all
 menu_key
-    int $11
+    ldaa #5
+    jsr mouse_wait
+    cmpa #$fe
+    bne *+5
+    jmp menu_reopen
     cmpa #27
     bne *+5
     jmp menu_done
@@ -1828,7 +1834,8 @@ settings_work_value
     ldx #apply_canc_22f2
     jsr window_buttons
 settings_key
-    int $11
+    ldaa #6
+    jsr mouse_wait
     cmpa #27
     bne *+5
     jmp settings_cancel
@@ -2091,7 +2098,8 @@ drive_draw_all
     ldx #drive_buttons
     jsr field
 drive_key
-    int $11
+    ldaa #7
+    jsr mouse_wait
     cmpa #27
     bne *+5
     jmp drive_cancel

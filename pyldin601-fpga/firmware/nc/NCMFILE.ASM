@@ -6,6 +6,9 @@
     public path_length
     public stat_path
     public viewer
+    extern mouse_wait
+    extern mouse_cancel
+    extern progress_mode
     extern action_index
     extern action_record
     extern active
@@ -590,10 +593,8 @@ frame_loop
 frame_done
     rts
 poll_cancel
-    int $10
-    cmpa #$ff
-    beq not_cancelled
-    int $11
+    ldaa progress_mode
+    jsr mouse_cancel
     cmpa #3
     beq copy_cancelled
     cmpa #27
@@ -1094,7 +1095,8 @@ viewer_footer
     ldx #viewer_keys
     jsr line_text
 viewer_key
-    int $11
+    ldaa #4
+    jsr mouse_wait
     cmpa #3
     beq viewer_close
     cmpa #27

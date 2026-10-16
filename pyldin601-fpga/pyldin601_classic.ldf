@@ -13,6 +13,7 @@
       <Options />
     </Source>
     <Source name="rtl/classic_hg.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_dma.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_gfx.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_ay8910.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_audio_control.v" type="Verilog" type_short="Verilog"><Options /></Source>
@@ -20,6 +21,9 @@
       <Options />
     </Source>
     <Source name="rtl/classic_ps2_raw.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_mouse.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_pointer.v" type="Verilog" type_short="Verilog"><Options /></Source>
+    <Source name="rtl/classic_uart.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/ps2_byte_receiver.v" type="Verilog" type_short="Verilog"><Options /></Source>
     <Source name="rtl/classic_memory_map.v" type="Verilog" type_short="Verilog">
       <Options />

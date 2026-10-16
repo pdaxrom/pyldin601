@@ -12,8 +12,8 @@ UNIAS_PATH := $(if $(filter /%,$(UNIAS)),$(UNIAS),$(shell command -v "$(UNIAS)")
 RUN := $(abspath tools/run-unias.sh)
 DATA := $(abspath $(BUILD)/firmware-data)
 
-.PHONY: firmware roms bootstrap tables storage game audio gfx hg memory extension sram all nc ramloader
-all: firmware game audio gfx hg memory nc ramloader
+.PHONY: firmware roms bootstrap tables storage game audio gfx hg memory extension sram all nc ramloader input paint
+all: firmware game audio gfx hg memory nc ramloader input paint
 firmware: roms bootstrap tables storage
 $(BUILD)/firmware-data: tools/firmware_data.c
 	mkdir -p $(BUILD)
@@ -123,6 +123,9 @@ memory: $(BUILD)/firmware-data
 	$(DATA) pgm-info $(BUILD)/memory-test/RAMPAGE.PGM $(BUILD)/memory-test/manifest.json
 	$(DATA) pgm-info $(BUILD)/memory-test/RAMALLOC.PGM $(BUILD)/memory-test/ramalloc.json
 	$(DATA) labels $(BUILD)/memory-test/RAMPAGE.PGM.LST $(BUILD)/memory-test/rampage_labels.h RP
+	cp firmware/memory/DMATEST.ASM firmware/memory/DMA.INC $(BUILD)/memory-test/
+	cd $(BUILD)/memory-test && sh $(RUN) DMATEST.PGM.log "$(UNIAS_PATH)" -l DMATEST.PGM.LST -o DMATEST.PGM DMATEST.ASM
+	$(DATA) pgm-info $(BUILD)/memory-test/DMATEST.PGM $(BUILD)/memory-test/dmatest.json
 
 extension: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/extension
@@ -139,14 +142,15 @@ sram: $(BUILD)/firmware-data
 
 nc: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/nc
-	cp firmware/nc/* $(BUILD)/nc/
+	cp firmware/nc/* firmware/input/MOUSE.ASM $(BUILD)/nc/
 	@set -e; for app in NC NCELOAD; do \
 	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
 	$(DATA) pgm-info $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.json; \
 	$(DATA) labels $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.h $$app; done
-	@set -e; for app in NCMAIN NCMCAT NCMUI NCMFILE NCCOM NCMSTR NCMV1 NCMV2 NCMV3 NCEND NCEDIT NCEFILE NCEUI NCENAV NCEBLOCK NCESTR NCEV1 NCEV2 NCEV3; do \
+	@set -e; for app in NCMAIN NCMCAT NCMUI NCMFILE NCMOUSE NCEMOUSE NCKEY NCCOM NCMSTR NCMV1 NCMV2 NCMV3 NCEND NCEDIT NCEFILE NCEUI NCENAV NCEBLOCK NCESTR NCEV1 NCEV2 NCEV3; do \
 	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -c -l $$app.LST -o $$app.OBJ $$app.ASM); done
-	cd $(BUILD)/nc && "$(UNIAR)" r NCUI.LIB NCCOM.OBJ
+	cd $(BUILD)/nc && sh $(RUN) MOUSE.log "$(UNIAS_PATH)" -D MOUSE_OBJECT -c -l MOUSE.LST -o MOUSE.OBJ MOUSE.ASM
+	cd $(BUILD)/nc && "$(UNIAR)" r NCUI.LIB NCCOM.OBJ NCKEY.OBJ MOUSE.OBJ
 	@set -e; for app in NCMAIN NCEDIT; do \
 	(cd $(BUILD)/nc && "$(UNILD)" -m $$app.MAP -o $$app.PGM @$$app.LNK); \
 	$(DATA) linked-labels $(BUILD)/nc/$$app.MAP $(BUILD)/nc/$$app.h $$app; \
@@ -183,3 +187,28 @@ game-objects:
 	cd $(BUILD)/game-objects && "$(UNIAR)" r XCFG.LIB XOCFG.OBJ
 	cd $(BUILD)/game-objects && "$(UNILD)" -o XOLIB.PGM XOMAIN.OBJ XCFG.LIB
 	cmp $(BUILD)/game-objects/XOOBJ.PGM $(BUILD)/game-objects/XOLIB.PGM
+
+input: $(BUILD)/firmware-data
+	mkdir -p $(BUILD)/input
+	cp firmware/input/* $(BUILD)/input/
+	cd $(BUILD)/input && sh $(RUN) UART.log "$(UNIAS_PATH)" -l UART.LST -o UART.PGM UART.ASM
+	$(DATA) pgm-info $(BUILD)/input/UART.PGM $(BUILD)/input/UART.json
+	$(DATA) labels $(BUILD)/input/UART.LST $(BUILD)/input/UART.h UART
+
+paint: $(BUILD)/firmware-data
+	mkdir -p $(BUILD)/paint
+	cp firmware/paint/* firmware/memory/DMA.INC firmware/gfx/PALCOEF.ASM firmware/input/MOUSE.ASM $(BUILD)/paint/
+	cp firmware/nc/NCCOM.ASM firmware/nc/NCKEY.ASM firmware/nc/NCABI.INC firmware/nc/NCBOX.INC $(BUILD)/paint/
+	@set -e; for app in PNTNAT PNTRGB PNTHAM; do \
+	(cd $(BUILD)/paint && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
+	$(DATA) pgm-info $(BUILD)/paint/$$app.PGM $(BUILD)/paint/$$app.json; done
+	@set -e; for app in PNTMAIN PNTUI PNTCANV PNTDRAW PNTPART PNTPAL PNTDMA PNTLOAD PNTMOD PNTIO PNTPCX PNTIFF PNTFILE PNTDATA PNTSTATE PNTSTR PNTEND PNTCOM NCKEY; do \
+	(cd $(BUILD)/paint && sh $(RUN) $$app.log "$(UNIAS_PATH)" -c -l $$app.LST -o $$app.OBJ $$app.ASM); done
+	cd $(BUILD)/paint && sh $(RUN) MOUSE.log "$(UNIAS_PATH)" -c -D MOUSE_OBJECT -l MOUSE.LST -o MOUSE.OBJ MOUSE.ASM
+	rm -f $(BUILD)/paint/PNTCOM.LIB
+	cd $(BUILD)/paint && "$(UNIAR)" r PNTCOM.LIB PNTCOM.OBJ NCKEY.OBJ MOUSE.OBJ
+	cd $(BUILD)/paint && sh $(RUN) PNTBOOT.log "$(UNIAS_PATH)" -l PNTBOOT.LST -o PNTBOOT.PGM PNTBOOT.ASM
+	cd $(BUILD)/paint && "$(UNILD)" -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK
+	cd $(BUILD)/paint && "$(UNILD)" -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM
+	$(DATA) public-labels $(BUILD)/paint/PAINT.MAP $(BUILD)/paint/PAINT.h PNT
+	$(DATA) pgm-bundle-info paint $(BUILD)/paint

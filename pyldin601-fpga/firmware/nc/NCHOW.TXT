@@ -28,6 +28,12 @@ keep the end visible. Menus, buttons, progress windows and the viewer hide
 the input caret. Text uses the native hardware cursor; graphics draws its
 caret in the active field. The original cursor shape is restored on exit.
 
+With the FPGA PS/2 mouse port, click a row to select it, double-click to
+open/run, or click the other panel, a drive heading, menu, dialog control
+or function-key label. A graphics pointer is uploaded by NC; text uses the
+existing CRTC cursor, and keyboard input restores the input-field caret.
+The mouse is initialized by software and does not add a resident IRQ hook.
+
 KEYS
     Tab                 Switch panels
     Arrows              Move selection
@@ -99,6 +105,11 @@ and selected file, even if saving changes its position in the sorted list.
 The editor keeps the current video mode, native font and colour scheme.
 Its header shows the filename, '*' for unsaved changes, INS/OVR and the
 one-based visual column. The caret stays in the document or active dialog.
+
+Click text to position the caret; drag with the left button to select a
+byte range, including tabs and line breaks. Ctrl+C/X/V uses that selection.
+Right-click cancels a long scan; a progress window also accepts a click on
+its Cancel row. The mouse is released before another program or shell runs.
 
     Arrows              Move through text; Up/Down retain the desired column
     Home / End          Start / end of the logical line

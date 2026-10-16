@@ -85,3 +85,7 @@ if not a.quick:
  subprocess.run([str(runner),str(out/'sd-no-main.img'),'601','mc6800','0','no-main'],cwd=ROOT,check=True)
  for model,cpu in (('601','mc6800'),('601a','hd6303')):
   subprocess.run([str(runner),str(out/'sd-nc.img'),model,cpu,'0','ready'],cwd=ROOT,check=True)
+
+if not a.quick:
+ for model,cpu,video in [('601','mc6800','0'),('601','hd6303','3'),('601a','mc6800','4'),('601a','hd6303','2')]:
+  subprocess.run([str(runner),str(out/'sd-test.img'),model,cpu,video,'mouse'],cwd=ROOT,check=True)

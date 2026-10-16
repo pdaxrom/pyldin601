@@ -262,27 +262,42 @@ static void pgm_check(const unsigned char *p,size_t size) {
         if(be16(p+16+2*i)+1>=be16(p+6)) fail("application relocation outside code");
 }
 static void pgm_bundle_info(const char *kind,const char *dir) {
-    int editor=!strcmp(kind,"nc"),ramloader=!strcmp(kind,"ramloader");
-    if(!editor&&!ramloader) fail("unknown PGM container");
+    int editor=!strcmp(kind,"nc"),ramloader=!strcmp(kind,"ramloader"),paint=!strcmp(kind,"paint");
+    if(!editor&&!ramloader&&!paint) fail("unknown PGM container");
+    const char *prefix_name=paint?"PNTBOOT.PGM":editor?"NCELOAD.PGM":"RAMPREF.PGM";
+    const char *core_name=paint?"PNTCORE.PGM":editor?"NCECORE.PGM":"RAMCORE.PGM";
+    const char *output_name=paint?"PAINT.PGM":editor?"NCEDIT.PGM":"RAMLOAD.PGM";
     size_t prefix_size,core_size;
-    unsigned char *prefix=app_read(dir,editor?"NCELOAD.PGM":"RAMPREF.PGM",&prefix_size);
-    unsigned char *core=app_read(dir,editor?"NCECORE.PGM":"RAMCORE.PGM",&core_size);
+    unsigned char *prefix=app_read(dir,prefix_name,&prefix_size);
+    unsigned char *core=app_read(dir,core_name,&core_size);
     pgm_check(prefix,prefix_size);pgm_check(core,core_size);
+    if(editor&&be16(prefix+6)+be16(prefix+10)<768)
+        fail("NCEDIT needs 768 bytes of reusable loader memory");
+    if(paint&&be16(prefix+6)+be16(prefix+10)<512)
+        fail("Paint needs 512 bytes of reusable loader memory");
     if(ramloader&&be16(core+8)!=0) fail("RAMCORE entry must be zero");
-    unsigned code=be16((editor?core:prefix)+6),bss=be16((editor?core:prefix)+10);
-    unsigned relocations=be16((editor?core:prefix)+2);
+    unsigned code=be16(((editor||paint)?core:prefix)+6),bss=be16(((editor||paint)?core:prefix)+10);
+    unsigned relocations=be16(((editor||paint)?core:prefix)+2);
     size_t size=prefix_size+core_size;
-    size_t actual_size;unsigned char *combined=app_read(dir,editor?"NCEDIT.PGM":"RAMLOAD.PGM",&actual_size);
+    size_t actual_size;unsigned char *combined=app_read(dir,output_name,&actual_size);
     if(actual_size!=size||memcmp(combined,prefix,prefix_size)||memcmp(combined+prefix_size,core,core_size))
         fail("UniLD PGM container differs from its inputs");
     char digest[65],path[1024];sha256(combined,size,digest);
-    app_path(path,sizeof path,dir,editor?"NCEDIT.json":"RAMLOAD.json");
+    app_path(path,sizeof path,dir,paint?"PAINT.json":editor?"NCEDIT.json":"RAMLOAD.json");
     FILE *f=open_file(path,"w");
     fprintf(f,"{\"bytes\":%zu,\"code\":%u,\"bss\":%u,\"ram_bytes\":%u,\"relocations\":%u,\"sha256\":\"%s\",\"streamed_relocations\":true",
             size,code,bss,code+bss,relocations,digest);
     unsigned core_ram=be16(core+6)+be16(core+10),prefix_ram=be16(prefix+6)+be16(prefix+10);
-    if(editor) fprintf(f,",\"loader_ram_bytes\":%u,\"total_ram_bytes\":%u",prefix_ram,core_ram+prefix_ram);
-    else {
+    if(editor) fprintf(f,",\"loader_ram_bytes\":%u,\"loader_reused_bytes\":768,\"base_ram_bytes\":%u,\"viewport_tail_40_text\":200,\"viewport_tail_40_graphics\":160,\"viewport_tail_80_text\":1200,\"viewport_tail_80_graphics\":1120,\"optional_cache_bytes\":512,\"total_ram_bytes\":%u",prefix_ram,core_ram+prefix_ram,core_ram+prefix_ram+1200+512);
+    else if(paint) {
+        unsigned maximum=0;const char *names[]={"PNTNAT.PGM","PNTRGB.PGM","PNTHAM.PGM"};
+        for(unsigned k=0;k<3;k++) {
+            size_t n;unsigned char *p=app_read(dir,names[k],&n);pgm_check(p,n);
+            unsigned ram=be16(p+6)+be16(p+10);if(ram>8192) fail("Paint backend exceeds one RAMMAN page");
+            if(ram>maximum) maximum=ram;free(p);
+        }
+        fprintf(f,",\"loader_ram_bytes\":%u,\"loader_reused_bytes\":512,\"base_ram_bytes\":%u,\"ordinary_backend_peak_bytes\":%u,\"total_ram_bytes\":%u,\"text_screen_bytes_601\":8000,\"text_screen_bytes_601a\":16000,\"native_screen_alignment_bytes\":7,\"native_screen_reused\":true",prefix_ram,core_ram+prefix_ram,maximum,core_ram+prefix_ram+maximum+255);
+    } else {
         app_path(path,sizeof path,dir,"RAMLOAD.LST");read_symbols(path);
         fprintf(f,",\"resident_payload_bytes\":%u,\"working_ram_bytes\":%u,\"module_slots\":4,\"exports_per_module\":8",
                 symbol_value("BSS_END")-symbol_value("RESIDENT_START"),core_ram+prefix_ram);
@@ -304,6 +319,17 @@ static void pgm_bundle_info(const char *kind,const char *dir) {
 }
 /* Debug/test symbols follow the actual UniLD map. No executable is generated
  * here; module-local listings supply private labels absent from OBJ exports. */
+static void public_labels(const char *map,const char *output,const char *prefix) {
+    FILE *in=open_file(map,"r"),*out=open_file(output,"w");
+    char line[1024],name[128];unsigned value,count=0;
+    while(fgets(line,sizeof line,in)) {
+        if(sscanf(line,"S %127s %u",name,&value)!=2) continue;
+        if(value>65535) fail("public map symbol extent");
+        fprintf(out,"#define %s_%s 0x%04X\n",prefix,name,value);count++;
+    }
+    if(!count) fail("empty public symbol map");
+    if(fclose(in)||fclose(out)) fail("public labels write");
+}
 static void linked_labels(const char *map,const char *output,const char *prefix) {
     struct module { char name[16];unsigned code,length,bss,extent; };
     static struct module modules[256];static struct symbol merged[8192];
@@ -454,6 +480,7 @@ int main(int argc,char **argv) {
     if(argc<2)fail("command required");
     if(!strcmp(argv[1],"labels")&&(argc==4||argc==5)){labels(argv[2],argv[3],argc==5?argv[4]:NULL);return 0;}
     if(!strcmp(argv[1],"linked-labels")&&argc==5){linked_labels(argv[2],argv[3],argv[4]);return 0;}
+    if(!strcmp(argv[1],"public-labels")&&argc==5){public_labels(argv[2],argv[3],argv[4]);return 0;}
     if(!strcmp(argv[1],"pgm-info")&&argc==4){pgm_info(argv[2],argv[3]);return 0;}
     if(!strcmp(argv[1],"pgm-bundle-info")&&argc==4){pgm_bundle_info(argv[2],argv[3]);return 0;}
     if(!strcmp(argv[1],"rom-index")&&argc==4){rom_index(argv[2],argv[3]);return 0;}

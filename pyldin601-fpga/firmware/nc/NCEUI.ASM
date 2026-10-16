@@ -2,9 +2,12 @@
     .define NC_EDITOR
     include NCABI.INC
     include NCBOX.INC
+    public screen_head
+    public editor_screen
     public build_line
     public build_view
     public copy_bytes
+    public editor_caret
     public editor_error
     public editor_finish
     public editor_redraw
@@ -16,6 +19,7 @@
     public paint_line
     public redraw
     public screen_pointer
+    extern mouse_wait
     extern add_b
     extern apply_phase
     extern base_closed
@@ -29,15 +33,11 @@
     extern body_rows
     extern build_full
     extern caret_at
-    extern caret_char
     extern caret_hide
-    extern caret_x
-    extern caret_y
     extern colour
     extern columns
     extern copy_n
     extern copy_octets
-    extern copy_tail
     extern cursor_row
     extern cursor_seen
     extern decimal_number
@@ -52,7 +52,6 @@
     extern eol_bytes
     extern eol_length
     extern error
-    extern error_key
     extern field
     extern filename
     extern history_resume
@@ -84,11 +83,8 @@
     extern q_store
     extern q_sub
     extern remaining
-    extern render_eof
     extern render_row
     extern reopen_base
-    extern restore_ptr
-    extern restore_row
     extern retry_text
     extern retry_title
     extern scan_line_tail
@@ -136,20 +132,30 @@
     extern v_view_sca_29
     extern v_view_sca_30
     extern v_view_sca_6
-    extern view_valid
     extern where
     extern window_open
     extern window_wrap
 
-; The display cache is ordinary RAM because native text VRAM reads see ROM.
-; Full view discovery indexes just the visible logical lines. Edits within a
-; line repaint only its visible slice, using the cached horizontal anchor.
-redraw
-editor_redraw
-    clr v_block_st_105
-    ldx #screen_chars
+; Keep module-private state local, preserving UniCROSS/UniLD's 512-public
+; symbol limit while adding mouse support. These bytes are inside NC's BSS.
+    section
+render_eof ds 1
+caret_x ds 1
+caret_y ds 1
+caret_char ds 1
+error_key ds 1
+copy_tail ds 1
+view_valid ds 1
+restore_row ds 1
+restore_ptr ds 2
+screen_octets ds 1
+screen_head ds 2
+screen_head_rows ds 1
+screen_head_octets ds 1
+    ends
+
+invalidate_buffer
     ldaa #$ff
-    ldab #240
 invalidate_octet
     staa 0,x
     staa 1,x
@@ -169,6 +175,76 @@ invalidate_octet
     inx
     decb
     bne invalidate_octet
+    rts
+
+; Allocate only the current viewport: colour graphics has 40 columns, while
+; the 80-column text/mono modes have more conventional memory available.
+; The native child owns this allocation and DOS releases it with NCEDIT.
+editor_screen
+    ldab #19
+    ldaa columns
+    cmpa #80
+    bcs editor_screen_head_count
+    ldab #9
+editor_screen_head_count
+    stab screen_head_rows
+    lsra
+    lsra
+    lsra
+    staa screen_head_octets
+    decb
+editor_screen_head_sum
+    adda screen_head_octets
+    decb
+    bne editor_screen_head_sum
+    staa screen_head_octets
+    ldx #screen_chars
+    clr 0,x
+    clr 1,x
+    ldab body_rows
+    subb screen_head_rows
+editor_screen_size
+    ldaa 1,x
+    adda columns
+    staa 1,x
+    bcc editor_screen_carry
+    inc 0,x
+editor_screen_carry
+    decb
+    bne editor_screen_size
+    ldaa 1,x
+    ldab 0,x
+    lsrb
+    rora
+    lsrb
+    rora
+    lsrb
+    rora
+    staa screen_octets
+    ldx 0,x
+    clrb
+    int $2a
+    cpx #0
+    bne editor_screen_allocated
+    ldaa #66
+    rts
+editor_screen_allocated
+    stx screen_chars
+    clra
+    rts
+
+; The display cache is ordinary RAM because native text VRAM reads see ROM.
+; Full view discovery indexes just the visible logical lines. Edits within a
+; line repaint only its visible slice, using the cached horizontal anchor.
+redraw
+editor_redraw
+    clr v_block_st_105
+    ldx screen_head
+    ldab screen_head_octets
+    jsr invalidate_buffer
+    ldx screen_chars
+    ldab screen_octets
+    jsr invalidate_buffer
     jsr build_view
     tsta
     beq *+5
@@ -179,7 +255,8 @@ invalidate_octet
 editor_key
     ldaa #1
     staa editor_ini_76b1
-    int $11
+    ldaa #1
+    jsr mouse_wait
     staa last_key
     jsr editor_uncaret
     jmp editor_dispatch
@@ -237,7 +314,8 @@ editor_pending
     ldaa #8
     jsr window_wrap
 editor_pending_key
-    int $11
+    ldaa #4
+    jsr mouse_wait
     cmpa #27
     bne editor_pending_retry
     jmp editor_close
@@ -349,8 +427,14 @@ row_word_pointer
     aslb
     jmp add_b
 screen_pointer
-    ldx #screen_chars
     ldaa render_row
+    cmpa screen_head_rows
+    bcs screen_pointer_head
+    suba screen_head_rows
+    ldx screen_chars
+    bra screen_pointer_loop
+screen_pointer_head
+    ldx screen_head
 screen_pointer_loop
     tsta
     beq screen_pointer_done

@@ -3,7 +3,7 @@
 // Rational scalers retain the native 320/640 pixels and CRTC row count.
 // The existing font EBR is seeded at
 // FPGA configuration, then receives the SD font through physical SRAM writes.
-module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) (
+module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0,parameter POINTER=0) (
     input wire clk,reset,
     input wire bus_read,bus_write,bus_address,
     input wire [7:0] bus_data,
@@ -24,7 +24,9 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     output wire[8:0]gfx_pixel_x,output wire gfx_pixel_bank,
     input wire palette_write,input wire[3:0]palette_register,input wire[7:0]palette_data,
     output wire palette_read_mode,output wire[5:0]palette_result,
-    input wire fast,input wire[17:0]gfx_rgb
+    input wire fast,input wire[17:0]gfx_rgb,
+    input wire pointer_write,pointer_address,input wire[7:0]pointer_data,
+    output wire[7:0]pointer_result
 );
     reg [7:0] registers[0:15];reg[7:0] register_index;
     wire extended=GFX&&gfx_enable;
@@ -197,10 +199,18 @@ module classic_video #(parameter FONT_FILE="rtl/font_boot.mem",parameter GFX=0) 
     reg [3:0] held_colour;
     reg held_sync,held_burst,held_alternate;
     reg[7:0]held_rgb;
-    classic_pal_encoder #(.GFX(GFX)) encoder(clk,reset,
+    wire[1:0]pointer_pixel;
+    generate if(POINTER)begin:cursor
+        wire[9:0]pointer_canvas_x=model_a?x1:{x1[8:0],1'b0};
+        classic_pointer sprite(clk,reset,pointer_write,pointer_address,pointer_data,pointer_result,
+            pointer_canvas_x,y1,(graphics||extended)&&h_pipe[0]&&v_pipe[0],pointer_pixel);
+    end else begin:no_cursor
+        assign pointer_result=8'hff;assign pointer_pixel=0;
+    end endgenerate
+    classic_pal_encoder #(.GFX(GFX),.POINTER(POINTER)) encoder(clk,reset,
         sync_pipe[1],burst_pipe[1],alternate_pipe[1],pixel_colour,tvout,
         extended&&h_pipe[1]&&v_pipe[1],rgb_pixel,
-        palette_write,palette_register,palette_data,palette_read_mode,palette_result,fast,rgb666_pipe);
+        palette_write,palette_register,palette_data,palette_read_mode,palette_result,fast,rgb666_pipe,pointer_pixel);
     reg[1:0] dma_state;
     reg[6:0] dma_column;reg dma_bank;
     assign mem_request=dma_state==1;

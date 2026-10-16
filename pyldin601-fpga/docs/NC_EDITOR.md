@@ -25,13 +25,30 @@ child and are released by DOS on its exit. UniLD `-b` joins the two standard
 PGM files without changing either header or relocation table. This command
 runs identically on the host and under native UniDOS.
 
-The editor uses about 26 KiB of ordinary RAM, including its loader, code,
-viewport character cache, metadata and I/O buffers. Document length and edit
-count do not increase this allocation. Four ordinary 512-byte cache slots
-work without RAMMAN. If its ABI check and allocation succeed, one leased
+After the loader jumps to the editor its first 768 bytes are reused for
+the viewport character cache. The loader passes this address in A:B; its
+arguments and state are consumed before any viewport write. The remaining
+cache is allocated for the actual viewport: 160/200 bytes for 40-column
+graphics/text, or 1120/1200 bytes for 80-column graphics/text. The bundle
+validator rejects a loader smaller than the reusable area. This keeps the
+editor within conventional RAM in the 601A colour graphics mode, where
+video RAM reduces the available heap.
+
+The editor uses about 25–26 KiB of ordinary RAM, including its loader, code,
+viewport character cache, metadata and I/O buffers. NCEDIT.json reports the
+base allocation, each viewport tail, the optional 512-byte cache slot and the
+maximum total. Document length and edit count do not increase this allocation.
+Three ordinary 512-byte cache slots work without RAMMAN; a fourth is allocated
+when conventional memory permits. If its ABI check and allocation succeed, one leased
 8 KiB bank adds sixteen slots. The lease never assumes a free physical bank
 number and restores selectors around BIOS/DOS/font operations. Banked data
 passes through an ordinary 512-byte bounce buffer for native DOS transfers.
+The leaf-split buffer shares the Save/clipboard staging buffer: payload
+staging completes before history application can split the directory. A split
+can retain old/new/neighbor leaves in the three ordinary slots even without
+RAMMAN.
+The small three-slot fallback may perform extra I/O during far-offset edits;
+the fourth ordinary slot is retained in modes with sufficient conventional RAM.
 
 ## Document and history
 
@@ -102,12 +119,24 @@ Shift-to-Home/End/page translation. Ctrl+A selects the whole document. Esc
 clears selection before exiting. Ctrl+C/X/V copies, cuts or pastes; typing,
 Enter, Tab, Delete or Backspace replaces a nonempty selection.
 
+With the FPGA mouse interface, clicking positions the caret using the same
+tab-aware column walker; dragging selects bytes across lines. A new click
+clears the previous selection, and clicking below EOF retains the caret.
+The function strip and modal buttons are clickable. Input dialogs keep their
+own caret; the next keyboard input restores the document caret after a text
+mouse hover. Long scans and saves poll the mouse between blocks; right-click
+or the progress Cancel button cancels the operation. There is no resident
+IRQ hook, and mouse resources are released before NC reloads its child.
+
 Copy streams exactly the selected range to a unique .CLP beside the work
 files. The supervisor records its pathname only after the file is closed,
 then removes the previous clipboard. It retains that pathname across editor
 unloads and deletes the file on final NC exit. Thus the clipboard can cross
 files and exceed ordinary RAM. Failed/cancelled copies preserve the previous
 clipboard. Work files and CLP names are never assumed free.
+Byte edits and bulk Paste share the same ADD-sector boundary handling:
+the previous sector is flushed before extending the file. This keeps native
+LSEEK inside EOF regardless of the cache size or replacement hand position.
 
 Paste stages the clipboard into ADD before mutating the document. Removed
 ranges are similarly snapshotted into ADD for Undo. An arbitrary-length

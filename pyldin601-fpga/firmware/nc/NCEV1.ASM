@@ -173,7 +173,7 @@ cache_hand ds 1
 cache_buf ds 2
 saved_tag ds 2
 cache_tags ds 160
-cache_data ds 2048
+cache_data ds 1536
 cache_lease ds 4
 cache_leased ds 1
 old_page ds 1

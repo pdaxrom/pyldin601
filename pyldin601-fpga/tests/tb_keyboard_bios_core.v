@@ -23,7 +23,7 @@ module keyboard_bios_fixture #(parameter SPEED=0)(
  wire bus_read=cpu_vma&&cpu_rw&&(!io_latched||io_address!=cpu_addr);
  wire bus_write=cpu_vma&&!cpu_rw;
  wire raw_io=cpu_addr[15:3]==13'h1cd6;
- ps2_byte_receiver receiver(clk,reset,psclk,psdata,raw_valid,raw_scan);
+ ps2_byte_receiver receiver(clk,reset,psclk,psdata,raw_valid,raw_scan,);
  classic_keyboard keyboard(clk,reset,captured,
   bus_read&&cpu_addr==16'he628,bus_read&&(cpu_addr==16'he62a||cpu_addr==16'he62e),
   bus_write&&cpu_addr==16'he628,bus_write&&(cpu_addr==16'he62a||cpu_addr==16'he62e),

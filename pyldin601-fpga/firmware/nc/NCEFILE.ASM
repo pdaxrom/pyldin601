@@ -3,6 +3,7 @@
     include NCABI.INC
     include NCBOX.INC
     public add_byte
+    public append_block
     public block_dirty
     public block_get
     public change_new_3955
@@ -46,6 +47,8 @@
     public v_pending__4
     public v_pending__8
     public work_open
+    extern mouse_cancel
+    extern mouse_close
     extern add_b
     extern add_tail
     extern append_char
@@ -73,6 +76,10 @@
     extern cache_lease
     extern cache_leased
     extern cache_tags
+    section
+cache_plain_count ds 1
+cache_extra ds 2
+    ends
     extern cancel_sav_fb1e
     extern change_add
     extern change_at
@@ -402,7 +409,9 @@ q_512
     ldaa #2
     staa v_q_2
     rts
-; Four ordinary 512-byte blocks; one optional RAMMAN bank adds 16 blocks.
+; Three ordinary 512-byte blocks, a fourth if the conventional heap fits;
+; one optional RAMMAN bank adds 16 blocks.
+; Three slots retain the old/new/neighbor leaves during a directory split.
 ; Tags are separate from data, and BIOS/font/IRQ mapping restores selectors.
 ; A=logical file, Q=byte offset. X=byte pointer, block_left=bytes to boundary.
 block_get
@@ -561,9 +570,9 @@ cache_tag
     jmp add_b
 cache_buffer
     ldaa cache_slot
-    cmpa #4
+    cmpa cache_plain_count
     bcs cache_plain
-    suba #4
+    suba cache_plain_count
     asla
     adda #$c0
     staa cache_byte
@@ -571,6 +580,12 @@ cache_buffer
     ldx cache_byte
     rts
 cache_plain
+    cmpa #3
+    bne cache_plain_static
+    ldx cache_extra
+    stx cache_byte
+    rts
+cache_plain_static
     ldx #cache_data
     stx cache_byte
     asla
@@ -724,8 +739,25 @@ size_pointer
     ldx #file_sizes
     jmp add_b
 editor_cache_open
-    ldaa #4
+    ldaa #3
     staa cache_count
+    staa cache_plain_count
+    ; INT2A's original one-page stack guard wraps below 0100. Do not ask
+    ; for an optional 512-byte block when even that minimum cannot fit.
+    tsx
+    stx cache_extra
+    ldaa cache_extra
+    cmpa #4
+    bcs editor_cache_optional
+    ldx #512
+    clrb
+    int $2a
+    cpx #0
+    beq editor_cache_optional
+    stx cache_extra
+    inc cache_count
+    inc cache_plain_count
+editor_cache_optional
     ldaa #$e5
     int $2e
     cpx #0
@@ -754,7 +786,8 @@ editor_cache_map
     staa $e6f0
     ldaa lease_group
     staa $e6f1
-    ldaa #20
+    ldaa cache_plain_count
+    adda #16
     staa cache_count
 editor_cache_ready
     rts
@@ -1816,6 +1849,7 @@ work_cleanup_done
     clr work_ready
     rts
 editor_close
+    jsr mouse_close
     tst save_open
     beq editor_work_close
     ldaa save_handle
@@ -1857,6 +1891,24 @@ hex_ready
 ; Buffered append store. This is also the backing store for removed text.
 add_byte
     staa append_char
+    jsr append_block
+    tsta
+    bne append_return
+    ldaa append_char
+    staa 0,x
+    jsr block_dirty
+    ldx #add_tail
+    jsr q_load
+    jsr q_inc
+    ldx #add_tail
+    jsr q_store
+    clra
+append_return
+    rts
+; Byte edits and bulk Paste share this append-boundary rule. UniDOS cannot
+; seek beyond EOF: finish the preceding ADD sector before starting the next,
+; independent of replacement hand position or the available cache count.
+append_block
     ldaa v_add_tail_2
     anda #1
     oraa v_add_tail_3
@@ -1872,20 +1924,7 @@ append_get
     ldx #add_tail
     jsr q_load
     ldaa #2
-    jsr block_get
-    tsta
-    bne append_return
-    ldaa append_char
-    staa 0,x
-    jsr block_dirty
-    ldx #add_tail
-    jsr q_load
-    jsr q_inc
-    ldx #add_tail
-    jsr q_store
-    clra
-append_return
-    rts
+    jmp block_get
 
 ; A small edit is prepared before it is published. The pending operation
 ; records enough progress to resume an interrupted undo/delete after I/O errors.
@@ -2885,10 +2924,8 @@ save_write_counted
     bcs save_poll
     jsr save_progress
 save_poll
-    int $10
-    cmpa #$ff
-    beq save_write_ok
-    int $11
+    ldaa #1
+    jsr mouse_cancel
     cmpa #27
     bne *+5
     jmp save_cancelled

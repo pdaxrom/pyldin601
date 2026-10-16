@@ -2,6 +2,7 @@
     .define NC_EDITOR
     include NCABI.INC
     include NCBOX.INC
+    public cursor_to_col
     public column_fro_c274
     public editor_dispatch
     public editor_nat_5e73
@@ -33,6 +34,8 @@
     public v_view_sca_29
     public v_view_sca_30
     public v_view_sca_6
+    extern mouse_wait
+    extern mouse_cancel
     extern add_b
     extern block_dispatch
     extern body_rows
@@ -52,7 +55,6 @@
     extern cursor_row
     extern cursor_seen
     extern decimal_number
-    extern deleted_char
     extern desired_column
     extern desired_valid
     extern dialog
@@ -74,13 +76,11 @@
     extern eol_bytes
     extern eol_length
     extern exit_butto_56b1
-    extern exit_draw
     extern exit_focus
     extern exit_message
     extern exit_title
     extern field
     extern group_open
-    extern half_columns
     extern help_text
     extern history_redo
     extern history_undo
@@ -95,17 +95,11 @@
     extern metadata_row
     extern modified
     extern nav_column
-    extern nav_end
-    extern nav_line
-    extern nav_position
-    extern nav_probe
-    extern nav_saved
     extern nav_start
     extern not_found_text
     extern number
     extern number_text
     extern overwrite
-    extern page_remaining
     extern paint_line
     extern poll_count
     extern position
@@ -123,17 +117,8 @@
     extern remaining
     extern render_row
     extern screen_top
-    extern search_amount
-    extern search_char
-    extern search_i
-    extern search_j
-    extern search_length
     extern search_pre_0813
-    extern search_skip
-    extern search_start
-    extern search_text
     extern search_title
-    extern search_wrapped
     extern src
     extern stream_block
     extern stream_init
@@ -174,6 +159,29 @@
     extern window_line
     extern window_open
     extern window_wrap
+
+; Keep module-private state local, preserving UniCROSS/UniLD's 512-public
+; symbol limit while adding mouse support. These bytes are inside NC's BSS.
+    section
+nav_line ds 4
+nav_position ds 4
+nav_end ds 4
+nav_probe ds 4
+nav_saved ds 4
+page_remaining ds 1
+half_columns ds 4
+deleted_char ds 1
+search_text ds 80
+search_length ds 1
+search_skip ds 1
+search_j ds 1
+search_i ds 1
+search_char ds 1
+search_start ds 4
+search_wrapped ds 1
+search_amount ds 4
+exit_draw ds 1
+    ends
 
 ; Once a line's visible slice is drawn, scan ordinary off-screen runs in
 ; blocks. CR/LF/TAB and the cursor boundary return to the character parser.
@@ -578,7 +586,7 @@ move_up
     tst cursor_row
     beq move_up_scroll
     dec cursor_row
-    jsr cursor_to_column
+    jsr cursor_to_col
     tsta
     beq *+5
     jmp editor_error
@@ -605,7 +613,7 @@ move_up_scroll
     beq *+5
     jmp editor_error
     clr cursor_row
-    jsr cursor_to_column
+    jsr cursor_to_col
     tsta
     beq *+5
     jmp editor_error
@@ -623,7 +631,7 @@ move_down
     bne *+5
     jmp key_ignored
     inc cursor_row
-    jsr cursor_to_column
+    jsr cursor_to_col
     tsta
     beq *+5
     jmp editor_error
@@ -648,7 +656,7 @@ move_down_scroll
     ldaa body_rows
     deca
     staa cursor_row
-    jsr cursor_to_column
+    jsr cursor_to_col
     tsta
     beq *+5
     jmp editor_error
@@ -721,7 +729,7 @@ move_page_down
     beq *+5
     jmp editor_error
     clr cursor_row
-    jsr cursor_to_column
+    jsr cursor_to_col
     tsta
     beq *+5
     jmp editor_error
@@ -763,7 +771,7 @@ page_previous_done
     beq *+5
     jmp editor_error
     clr cursor_row
-    jsr cursor_to_column
+    jsr cursor_to_col
     tsta
     beq *+5
     jmp editor_error
@@ -898,7 +906,7 @@ column_done
     jsr q_store
     clra
     rts
-cursor_to_column
+cursor_to_col
     ldaa cursor_row
     jsr left_colum_1c1a
     jsr q_load
@@ -1343,10 +1351,8 @@ shift_metadata_done
 editor_poll
     inc poll_count
     bne editor_poll_ready
-    int $10
-    cmpa #$ff
-    beq editor_poll_ready
-    int $11
+    clra
+    jsr mouse_cancel
     cmpa #27
     beq editor_poll_cancel
     cmpa #3
@@ -1416,7 +1422,8 @@ exit_draw_mark
     bcs exit_draw_button
 
 exit_key
-    int $11
+    ldaa #9
+    jsr mouse_wait
     cmpa #27
     beq exit_cancel
     cmpa #3

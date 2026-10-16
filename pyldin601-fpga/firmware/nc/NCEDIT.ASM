@@ -3,6 +3,11 @@
     include NCABI.INC
     include NCBOX.INC
     public owner
+    extern screen_head
+    extern editor_screen
+    extern mouse_init
+    extern mouse_height
+    extern mouse_show
     extern add_b
     extern base_path
     extern body_rows
@@ -43,12 +48,19 @@ start
     bra editor_start
     db 'NCE1'
 editor_start
+    psha
+    pshb
     ldx #bss_start
 editor_zero
     clr 0,x
     inx
     cpx #bss_end
     bne editor_zero
+    ldx #screen_head
+    pulb
+    stab 1,x
+    pula
+    staa 0,x
     ldx #file_positions
     ldab #16
     ldaa #$ff
@@ -188,6 +200,12 @@ block_video_ready
     clrb
     ldaa #7
     int $2f
+    jsr editor_screen
+    tsta
+    beq editor_screen_ready
+    jsr error
+    jmp editor_close
+editor_screen_ready
     jsr editor_cac_de58
     jsr editor_open
     tsta
@@ -195,6 +213,15 @@ block_video_ready
     jsr error
     jmp editor_close
 editor_ready
+    jsr mouse_init
+    ldaa ui_keys
+    inca
+    asla
+    asla
+    asla
+    staa mouse_height
+    ldaa #$80
+    staa mouse_show
     ldaa #1
     staa saved_valid
     jmp editor_redraw

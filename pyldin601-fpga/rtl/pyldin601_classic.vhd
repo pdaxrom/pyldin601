@@ -11,6 +11,7 @@ entity pyldin601_classic is
   txd:out std_logic;
   ps2clk:in std_logic;
   ps2dat:in std_logic;
+  mouseclk,mousedat:inout std_logic;
   hg_tms,hg_tck,hg_tdi:in std_logic;
   hg_tdo:inout std_logic;
   mss:out std_logic;
@@ -31,6 +32,7 @@ architecture board_hardware_lcd of pyldin601_classic is
  signal clk,clk_fast,pll_locked,cpu_clk,cpu_reset,cpu_hold,cpu_irq,cpu_rw,cpu_vma:std_logic;
  signal hd6303_en:std_logic;
  signal host_tdo,host_tdo_enable:std_logic;
+ signal mouse_clock_low,mouse_data_low:std_logic;
  signal cpu_addr:std_logic_vector(15 downto 0);signal cpu_out,cpu_in:std_logic_vector(7 downto 0);
  component classic_system is
  port(
@@ -54,6 +56,8 @@ architecture board_hardware_lcd of pyldin601_classic is
   txd:out std_logic;
   ps2clk:in std_logic;
   ps2dat:in std_logic;
+  mouseclk,mousedat:in std_logic;
+  mouse_clock_low,mouse_data_low:out std_logic;
   mss:out std_logic;
   msck:out std_logic;
   mosi:out std_logic;
@@ -73,6 +77,8 @@ architecture board_hardware_lcd of pyldin601_classic is
  );end component;
 begin
  hg_tdo<=host_tdo when host_tdo_enable='1' else 'Z';
+ mouseclk<='0' when mouse_clock_low='1' else 'Z';
+ mousedat<='0' when mouse_data_low='1' else 'Z';
  flash_cs<='1';flash_wp<='1';flash_hold<='1';flash_si<='0';flash_sck<='0';
  pll:entity work.classic_pll port map(clk_ext,clk,clk_fast,open,pll_locked);
  cpu:entity work.cpu6800 port map(cpu_clk,cpu_reset,cpu_rw,cpu_vma,cpu_addr,cpu_in,cpu_out,cpu_hold,'0',cpu_irq,'0',open,open,hd6303_en);
@@ -96,6 +102,8 @@ begin
   txd=>txd,
   ps2clk=>ps2clk,
   ps2dat=>ps2dat,
+  mouseclk=>mouseclk,mousedat=>mousedat,
+  mouse_clock_low=>mouse_clock_low,mouse_data_low=>mouse_data_low,
   mss=>mss,
   msck=>msck,
   mosi=>mosi,

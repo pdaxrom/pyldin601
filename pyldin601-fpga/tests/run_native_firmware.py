@@ -37,7 +37,8 @@ def collect(path):
     for match in re.finditer(rb'^\s*include\s+([^\s;]+)', data, re.I|re.M):
         name = match[1].decode()
         matches = [d/name for d in (path.parent, ROOT/'firmware/game',
-                   ROOT/'firmware/gfx', ROOT/'firmware/audio') if (d/name).is_file()]
+                   ROOT/'firmware/gfx', ROOT/'firmware/audio',
+                   ROOT/'firmware/memory', ROOT/'firmware/nc') if (d/name).is_file()]
         assert matches, (path, name)
         collect(matches[0])
 
@@ -54,12 +55,22 @@ for path in sorted((ROOT/'firmware/nc').glob('*.ASM')):
         assemble(path, path.stem+'.OBJ', '-c')
 for name in ('NCMAIN.LNK', 'NCEDIT.LNK'):
     sources[name] = (ROOT/'firmware/nc'/name).read_bytes()
-commands += ['uniar r NCUI.LIB NCCOM.OBJ',
+assemble(ROOT/'firmware/input/MOUSE.ASM', 'MOUSE.OBJ', '-D MOUSE_OBJECT -c')
+commands += ['uniar r NCUI.LIB NCCOM.OBJ NCKEY.OBJ MOUSE.OBJ',
              'unild -m NCMAIN.MAP -o NCMAIN.PGM @NCMAIN.LNK',
              'unild -m NCEDIT.MAP -o NCECORE.PGM @NCEDIT.LNK',
              'unild -b -o NCEDIT.PGM NCELOAD.PGM NCECORE.PGM']
 expected += ['NCUI.LIB', 'NCMAIN.PGM', 'NCMAIN.MAP', 'NCECORE.PGM',
              'NCEDIT.MAP', 'NCEDIT.PGM']
+for path in sorted((ROOT/'firmware/paint').glob('*.ASM')):
+    if path.stem not in ('PNTNAT', 'PNTRGB', 'PNTHAM', 'PNTBOOT'):
+        assemble(path, path.stem+'.OBJ', '-c')
+assemble(ROOT/'firmware/paint/PNTBOOT.ASM')
+sources['PAINT.LNK'] = (ROOT/'firmware/paint/PAINT.LNK').read_bytes()
+commands += ['uniar r PNTCOM.LIB PNTCOM.OBJ NCKEY.OBJ MOUSE.OBJ',
+             'unild -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK',
+             'unild -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM']
+expected += ['PNTCOM.LIB', 'PAINT.MAP', 'PNTCORE.PGM', 'PAINT.PGM']
 for directory, names in (
     ('game', ('ARKANOID', 'XONIX', 'SDKTEST')),
     ('gfx', ('VIEW', 'HVIEW', 'HAM', 'SPRITES', 'CLIPSPR')),
@@ -67,6 +78,8 @@ for directory, names in (
     ('hg', ('HG',)),
     ('storage', ('MOUNT', 'UMOUNT', 'FDISK')),
     ('memory', ('RAMPAGE',)),
+    ('input', ('UART',)),
+    ('paint', ('PNTNAT', 'PNTRGB', 'PNTHAM')),
     ('ramloader', ('RAMLOAD', 'RAMCORE', 'RAMCHECK')),
 ):
     for name in names:
@@ -82,6 +95,8 @@ commands += ['unild -b -o RAMLOAD.PGM RAMPREF.PGM RAMCORE.PGM']
 expected += ['RAMLOAD.PGM']
 for name, data in sources.items():
     (cross/name).write_bytes(data)
+# A changed archive member list must not retain obsolete members from a run.
+(cross/'PNTCOM.LIB').unlink(missing_ok=True)
 for i, command in enumerate(commands):
     args = command.split()
     with (cross/f'{i}.log').open('wb') as log:
@@ -118,6 +133,7 @@ def run_case(case):
         aliases.add(short)
         (host/short).write_bytes(data)
     print('Native firmware:', model, cpu, 'log:', result/'run.log', flush=True)
+    (host/'PNTCOM.LIB').unlink(missing_ok=True)
     pending = []
     for command in commands:
         args = command.split()

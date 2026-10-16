@@ -220,6 +220,12 @@ loader_ready
     ldaa load_entry
     adca load_base
     staa load_entry
+    ; The prefix is no longer executed after this jump. Its first 768 bytes
+    ; become the viewport's first rows; the native child still owns them.
+    ldx #start
+    stx load_target
+    ldaa load_target
+    ldab load_target+1
     ldx load_entry
     jmp 0,x
 loader_header

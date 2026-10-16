@@ -2,6 +2,13 @@
     .define NC_EDITOR
     include NCABI.INC
     include NCBOX.INC
+    public v_block_st_25
+    public v_block_st_26
+    public v_block_st_27
+    public block_anchor
+    public block_state
+    public selection_clear
+    extern mouse_activate
     public block_cach_8b13
     public block_canc_33d4
     public block_clos_a41c
@@ -37,8 +44,10 @@
     public v_block_st_90
     public v_block_st_91
     public v_block_st_96
+    extern mouse_wait
     extern add_b
     extern add_byte
+    extern append_block
     extern add_tail
     extern block_dirty
     extern block_get
@@ -163,6 +172,9 @@
 ; 105 header valid,106 header modified,107 header overwrite,108 path length.
 block_dispatch
     ldaa last_key
+    cmpa #$fe
+    bne *+5
+    jmp mouse_activate
     cmpa #3
     bne *+5
     jmp block_copy_key
@@ -1049,10 +1061,7 @@ block_append
     ldx block_state+64
     stx block_state+68
 block_append_more
-    ldx #add_tail
-    jsr q_load
-    ldaa #2
-    jsr block_get
+    jsr append_block
     tsta
     beq *+5
     jmp block_replace_return
@@ -1175,7 +1184,8 @@ block_cancel_done
     clra
     rts
 block_cancel_consume
-    int $11
+    ldaa #8
+    jsr mouse_wait
     bra block_cancel_release
 
 block_nav_table db $6b,$c1,$74,$c2,$75,$c4,$72,$c3,$6c,$c5,$69,$c6,$7d,$c8,$7a,$c7
@@ -1219,4 +1229,7 @@ v_block_st_75 equ block_state+75
 v_block_st_90 equ block_state+90
 v_block_st_91 equ block_state+91
 v_block_st_96 equ block_state+96
+v_block_st_25 equ block_state+25
+v_block_st_26 equ block_state+26
+v_block_st_27 equ block_state+27
     end
