@@ -7,6 +7,7 @@
     public mouse_row
     public mouse_focus
     public mouse_bar_key
+    public mouse_idle_hook
     extern mouse_poll
     extern mouse_event
     extern mouse_refocus
@@ -34,6 +35,9 @@ mouse_bar_code ds 1
 mouse_wait_x ds 2
 mouse_wait_b ds 1
 mouse_cancel_button ds 1
+; Optional application callback, called only with no pending key. A returns
+; FF to keep waiting or a synthetic key. It must not nest mouse_wait.
+mouse_idle_hook ds 2
     ends
 ; A=0 panels,1 editor,2 input,3 confirmation,4 message,5 menu,6 settings,
 ; 7 drive list,8 viewer,9 editor Save/Discard/Cancel. Returns a native key.
@@ -105,7 +109,14 @@ mouse_result_key
 mouse_key_poll
     int $10
     cmpa #$ff
+    bne mouse_key_read
+    ldx mouse_idle_hook
     beq mouse_wait_loop
+    jsr 0,x
+    cmpa #$ff
+    beq mouse_wait_loop
+    bra mouse_wait_return
+mouse_key_read
     int $11
 mouse_key_ready
     psha

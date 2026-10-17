@@ -43,10 +43,14 @@
     public v_pending__20
     public v_pending__24
     public v_pending__28
-    public v_pending__29
     public v_pending__4
     public v_pending__8
     public work_open
+    extern rec_api
+    extern v_find_tab_2
+    extern v_find_tab_4
+    extern v_file_siz_12
+    extern v_open_tab_2
     extern mouse_cancel
     extern mouse_close
     extern add_b
@@ -256,9 +260,6 @@ cache_extra ds 2
     extern v_file_pos_1
     extern v_file_pos_2
     extern v_file_pos_3
-    extern v_file_siz_12
-    extern v_find_tab_2
-    extern v_find_tab_4
     extern v_full_tab_2
     extern v_io_count_1
     extern v_io_posit_1
@@ -271,7 +272,6 @@ cache_extra ds 2
     extern v_leaf_sta_1
     extern v_leaf_sta_2
     extern v_leaf_sta_3
-    extern v_open_tab_2
     extern v_q_1
     extern v_q_2
     extern v_q_3
@@ -305,8 +305,29 @@ cache_extra ds 2
     extern work_path
     extern work_ready
     extern work_tail
-    extern written_label
 
+ef_written db 'Written:',0
+ef_rec_open
+    ldaa #0
+    jmp rec_api
+ef_rec_changed
+    ldaa #1
+    jmp rec_api
+ef_rec_crc_write
+    ldaa #2
+    jmp rec_api
+ef_rec_trailer
+    ldaa #3
+    jmp rec_api
+ef_rec_complete
+    ldaa #4
+    jmp rec_api
+ef_rec_cleanup
+    ldaa #5
+    jmp rec_api
+ef_rec_saved
+    ldaa #6
+    jmp rec_api
 ; BE32 accumulator. CMP preserves the usual unsigned carry/zero convention.
 q_load
     ldaa 0,x
@@ -409,9 +430,10 @@ q_512
     ldaa #2
     staa v_q_2
     rts
-; Three ordinary 512-byte blocks, a fourth if the conventional heap fits;
-; one optional RAMMAN bank adds 16 blocks.
-; Three slots retain the old/new/neighbor leaves during a directory split.
+; One ordinary cache block, plus 16 in an optional RAMMAN bank. Without
+; RAMMAN the unused BIOS bounce buffer supplies a second ordinary block.
+; Another ordinary block is allocated when the conventional heap fits.
+; Splits flush the old leaf before loading its neighbor; two slots suffice.
 ; Tags are separate from data, and BIOS/font/IRQ mapping restores selectors.
 ; A=logical file, Q=byte offset. X=byte pointer, block_left=bytes to boundary.
 block_get
@@ -464,7 +486,7 @@ block_victim
     tst cache_slot
     bne block_victim_ready
     inc cache_slot
-    ldaa #2
+    ldaa #1
     staa cache_hand
 block_victim_ready
     jsr cache_flush_slot
@@ -513,7 +535,12 @@ block_clear
     tsta
     beq *+5
     jmp block_failure
+    ldx cache_buf
+    ldaa cache_slot
+    cmpa cache_plain_count
+    bcs block_read_buffer
     ldx #disk_buffer
+block_read_buffer
     stx io_table
     ldx #512
     stx v_io_table_2
@@ -527,11 +554,15 @@ block_clear
     cpx #0
     beq block_loaded
     stx split_bytes
+    ldaa cache_slot
+    cmpa cache_plain_count
+    bcs block_direct_loaded
     ldx #disk_buffer
     stx src
     ldx cache_buf
     stx dst
     jsr copy_bytes
+block_direct_loaded
     jsr file_advance
 block_loaded
     jsr cache_tag
@@ -580,17 +611,22 @@ cache_buffer
     ldx cache_byte
     rts
 cache_plain
-    cmpa #3
-    bne cache_plain_static
+    tsta
+    beq cache_plain_static
+    cmpa #1
+    bne cache_plain_extra
+    tst cache_leased
+    bne cache_plain_extra
+    ldx #disk_buffer
+    stx cache_byte
+    rts
+cache_plain_extra
     ldx cache_extra
     stx cache_byte
     rts
 cache_plain_static
-    ldx #cache_data
+    ldx cache_data
     stx cache_byte
-    asla
-    adda cache_byte
-    staa cache_byte
     ldx cache_byte
     rts
 cache_flush_slot
@@ -615,6 +651,10 @@ cache_flush_slot
     ; UniDOS maps its own ROM while copying file data. Its caller's banked
     ; C000 buffer is not writable until return, so use an ordinary-RAM bounce.
     jsr cache_buffer
+    stx io_table
+    ldaa cache_slot
+    cmpa cache_plain_count
+    bcs cache_write_buffer
     stx src
     ldx #disk_buffer
     stx dst
@@ -623,6 +663,7 @@ cache_flush_slot
     jsr copy_bytes
     ldx #disk_buffer
     stx io_table
+cache_write_buffer
     ldx #512
     stx v_io_table_2
     jsr io_handle
@@ -739,7 +780,7 @@ size_pointer
     ldx #file_sizes
     jmp add_b
 editor_cache_open
-    ldaa #3
+    ldaa #2
     staa cache_count
     staa cache_plain_count
     ; INT2A's original one-page stack guard wraps below 0100. Do not ask
@@ -748,15 +789,19 @@ editor_cache_open
     stx cache_extra
     ldaa cache_extra
     cmpa #4
-    bcs editor_cache_optional
+    bcs editor_cache_no_extra
     ldx #512
     clrb
     int $2a
     cpx #0
-    beq editor_cache_optional
+    beq editor_cache_no_extra
     stx cache_extra
     inc cache_count
     inc cache_plain_count
+    bra editor_cache_optional
+editor_cache_no_extra
+    ldx #0
+    stx cache_extra
 editor_cache_optional
     ldaa #$e5
     int $2e
@@ -786,6 +831,9 @@ editor_cache_map
     staa $e6f0
     ldaa lease_group
     staa $e6f1
+    ; Ordinary fallback can use the bounce buffer as its second cache block.
+    ; With a bank mapped it is reserved exclusively for BIOS transfers.
+    dec cache_plain_count
     ldaa cache_plain_count
     adda #16
     staa cache_count
@@ -1121,24 +1169,6 @@ split_sum
     tsta
     beq *+5
     jmp split_return
-    clr split_has__2828
-    ldx #split_next
-    jsr q_load
-    ldaa q
-    anda v_q_1
-    anda v_q_2
-    anda v_q_3
-    cmpa #$ff
-    beq split_no_neighbor
-    ldaa #1
-    jsr block_get
-    tsta
-    beq *+5
-    jmp split_return
-    stx split_neighbor
-    ldaa cache_slot
-    staa split_neig_366a
-    inc split_has__2828
 split_no_neighbor
     jsr leaf_get
     tsta
@@ -1161,16 +1191,30 @@ split_no_neighbor
     jsr add_b
     jsr q_store
     jsr leaf_mark
-    tst split_has__2828
+    jsr cache_flush
+    tsta
+    beq *+5
+    jmp split_return
+    ldx #split_next
+    jsr q_load
+    ldaa q
+    anda v_q_1
+    anda v_q_2
+    anda v_q_3
+    cmpa #$ff
     beq split_links_ready
+    ldaa #1
+    jsr block_get
+    tsta
+    beq *+5
+    jmp split_return
+    stx split_neighbor
     ldx #index_end
     jsr q_load
     ldx split_neighbor
     ldab #12
     jsr add_b
     jsr q_store
-    ldaa split_neig_366a
-    staa cache_slot
     jsr block_dirty
 split_links_ready
     jsr q_512
@@ -1613,6 +1657,15 @@ doc_byte
     jmp stream_next
 ; Open original read-only. Workspace creation is deferred until the first edit.
 editor_open
+    jsr ef_rec_open
+    tsta
+    beq *+5
+    jmp editor_open_return
+    ldaa #8
+    jsr rec_api
+    tsta
+    beq *+5
+    jmp editor_seed
     ldx #filename
     stx open_table
     ldx #0
@@ -1636,10 +1689,23 @@ editor_open
     jsr q_load
     ldx #doc_size
     jsr q_store
+editor_seed
     ; Seed a pinned RAM-only index leaf, so read-only viewing needs no scratch.
     clr cache_slot
     jsr cache_buffer
     stx leaf_ptr
+    ; The first cache block reuses dead loader code, rather than zeroed BSS.
+    ; Empty files also need an explicitly empty entry count and descriptors.
+    ldaa #2
+    clrb
+editor_seed_clear
+    clr 0,x
+    inx
+    decb
+    bne editor_seed_clear
+    deca
+    bne editor_seed_clear
+    ldx leaf_ptr
     ldaa #$ff
     staa 0,x
     staa 1,x
@@ -1866,6 +1932,7 @@ editor_work_close
     ldx #base_path
     int $4f
 editor_keep_backups
+    jsr ef_rec_cleanup
     jsr editor_cache_close
     ldaa saved_cursor
     staa $ed1d
@@ -2366,6 +2433,7 @@ history_move_cursor
     bne history_applied
     clr modified
 history_applied
+    jsr ef_rec_changed
     clra
     rts
 history_nothing
@@ -2704,7 +2772,7 @@ save_read_byte
     ldaa #0
     suba v_save_len_1
     staa v_save_tak_1
-    ldaa #2
+    ldaa #1
     sbca save_length
     staa save_take
     ldaa stream_left
@@ -2769,7 +2837,7 @@ save_range_ready
     ldaa save_length
     adca save_take
     staa save_length
-    cmpa #2
+    cmpa #1
     bcc *+5
     jmp save_read_byte
     jsr save_write
@@ -2793,12 +2861,27 @@ save_stream_end
     tsta
     beq *+5
     jmp save_fail
+    ldaa #7
+    jsr rec_api
+    tsta
+    beq save_close_output
+    jsr ef_rec_trailer
+    tsta
+    beq *+5
+    jmp save_fail
+save_close_output
     ldaa save_handle
     int $4e
     tsta
     beq *+5
     jmp save_fail
     clr save_open
+    ldaa #7
+    jsr rec_api
+    tsta
+    beq save_normal_output
+    jmp ef_rec_complete
+save_normal_output
     tst v_block_st_104
     beq *+5
     jmp block_copy_b900
@@ -2871,6 +2954,7 @@ save_published
     tsta
     beq *+5
     jmp save_return
+    jsr ef_rec_saved
     ldx #save_target
     stx src
     ldx #filename
@@ -2888,6 +2972,12 @@ save_published
 save_return
     rts
 save_write
+    ldaa #7
+    jsr rec_api
+    tsta
+    beq save_write_output
+    jsr ef_rec_crc_write
+save_write_output
     ldx #save_buffer
     stx io_table
     ldx save_length
@@ -3180,7 +3270,7 @@ save_progress_cells
 save_progress_draw
     ldaa #$07
     jsr colour
-    ldx #written_label
+    ldx #ef_written
     ldaa #11
     jsr window_line
     ldx #save_done

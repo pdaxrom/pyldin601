@@ -3,6 +3,7 @@
     include NCABI.INC
     include NCBOX.INC
     public screen_head
+    public cache_data
     public editor_screen
     public build_line
     public build_view
@@ -40,6 +41,7 @@
     extern copy_octets
     extern cursor_row
     extern cursor_seen
+    extern rebuild_cursor
     extern decimal_number
     extern e_column
     extern e_cursor
@@ -148,111 +150,57 @@ copy_tail ds 1
 view_valid ds 1
 restore_row ds 1
 restore_ptr ds 2
-screen_octets ds 1
 screen_head ds 2
-screen_head_rows ds 1
-screen_head_octets ds 1
     ends
 
-invalidate_buffer
-    ldaa #$ff
-invalidate_octet
-    staa 0,x
-    staa 1,x
-    staa 2,x
-    staa 3,x
-    staa 4,x
-    staa 5,x
-    staa 6,x
-    staa 7,x
-    inx
-    inx
-    inx
-    inx
-    inx
-    inx
-    inx
-    inx
-    decb
-    bne invalidate_octet
-    rts
-
-; Allocate only the current viewport: colour graphics has 40 columns, while
-; the 80-column text/mono modes have more conventional memory available.
-; The native child owns this allocation and DOS releases it with NCEDIT.
+; Dead prefix: 512 bytes for the ordinary disk cache, then one 80-byte
+; display row. The rest of the character cache lives in private GPU scratch.
+cache_data equ screen_head
 editor_screen
-    ldab #19
-    ldaa columns
-    cmpa #80
-    bcs editor_screen_head_count
-    ldab #9
-editor_screen_head_count
-    stab screen_head_rows
-    lsra
-    lsra
-    lsra
-    staa screen_head_octets
-    decb
-editor_screen_head_sum
-    adda screen_head_octets
-    decb
-    bne editor_screen_head_sum
-    staa screen_head_octets
-    ldx #screen_chars
-    clr 0,x
-    clr 1,x
-    ldab body_rows
-    subb screen_head_rows
-editor_screen_size
-    ldaa 1,x
-    adda columns
-    staa 1,x
-    bcc editor_screen_carry
-    inc 0,x
-editor_screen_carry
-    decb
-    bne editor_screen_size
-    ldaa 1,x
-    ldab 0,x
-    lsrb
-    rora
-    lsrb
-    rora
-    lsrb
-    rora
-    staa screen_octets
-    ldx 0,x
-    clrb
-    int $2a
-    cpx #0
-    bne editor_screen_allocated
-    ldaa #66
+    ldaa $e6e1
+    cmpa #'D'
+    beq editor_screen_dma
+    ldaa #3
     rts
-editor_screen_allocated
+editor_screen_dma
+    ldx screen_head
+    ldab #255
+    jsr add_b
+    ldab #255
+    jsr add_b
+    inx
+    inx
     stx screen_chars
     clra
     rts
 
-; The display cache is ordinary RAM because native text VRAM reads see ROM.
+; Native text VRAM reads see ROM. Cache characters in GPU SRAM with one
+; ordinary row, reusing the dead prefix independently of the video format.
 ; Full view discovery indexes just the visible logical lines. Edits within a
 ; line repaint only its visible slice, using the cached horizontal anchor.
 redraw
 editor_redraw
     clr v_block_st_105
-    ldx screen_head
-    ldab screen_head_octets
-    jsr invalidate_buffer
-    ldx screen_chars
-    ldab screen_octets
-    jsr invalidate_buffer
+    jsr row_invalidate
     jsr build_view
     tsta
     beq *+5
     jmp editor_error
     jsr editor_footer
+    tst cursor_seen
+    bne editor_redraw_seen
+    jmp rebuild_cursor
+editor_redraw_seen
     jsr editor_header
     jsr editor_caret
 editor_key
+    tst row_error
+    beq editor_key_ready
+    clr row_error
+    clr view_valid
+    ldaa #3
+    jmp editor_error
+editor_key_ready
     ldaa #1
     staa editor_ini_76b1
     ldaa #1
@@ -427,23 +375,8 @@ row_word_pointer
     aslb
     jmp add_b
 screen_pointer
-    ldaa render_row
-    cmpa screen_head_rows
-    bcs screen_pointer_head
-    suba screen_head_rows
-    ldx screen_chars
-    bra screen_pointer_loop
-screen_pointer_head
-    ldx screen_head
-screen_pointer_loop
-    tsta
-    beq screen_pointer_done
-    ldab columns
-    jsr add_b
-    deca
-    bra screen_pointer_loop
-screen_pointer_done
-    rts
+    jmp row_pointer
+
 build_view
     clr view_valid
     clr render_row
@@ -965,4 +898,5 @@ copy_bytes
 copy_bytes_done
     rts
 left_colum_1c1a equ left_column_pointer
+    include NCEROW.INC
     end

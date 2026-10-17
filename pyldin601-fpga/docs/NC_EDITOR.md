@@ -17,38 +17,42 @@ keyboard vector. F3 marking works with ordinary native BIOS navigation.
 
 The delivered NCEDIT.PGM contains a small native PGM followed by an ordinary
 relocatable editor PGM. The bootstrap opens its own absolute pathname,
-allocates the editor with 256-byte alignment, reads the code, applies
-relocations in 64-byte batches, closes the file, and jumps to the editor.
+allocates the editor without page padding, reads the code, applies full
+16-bit address relocations (including low-byte carry) in 64-byte batches,
+closes the file, and jumps to the editor.
 This avoids a transient low-RAM allocation for the entire relocation table
 while graphics video RAM is allocated. Both allocations belong to the native
 child and are released by DOS on its exit. UniLD `-b` joins the two standard
 PGM files without changing either header or relocation table. This command
 runs identically on the host and under native UniDOS.
 
-After the loader jumps to the editor its first 768 bytes are reused for
-the viewport character cache. The loader passes this address in A:B; its
-arguments and state are consumed before any viewport write. The remaining
-cache is allocated for the actual viewport: 160/200 bytes for 40-column
-graphics/text, or 1120/1200 bytes for 80-column graphics/text. The bundle
-validator rejects a loader smaller than the reusable area. This keeps the
-editor within conventional RAM in the 601A colour graphics mode, where
-video RAM reduces the available heap.
+The loader passes its address in A:B. Once its arguments and state have
+been consumed, its first 512 bytes become an ordinary disk-cache block;
+the next 80 hold the current display row. The complete character cache
+uses private GPU scratch at 1FE000..1FF7FF: one 256-byte slot for each
+of up to 24 rows. A row switch flushes/loads only 40 or 80 bytes through
+flat DMA. Valid tags avoid reading uninitialized SRAM. Redraw invalidates
+tags; modal restoration reads cached characters without rescanning text.
+DMA errors invalidate the viewport and are reported before the next key
+wait. The current FPGA DMA interface is required. The native framebuffer,
+palette, and leased RAMMAN banks are not used for this cache.
 
 The editor uses about 25–26 KiB of ordinary RAM, including its loader, code,
 viewport character cache, metadata and I/O buffers. NCEDIT.json reports the
-base allocation, each viewport tail, the optional 512-byte cache slot and the
+base allocation, GPU scratch, the optional 512-byte cache slot and the
 maximum total. Document length and edit count do not increase this allocation.
-Three ordinary 512-byte cache slots work without RAMMAN; a fourth is allocated
-when conventional memory permits. If its ABI check and allocation succeed, one leased
-8 KiB bank adds sixteen slots. The lease never assumes a free physical bank
+One ordinary 512-byte cache slot and sixteen banked slots use one leased
+8 KiB bank when its ABI check and allocation succeed. Without RAMMAN, the
+unused BIOS bounce buffer becomes a second ordinary slot. Another ordinary
+slot is allocated when conventional memory permits. The lease never assumes a free physical bank
 number and restores selectors around BIOS/DOS/font operations. Banked data
 passes through an ordinary 512-byte bounce buffer for native DOS transfers.
 The leaf-split buffer shares the Save/clipboard staging buffer: payload
-staging completes before history application can split the directory. A split
-can retain old/new/neighbor leaves in the three ordinary slots even without
-RAMMAN.
-The small three-slot fallback may perform extra I/O during far-offset edits;
-the fourth ordinary slot is retained in modes with sufficient conventional RAM.
+staging completes before history application can split the directory. The
+256-byte buffer holds the largest half-leaf. Splits publish/flush the old
+leaf before acquiring its neighbor, so two cache slots suffice. Ordinary
+buffers transfer directly through DOS; only banked slots need the bounce.
+The small fallback may perform extra I/O during far-offset edits.
 
 ## Document and history
 
@@ -162,13 +166,67 @@ published. A failed publication attempts to restore the original target.
 The original backing version remains readable so Undo can cross Save.
 On normal exit the latest previous version is retained as .BAK; an older
 backing version is removed if it has been superseded by a later backup.
-Work files are removed on normal exit. They are not a crash recovery format.
+Work files are removed on normal exit. Recovery uses separate committed
+snapshots; a damaged piece directory is never trusted after a crash.
 
 A failed output write leaves the original and the editing state available
 for another Save or Save As. A read-only source can use a writable scratch
 directory and Save As to another drive. A full target can likewise be bypassed
 with Save As if the work disk still has space. An I/O failure during a partially
 applied edit offers retry, or an explicit discard-and-close action.
+
+## Recovery checkpoints
+
+F9 streams a recovery copy; after a minute without text changes, the idle
+loop starts the same operation automatically. It uses the configured work
+directory, or the document directory by default. No document-sized RAM
+buffer is allocated. The window shows progress and accepts cancellation.
+Changes made after the last complete checkpoint are outside that copy.
+
+Four names, `NCR0hhhh.RC0` through `.RC3`, derive from CRC16 of the full,
+case-folded document pathname. The trailer verifies the complete pathname,
+so a hash collision does not authorize overwriting somebody else's file.
+Unknown/incomplete files are preserved. The newest committed copy and the
+snapshot currently used as immutable backing are never overwritten.
+The fourth slot permits rotation when an interrupted write occupies a slot.
+If no safe slot or disk space remains, the original and edits survive and
+automatic retries stop; a successful manual F9 enables them again.
+
+Each file contains exact document bytes followed by a 128-byte `NCR1`
+commit trailer: pathname at 4..83, BE32 generation at 84, length at 88,
+byte cursor at 92, payload CRC16/XMODEM at 96, and trailer CRC16 at 126.
+The trailer is written last, and the file is closed before publication to
+the user. On F4, startup validates trailers, checks the newest payload CRC,
+and tries an older copy after corruption or truncation. Restore requires
+confirmation. No/Cancel opens the original and retains recovery copies.
+The PS/2 mouse is initialized before verification and confirmation, so the
+scan can be cancelled by mouse and the restore buttons can be clicked.
+
+Restoration opens the verified snapshot read-only as the new backing,
+restores the byte cursor, and marks the document modified. A new Undo history
+starts there; old IDX/ADD/UND files are not replayed. Saving leaves Undo
+available, removes obsolete checkpoint offers, and invalidates only the
+trailer of a snapshot still needed for Undo. Normal Save/Discard and editor
+exit remove owned recovery files after closing their handles. Work files
+left by a crashed process can be removed after successful restoration.
+These checks protect against interrupted application writes and resets;
+they do not repair a damaged FAT volume or guarantee storage-controller
+durability after loss of power.
+
+## Find and replace
+
+F7/Shift+F7 retain literal, case-sensitive forward search. F8 asks for the
+pattern and replacement, then replaces one match from the cursor, wrapping
+once if needed. Shift+F8 confirms replacement of all matches in the whole
+document. Patterns and replacements use native bytes, up to 79 characters;
+an empty replacement deletes matches. There are no regular expressions.
+
+Replace All moves forward through original text, skipping inserted bytes
+and stopping at EOF. Thus `a` to `aa` terminates. Each match uses the existing
+staged block transaction and is a separate Undo record. Esc/Ctrl+C cancels
+between bounded reads; completed replacements remain editable and undoable.
+Failed staging does not apply that replacement. Large texts keep the same
+RAM bound as ordinary editing.
 
 ## Verification
 
@@ -190,20 +248,30 @@ ROM keyboard translator. The legacy latch is disconnected. Pixel checks
 compare the caret with the actual ROM glyph. Rendered snapshots are digital video references, not PAL
 or physical-board validation.
 
+`run_nc_recovery.py` starts fresh native CPU/DOS processes on disk-only
+snapshots, independently parses FAT12 and verifies both CRCs. It covers
+restore and far cursors, cancellation, write failure, a cut during a new
+snapshot, bad payload/trailer, No/Cancel, disk full, missing RAMMAN, the real
+idle interval and a checkpoint above 2 MiB. Viewport tests check each DMA
+descriptor and its private bounds. A failed row DMA must restore the cache
+after acknowledgement while preserving byte-exact text and Save.
+
 ## Object build
 
 NCMAIN and NCEDIT are assembled independently from the modules in
 `firmware/nc`. NCMAIN owns the command loop; NCMCAT handles the catalogue,
 NCMUI the panels and menus, and NCMFILE file operations and viewing.
 NCEDIT owns editor startup; NCEFILE handles cached file pieces and saving,
-NCEUI rendering, NCENAV navigation/search, and NCEBLOCK block operations.
+NCEUI rendering with the NCEROW.INC GPU row cache, NCENAV navigation/search
+and replacement, NCEBLOCK block operations, and NCEAUTO recovery checkpoints.
 NCMSTR/NCESTR contain initialized data; NCMV1–3/NCEV1–3 contain BSS.
 NCCOM provides shared UI/video utilities through NCUI.LIB. NCEND owns the
 last BSS byte. The entry objects own the first BSS bytes, so the existing
 UniCROSS OBJ format can distinguish both boundaries without new flags.
 
 Use `make -f firmware/Makefile nc` for the complete cross build. For a native
-build copy all NC sources to one directory, run `HANDLES 16` before loading
+build copy all NC sources, `firmware/input/MOUSE.ASM` and
+`firmware/memory/DMA.INC` to one directory, run `HANDLES 16` before loading
 the VM, and follow `NCBUILD.TXT`. UniAS, UniLD and UniAR use identical
 limits and object formats on both hosts. No PGM BSS postprocessing occurs.
 The build's `linked-labels` command only creates test/debug headers from

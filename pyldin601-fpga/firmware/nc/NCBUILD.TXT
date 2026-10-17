@@ -1,6 +1,7 @@
 NC object build (host or native UniDOS)
 HANDLES 16 (before RAMLOAD /CVM on native UniDOS)
 Copy firmware/input/MOUSE.ASM beside these NC sources.
+Copy firmware/memory/DMA.INC beside them too (NCEROW.INC uses it).
 If tools are in ..\CVM, prefix commands below with ..\CVM\.
 
 unias -o NC.PGM NC.ASM
@@ -11,6 +12,7 @@ unias -c -o NCMOUSE.OBJ NCMOUSE.ASM
 unias -c -o NCEMOUSE.OBJ NCEMOUSE.ASM
 unias -D MOUSE_OBJECT -c -o MOUSE.OBJ MOUSE.ASM
 unias -c -o NCEBLOCK.OBJ NCEBLOCK.ASM
+unias -c -o NCEAUTO.OBJ NCEAUTO.ASM
 unias -c -o NCEDIT.OBJ NCEDIT.ASM
 unias -c -o NCEFILE.OBJ NCEFILE.ASM
 unias -c -o NCENAV.OBJ NCENAV.ASM

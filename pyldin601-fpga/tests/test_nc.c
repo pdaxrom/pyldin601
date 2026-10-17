@@ -37,7 +37,7 @@ static unsigned char*catalog(void){
 static void signature(const char*path,unsigned char*sig,unsigned char*mask){
  size_t n;unsigned char*p=load(path,&n);unsigned count=p[2]*256+p[3],off=p[4]*256+p[5];
  memcpy(sig,p+off,24);memset(mask,255,24);
- for(unsigned k=0;k<count;k++){unsigned pos=p[16+2*k]*256+p[17+2*k];if(pos<24)mask[pos]=0;}
+ for(unsigned k=0;k<count;k++){unsigned pos=p[16+2*k]*256+p[17+2*k];if(pos<24)mask[pos]=0;if(pos+1<24)mask[pos+1]=0;}
  free(p);
 }
 static int matches(unsigned pc,const unsigned char*sig,const unsigned char*mask){
@@ -94,7 +94,7 @@ static void panels(unsigned after){
 static void type(const char*text){
  const char*letters="abcdefghijklmnopqrstuvwxyz";
  static const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
- for(;*text;text++){const char*p=strchr(letters,*text);unsigned s=p?scans[p-letters]:*text==':'?0x27:*text=='.'?0x34:*text=='\\'?0x2b:*text==' '?0x39:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?11:0;require(s,"input scan supported");if(*text==':')KBDModKeyDown(2);key(s);if(*text==':')KBDModKeyUp(2);}
+ for(;*text;text++){unsigned upper=*text>='A'&&*text<='Z';const char*p=strchr(letters,upper?*text+32:*text);unsigned s=p?scans[p-letters]:*text==':'?0x27:*text=='.'?0x34:*text=='\\'?0x2b:*text==' '?0x39:*text>='1'&&*text<='9'?*text-'1'+2:*text=='0'?11:0;require(s,"input scan supported");if(*text==':'||upper)KBDModKeyDown(2);key(s);if(*text==':'||upper)KBDModKeyUp(2);}
 }
 static void loaded(unsigned count){uint64_t end=virtual_cycles+200000000;do{until(virtual_cycles+1009);if(core_entries>=count)return;}while(virtual_cycles<end);require(0,"NCMAIN executable reloaded");}
 static void graphic_cell(unsigned col,unsigned row,unsigned code,unsigned foreground,unsigned background){

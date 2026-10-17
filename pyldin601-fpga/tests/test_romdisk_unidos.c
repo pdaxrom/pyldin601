@@ -51,12 +51,16 @@ static unsigned result_b,result_x;
 #ifndef DOS_API_CYCLES
 #define DOS_API_CYCLES 15000000
 #endif
+#ifndef TEST_API_BASE
+#define TEST_API_BASE 0x210
+#endif
 static unsigned invoke(unsigned op,unsigned a,unsigned b,unsigned x){
  unsigned pc0=PC,sp0=SP,a0=A,b0=B,x0=X,h0=h,i0=i,n0=n,z0=z,v0=v,c0=c,page0=page;
- unsigned char*r=MC6800GetCpuRam();r[0x210]=0x3f;r[0x211]=op;r[0x212]=1;
- PC=0x210;A=a;B=b;X=x;
+ unsigned char*r=MC6800GetCpuRam();unsigned stub=TEST_API_BASE;
+ r[stub]=0x3f;r[stub+1]=op;r[stub+2]=1;
+ PC=stub;A=a;B=b;X=x;
  uint64_t deadline=virtual_cycles+DOS_API_CYCLES;
- do{until(virtual_cycles+1);require(virtual_cycles<deadline,"DOS API returns");}while(PC!=0x212);
+ do{until(virtual_cycles+1);require(virtual_cycles<deadline,"DOS API returns");}while(PC!=stub+2);
  unsigned result=A;result_b=B;result_x=X;
  require(SP==sp0&&page==page0,"DOS API preserves stack and ROM page");
  PC=pc0;A=a0;B=b0;X=x0;h=h0;i=i0;n=n0;z=z0;v=v0;c=c0;

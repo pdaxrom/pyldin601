@@ -4,6 +4,8 @@
     include NCBOX.INC
     public owner
     extern screen_head
+    extern rec_api
+    extern mouse_idle_hook
     extern editor_screen
     extern mouse_init
     extern mouse_height
@@ -31,7 +33,6 @@
     extern saved_valid
     extern screen_base
     extern src
-    extern standalone_cbac
     extern text_stride
     extern ui_command
     extern ui_keys
@@ -207,12 +208,9 @@ block_video_ready
     jmp editor_close
 editor_screen_ready
     jsr editor_cac_de58
-    jsr editor_open
-    tsta
-    beq editor_ready
-    jsr error
-    jmp editor_close
-editor_ready
+    ; Recovery confirmation and its CRC scan already accept mouse input.
+    ldx #editor_idle
+    stx mouse_idle_hook
     jsr mouse_init
     ldaa ui_keys
     inca
@@ -222,13 +220,29 @@ editor_ready
     staa mouse_height
     ldaa #$80
     staa mouse_show
+    jsr editor_open
+    tsta
+    beq editor_ready
+    jsr error
+    jmp editor_close
+editor_ready
     ldaa #1
     staa saved_valid
+    ldaa #8
+    jsr rec_api
+    tsta
+    beq editor_fresh
+    clr saved_valid
+editor_fresh
     jmp editor_redraw
+editor_idle
+    ldaa #11
+    jmp rec_api
 editor_bad_parent
-    ldx #standalone_cbac
+    ldx #editor_standalone
     int $23
     int $38
+editor_standalone db 10,'Use NC F4.',10,0
 ignore_break
     rts
 fail_io

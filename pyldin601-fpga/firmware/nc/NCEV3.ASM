@@ -31,11 +31,8 @@
     public save_attempt
     public save_attributes
     public save_backu_94f9
-    public save_backup
     public save_bar_index
     public save_bar_width
-    public save_buffer
-    public split_buffer
     public save_cells
     public save_chunk
     public save_done
@@ -119,7 +116,6 @@ base_closed ds 1
 latest_backup ds 80
 save_target ds 80
 save_temp ds 80
-save_backup ds 80
 save_open ds 1
 save_renamed ds 1
 save_exists ds 1
@@ -143,8 +139,7 @@ rename_table ds 4
 rename_call ds 4
 ; Leaf splitting and streamed Save/clipboard staging never nest. Inserting
 ; staged bytes starts only after all payload has been appended to ADD.
-split_buffer
-save_buffer ds 512
+
 
 
 

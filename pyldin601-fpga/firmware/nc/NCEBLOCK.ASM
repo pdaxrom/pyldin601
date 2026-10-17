@@ -15,6 +15,7 @@
     public block_copy_b900
     public block_dispatch
     public block_finish
+    public block_replace
     public block_mark_dc41
     public block_put
     public block_row
@@ -144,7 +145,6 @@
     extern v_pending__20
     extern v_pending__24
     extern v_pending__28
-    extern v_pending__29
     extern v_pending__4
     extern v_pending__8
     extern v_q_1
@@ -210,13 +210,23 @@ block_not_escape
     jmp block_navigation
 block_not_navigation
     cmpa #$1a
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #$19
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #$cf
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #$db
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
+    cmpa #$d0
+    bne *+5
+    jmp block_clear_key
+    cmpa #$dc
+    bne *+5
+    jmp block_clear_key
     tst block_state+24
     beq block_native_key
     jsr block_normalize
@@ -253,17 +263,21 @@ block_not_navigation
 block_empty_edit
     ldaa last_key
     cmpa #127
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #8
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #$f9
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #32
     bcs block_native_key
     cmpa #$c0
     bcs block_clear_key
     cmpa #$c0
-    beq block_clear_key
+    bne *+5
+    jmp block_clear_key
     cmpa #$ed
     bne block_native_key
 block_clear_key
@@ -971,7 +985,8 @@ block_replace_selected
     clr change_group
     clr v_pending__28
     ldaa #1
-    staa v_pending__29
+    ldx #pending_record
+    staa 29,x
     clr history_mode
     ldx #history_cursor
     jsr q_load
@@ -1040,16 +1055,16 @@ block_snapshot_end
     jmp block_replace_return
     ldaa #3
     rts
-; chunk=min(remaining,512). Buffer append handles an unaligned ADD tail.
+; chunk=min(remaining,256). Buffer append handles an unaligned ADD tail.
 block_take
-    ldx #512
+    ldx #256
     stx block_state+64
     ldaa q
     oraa v_q_1
     beq *+5
     jmp block_replace_return
     ldaa v_q_2
-    cmpa #2
+    cmpa #1
     bcs *+5
     jmp block_replace_return
     ldx v_q_2

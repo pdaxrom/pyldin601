@@ -142,12 +142,12 @@ sram: $(BUILD)/firmware-data
 
 nc: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/nc
-	cp firmware/nc/* firmware/input/MOUSE.ASM $(BUILD)/nc/
+	cp firmware/nc/* firmware/input/MOUSE.ASM firmware/memory/DMA.INC $(BUILD)/nc/
 	@set -e; for app in NC NCELOAD; do \
 	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -l $$app.LST -o $$app.PGM $$app.ASM); \
 	$(DATA) pgm-info $(BUILD)/nc/$$app.PGM $(BUILD)/nc/$$app.json; \
 	$(DATA) labels $(BUILD)/nc/$$app.LST $(BUILD)/nc/$$app.h $$app; done
-	@set -e; for app in NCMAIN NCMCAT NCMUI NCMFILE NCMOUSE NCEMOUSE NCKEY NCCOM NCMSTR NCMV1 NCMV2 NCMV3 NCEND NCEDIT NCEFILE NCEUI NCENAV NCEBLOCK NCESTR NCEV1 NCEV2 NCEV3; do \
+	@set -e; for app in NCMAIN NCMCAT NCMUI NCMFILE NCMOUSE NCEMOUSE NCKEY NCCOM NCMSTR NCMV1 NCMV2 NCMV3 NCEND NCEDIT NCEFILE NCEUI NCENAV NCEBLOCK NCEAUTO NCESTR NCEV1 NCEV2 NCEV3; do \
 	(cd $(BUILD)/nc && sh $(RUN) $$app.log "$(UNIAS_PATH)" -c -l $$app.LST -o $$app.OBJ $$app.ASM); done
 	cd $(BUILD)/nc && sh $(RUN) MOUSE.log "$(UNIAS_PATH)" -D MOUSE_OBJECT -c -l MOUSE.LST -o MOUSE.OBJ MOUSE.ASM
 	cd $(BUILD)/nc && "$(UNIAR)" r NCUI.LIB NCCOM.OBJ NCKEY.OBJ MOUSE.OBJ

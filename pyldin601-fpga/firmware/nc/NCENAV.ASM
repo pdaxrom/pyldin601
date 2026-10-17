@@ -38,6 +38,15 @@
     extern mouse_cancel
     extern add_b
     extern block_dispatch
+    extern block_replace
+    extern block_state
+    extern selection_clear
+    extern add_byte
+    extern add_tail
+    extern work_open
+    extern confirm
+    extern save_target
+    extern editor_redraw
     extern body_rows
     extern build_full
     extern build_line
@@ -72,6 +81,7 @@
     extern editor_restore
     extern editor_save
     extern editor_save_as
+    extern rec_api
     extern end_pointer
     extern eol_bytes
     extern eol_length
@@ -180,6 +190,10 @@ search_char ds 1
 search_start ds 4
 search_wrapped ds 1
 search_amount ds 4
+replace_mode ds 1
+replace_length ds 1
+replace_index ds 1
+search_found_ok ds 1
 exit_draw ds 1
     ends
 
@@ -338,7 +352,17 @@ editor_native_dispatch
     cmpa #$cf
     beq key_search
     cmpa #$db
-    beq key_search_next
+    bne *+5
+    jmp key_search_next
+    cmpa #$d0
+    bne *+5
+    jmp key_replace
+    cmpa #$dc
+    bne *+5
+    jmp key_replace
+    cmpa #$d1
+    bne *+5
+    jmp key_checkpoint
     cmpa #$1a
     beq key_undo
     cmpa #$19
@@ -373,15 +397,25 @@ key_save
     clr group_open
     jsr editor_save
     jmp editor_result_redraw
+key_checkpoint
+    clr group_open
+    ldaa #9
+    jsr rec_api
+    tab
+    ldaa #10
+    jsr rec_api
+    jmp editor_result_redraw
 key_save_as
     clr group_open
     jsr editor_save_as
     jmp editor_result_redraw
 key_search
+    clr replace_mode
     clr group_open
     jsr editor_search
     jmp editor_result_redraw
 key_search_next
+    clr replace_mode
     clr group_open
     jsr editor_search_next
     jmp editor_result_redraw
@@ -1596,6 +1630,157 @@ anchor_ready
     rts
 ; KMP search streams arbitrary-length documents, preserving the last pattern.
 ; Its prefix table reuses the line-construction buffer while the modal owns UI.
+key_replace
+    ldaa #1
+    ldab last_key
+    cmpb #$dc
+    bne replace_mode_ready
+    inca
+replace_mode_ready
+    staa replace_mode
+    clr group_open
+    ldx #search_text
+    stx src
+    ldx #input
+    stx dst
+    jsr copy_z
+    ldx #search_title
+    jsr dialog
+    bcc *+5
+    jmp replace_cancel
+    tst input
+    bne *+5
+    jmp replace_cancel
+    ldx #input
+    stx src
+    ldx #search_text
+    stx dst
+    jsr copy_z
+    clr input
+    ldx #replace_title
+    jsr dialog
+    bcc *+5
+    jmp replace_cancel
+    ldx #input
+    stx src
+    ldx #save_target
+    stx dst
+    jsr copy_z
+    clr replace_length
+    ldx #save_target
+replace_count_text
+    tst 0,x
+    beq replace_confirm
+    inc replace_length
+    inx
+    bra replace_count_text
+replace_confirm
+    ldaa replace_mode
+    cmpa #2
+    beq *+5
+    jmp replace_next
+    ldx #replace_all_text
+    jsr confirm
+    cmpa #'Y'
+    beq *+5
+    jmp replace_cancel
+    ldx #search_amount
+    clr 0,x
+    clr 1,x
+    clr 2,x
+    clr 3,x
+    jsr q_load
+    ldx #e_cursor
+    jsr q_store
+replace_next
+    clr search_skip
+    jsr search_begin
+    tsta
+    beq *+5
+    jmp replace_error
+    tst search_found_ok
+    bne *+5
+    jmp replace_done
+    jsr work_open
+    tsta
+    beq *+5
+    jmp replace_error
+    ldx #add_tail
+    jsr q_load
+    ldab #76
+    jsr replace_store
+    ldaa replace_length
+    jsr q_small
+    ldab #80
+    jsr replace_store
+    clr replace_index
+replace_append
+    ldab replace_index
+    cmpb replace_length
+    bcc replace_range
+    ldx #save_target
+    jsr add_b
+    ldaa 0,x
+    jsr add_byte
+    tsta
+    beq *+5
+    jmp replace_error
+    inc replace_index
+    bra replace_append
+replace_range
+    ldx #e_cursor
+    jsr q_load
+    ldab #8
+    jsr replace_store
+    ldaa search_length
+    jsr q_small
+    ldx #e_cursor
+    jsr q_add
+    ldab #12
+    jsr replace_store
+    ldx #block_state
+    ldaa #1
+    staa 24,x
+    jsr block_replace
+    tsta
+    beq *+5
+    jmp replace_error
+    jsr selection_clear
+    ldaa replace_mode
+    cmpa #2
+    bne *+5
+    jmp replace_next
+replace_done
+    clr replace_mode
+    ldx #e_cursor
+    jsr q_load
+    ldx #nav_start
+    jsr q_store
+    jsr find_line_start
+    tsta
+    beq *+5
+    jmp replace_error
+    ldx #nav_start
+    jsr q_load
+    ldx #screen_top
+    jsr q_store
+    clr horizontal
+    clr v_horizont_1
+    clr v_horizont_2
+    clr v_horizont_3
+    jmp editor_redraw
+replace_store
+    ldx #block_state
+    jsr add_b
+    jmp q_store
+replace_cancel
+    clr replace_mode
+    jmp editor_restore
+replace_error
+    clr replace_mode
+    jmp editor_error
+replace_title db 'Replace with',0
+replace_all_text db 'Replace all matches?',0
 editor_search
     ldx #search_text
     stx src
@@ -1622,6 +1807,7 @@ editor_search_next
     ldaa #1
     staa search_skip
 search_begin
+    clr search_found_ok
     clr search_length
     ldx #search_text
 search_count
@@ -1761,6 +1947,9 @@ search_end
     tsta
     beq *+5
     jmp search_return
+    ldaa replace_mode
+    cmpa #2
+    beq search_not_found
     tst search_wrapped
     bne search_not_found
     inc search_wrapped
@@ -1770,6 +1959,8 @@ search_end
     clr v_where_3
     jmp search_stream
 search_found
+    ldaa #1
+    staa search_found_ok
     ldaa search_length
     jsr q_small
     ldx #search_amount
@@ -1782,6 +1973,11 @@ search_found
     jsr q_store
     ldx #nav_start
     jsr q_store
+    tst replace_mode
+    beq search_position_view
+    clra
+    rts
+search_position_view
     jsr find_line_start
     tsta
     beq *+5
@@ -1803,8 +1999,14 @@ search_found
 search_return
     rts
 search_not_found
+    ldaa replace_mode
+    cmpa #2
+    beq search_cancel_all
     ldx #not_found_text
     jsr message
+    clra
+    rts
+search_cancel_all
     clra
     rts
 search_cancel

@@ -98,7 +98,7 @@ loader_entry_compare
     jmp loader_bad
 loader_allocate
     ldx load_ram
-    ldab #8
+    clrb
     int $2a
     cpx #0
     bne loader_allocated
@@ -195,8 +195,11 @@ loader_reloc_valid
     staa load_target+1
     stab load_target
     ldx load_target
+    ldaa 1,x
+    adda load_base+1
+    staa 1,x
     ldaa 0,x
-    adda load_base
+    adca load_base
     staa 0,x
     ldx load_ptr
     inx
@@ -220,8 +223,8 @@ loader_ready
     ldaa load_entry
     adca load_base
     staa load_entry
-    ; The prefix is no longer executed after this jump. Its first 768 bytes
-    ; become the viewport's first rows; the native child still owns them.
+    ; The prefix is dead after this jump. Its first 512 bytes become a disk
+    ; cache block; the next 80 hold the active display row. The child owns it.
     ldx #start
     stx load_target
     ldaa load_target

@@ -271,8 +271,8 @@ static void pgm_bundle_info(const char *kind,const char *dir) {
     unsigned char *prefix=app_read(dir,prefix_name,&prefix_size);
     unsigned char *core=app_read(dir,core_name,&core_size);
     pgm_check(prefix,prefix_size);pgm_check(core,core_size);
-    if(editor&&be16(prefix+6)+be16(prefix+10)<768)
-        fail("NCEDIT needs 768 bytes of reusable loader memory");
+    if(editor&&be16(prefix+6)+be16(prefix+10)<800)
+        fail("NCEDIT needs 800 bytes of reusable loader memory");
     if(paint&&be16(prefix+6)+be16(prefix+10)<512)
         fail("Paint needs 512 bytes of reusable loader memory");
     if(ramloader&&be16(core+8)!=0) fail("RAMCORE entry must be zero");
@@ -296,7 +296,7 @@ static void pgm_bundle_info(const char *kind,const char *dir) {
     fprintf(f,"{\"bytes\":%zu,\"code\":%u,\"bss\":%u,\"ram_bytes\":%u,\"relocations\":%u,\"sha256\":\"%s\",\"streamed_relocations\":true",
             size,code,bss,code+bss,relocations,digest);
     unsigned core_ram=be16(core+6)+be16(core+10),prefix_ram=be16(prefix+6)+be16(prefix+10);
-    if(editor) fprintf(f,",\"loader_ram_bytes\":%u,\"loader_reused_bytes\":768,\"base_ram_bytes\":%u,\"viewport_tail_40_text\":200,\"viewport_tail_40_graphics\":160,\"viewport_tail_80_text\":1200,\"viewport_tail_80_graphics\":1120,\"optional_cache_bytes\":512,\"total_ram_bytes\":%u",prefix_ram,core_ram+prefix_ram,core_ram+prefix_ram+1200+512);
+    if(editor) fprintf(f,",\"loader_ram_bytes\":%u,\"loader_reused_bytes\":592,\"base_ram_bytes\":%u,\"viewport_tail_40_text\":0,\"viewport_tail_40_graphics\":0,\"viewport_tail_80_text\":0,\"viewport_tail_80_graphics\":0,\"prefix_file_cache_bytes\":512,\"ordinary_viewport_bytes\":80,\"gpu_row_cache_base\":2088960,\"gpu_row_cache_bytes\":6144,\"optional_cache_bytes\":512,\"total_ram_bytes\":%u",prefix_ram,core_ram+prefix_ram,core_ram+prefix_ram+512);
     else if(paint) {
         unsigned maximum=0;const char *names[]={"PNTNAT.PGM","PNTRGB.PGM","PNTHAM.PGM"};
         for(unsigned k=0;k<3;k++) {
