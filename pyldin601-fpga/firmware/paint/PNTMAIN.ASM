@@ -1,4 +1,7 @@
 ; Paint native entry, resource lifetime and event dispatch. MC6800 ISA.
+    .ifdef PNT_TOOLS
+    .define PNT_OVL
+    .endif
     .ifdef PNT_EDIT
     .define PNT_OVL
     .endif
@@ -96,6 +99,8 @@
     extern palette_default
     extern palette_index
     extern palette_ham
+    extern tools_state
+    extern tools_run
     extern draw_event
     extern draw_finish
     extern mouse_init
@@ -211,6 +216,12 @@ overlay_edit
 overlay_action
     jmp main_action
 overlay_files
+    ldaa 4,x
+    cmpa #3
+    bne overlay_file_action
+    jsr tools_run
+    bra overlay_done
+overlay_file_action
     ldaa 5,x
     bne overlay_save
     ldaa p_over_arg
@@ -1045,7 +1056,20 @@ paint_draw_normal
     rts
 paint_draw_edit
     jsr draw_event
+    cmpa #127
+    beq paint_draw_tools
     rts
+paint_draw_tools
+    .ifdef PNT_OVL
+    jsr view_touch
+    ldaa #2
+    staa p_over_arg
+    clrb
+    ldx p_over_call
+    jmp 0,x
+    .else
+    jmp tools_run
+    .endif
 paint_arrow
     db $40,0,0,0,$50,0,0,0,$64,0,0,0,$69,0,0,0
     db $6a,$40,0,0,$6a,$90,0,0,$6a,$a4,0,0,$6a,$a9,0,0
@@ -1053,6 +1077,6 @@ paint_arrow
     db $64,$69,0,0,$50,$1a,$40,0,$40,$06,$90,0,0,$01,$50,0
     .ifdef PNT_OVL
     ; Force identical BSS modules/order even when their code is absent.
-    dw pcx_bits,iff_form_end,draw_error,part_y,p_view_shift
+    dw pcx_bits,iff_form_end,draw_error,part_y,p_view_shift,tools_state
     .endif
     end start

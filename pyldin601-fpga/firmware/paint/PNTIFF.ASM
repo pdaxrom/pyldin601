@@ -1,3 +1,6 @@
+    .ifdef PNT_TOOLS
+    .define PNT_EDIT
+    .endif
 ; HAM8 ILBM: arbitrary 64-colour CMAP, eight bitplanes, raw or ByteRun1.
 ; Canonical RGB666 is decoded row by row; export encodes the visible HAM row.
     public iff_read

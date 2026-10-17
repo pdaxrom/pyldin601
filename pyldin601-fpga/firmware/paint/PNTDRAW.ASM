@@ -40,6 +40,11 @@
     extern p_x1
     extern p_y1
     extern spans
+    public draw_pixel
+    public draw_ensure
+    public draw_address
+    public draw_x
+    public draw_y
     public draw_error
     section
 draw_error ds 1
@@ -108,6 +113,7 @@ draw_finish
     clr p_prev_buttons
     jmp draw_flush
 ; Load A=row, flushing a previously changed row first.
+draw_ensure
 ensure_row
     staa draw_row
     cmpa p_cached_y
@@ -133,6 +139,7 @@ row_ready
 row_return
     rts
 ; X=address of draw_x in the loaded row, including HAM RGB triplets.
+draw_address
 pixel_address
     ldx #draw_x
     ldaa 1,x
@@ -161,6 +168,7 @@ pixel_offset
     staa draw_pointer
     ldx draw_pointer
     rts
+draw_pixel
 pixel
     ldaa draw_y
     jsr ensure_row
@@ -808,6 +816,11 @@ event_release
     jsr line
     bra event_flush
 event_shape
+    cmpa #P_TOOL_FLOOD
+    bcs event_rectangle
+    ldaa #127
+    bra event_return
+event_rectangle
     jsr rectangle
 event_flush
     tsta
@@ -823,6 +836,9 @@ event_return
     ldaa draw_error
     rts
     .else
+draw_pixel
+draw_ensure
+draw_address
 draw_flush
 draw_finish
 draw_event

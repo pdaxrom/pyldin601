@@ -1,3 +1,6 @@
+    .ifdef PNT_TOOLS
+    .define PNT_EDIT
+    .endif
 ; Transactional native image files. Decode and encode the complete new image
 ; in GPU staging pages before committing; Save publishes a closed temp file.
     include PNTABI.INC

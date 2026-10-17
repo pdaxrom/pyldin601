@@ -48,8 +48,11 @@ static void ui_observe(void){
   return_seen++;
  }
 }
+#ifndef PAINT_WAIT_CYCLES
+#define PAINT_WAIT_CYCLES 200000000
+#endif
 static void wait_context(unsigned context){
- uint64_t end=virtual_cycles+200000000;
+ uint64_t end=virtual_cycles+PAINT_WAIT_CYCLES;
  do{until(virtual_cycles+1);
   unsigned wait_entry=PUI_MOUSE_WAIT;
 #ifdef PAINT_ALT_MOUSE_WAIT

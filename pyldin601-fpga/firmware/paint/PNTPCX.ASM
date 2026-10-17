@@ -1,3 +1,6 @@
+    .ifdef PNT_TOOLS
+    .define PNT_EDIT
+    .endif
 ; PCX v5: 1-bit planar (one to four planes), 2-bit packed, 8-bit indexed.
 ; Rows stream through ordinary bounded buffers; no full file is resident.
     public pcx_read

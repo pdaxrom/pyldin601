@@ -1,3 +1,6 @@
+    .ifdef PNT_TOOLS
+    .define PNT_FILES
+    .endif
 ; Magnified viewport and selection state. Canonical/Undo previews stay intact.
     include PNTDEF.INC
     include PNTABI.INC
@@ -11,6 +14,7 @@
     public p_view_shift
     public p_view_x
     public p_view_y
+    public view_front
     public view_grid
     public p_sel_active
     public p_sel_left

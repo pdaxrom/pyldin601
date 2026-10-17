@@ -1,6 +1,6 @@
     include DMA.INC
-; Two immutable native PGM images in 1D4000..1DFFFF. The first 16K of
-; page 1D belongs to the saved parent bitmap and is never touched here.
+; Edit/files native PGM images in 1D4000..1DFFFF; tools in 1E4000..1EFFFF.
+; The first 16K of each page belongs to native bitmap snapshots.
 cache_fill
     ldaa DMA_COMMAND
     cmpa #'D'
@@ -10,6 +10,12 @@ cache_fill
     stx cache_address
     clr cache_index
 cache_image
+    ldaa cache_index
+    cmpa #2
+    bne cache_image_page
+    ldx #$4000
+    stx cache_address
+cache_image_page
     ldx load_buffer
     cpx #$a55a
     beq *+5
@@ -50,20 +56,16 @@ cache_sizes
     bcc *+5
     jmp loader_bad
     ldx #load_bases
-    tst cache_index
-    beq cache_base
-    inx
-    inx
+    ldab cache_index
+    jsr cache_indexed
 cache_base
     ldaa cache_address
     ldab cache_address+1
     staa 0,x
     stab 1,x
     ldx #load_extents
-    tst cache_index
-    beq cache_extent
-    inx
-    inx
+    ldab cache_index
+    jsr cache_indexed
 cache_extent
     ldaa cache_size
     ldab cache_size+1
@@ -99,6 +101,11 @@ cache_chunk_size
     jmp loader_bad
     clr move_src_page
     ldaa #$1d
+    ldab cache_index
+    cmpb #2
+    bne cache_destination
+    inca
+cache_destination
     staa move_dst_page
     ldx cache_address
     stx move_target
@@ -122,7 +129,7 @@ cache_chunk_size
     bne cache_chunk
     inc cache_index
     ldaa cache_index
-    cmpa #2
+    cmpa #3
     beq cache_complete
     ldaa load_payload+1
     adda cache_size+1
@@ -169,6 +176,11 @@ cache_read
     adca load_cache_pos
     staa move_source
     ldaa #$1d
+    ldab load_current
+    cmpb #2
+    bne cache_source
+    inca
+cache_source
     staa move_src_page
     clr move_dst_page
     ldx load_io
@@ -212,7 +224,7 @@ cache_range_ok
 cache_range_bad
     ldaa #65
     rts
-; Core tail-jumps here with A=next overlay (0 edit,1 files), B=action/result.
+; Core tail-jumps here with A=next overlay (0 edit,1 files,2 tools), B=action/result.
 ; Discard its call frames, retaining the original core allocation and BSS.
 loader_switch
     clr load_recover
@@ -229,23 +241,7 @@ switch_resume
     stab load_api+5
     inca
     staa load_api+4
-    deca
-    asla
-    tab
-    ldx #load_bases
-    tstb
-    beq *+4
-    inx
-    inx
-    ldx 0,x
-    stx load_cache_base
-    ldx #load_extents
-    tstb
-    beq *+4
-    inx
-    inx
-    ldx 0,x
-    stx load_cache_size
+    jsr cache_select
     ldx #0
     stx load_position+2
     jsr loader_seek
@@ -302,4 +298,28 @@ cache_busy
 cache_finished
     anda #DMA_ERROR
 cache_move_done
+    rts
+
+; X is an array of BE16 entries, B is an overlay index.
+cache_indexed
+    tstb
+    beq cache_indexed_end
+cache_indexed_next
+    inx
+    inx
+    decb
+    bne cache_indexed_next
+cache_indexed_end
+    rts
+cache_select
+    ldx #load_bases
+    ldab load_current
+    jsr cache_indexed
+    ldx 0,x
+    stx load_cache_base
+    ldx #load_extents
+    ldab load_current
+    jsr cache_indexed
+    ldx 0,x
+    stx load_cache_size
     rts

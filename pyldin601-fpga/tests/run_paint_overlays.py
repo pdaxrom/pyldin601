@@ -17,6 +17,7 @@ out = ROOT/'build/paint-overlays'
 subprocess.run([str(ROOT/'build/firmware-data'),'labels',str(out/'PNTOVL.LST'),str(out/'OVL.h'),'OVL'],check=True)
 subprocess.run([str(ROOT/'build/firmware-data'), 'public-labels', str(out/'PAINT.MAP'), str(out/'PUI.h'), 'PUI'], check=True)
 subprocess.run([str(ROOT/'build/firmware-data'), 'public-labels', str(out/'PNTFIO.MAP'), str(out/'PIO.h'), 'PIO'], check=True)
+subprocess.run([str(ROOT/'build/firmware-data'), 'public-labels', str(out/'PNTOPS.MAP'), str(out/'POP.h'), 'POP'], check=True)
 files = {'PAINTUI.PGM': (out/'PAINT.PGM').read_bytes()}
 shutil.copyfile(ROOT/'tests/paint_graph.asm', out/'PGRAPH.ASM')
 subprocess.run([assembler_path(), '-o', 'PGRAPH.PGM', 'PGRAPH.ASM'], cwd=out, stdout=subprocess.DEVNULL, check=True)

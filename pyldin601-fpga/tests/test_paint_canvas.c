@@ -4,6 +4,18 @@
 #include "paint_dma_model.h"
 #include "../build/paint/PCTEST.h"
 static unsigned base;
+static unsigned tool_cancel_phase,tool_cancel_sent;
+static unsigned tool_fault_phase,tool_fault_start,tool_fault_seen;
+static int tools_dma_read(uint16_t a,unsigned char*out){
+ int yes=paint_dma_read(a,out);
+ if(yes&&a==0xe6e0&&tool_fault_phase&&paint_jobs>tool_fault_start&&virtual_cycles>=paint_until){
+  unsigned dest=paint_u24(3),doc=r[base+PCT_P_DOC_PAGE]*65536;
+  if(tool_fault_phase==1||(r[base+PCT_P_STROKE_SAVED]&&dest>=doc&&dest<doc+192000)){
+   *out|=16;tool_fault_phase=0;tool_fault_seen++;
+  }
+ }
+ return yes;
+}
 static unsigned paint_call(unsigned offset,unsigned a,unsigned x){
  unsigned pc0=PC,sp0=SP,a0=A,b0=B,x0=X,h0=h,i0=i,n0=n,z0=z,v0=v,c0=c,p0=page,g0=ram_group;
  r[SP--]=pc0;r[SP--]=pc0>>8;PC=base+offset;A=a;X=x;
@@ -13,7 +25,12 @@ static unsigned paint_call(unsigned offset,unsigned a,unsigned x){
  require(SP==sp0&&page==p0&&ram_group==g0&&i==i0,"Paint canvas preserves stack, selectors and IRQ mask");
  PC=pc0;A=a0;B=b0;X=x0;h=h0;i=i0;n=n0;z=z0;v=v0;c=c0;return status;
 }
-static void seen(void){if(!base&&PC>=0x100&&PC<0xb000&&r[PC]==0x20&&!memcmp(r+PC+2,"PCT1",4))base=PC;}
+static void seen(void){
+ if(base&&tool_cancel_phase){
+  if(!tool_cancel_sent&&PC==base+PCT_TOOLS_POLL&&(tool_cancel_phase==1||r[base+PCT_P_STROKE_SAVED])){KBDKeyDown(1);tool_cancel_sent=1;}
+  if(tool_cancel_sent==1&&PC==base+PCT_TOOLS_ABORT){KBDKeyUpCode(1);tool_cancel_sent=2;}
+ }
+ if(!base&&PC>=0x100&&PC<0xb000&&r[PC]==0x20&&!memcmp(r+PC+2,"PCT1",4))base=PC;}
 static unsigned u16(unsigned off){return r[base+off]*256+r[base+off+1];}
 static void set16(unsigned off,unsigned n){word_at(base+off,n);}
 static void expected(unsigned kind,unsigned width,const unsigned char*src,unsigned char*out,unsigned*count,unsigned ext){
@@ -61,11 +78,14 @@ static void test_palette(void){
   require(!paint_call(PCT_PALETTE_RESTORE,0,0)&&!r[base+PCT_P_PALETTE_SAVED]&&readback==old_read&&!memcmp(pal,original,8192),"palette cleanup restores every original sample and port state");
  }
 }
+static const char*tool_stage="existing";
 static unsigned strokes;
 static uint64_t ham_pixel_cycles,ham_full_cycles;
 static void event(unsigned x,unsigned y,unsigned buttons,unsigned wide){
  set16(PCT_P_EVENT_X,wide?x:2*x);r[base+PCT_P_EVENT_Y]=y;r[base+PCT_P_EVENT_BUTTONS]=buttons;
- require(!paint_call(PCT_DRAW_EVENT,0,0),"native drawing event completes");
+ unsigned status=paint_call(PCT_DRAW_EVENT,0,0);
+ if(status==127)status=paint_call(PCT_TOOLS_RUN,0,0);
+ require(!status,"native drawing event completes");
 }
 static void oracle_dot(unsigned char*doc,unsigned width,unsigned kind,int x,int y,unsigned brush,const unsigned char*colour){
  for(unsigned j=0;j<brush;j++)for(unsigned k=0;k<brush;k++){
@@ -79,6 +99,7 @@ static void oracle_line(unsigned char*doc,unsigned width,unsigned kind,int x,int
 }
 static void compare_drawing(const unsigned char*doc,unsigned width,unsigned kind,unsigned ext,unsigned frame){
  unsigned stride=width*(kind==4?3:1),page=r[base+PCT_P_DOC_PAGE];
+ if(memcmp(physical+page*65536,doc,stride*200)){unsigned off=0;while(physical[page*65536+off]==doc[off])off++;fprintf(stderr,"Tool mismatch stage=%s kind=%u x=%u y=%u channel=%u actual=%u expected=%u span=%u..%u\n",tool_stage,kind,(off%stride)/(kind==4?3:1),off/stride,off%3,physical[page*65536+off],doc[off],u16(PCT_SPANS+off/stride*4),u16(PCT_SPANS+off/stride*4+2));}
  require(!memcmp(physical+page*65536,doc,stride*200),"drawn canonical pixels match independent geometric oracle");
  unsigned char row[640];unsigned count;
  for(unsigned y=0;y<200;y++){
@@ -135,6 +156,88 @@ static void test_ham_partial(unsigned frame){
  }
  memcpy(r+base+PCT_P_ROW,doc+31*960,960);uint64_t before=virtual_cycles;require(!paint_call(PCT_CANVAS_SHOW,31,0),"full HAM reference encode");ham_full_cycles=virtual_cycles-before;
  require(ham_pixel_cycles<ham_full_cycles,"incremental HAM stroke including Undo snapshot is faster than one full row");r[base+PCT_P_CACHED_Y]=255;free(doc);
+}
+// Independent implicit equation, not the target's incremental differences.
+static void oracle_ellipse(unsigned char*doc,unsigned width,unsigned kind,unsigned l,unsigned t,unsigned rr,unsigned b,unsigned solid,const unsigned char*colour){
+ unsigned char mask[128000]={0};long long w=rr-l+1,h=b-t+1;
+ for(unsigned y=t;y<=b;y++){
+  unsigned count=0;for(unsigned x=l;x<=rr;x++){
+   long long dx=2*(long long)x-l-rr,dy=2*(long long)y-t-b;
+   if(dx*dx*h*h+dy*dy*w*w<=w*w*h*h){mask[y*width+x]=1;count++;}
+  }
+  if(!count)mask[y*width+(l+rr)/2]=mask[y*width+(l+rr+1)/2]=1;
+ }
+ for(unsigned y=t;y<=b;y++)for(unsigned x=l;x<=rr;x++)if(mask[y*width+x]&&(solid||x==l||x==rr||y==t||y==b||!mask[y*width+x-1]||!mask[y*width+x+1]||!mask[(y-1)*width+x]||!mask[(y+1)*width+x]))oracle_dot(doc,width,kind,x,y,1,colour);
+}
+static void oracle_flood(unsigned char*doc,unsigned width,unsigned kind,unsigned x,unsigned y,const unsigned char*colour){
+ unsigned channels=kind==4?3:1,head=0,tail=0;unsigned char old[3];memcpy(old,doc+(y*width+x)*channels,channels);
+ if(!memcmp(old,colour,channels))return;
+ unsigned*queue=malloc(width*200*sizeof(unsigned));require(queue!=NULL,"independent flood queue");queue[tail++]=y*width+x;memcpy(doc+(y*width+x)*channels,colour,channels);
+ while(head<tail){unsigned at=queue[head++],xx=at%width,yy=at/width;unsigned neighbours[4],n=0;
+  if(xx)neighbours[n++]=at-1;if(xx+1<width)neighbours[n++]=at+1;if(yy)neighbours[n++]=at-width;if(yy<199)neighbours[n++]=at+width;
+  for(unsigned k=0;k<n;k++){unsigned next=neighbours[k];if(!memcmp(doc+next*channels,old,channels)){memcpy(doc+next*channels,colour,channels);queue[tail++]=next;}}
+ }
+ free(queue);
+}
+static void test_tools(unsigned kind,unsigned width,unsigned ext,unsigned frame){
+ unsigned channels=kind==4?3:1,size=width*200*channels;unsigned char*doc=calloc(size,1),*saved=malloc(size);require(doc&&saved,"new-tool oracles");
+ require(!paint_call(PCT_CANVAS_BLANK,0,0),"blank tool canvas");r[base+PCT_P_CACHED_Y]=255;r[base+PCT_P_ROW_DIRTY]=0;
+ unsigned char fg[3]={kind<2?1:kind==2?3:197,19,43},paint[3]={kind<2?1:kind==2?2:93,11,61};if(kind==4){fg[0]=47;paint[0]=12;}
+ r[base+PCT_P_FG]=fg[0];memcpy(r+base+PCT_P_FG_RGB,fg,3);r[base+PCT_P_TOOL]=7;
+ tool_stage="outline";event(width-1,199,1,kind==1);event(0,0,0,kind==1);oracle_ellipse(doc,width,kind,0,0,width-1,199,0,fg);compare_drawing(doc,width,kind,ext,frame);
+ tool_stage="outline-undo";memcpy(saved,doc,size);require(!paint_call(PCT_CANVAS_UNDO,0,0),"ellipse is one Undo");memset(doc,0,size);compare_drawing(doc,width,kind,ext,frame);require(!paint_call(PCT_CANVAS_UNDO,1,0),"ellipse Redo");tool_stage="outline-redo";memcpy(doc,saved,size);compare_drawing(doc,width,kind,ext,frame);
+ r[base+PCT_P_FG]=paint[0];memcpy(r+base+PCT_P_FG_RGB,paint,3);r[base+PCT_P_TOOL]=6;tool_stage="flood";
+ event(width/2,100,1,kind==1);event(width/2,100,0,kind==1);oracle_flood(doc,width,kind,width/2,100,paint);compare_drawing(doc,width,kind,ext,frame);
+ // Filling the same canonical colour must not replace the preceding Undo.
+ unsigned char serial[4];memcpy(serial,r+base+PCT_P_DOC_SERIAL,4);event(width/2,100,1,kind==1);event(width/2,100,0,kind==1);require(!memcmp(serial,r+base+PCT_P_DOC_SERIAL,4),"same-colour fill is a no-op");
+ require(!paint_call(PCT_CANVAS_UNDO,0,0),"whole flood is one Undo");memcpy(doc,saved,size);compare_drawing(doc,width,kind,ext,frame);require(!paint_call(PCT_CANVAS_UNDO,1,0),"whole flood Redo");oracle_flood(doc,width,kind,width/2,100,paint);compare_drawing(doc,width,kind,ext,frame);
+ r[base+PCT_P_TOOL]=8;event(110,90,1,kind==1);event(17,19,0,kind==1);oracle_ellipse(doc,width,kind,17,19,110,90,1,paint);compare_drawing(doc,width,kind,ext,frame);
+ // Border seeds, outside component, monochrome background fill, and page crossings.
+ r[base+PCT_P_TOOL]=6;event(0,0,1,kind==1);event(0,0,0,kind==1);oracle_flood(doc,width,kind,0,0,paint);compare_drawing(doc,width,kind,ext,frame);
+ // Cancellation both before mutation and during application restores bytes,
+ // preview and saved/modified generation; a held Esc is drained on return.
+ for(unsigned phase=1;phase<=2;phase++){
+  tool_stage=phase==1?"cancel-discovery":"cancel-apply";memcpy(saved,doc,size);
+  unsigned char modified=r[base+PCT_P_MODIFIED],serial[4];memcpy(serial,r+base+PCT_P_DOC_SERIAL,4);
+  r[base+PCT_P_FG]=kind<2?0:7;memset(r+base+PCT_P_FG_RGB,0,3);
+  tool_cancel_phase=phase;tool_cancel_sent=0;event(0,0,1,kind==1);event(0,0,0,kind==1);tool_cancel_phase=0;
+  require(tool_cancel_sent==2,"Esc is observed in the requested fill phase");
+  require(modified==r[base+PCT_P_MODIFIED]&&!memcmp(serial,r+base+PCT_P_DOC_SERIAL,4),"cancel restores document generation");compare_drawing(saved,width,kind,ext,frame);
+ }
+ // A one-shot DMA error before or after writing canonical pixels must
+ // return an error and restore the complete document and encoded preview.
+ if(kind==3||kind==4)for(unsigned tool=6;tool<=8;tool++)for(unsigned phase=1;phase<=2;phase++){
+  tool_stage="DMA rollback";memcpy(saved,doc,size);
+  unsigned char modified=r[base+PCT_P_MODIFIED],serial[4];memcpy(serial,r+base+PCT_P_DOC_SERIAL,4);
+  r[base+PCT_P_TOOL]=tool;r[base+PCT_P_FG]=7;memset(r+base+PCT_P_FG_RGB,0,3);
+  event(0,0,1,kind==1);set16(PCT_P_EVENT_X,200);r[base+PCT_P_EVENT_Y]=60;r[base+PCT_P_EVENT_BUTTONS]=0;
+  require(paint_call(PCT_DRAW_EVENT,0,0)==127,"new tool dispatch for DMA fault");
+  tool_fault_start=paint_jobs;tool_fault_phase=phase;unsigned old=tool_fault_seen;
+  require(paint_call(PCT_TOOLS_RUN,0,0)==2&&tool_fault_seen==old+1,"new tool reports injected DMA error");
+  require(modified==r[base+PCT_P_MODIFIED]&&!memcmp(serial,r+base+PCT_P_DOC_SERIAL,4),"DMA rollback restores document generation");compare_drawing(saved,width,kind,ext,frame);
+ }
+ if(kind==3||kind==1){
+  const unsigned box[][4]={{7,9,7,9},{0,0,3,0},{2,0,2,199},{10,10,11,199},{0,0,2,2},{16,17,17,18}};
+  r[base+PCT_P_FG]=fg[0];memcpy(r+base+PCT_P_FG_RGB,fg,3);
+  for(unsigned filled=0;filled<2;filled++)for(unsigned n=0;n<sizeof box/sizeof box[0];n++){
+   tool_stage="degenerate ellipse";r[base+PCT_P_TOOL]=7+filled;
+   event(box[n][2],box[n][3],1,kind==1);event(box[n][0],box[n][1],0,kind==1);
+   oracle_ellipse(doc,width,kind,box[n][0],box[n][1],box[n][2],box[n][3],filled,fg);compare_drawing(doc,width,kind,ext,frame);
+  }
+ }
+ if(kind==3||kind==4){
+  // Connected comb and one-pixel channels require revisiting rows; the
+  // pixel BFS oracle has no row queue or target bitmap in common with ASM.
+  memset(doc,0,size);for(unsigned y=0;y<200;y++)for(unsigned x=0;x<width;x++){
+   if(y%4==0&&x+1<width)memcpy(doc+(y*width+x)*channels,fg,channels);
+   if(y%4==2&&x)memcpy(doc+(y*width+x)*channels,fg,channels);
+  }
+  for(unsigned y=0;y<200;y++){memcpy(r+base+PCT_P_ROW,doc+y*width*channels,width*channels);require(!paint_call(PCT_CANVAS_STORE,y,0)&&!paint_call(PCT_CANVAS_SHOW,y,0),"prepare canonical comb fixture");}
+  r[base+PCT_P_CACHED_Y]=255;r[base+PCT_P_ROW_DIRTY]=0;r[base+PCT_P_TOOL]=6;r[base+PCT_P_FG]=paint[0];memcpy(r+base+PCT_P_FG_RGB,paint,3);
+  tool_stage="comb fill";event(width-1,0,1,kind==1);event(width-1,0,0,kind==1);oracle_flood(doc,width,kind,width-1,0,paint);compare_drawing(doc,width,kind,ext,frame);
+  unsigned char black[3]={0};tool_stage="background fill";event(width-1,0,2,kind==1);event(width-1,0,0,kind==1);oracle_flood(doc,width,kind,width-1,0,black);compare_drawing(doc,width,kind,ext,frame);
+ }
+ free(doc);free(saved);
 }
 static uint32_t io_at(unsigned label){unsigned char*p=r+base+label;return (uint32_t)p[0]<<24|p[1]<<16|p[2]<<8|p[3];}
 static void input_open(const char*path){
@@ -208,7 +311,7 @@ static void test_iff(const char*model,const char*cpu){
 int main(int argc,char**argv){
  if(argc!=4)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
- image=load(argv[1],&image_size);committed=1;dma_mmio_read=paint_dma_read;dma_mmio_write=paint_dma_write;
+ image=load(argv[1],&image_size);committed=1;dma_mmio_read=tools_dma_read;dma_mmio_write=paint_dma_write;
  MC6800Init();MC6800Reset();r=MC6800GetCpuRam();until(60000000);key(0x1c);key(0x1c);prompt_wait();unsigned sp0=SP,banks=free_banks();
  native_step_hook=seen;
  key(0x30);KBDModKeyDown(2);key(0x27);KBDModKeyUp(2);key(0x19);key(0x2e);key(0x14);key(0x12);key(0x1f);key(0x14);key(0x1c);
@@ -251,7 +354,7 @@ int main(int argc,char**argv){
   require(!paint_call(PCT_CANVAS_UNDO,1,0)&&r[base+PCT_P_HAVE_UNDO]&&!r[base+PCT_P_HAVE_REDO]&&r[base+PCT_P_MODIFIED],"Redo reapplies serial and enables Undo");
   for(unsigned x=0;x<stride*200;x++)require(!physical[0x120000+x],"Redo restores changed canonical pixels");
   if(ext)require(front==0,"Redo flips to changed preview page at VBL");
-  test_drawing(kind,width,ext,frame);
+  test_drawing(kind,width,ext,frame);test_tools(kind,width,ext,frame);
   if(kind==4)test_ham_partial(frame);
   paint_call(PCT_BACKEND_CLOSE,0,0);free(doc);free(preview);cases++;
  }
@@ -260,5 +363,5 @@ int main(int argc,char**argv){
  test_pcx(argv[2],argv[3]);
  test_iff(argv[2],argv[3]);
  PC=base+PCT_PROBE_EXIT;prompt_wait();require(SP==sp0&&free_banks()==banks,"canvas/module cleanup restores DOS stack and bank leases");
- printf("PASS Paint canvas %s/%s: %u formats, %u row boundaries, %u strokes, %u flat DMA jobs, geometric/preview oracle, Undo/Redo, 61440 PAL samples, 131328-byte native stream/seek/EOF/flush, cleanup/IRQs; HAM worst pixel %llu cycles, full row %llu\n",argv[2],argv[3],cases,rows,strokes,paint_jobs,(unsigned long long)ham_pixel_cycles,(unsigned long long)ham_full_cycles);return 0;
+ printf("PASS Paint canvas %s/%s: %u formats, %u row boundaries, %u strokes, %u flat DMA jobs, geometric/BFS flood oracle, ellipse degeneracies, cancellation and DMA rollback before/during writes, preview, Undo/Redo, 61440 PAL samples, 131328-byte native stream/seek/EOF/flush, cleanup/IRQs; HAM worst pixel %llu cycles, full row %llu\n",argv[2],argv[3],cases,rows,strokes,paint_jobs,(unsigned long long)ham_pixel_cycles,(unsigned long long)ham_full_cycles);return 0;
 }

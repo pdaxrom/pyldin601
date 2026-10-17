@@ -64,16 +64,17 @@ expected += ['NCUI.LIB', 'NCMAIN.PGM', 'NCMAIN.MAP', 'NCECORE.PGM',
              'NCEDIT.MAP', 'NCEDIT.PGM']
 from build_paint import MODULES, VARIANTS
 for name in MODULES+['PNTCOM','PNTEND']:
-    for suffix, flag in ([('EDO','PNT_EDIT'),('FIO','PNT_FILES')] if name in VARIANTS else [('OBJ','PNT_EDIT')]):
+    for suffix, flag in ([('EDO','PNT_EDIT'),('FIO','PNT_FILES'),('TOO','PNT_TOOLS')] if name in VARIANTS else [('OBJ','PNT_EDIT')]):
         assemble(ROOT/f'firmware/paint/{name}.ASM', name+'.'+suffix, '-c -D '+flag)
 assemble(ROOT/'firmware/paint/PNTOVL.ASM', 'PNTBOOT.PGM')
-for name in ('PAINT.LNK','PNTFIO.LNK'):
+for name in ('PAINT.LNK','PNTFIO.LNK','PNTOPS.LNK'):
     sources[name]=(ROOT/'firmware/paint'/name).read_bytes()
 commands += ['uniar r PNTCOM.LIB PNTCOM.OBJ NCKEY.OBJ MOUSE.OBJ',
              'unild -z 16768 -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK',
              'unild -z 16768 -m PNTFIO.MAP -o PNTFIO.PGM @PNTFIO.LNK',
-             'unild -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM PNTFIO.PGM']
-expected += ['PNTCOM.LIB','PAINT.MAP','PNTFIO.MAP','PNTCORE.PGM','PNTFIO.PGM','PAINT.PGM']
+             'unild -z 16768 -m PNTOPS.MAP -o PNTOPS.PGM @PNTOPS.LNK',
+             'unild -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM PNTFIO.PGM PNTOPS.PGM']
+expected += ['PNTCOM.LIB','PAINT.MAP','PNTFIO.MAP','PNTCORE.PGM','PNTFIO.PGM','PNTOPS.MAP','PNTOPS.PGM','PAINT.PGM']
 for directory, names in (
     ('game', ('ARKANOID', 'XONIX', 'SDKTEST')),
     ('gfx', ('VIEW', 'HVIEW', 'HAM', 'SPRITES', 'CLIPSPR')),

@@ -1,13 +1,15 @@
+#define PAINT_WAIT_CYCLES 500000000
 #define PAINT_UI_HEADER "../build/paint-overlays/PUI.h"
 #define PAINT_UI_MAIN unused_paint_ui_main
 #include "../build/paint-overlays/OVL.h"
 #include "../build/paint-overlays/PIO.h"
+#include "../build/paint-overlays/POP.h"
 static unsigned supervisor;
 static unsigned lowest_stack=65535;
-static unsigned fault_job,fault_seen;
+static unsigned fault_job,fault_seen,tool_entries;
 
-#define PAINT_ALT_MOUSE_WAIT PIO_MOUSE_WAIT
-#define PAINT_OVERLAY_IS_FILE (supervisor&&r[supervisor+OVL_LOAD_API+4]==2)
+#define PAINT_ALT_MOUSE_WAIT ((supervisor&&r[supervisor+OVL_LOAD_API+4]==3)?POP_MOUSE_WAIT:PIO_MOUSE_WAIT)
+#define PAINT_OVERLAY_IS_FILE (supervisor&&r[supervisor+OVL_LOAD_API+4]>=2)
 #include "test_paint_ui.c"
 static int overlay_dma_read(uint16_t a,unsigned char*out){
  int yes=paint_dma_read(a,out);
@@ -16,6 +18,7 @@ static int overlay_dma_read(uint16_t a,unsigned char*out){
 }
 static void overlay_observe(void){
  ui_observe();
+ if(supervisor&&base&&r[supervisor+OVL_LOAD_API+4]==3&&PC==base+POP_TOOLS_RUN)tool_entries++;
  if(base&&PC>=base&&PC<base+PUI_BSS_START&&SP<lowest_stack)lowest_stack=SP;
  if(!supervisor&&PC>=0x100&&PC<0xbc00&&r[PC]==0x20&&!memcmp(r+PC+2,"PNTO",4))supervisor=PC;
  if(supervisor&&PC==supervisor+OVL_LOADER_ERROR)fprintf(stderr,"Overlay supervisor error A=%u cache=%u index=%u\n",A,r[supervisor+OVL_LOAD_CACHED],r[supervisor+OVL_CACHE_INDEX]);
@@ -32,6 +35,7 @@ static void check_view(void){
 static void control(unsigned scan){KBDModKeyDown(1);key(scan);KBDModKeyUp(1);wait_context(0);}
 
 
+static const char*ham_stage="existing";
 static void check_ham_view(void){
  unsigned shift=r[base+PUI_P_VIEW_SHIFT],x0=ramword(base+PUI_P_VIEW_X),y0=r[base+PUI_P_VIEW_Y],doc=r[base+PUI_P_DOC_PAGE]*65536;
  for(unsigned y=0;y<200;y++){
@@ -46,6 +50,7 @@ static void check_ham_view(void){
     if(code<64){rgb[0]=(code>>4)*21;rgb[1]=((code>>2)&3)*21;rgb[2]=(code&3)*21;}else rgb[code<128?2:code<192?0:1]=code&63;
     unsigned e=0;for(unsigned j=0;j<3;j++)e+=rgb[j]>want[j]?rgb[j]-want[j]:want[j]-rgb[j];if(e<best_error){best_error=e;best=code;}
    }
+   if(physical[0x100000+front*65536+y*320+x]!=best)fprintf(stderr,"HAM view mismatch stage=%s x=%u y=%u origin=%u,%u shift=%u actual=%u expected=%u selection=%u\n",ham_stage,x,y,x0,y0,shift,physical[0x100000+front*65536+y*320+x],best,r[base+PUI_P_SEL_ACTIVE]);
    require(physical[0x100000+front*65536+y*320+x]==best,"HAM zoom and grid match an independent exhaustive encoder");
    if(best<64){held[0]=(best>>4)*21;held[1]=((best>>2)&3)*21;held[2]=(best&3)*21;}else held[best<128?2:best<192?0:1]=best&63;
   }
@@ -61,6 +66,21 @@ int main(int argc,char**argv){
  if(!strcmp(argv[5],"busy")){require(!invoke(0xe5,1,banks0,0x9000),"reserve every RAMMAN bank");memcpy(foreign,r+0x9000,banks0+3);}
  native_step_hook=overlay_observe;watch_resets=1;text(native?"b:pgraph":"b:paintui");key(0x1c);wait_context(0);
  require(r[base+PUI_BACKEND_BANKED]==!strcmp(argv[5],"banked"),"enhanced Paint keeps its ordinary RAM fallback");
+ // All new tools execute through the third production overlay.
+ key(0x3f);wait_context(5);key(0xa);wait_context(0);require(r[base+PUI_P_TOOL]==8,"F5 ninth item selects filled ellipse");
+ mouse(40,20,0);mouse(40,20,1);mouse(160,80,1);mouse(160,80,0);
+ unsigned td=r[base+PUI_P_DOC_PAGE]*65536;
+ require(physical[td+50*320+50]==255&&!physical[td+20*320+20],"filled ellipse executes from cached tools overlay");
+ key(0x41);wait_context(0);require(!r[base+PUI_P_MODIFIED],"ellipse Undo returns to the initial clean generation");
+ key(0x3f);wait_context(5);key(9);wait_context(0);require(r[base+PUI_P_TOOL]==7,"F5 eighth item selects ellipse outline");
+ mouse(40,20,0);mouse(40,20,1);mouse(160,80,0);td=r[base+PUI_P_DOC_PAGE]*65536;
+ require(!physical[td+50*320+50]&&physical[td+50*320+20]==255,"outline keeps its interior clear");
+ key(0x3f);wait_context(5);key(8);wait_context(0);require(r[base+PUI_P_TOOL]==6,"F5 seventh item selects flood fill");
+ mouse(100,50,0);mouse(100,50,1);mouse(100,50,0);td=r[base+PUI_P_DOC_PAGE]*65536;
+ require(physical[td+50*320+50]==255&&!physical[td],"flood fills the bounded component and preserves outside pixels");
+ key(0x41);wait_context(0);td=r[base+PUI_P_DOC_PAGE]*65536;require(!physical[td+50*320+50]&&physical[td+50*320+20]==255,"flood Undo restores the complete outline");
+ require(tool_entries>=3,"new operations execute the tools overlay, then return to edit code");
+ format(3);key(0x30);wait_context(0);
  mouse(20,20,0);mouse(20,20,1);mouse(80,50,1);mouse(80,50,0);
  unsigned char*expected=malloc(64000);memcpy(expected,physical+r[base+PUI_P_DOC_PAGE]*65536,64000);
  fault_job=paint_jobs+2;key(0x3c);wait_context(4);key(1);wait_context(0);require(fault_seen==1&&!memcmp(expected,physical+r[base+PUI_P_DOC_PAGE]*65536,64000),"failed code DMA restores a complete edit overlay and preserves the document");
@@ -93,11 +113,20 @@ int main(int argc,char**argv){
  format(4);r[base+PUI_P_FG_RGB]=53;r[base+PUI_P_FG_RGB+1]=12;r[base+PUI_P_FG_RGB+2]=41;key(0x30);wait_context(0);mouse(40,30,0);mouse(40,30,1);mouse(120,70,1);mouse(120,70,0);
  unsigned char*ham=malloc(192000);memcpy(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000);mouse(40,30,0);key(0x2c);wait_context(0);check_ham_view();key(0x2c);wait_context(0);check_ham_view();
  key(0x2c);wait_context(0);key(0x2c);wait_context(0);key(0x1f);wait_context(0);mouse(40,30,0);mouse(40,30,1);mouse(120,70,1);mouse(120,70,0);control(0x2e);mouse(400,100,0);control(0x2f);
- for(unsigned y=0;y<41;y++)for(unsigned x=0;x<41;x++)require(!memcmp(physical+r[base+PUI_P_DOC_PAGE]*65536+((100+y)*320+200+x)*3,ham+((30+y)*320+20+x)*3,3),"HAM clipboard retains complete RGB666 triplets across pages");key(0x41);wait_context(0);require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"HAM Paste Undo restores all canonical bytes");control(0x1e);control(0x2e);require(!memcmp(ham,physical+0x190000,192000),"full HAM clipboard preserves all three canonical pages");free(ham);
+ for(unsigned y=0;y<41;y++)for(unsigned x=0;x<41;x++)require(!memcmp(physical+r[base+PUI_P_DOC_PAGE]*65536+((100+y)*320+200+x)*3,ham+((30+y)*320+20+x)*3,3),"HAM clipboard retains complete RGB666 triplets across pages");key(0x41);wait_context(0);require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"HAM Paste Undo restores all canonical bytes");control(0x1e);control(0x2e);require(!memcmp(ham,physical+0x190000,192000),"full HAM clipboard preserves all three canonical pages");
+ key(0x3f);wait_context(5);key(0xa);wait_context(0);key(0x2c);wait_context(0);ham_stage="before ellipse";check_ham_view();
+ mouse(100,50,0);mouse(100,50,1);mouse(300,100,0);ham_stage="after ellipse";check_ham_view();
+ require(r[base+PUI_P_CLIP_VALID]&&!memcmp(ham,physical+0x190000,192000),"ellipse under zoom preserves the full HAM clipboard");
+ key(0x41);wait_context(0);check_ham_view();require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"zoomed ellipse Undo restores canonical HAM bytes");
+ key(0x3f);wait_context(5);mouse(7*(model_a?8:16)+3,14*8+3,0);mouse(7*(model_a?8:16)+3,14*8+3,1);wait_context(0);require(r[base+PUI_P_TOOL]==6,"mouse selects Flood fill from F5");
+ mouse(10,10,0);mouse(10,10,1);mouse(10,10,0);ham_stage="after fill";check_ham_view();
+ require(r[base+PUI_P_CLIP_VALID]&&!memcmp(ham,physical+0x190000,192000),"flood workspace never touches the clipboard or displayed zoom page");
+ key(0x41);wait_context(0);check_ham_view();require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"zoomed HAM fill Undo restores the full canonical document");
+ free(ham);
  if(model_a){format(1);key(0x30);wait_context(0);mouse(638,199,0);mouse(638,199,1);mouse(638,199,0);key(0x2c);wait_context(0);require(r[base+PUI_P_VIEW_SHIFT]==1&&ramword(base+PUI_P_VIEW_X)==320,"640-wide mono viewport reaches its right edge");control(0x1e);control(0x2e);require(r[base+PUI_P_CLIP_VALID],"full 640x200 clipboard spans RAM pages");}
  key(0x44);if(r[base+PUI_P_MODIFIED]){wait_context(3);key(0x15);}prompt_wait();
  if(!strcmp(argv[5],"missing"))invoke(0x2f,0xe5,rp,rv);
  if(!strcmp(argv[5],"busy")){memcpy(r+0x9000,foreign,banks0+3);require(!invoke(0xe5,2,0,0x9000),"release foreign RAMMAN reservation");}
  require(!resets&&return_seen==1&&SP==sp0&&ramword(0xee1e)==heap0&&free_banks()==banks0&&lowest_stack>=0x200,"resident overlay supervisor restores stack, ordinary heap and bank leases");
- printf("PASS Paint overlays %s/%s start%u %s: native file/edit swapping, zoom/grid, selection/clipboard, save/reopen, cleanup, stack%04x\n",argv[2],argv[3],native,argv[5],lowest_stack);return 0;
+ printf("PASS Paint overlays %s/%s start%u %s: native file/edit swapping, zoom/grid, selection/clipboard, flood/ellipses in zoom/HAM, save/reopen, cleanup, stack%04x\n",argv[2],argv[3],native,argv[5],lowest_stack);return 0;
 }

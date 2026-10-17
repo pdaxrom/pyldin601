@@ -103,12 +103,9 @@ loader_validate
     beq *+5
     jmp loader_error
     inc load_cached
-    ldaa #1
+    ldaa #2
     staa load_current
-    ldx load_bases+2
-    stx load_cache_base
-    ldx load_extents+2
-    stx load_cache_size
+    jsr cache_select
     ldx #0
     stx load_position+2
     jsr loader_seek
@@ -304,12 +301,9 @@ loader_ready
     bne loader_run
     tst load_current
     beq loader_run
-    clr load_current
+    dec load_current
     lds load_stack
-    ldx load_bases
-    stx load_cache_base
-    ldx load_extents
-    stx load_cache_size
+    jsr cache_select
     ldx #0
     stx load_position+2
     jsr loader_seek
@@ -420,8 +414,8 @@ load_stack ds 2
 load_api ds 10
 load_current ds 1
 load_recover ds 1
-load_bases ds 4
-load_extents ds 4
+load_bases ds 6
+load_extents ds 6
 load_cache_base ds 2
 load_cache_size ds 2
 load_cache_pos ds 2

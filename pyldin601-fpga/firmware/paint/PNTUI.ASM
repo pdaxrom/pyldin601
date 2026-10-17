@@ -1,5 +1,8 @@
 ; Modal native windows share NC's ROM font, line editor and mouse focus.
 ; The image survives in GPU SRAM, or in a DMA snapshot of its native frame.
+    .ifdef PNT_TOOLS
+    .define PNT_FILES
+    .endif
     .ifdef PNT_EDIT
     .define PNT_OVL
     .endif
@@ -174,18 +177,16 @@ ui_choice
     stx choice_title
     ldaa #5
     staa choice_count
-    .ifdef PNT_OVL
     ldx choice_list
     cpx #p_tool_list
     bne choice_not_tool
-    ldaa #6
+    ldaa #9
 choice_not_tool
     cpx #menu_list
     bne choice_limit
     ldaa #9
 choice_limit
     staa choice_count
-    .endif
     staa p_ui_menu
 choice_draw
     ldx choice_title

@@ -3,6 +3,8 @@
     public probe_exit
     public paint_idle
     public copy_n
+    public add_b
+    extern tools_run
     extern file_header
     public file_row
     public file_config
@@ -43,6 +45,7 @@
     section
 bss_start
 copy_count ds 1
+add_pointer ds 2
 file_row ds 1
 file_buffer ds 512
     ends
@@ -80,6 +83,7 @@ paint_idle
     dw canvas_config,canvas_undo,canvas_show,backend_load
     dw palette_default,palette_index,palette_ham,palette_save,palette_restore
     dw draw_event,draw_finish
+    dw tools_run
     dw io_begin,io_get,io_read,io_write,io_close,io_seek
     dw pcx_read,pcx_write
     dw iff_read,iff_write
@@ -114,5 +118,21 @@ copy_loop
     stx dst
     dec copy_count
     bne copy_loop
+    rts
+add_b
+    tstb
+    beq add_done
+    psha
+    stx add_pointer
+    ldaa add_pointer+1
+    aba
+    staa add_pointer+1
+    bcc add_ready
+    inc add_pointer
+add_ready
+    ldx add_pointer
+    pula
+    clrb
+add_done
     rts
     end start
