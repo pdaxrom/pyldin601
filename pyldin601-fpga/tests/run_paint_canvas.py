@@ -8,9 +8,10 @@ from make_sd import blank_disk
 from sd_partitions import scan
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--cc',default='cc');a=p.parse_args()
 out=ROOT/'build/paint';tc=Path(os.environ.get('UNIAS','/Users/sash/Work/FPGA/hd6303-toolchain/unias')).resolve()
+for path in (ROOT/'firmware/paint').glob('*.INC'):shutil.copyfile(path,out/path.name)
 shutil.copyfile(ROOT/'tests/paint_canvas_main.asm',out/'PCMAIN.ASM')
 shutil.copyfile(ROOT/'firmware/gfx/PALCOEF.ASM',out/'PALCOEF.ASM')
-objects=['PCMAIN','PNTCANV','PNTDRAW','PNTTOOLS','PNTPART','PNTPAL','PNTDMA','PNTLOAD','PNTIO','PNTPCX','PNTIFF','PNTDATA','PNTSTATE','PNTEND']
+objects=['PCMAIN','PNTCANV','PNTDRAW','PNTTOOLS','PNTTEXT','PNTPART','PNTPAL','PNTDMA','PNTLOAD','PNTIO','PNTPCX','PNTIFF','PNTDATA','PNTSTATE','PNTEND']
 for name in objects:
  if name!='PCMAIN':shutil.copyfile(ROOT/'firmware/paint'/(name+'.ASM'),out/(name+'.ASM'))
  with (out/(name+'.log')).open('wb') as log:subprocess.run([str(tc),'-c','-l',name+'.LST','-o',name+'.OBJ',name+'.ASM'],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)

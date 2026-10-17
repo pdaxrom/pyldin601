@@ -40,6 +40,10 @@
     extern dma_run
     extern spans
     extern add_b
+    extern p_over_arg
+    extern ui_colour
+    extern text_run
+    extern palette_edit
     .ifdef PNT_TOOLS
     .define TOOLS_CODE
     .endif
@@ -101,6 +105,16 @@ e_parity ds 1
 tools_run
     clr t_error
     clr p_stroke_saved
+    ldaa p_over_arg
+    cmpa #3
+    bne tools_not_colour
+    jmp ui_colour
+tools_not_colour
+    cmpa #4
+    bne tools_drawing
+    jsr palette_edit
+    bra tools_result
+tools_drawing
     ldaa p_tool
     cmpa #P_TOOL_FLOOD
     beq tools_flood
@@ -108,6 +122,8 @@ tools_run
     beq tools_ellipse
     cmpa #P_TOOL_SOLID
     beq tools_ellipse
+    cmpa #P_TOOL_TEXT
+    beq tools_text
     ldaa #65
     rts
 tools_flood
@@ -115,6 +131,9 @@ tools_flood
     bra tools_result
 tools_ellipse
     jsr ellipse
+    bra tools_result
+tools_text
+    jsr text_run
 tools_result
     staa t_error
     tsta

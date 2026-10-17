@@ -5,6 +5,7 @@
     public copy_n
     public add_b
     extern tools_run
+    extern text_stamp
     extern file_header
     public file_row
     public file_config
@@ -83,7 +84,7 @@ paint_idle
     dw canvas_config,canvas_undo,canvas_show,backend_load
     dw palette_default,palette_index,palette_ham,palette_save,palette_restore
     dw draw_event,draw_finish
-    dw tools_run
+    dw tools_run,text_stamp
     dw io_begin,io_get,io_read,io_write,io_close,io_seek
     dw pcx_read,pcx_write
     dw iff_read,iff_write
@@ -104,6 +105,21 @@ file_fetch
     public mouse_cancel
 mouse_cancel
     ldaa #$ff
+    rts
+; Full modal input is exercised by the production overlay runner.
+    public ui_enter
+    public ui_leave
+    public ui_swatch
+    public ui_colour
+    public ui_rgb
+    public dialog
+ui_enter
+ui_leave
+ui_swatch
+ui_colour
+ui_rgb
+dialog
+    clra
     rts
 copy_n
     stab copy_count

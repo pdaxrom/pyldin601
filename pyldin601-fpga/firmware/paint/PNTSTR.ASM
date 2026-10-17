@@ -43,7 +43,7 @@ help_text db 'L draw R erase M pick. F2 Save 3 Open 4 Colour 5 Tool '
     .ifdef PNT_FILES
     db 'Z zoom G grid IJKL pan S select ^C/X/V. '
     .endif
-    db 'Esc cancels tools.',0
+    db 'F5:0 Text. P palette. Esc cancels tools.',0
 p_save_title db 'Save image',0
 p_open_title db 'Open PCX / HAM8 IFF',0
 p_colour_title db 'Colour',0
@@ -64,7 +64,7 @@ format_four db '3  320x200 four colours',0
 format_indexed db '4  320x200 256 colours',0
 format_ham db '5  320x200 HAM8 RGB666',0
 p_tool_list dw tool_brush,tool_line,tool_rect,tool_fill,tool_pick
-    dw tool_select,tool_flood,tool_ellipse,tool_solid
+    dw tool_select,tool_flood,tool_ellipse,tool_solid,tool_text
 tool_brush db '1  Freehand brush',0
 tool_line db '2  Line',0
 tool_rect db '3  Rectangle',0
@@ -74,4 +74,5 @@ tool_select db '6  Select rectangle',0
 tool_flood db '7  Flood fill',0
 tool_ellipse db '8  Ellipse/circle',0
 tool_solid db '9  Filled ellipse',0
+tool_text db '0  Text (ROM 8x8)',0
     end

@@ -6,8 +6,10 @@
 static unsigned base;
 static unsigned tool_cancel_phase,tool_cancel_sent;
 static unsigned tool_fault_phase,tool_fault_start,tool_fault_seen;
+static unsigned palette_fault_job,palette_fault_seen;
 static int tools_dma_read(uint16_t a,unsigned char*out){
  int yes=paint_dma_read(a,out);
+ if(yes&&a==0xe6e0&&palette_fault_job&&paint_jobs>=palette_fault_job&&virtual_cycles>=paint_until){*out|=16;palette_fault_job=0;palette_fault_seen++;}
  if(yes&&a==0xe6e0&&tool_fault_phase&&paint_jobs>tool_fault_start&&virtual_cycles>=paint_until){
   unsigned dest=paint_u24(3),doc=r[base+PCT_P_DOC_PAGE]*65536;
   if(tool_fault_phase==1||(r[base+PCT_P_STROKE_SAVED]&&dest>=doc&&dest<doc+192000)){
@@ -239,6 +241,45 @@ static void test_tools(unsigned kind,unsigned width,unsigned ext,unsigned frame)
  }
  free(doc);free(saved);
 }
+static void test_text(unsigned kind,unsigned width,unsigned ext,unsigned frame){
+ unsigned channels=kind==4?3:1,size=width*200*channels;unsigned char*doc=calloc(size,1),*saved=malloc(size);require(doc&&saved,"text oracle");
+ require(!paint_call(PCT_CANVAS_BLANK,0,0),"blank text canvas");r[base+PCT_P_CACHED_Y]=255;r[base+PCT_P_ROW_DIRTY]=0;
+ unsigned char colour[3]={kind<2?1:kind==2?3:181,22,53};if(kind==4)colour[0]=41;
+ r[base+PCT_P_COLOUR]=colour[0];memcpy(r+base+PCT_P_COLOUR_RGB,colour,3);
+ const unsigned char caption[]={'P','6','0','1',' ',0x80,0xb3,0xff,0};
+ const unsigned positions[][2]={{0,0},{width-5,197},{251,71}};
+ for(unsigned n=0;n<3;n++){
+  tool_stage="ROM text";memcpy(saved,doc,size);unsigned x0=positions[n][0],y0=positions[n][1];
+  memcpy(r+base+PCT_INPUT,caption,sizeof caption);set16(PCT_P_X0,x0);r[base+PCT_P_Y0]=y0;r[base+PCT_P_STROKE_SAVED]=0;
+  require(!paint_call(PCT_TEXT_STAMP,0,0),"native ROM text completes");
+  for(unsigned c=0;caption[c];c++)for(unsigned y=0;y<8&&y0+y<200;y++)for(unsigned x=0;x<8&&x0+c*8+x<width;x++)
+   if(physical[0x11800+caption[c]*8+y]&(128>>x))memcpy(doc+((y0+y)*width+x0+c*8+x)*channels,colour,channels);
+  compare_drawing(doc,width,kind,ext,frame);
+  require(!paint_call(PCT_CANVAS_UNDO,0,0),"text is one Undo");compare_drawing(saved,width,kind,ext,frame);
+  require(!paint_call(PCT_CANVAS_UNDO,1,0),"text Redo");compare_drawing(doc,width,kind,ext,frame);
+ }
+ unsigned char serial[4];memcpy(serial,r+base+PCT_P_DOC_SERIAL,4);strcpy((char*)r+base+PCT_INPUT,"   ");r[base+PCT_P_STROKE_SAVED]=0;
+ require(!paint_call(PCT_TEXT_STAMP,0,0)&&!memcmp(serial,r+base+PCT_P_DOC_SERIAL,4),"blank text retains Undo and generation");
+ free(doc);free(saved);
+}
+static void test_palette_undo(void){
+ unsigned char before[768],after[768],wave[8192],changed[8192];
+ for(unsigned j=0;j<768;j++)before[j]=(j*11+(j>>3))&63;
+ memcpy(after,before,768);after[17*3]=63;after[17*3+1]=9;after[17*3+2]=21;
+ memcpy(r+base+PCT_P_PALETTE,before,768);r[base+PCT_P_CACHED_Y]=255;
+ require(!paint_call(PCT_PALETTE_INDEX,0,0),"program initial document palette");memcpy(wave,pal,8192);
+ require(!paint_call(PCT_CANVAS_SNAPSHOT,0,0),"palette change checkpoints document");
+ memcpy(r+base+PCT_P_PALETTE,after,768);require(!paint_call(PCT_PALETTE_INDEX,0,0),"program changed document palette");memcpy(changed,pal,8192);
+ require(memcmp(wave,changed,8192)!=0,"changed RGB changes hardware PAL samples");
+ unsigned doc_page=r[base+PCT_P_DOC_PAGE];unsigned char serial[4];memcpy(serial,r+base+PCT_P_DOC_SERIAL,4);
+ for(unsigned phase=1;phase<=3;phase+=2){
+  unsigned old=palette_fault_seen;palette_fault_job=paint_jobs+phase;
+  require(paint_call(PCT_CANVAS_UNDO,0,0)==2&&palette_fault_seen==old+1,"palette Undo reports injected DMA failure");
+  require(!memcmp(r+base+PCT_P_PALETTE,after,768)&&!memcmp(pal,changed,8192)&&r[base+PCT_P_DOC_PAGE]==doc_page&&!memcmp(serial,r+base+PCT_P_DOC_SERIAL,4),"failed palette Undo retains live RGB, hardware samples, canonical page and generation");
+ }
+ require(!paint_call(PCT_CANVAS_UNDO,0,0)&&!memcmp(r+base+PCT_P_PALETTE,before,768)&&!memcmp(pal,wave,8192),"palette Undo restores RGB table and every hardware sample");
+ require(!paint_call(PCT_CANVAS_UNDO,1,0)&&!memcmp(r+base+PCT_P_PALETTE,after,768)&&!memcmp(pal,changed,8192),"palette Redo restores RGB table and every hardware sample");
+}
 static uint32_t io_at(unsigned label){unsigned char*p=r+base+label;return (uint32_t)p[0]<<24|p[1]<<16|p[2]<<8|p[3];}
 static void input_open(const char*path){
  strcpy((char*)r+0x1000,path);word_at(0x1100,0x1000);word_at(0x1102,0);
@@ -354,7 +395,8 @@ int main(int argc,char**argv){
   require(!paint_call(PCT_CANVAS_UNDO,1,0)&&r[base+PCT_P_HAVE_UNDO]&&!r[base+PCT_P_HAVE_REDO]&&r[base+PCT_P_MODIFIED],"Redo reapplies serial and enables Undo");
   for(unsigned x=0;x<stride*200;x++)require(!physical[0x120000+x],"Redo restores changed canonical pixels");
   if(ext)require(front==0,"Redo flips to changed preview page at VBL");
-  test_drawing(kind,width,ext,frame);test_tools(kind,width,ext,frame);
+  test_drawing(kind,width,ext,frame);test_tools(kind,width,ext,frame);test_text(kind,width,ext,frame);
+  if(kind==3)test_palette_undo();
   if(kind==4)test_ham_partial(frame);
   paint_call(PCT_BACKEND_CLOSE,0,0);free(doc);free(preview);cases++;
  }

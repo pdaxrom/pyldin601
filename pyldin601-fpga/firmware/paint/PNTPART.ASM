@@ -3,6 +3,9 @@
 ; The result is byte-identical to a complete deterministic greedy re-encode.
     include PNTABI.INC
     include DMA.INC
+    .ifdef PNT_TOOLS
+    .define PNT_FILES
+    .endif
     public ham_row_show
     extern p_row
     extern p_encoded
@@ -337,7 +340,11 @@ part_copy
     jmp dma_run
     .else
 ham_row_show
+    .ifdef PNT_TOOLS
+    jmp canvas_show
+    .else
     clra
     rts
+    .endif
     .endif
     end

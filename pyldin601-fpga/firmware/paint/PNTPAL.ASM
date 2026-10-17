@@ -7,6 +7,8 @@
     public palette_ham
     public palette_save
     public palette_restore
+    public pal_snapshot
+    public palette_undo
     extern paint_dma
     extern pal_wave
     extern dma_reset
@@ -17,6 +19,12 @@
     extern p_kind
     extern p_original_read
     extern p_palette_saved
+    extern p_row
+    extern p_cached_y
+    extern p_row_dirty
+    extern src
+    extern dst
+    extern copy_n
     section
 pal_pointer ds 2
 pal_walk ds 2
@@ -36,6 +44,7 @@ pal_product ds 2
 pal_steps ds 1
 pal_index ds 1
 pal_result ds 1
+pal_undo_slot ds 1
     ends
 palette_default
     ldx #p_palette
@@ -352,6 +361,131 @@ pal_ham_phase
     bne pal_channel_next
     clra
 pal_ham_return
+    rts
+; Indexed palette is document data. Two GPU slots make Undo transactional;
+; the other slot retains the live colours until programming succeeds.
+pal_snapshot
+    ldaa p_kind
+    cmpa #3
+    beq pal_snapshot_indexed
+    clra
+    rts
+pal_snapshot_indexed
+    ldaa pal_undo_slot
+    ldx #p_palette
+    jmp pal_store_slot
+palette_undo
+    ldaa p_kind
+    cmpa #3
+    beq pal_undo_indexed
+    clra
+    rts
+pal_undo_indexed
+    ldaa #$ff
+    staa p_cached_y
+    clr p_row_dirty
+    ldaa pal_undo_slot
+    ldx #p_row
+    jsr pal_fetch_slot
+    tsta
+    bne pal_undo_return
+    ldx #p_palette
+    stx pal_pointer
+    ldx #p_row
+    stx pal_walk
+pal_undo_compare
+    ldx pal_walk
+    ldaa 0,x
+    inx
+    stx pal_walk
+    ldx pal_pointer
+    cmpa 0,x
+    bne pal_undo_change
+    inx
+    stx pal_pointer
+    cpx #p_palette_end
+    bne pal_undo_compare
+    clra
+pal_undo_return
+    rts
+pal_undo_change
+    ldaa pal_undo_slot
+    eora #1
+    ldx #p_palette
+    jsr pal_store_slot
+    tsta
+    bne pal_undo_return
+    ldx #p_row
+    stx src
+    ldx #p_palette
+    stx dst
+    ldaa #3
+    staa pal_channel
+pal_undo_install
+    clrb
+    jsr copy_n
+    dec pal_channel
+    bne pal_undo_install
+    jsr palette_index
+    tsta
+    bne pal_undo_rollback
+    ldaa pal_undo_slot
+    eora #1
+    staa pal_undo_slot
+    clra
+    rts
+pal_undo_rollback
+    staa pal_result
+    ldaa pal_undo_slot
+    eora #1
+    ldx #p_palette
+    jsr pal_fetch_slot
+    tsta
+    bne pal_undo_return
+    jsr palette_index
+    tsta
+    bne pal_undo_return
+    ldaa pal_result
+    rts
+; A=slot (0/1), X=ordinary RGB table. The slots start after backend caches.
+pal_store_slot
+    jsr pal_slot_descriptor
+    ldaa pal_walk+1
+    staa DMA_SRC,x
+    ldaa pal_walk
+    staa DMA_SRC+1,x
+    ldaa pal_level
+    staa DMA_DST+1,x
+    ldaa #P_PALETTE_PAGE
+    staa DMA_DST+2,x
+    bra pal_slot_run
+pal_fetch_slot
+    jsr pal_slot_descriptor
+    ldaa pal_walk+1
+    staa DMA_DST,x
+    ldaa pal_walk
+    staa DMA_DST+1,x
+    ldaa pal_level
+    staa DMA_SRC+1,x
+    ldaa #P_PALETTE_PAGE
+    staa DMA_SRC+2,x
+pal_slot_run
+    ldaa #3
+    staa DMA_WIDTH+1,x
+    ldaa #DMA_COPY
+    jmp dma_run
+pal_slot_descriptor
+    stx pal_walk
+    tsta
+    beq pal_slot_zero
+    ldaa #$e7
+    bra pal_slot_ready
+pal_slot_zero
+    ldaa #$e4
+pal_slot_ready
+    staa pal_level
+    jsr dma_reset
+    ldx #paint_dma
     rts
 palette_save
     tst p_palette_saved

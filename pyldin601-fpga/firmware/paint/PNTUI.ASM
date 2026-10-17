@@ -1,7 +1,13 @@
 ; Modal native windows share NC's ROM font, line editor and mouse focus.
 ; The image survives in GPU SRAM, or in a DMA snapshot of its native frame.
     .ifdef PNT_TOOLS
+    .define PNT_COLOUR
     .define PNT_FILES
+    .endif
+    .ifndef PNT_EDIT
+    .ifndef PNT_FILES
+    .define PNT_COLOUR
+    .endif
     .endif
     .ifdef PNT_EDIT
     .define PNT_OVL
@@ -16,6 +22,8 @@
     public ui_new
     public ui_tool
     public ui_colour
+    public ui_rgb
+    public ui_swatch
     public ui_menu
     public ui_help
     public ui_error
@@ -39,6 +47,10 @@
     extern p_tool
     extern p_fg
     extern p_fg_rgb
+    extern p_cached_y
+    extern p_row_dirty
+    extern palette_index
+    extern palette_ham
     extern p_frame
     extern p_native_mode
     extern p_native_pal
@@ -47,6 +59,7 @@
     extern p_ui_active
     extern p_ui_underlay
     extern p_ui_menu
+    extern p_ui_result
     extern p_ignore
     extern p_queue_count
     extern p_queue_head
@@ -99,6 +112,9 @@ grid_offset ds 2
 grid_x ds 2
 grid_y ds 1
 ui_saved_a ds 1
+rgb_target ds 2
+grid_mode ds 1
+grid_limit ds 1
     ends
 ui_enter
     tst p_ui_active
@@ -173,6 +189,7 @@ ui_leave_ok
 ui_leave_return
     rts
 ; X=caption, choice_list points to five strings; selected index 0..4.
+    .ifndef PNT_FILES
 ui_choice
     stx choice_title
     ldaa #5
@@ -180,11 +197,13 @@ ui_choice
     ldx choice_list
     cpx #p_tool_list
     bne choice_not_tool
-    ldaa #9
+    ldaa #10
 choice_not_tool
     cpx #menu_list
     bne choice_limit
-    ldaa #9
+    .ifdef PNT_OVL
+    ldaa #10
+    .endif
 choice_limit
     staa choice_count
     staa p_ui_menu
@@ -226,6 +245,10 @@ choice_key
     beq choice_up
     cmpa #$c3
     beq choice_down
+    cmpa #'0'
+    bne choice_digit
+    ldaa #':'
+choice_digit
     suba #'1'
     cmpa choice_count
     bcc choice_key
@@ -354,6 +377,17 @@ ui_help
 help_edit
     jsr help
     jmp ui_leave
+    .else
+ui_choice
+ui_new
+ui_tool
+ui_menu
+    ldaa #$ff
+    rts
+ui_help
+    clra
+    rts
+    .endif
 ui_error
     staa p_error
     jsr ui_enter
@@ -431,11 +465,20 @@ progress_show
 progress_text ds 21
     ends
 ui_colour
-    .ifdef PNT_FILES
-    ; The file overlay only uses dialogs and progress, never the picker.
+    .ifndef PNT_COLOUR
+ui_rgb
+ui_swatch
     clra
     rts
     .else
+    clr grid_mode
+    bra colour_enter
+ui_swatch
+    ldaa #1
+    staa grid_mode
+colour_enter
+    clr p_ui_result
+    clr choice_result
     jsr ui_enter
     tsta
     beq colour_begin
@@ -443,12 +486,26 @@ ui_colour
 colour_begin
     ldaa p_kind
     cmpa #4
-    bne *+5
+    bne colour_grid
+    tst grid_mode
+    bne colour_swatch
     jmp colour_ham
+colour_swatch
+    ldaa #$ff
+    staa p_cached_y
+    clr p_row_dirty
+    jsr palette_index
+    tsta
+    beq colour_grid
+    staa choice_result
+    jmp colour_leave
+colour_grid
     jsr grid_build
     tsta
-    beq *+5
+    beq colour_grid_ready
+    staa choice_result
     jmp colour_leave
+colour_grid_ready
     ldaa #2
     staa p_ui_menu
     jsr grid_cursor
@@ -483,6 +540,11 @@ grid_wait
     bcs grid_wait
 grid_accept
     ldaa grid_index
+    tst grid_limit
+    beq grid_index_valid
+    cmpa grid_limit
+    bcc grid_wait
+grid_index_valid
     ldab p_kind
     cmpb #2
     bcc grid_four_check
@@ -496,6 +558,7 @@ grid_four_check
     bcc grid_wait
 grid_store
     staa p_fg
+    inc p_ui_result
     jmp colour_leave
 grid_left
     dec grid_index
@@ -513,10 +576,22 @@ grid_down
     adda #16
     staa grid_index
 grid_move
+    tst grid_limit
+    beq grid_move_ready
+    ldaa grid_index
+    anda #63
+    staa grid_index
+grid_move_ready
     jsr grid_cursor
-    bra grid_wait
+    jmp grid_wait
 colour_ham
     ldx #p_fg_rgb
+    jsr ui_rgb
+    jmp colour_leave
+; X=RGB666 triplet, native UI is already active. p_ui_result=1 on OK.
+ui_rgb
+    clr p_ui_result
+    stx rgb_target
     stx choice_pointer
     ldx #input
     stx choice_list
@@ -548,7 +623,10 @@ colour_hex_output
 colour_hex_dialog
     ldx #p_colour_title
     jsr dialog
-    bcs colour_leave
+    bcc colour_rgb_parse
+    clra
+    rts
+colour_rgb_parse
     ldx #input
     stx choice_pointer
     ldx #choice_hex
@@ -583,15 +661,34 @@ colour_hex_input
     ldx choice_pointer
     tst 0,x
     bne colour_hex_dialog
-    ldx #p_fg_rgb
+    ldx rgb_target
     ldaa choice_hex
     ldab choice_hex+1
     staa 0,x
     stab 1,x
     ldaa choice_hex+2
     staa 2,x
+    inc p_ui_result
+    clra
+    rts
 colour_leave
-    jmp ui_leave
+    ldaa p_kind
+    cmpa #4
+    bne colour_native_leave
+    tst grid_mode
+    beq colour_native_leave
+    clr $e650
+    jsr palette_ham
+    tsta
+    beq colour_native_leave
+    staa choice_result
+colour_native_leave
+    jsr ui_leave
+    tsta
+    bne colour_return
+    ldaa choice_result
+colour_return
+    rts
 hex_digit
     adda #'0'
     cmpa #'9'
@@ -620,6 +717,13 @@ hex_bad
     sec
     rts
 grid_build
+    clr grid_limit
+    ldaa p_kind
+    cmpa #4
+    bne grid_build_clear
+    ldaa #64
+    staa grid_limit
+grid_build_clear
     jsr dma_reset
     ldx #paint_dma
     ldaa #P_PICKER_PAGE
@@ -679,7 +783,12 @@ grid_column_next
     staa grid_offset
 grid_cell_next
     inc grid_index
+    beq grid_cells_ready
+    ldaa grid_limit
+    beq grid_cell
+    cmpa grid_index
     bne grid_cell
+grid_cells_ready
     ldaa #5
     staa $e655
     ldaa #3
@@ -690,6 +799,10 @@ grid_flip_wait
     ldaa #1
     staa $e650
     ldaa p_fg
+    tst grid_limit
+    beq grid_initial
+    anda #63
+grid_initial
     staa grid_index
     clra
 grid_return
@@ -781,12 +894,13 @@ view_help db '4  Help',0
 view_exit db '5  Exit',0
 menu_list dw menu_save,menu_open,p_colour_title,p_tool_title,p_format_title
     .ifdef PNT_OVL
-    dw menu_zoom,menu_copy,menu_paste,menu_clear
+    dw menu_zoom,menu_copy,menu_paste,menu_clear,menu_palette
 menu_zoom db '6  Zoom 1x / 2x / 4x / 8x',0
 menu_copy db '7  Copy selection',0
 menu_paste db '8  Paste at pointer',0
 menu_clear db '9  Clear selection',0
-menu_extra_keys db 'z',3,22,4
+menu_palette db '0  Palette editor (P)',0
+menu_extra_keys db 'z',3,22,4,'p'
     .endif
 menu_save db '1  Save image',0
 menu_open db '2  Open image',0

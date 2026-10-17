@@ -106,6 +106,8 @@
     extern src
     extern dst
     extern copy_n
+    extern pal_snapshot
+    extern palette_undo
     section
 row_address ds 3
 multiply_value ds 3
@@ -546,6 +548,11 @@ front_bad
 ; Save one whole stroke. Canonical and visible snapshots are independent,
 ; allowing fast Undo without re-encoding an entire HAM image on the CPU.
 canvas_snapshot
+    jsr pal_snapshot
+    tsta
+    beq checkpoint_begin
+    rts
+checkpoint_begin
     jsr dma_reset
     ldaa p_doc_page
     staa v_paint_dma_2
@@ -643,6 +650,11 @@ check_redo
     clra
     rts
 undo_available
+    jsr palette_undo
+    tsta
+    beq undo_palette_ready
+    rts
+undo_palette_ready
     tst p_preview_ext
     bne undo_extended
     ; Native preview exchange: live frame -> scratch, old -> live, scratch -> old.

@@ -6,7 +6,7 @@
 #include "../build/paint-overlays/POP.h"
 static unsigned supervisor;
 static unsigned lowest_stack=65535;
-static unsigned fault_job,fault_seen,tool_entries;
+static unsigned fault_job,fault_seen,tool_entries,cancel_text;
 
 #define PAINT_ALT_MOUSE_WAIT ((supervisor&&r[supervisor+OVL_LOAD_API+4]==3)?POP_MOUSE_WAIT:PIO_MOUSE_WAIT)
 #define PAINT_OVERLAY_IS_FILE (supervisor&&r[supervisor+OVL_LOAD_API+4]>=2)
@@ -18,6 +18,8 @@ static int overlay_dma_read(uint16_t a,unsigned char*out){
 }
 static void overlay_observe(void){
  ui_observe();
+ if(base&&cancel_text==1&&r[base+PUI_P_TOOL]==9&&r[base+PUI_P_STROKE_SAVED]&&PC==base+POP_TOOLS_POLL){KBDKeyDown(1);cancel_text=2;}
+ if(base&&cancel_text==2&&PC==base+POP_TOOLS_ABORT){KBDKeyUpCode(1);cancel_text=3;}
  if(supervisor&&base&&r[supervisor+OVL_LOAD_API+4]==3&&PC==base+POP_TOOLS_RUN)tool_entries++;
  if(base&&PC>=base&&PC<base+PUI_BSS_START&&SP<lowest_stack)lowest_stack=SP;
  if(!supervisor&&PC>=0x100&&PC<0xbc00&&r[PC]==0x20&&!memcmp(r+PC+2,"PNTO",4))supervisor=PC;
@@ -57,6 +59,36 @@ static void check_ham_view(void){
  }
 }
 
+static void mouse_dialog(unsigned x,unsigned y,unsigned buttons,unsigned context){
+ mouse_ui_enabled=1;r[base+PUI_MOUSE_PRESENT]=1;word_at(base+PUI_MOUSE_X,x?x-1:0);word_at(base+PUI_MOUSE_Y,y);
+ mouse_ui_push(8|buttons);mouse_ui_push(x?1:0);mouse_ui_push(0);until(virtual_cycles+200000);wait_context(context);
+}
+static void replace_input(const char*value){key(0x47);for(unsigned k=0;k<80&&r[base+PUI_EDIT_LENGTH];k++)key(0x53);text(value);}
+static void test_ham_swatches(void){
+ unsigned char wave[6144],old[3],palette[768];memcpy(wave,pal,6144);memcpy(old,r+base+PUI_P_FG_RGB,3);memcpy(palette,r+base+PUI_P_PALETTE,768);
+ key(0x43);wait_context(5);key(0xb);wait_context(10);require(gfx[0]==1&&front==5,"HAM drawing swatches use temporary indexed preview");key(1);wait_context(0);require(gfx[0]==7&&!memcmp(wave,pal,6144)&&!memcmp(old,r+base+PUI_P_FG_RGB,3),"HAM swatch Cancel restores component tables and foreground RGB");
+ key(0x19);wait_context(10);for(unsigned cell=0;cell<64;cell++)require(physical[0x150000+(cell>>4)*12*320+(cell&15)*20]==cell,"HAM chooser displays 64 drawing swatches");key(0x1c);wait_context(2);replace_input("11072a");key(0x1c);wait_context(0);
+ unsigned char rgb[]={17,7,42};require(!memcmp(r+base+PUI_P_FG_RGB,rgb,3)&&!memcmp(r+base+PUI_P_PALETTE+189,rgb,3)&&gfx[0]==7&&!memcmp(wave,pal,6144),"edited HAM swatch becomes the brush colour without changing HAM decoding");require(!r[base+PUI_P_MODIFIED],"HAM drawing preferences do not mark the image modified");
+ key(0x3e);wait_context(2);key(1);wait_context(0);require(!memcmp(r+base+PUI_P_FG_RGB,rgb,3),"direct HAM RGB input remains available on F4");key(0x30);wait_context(0);mouse(20,20,0);mouse(20,20,1);mouse(20,20,0);require(!memcmp(physical+r[base+PUI_P_DOC_PAGE]*65536+(20*320+10)*3,rgb,3),"brush uses all six bits of the edited HAM drawing colour");key(0x41);wait_context(0);require(!r[base+PUI_P_MODIFIED]&&!memcmp(r+base+PUI_P_PALETTE+189,rgb,3),"HAM Undo changes pixels while retaining the drawing-colour set");
+}
+static void test_text_palette(void){
+ key(0x3f);wait_context(5);key(0xb);wait_context(0);require(r[base+PUI_P_TOOL]==9,"F5 zero selects ROM Text");
+ mouse(40,30,0);mouse(40,30,1);mouse_dialog(40,30,0,2);modal_text(6,6,"Text (ROM 8x8)");require(!r[base+PUI_WINDOW_FOCUS],"text input owns dialog focus");text("paint");
+ unsigned char caption[80];memcpy(caption,r+base+PUI_INPUT,80);key(0x1c);wait_context(0);
+ unsigned char*want=calloc(64000,1);require(want!=NULL,"text integration oracle");
+ for(unsigned c=0;caption[c];c++)for(unsigned y=0;y<8;y++)for(unsigned x=0;x<8;x++)if(physical[0x11800+caption[c]*8+y]&(128>>x))want[(30+y)*320+20+c*8+x]=255;
+ require(!memcmp(want,physical+r[base+PUI_P_DOC_PAGE]*65536,64000)&&r[base+PUI_P_MODIFIED],"text from modal matches native font and canonical anchor");
+ key(0x41);wait_context(0);require(!r[base+PUI_P_MODIFIED],"one Undo removes the complete inscription");key(0x42);wait_context(0);require(!memcmp(want,physical+r[base+PUI_P_DOC_PAGE]*65536,64000),"text Redo is exact");key(0x41);wait_context(0);free(want);
+ mouse(50,70,0);mouse(50,70,1);mouse_dialog(50,70,0,2);text("cancel");key(1);wait_context(0);require(!r[base+PUI_P_MODIFIED],"text dialog Cancel preserves the clean image");
+ unsigned live_stack=ramword(supervisor+OVL_LOAD_STACK);
+ unsigned char palette[768],wave[8192],changed[768],changed_wave[8192];memcpy(palette,r+base+PUI_P_PALETTE,768);memcpy(wave,pal,8192);memcpy(changed,palette,768);changed[765]=63;changed[766]=0;changed[767]=21;
+ key(0x3e);wait_context(10);key(1);wait_context(0);require(!r[base+PUI_P_MODIFIED],"F4 colour picker returns from tools overlay without modifying the image");
+ key(0x19);wait_context(10);key(1);wait_context(0);require(!memcmp(palette,r+base+PUI_P_PALETTE,768),"palette picker Cancel is reversible");
+ key(0x19);wait_context(10);key(0x1c);wait_context(2);replace_input("400000");key(0x1c);wait_context(2);require(!memcmp(palette,r+base+PUI_P_PALETTE,768),"invalid RGB666 input cannot change the image palette");replace_input("3f0015");key(0x1c);wait_context(0);memcpy(changed_wave,pal,8192);
+ require(r[base+PUI_P_MODIFIED]&&!memcmp(changed,r+base+PUI_P_PALETTE,768)&&memcmp(wave,pal,8192),"palette editor updates the document and actual PAL table");
+ key(0x41);wait_context(0);require(!r[base+PUI_P_MODIFIED]&&!memcmp(palette,r+base+PUI_P_PALETTE,768)&&!memcmp(wave,pal,8192),"palette Undo restores clean state and every PAL sample");key(0x42);wait_context(0);require(!memcmp(changed,r+base+PUI_P_PALETTE,768)&&!memcmp(changed_wave,pal,8192),"palette Redo is exact");
+ key(0x3c);wait_context(2);replace_input("b:pal.pcx");key(0x1c);wait_context(0);require(!r[base+PUI_P_MODIFIED],"save commits the edited palette");format(3);key(0x3d);wait_context(2);replace_input("b:pal.pcx");key(0x1c);wait_context(0);require(!memcmp(changed,r+base+PUI_P_PALETTE,768)&&!memcmp(changed_wave,pal,8192),"PCX round trip retains edited palette and hardware colours");format(3);require(ramword(supervisor+OVL_LOAD_STACK)==live_stack,"keyboard colour and palette commands preserve the live resident stack");
+}
 int main(int argc,char**argv){
  if(argc!=6)return 2;model_a=!strcmp(argv[2],"601a");cpu_hd=!strcmp(argv[3],"hd6303");unsigned native=atoi(argv[4]);MC6800SetMachine(cpu_hd?PYLDIN_MACHINE_HD6303:PYLDIN_MACHINE_601);
  size_t n;unsigned char*rom=load(model_a?"build/rom-a.reference":"build/rom.reference",&n);memcpy(config,rom,64);memcpy(physical+0x10000,rom+512,ROM_BYTES);free(rom);
@@ -66,6 +98,7 @@ int main(int argc,char**argv){
  if(!strcmp(argv[5],"busy")){require(!invoke(0xe5,1,banks0,0x9000),"reserve every RAMMAN bank");memcpy(foreign,r+0x9000,banks0+3);}
  native_step_hook=overlay_observe;watch_resets=1;text(native?"b:pgraph":"b:paintui");key(0x1c);wait_context(0);
  require(r[base+PUI_BACKEND_BANKED]==!strcmp(argv[5],"banked"),"enhanced Paint keeps its ordinary RAM fallback");
+ test_text_palette();
  // All new tools execute through the third production overlay.
  key(0x3f);wait_context(5);key(0xa);wait_context(0);require(r[base+PUI_P_TOOL]==8,"F5 ninth item selects filled ellipse");
  mouse(40,20,0);mouse(40,20,1);mouse(160,80,1);mouse(160,80,0);
@@ -110,7 +143,7 @@ int main(int argc,char**argv){
  mouse(638,199,0);control(0x2f);require(ramword(base+PUI_P_SEL_LEFT)==319&&ramword(base+PUI_P_SEL_RIGHT)==319&&r[base+PUI_P_SEL_BOTTOM]==199,"Paste clips its selection and pixels to the image edges");key(0x41);wait_context(0);
  mouse(20,20,0);mouse(20,20,1);mouse(100,60,1);mouse(100,60,0);control(0x2d);for(unsigned y=20;y<=60;y++)for(unsigned x=10;x<=50;x++)require(!physical[r[base+PUI_P_DOC_PAGE]*65536+y*320+x],"Cut clears the selected pixels with the background colour");key(0x41);wait_context(0);require(!memcmp(expected,physical+r[base+PUI_P_DOC_PAGE]*65536,64000)&&!r[base+PUI_P_MODIFIED],"Cut is one reversible image operation");free(pasted);
  free(expected);
- format(4);r[base+PUI_P_FG_RGB]=53;r[base+PUI_P_FG_RGB+1]=12;r[base+PUI_P_FG_RGB+2]=41;key(0x30);wait_context(0);mouse(40,30,0);mouse(40,30,1);mouse(120,70,1);mouse(120,70,0);
+ format(4);test_ham_swatches();r[base+PUI_P_FG_RGB]=53;r[base+PUI_P_FG_RGB+1]=12;r[base+PUI_P_FG_RGB+2]=41;key(0x30);wait_context(0);mouse(40,30,0);mouse(40,30,1);mouse(120,70,1);mouse(120,70,0);
  unsigned char*ham=malloc(192000);memcpy(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000);mouse(40,30,0);key(0x2c);wait_context(0);check_ham_view();key(0x2c);wait_context(0);check_ham_view();
  key(0x2c);wait_context(0);key(0x2c);wait_context(0);key(0x1f);wait_context(0);mouse(40,30,0);mouse(40,30,1);mouse(120,70,1);mouse(120,70,0);control(0x2e);mouse(400,100,0);control(0x2f);
  for(unsigned y=0;y<41;y++)for(unsigned x=0;x<41;x++)require(!memcmp(physical+r[base+PUI_P_DOC_PAGE]*65536+((100+y)*320+200+x)*3,ham+((30+y)*320+20+x)*3,3),"HAM clipboard retains complete RGB666 triplets across pages");key(0x41);wait_context(0);require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"HAM Paste Undo restores all canonical bytes");control(0x1e);control(0x2e);require(!memcmp(ham,physical+0x190000,192000),"full HAM clipboard preserves all three canonical pages");
@@ -122,11 +155,13 @@ int main(int argc,char**argv){
  mouse(10,10,0);mouse(10,10,1);mouse(10,10,0);ham_stage="after fill";check_ham_view();
  require(r[base+PUI_P_CLIP_VALID]&&!memcmp(ham,physical+0x190000,192000),"flood workspace never touches the clipboard or displayed zoom page");
  key(0x41);wait_context(0);check_ham_view();require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"zoomed HAM fill Undo restores the full canonical document");
+ key(0x3f);wait_context(5);key(0xb);wait_context(0);mouse(80,40,0);mouse(80,40,1);mouse_dialog(80,40,0,2);text("ham");key(0x1c);wait_context(0);ham_stage="zoomed text";check_ham_view();require(!memcmp(ham,physical+0x190000,192000),"text modal and font workspace preserve the full HAM clipboard");key(0x41);wait_context(0);check_ham_view();require(!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"one Undo removes magnified HAM text");
+ mouse(80,40,0);mouse(80,40,1);mouse_dialog(80,40,0,2);text("cancel");cancel_text=1;key(0x1c);wait_context(0);require(cancel_text==3&&!memcmp(ham,physical+r[base+PUI_P_DOC_PAGE]*65536,192000),"Esc during text rasterization rolls back every canonical byte");cancel_text=0;check_ham_view();
  free(ham);
  if(model_a){format(1);key(0x30);wait_context(0);mouse(638,199,0);mouse(638,199,1);mouse(638,199,0);key(0x2c);wait_context(0);require(r[base+PUI_P_VIEW_SHIFT]==1&&ramword(base+PUI_P_VIEW_X)==320,"640-wide mono viewport reaches its right edge");control(0x1e);control(0x2e);require(r[base+PUI_P_CLIP_VALID],"full 640x200 clipboard spans RAM pages");}
  key(0x44);if(r[base+PUI_P_MODIFIED]){wait_context(3);key(0x15);}prompt_wait();
  if(!strcmp(argv[5],"missing"))invoke(0x2f,0xe5,rp,rv);
  if(!strcmp(argv[5],"busy")){memcpy(r+0x9000,foreign,banks0+3);require(!invoke(0xe5,2,0,0x9000),"release foreign RAMMAN reservation");}
  require(!resets&&return_seen==1&&SP==sp0&&ramword(0xee1e)==heap0&&free_banks()==banks0&&lowest_stack>=0x200,"resident overlay supervisor restores stack, ordinary heap and bank leases");
- printf("PASS Paint overlays %s/%s start%u %s: native file/edit swapping, zoom/grid, selection/clipboard, flood/ellipses in zoom/HAM, save/reopen, cleanup, stack%04x\n",argv[2],argv[3],native,argv[5],lowest_stack);return 0;
+ printf("PASS Paint overlays %s/%s start%u %s: native file/edit swapping, zoom/grid, selection/clipboard, flood/ellipses/text in zoom/HAM, palette/PCX/HAM swatches, save/reopen, cleanup, stack%04x\n",argv[2],argv[3],native,argv[5],lowest_stack);return 0;
 }

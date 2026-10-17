@@ -101,6 +101,7 @@
     extern palette_ham
     extern tools_state
     extern tools_run
+    extern text_state
     extern draw_event
     extern draw_finish
     extern mouse_init
@@ -204,7 +205,7 @@ overlay_entry
     bne overlay_edit
     ldab p_over_arg
     cmpb #2
-    beq overlay_edit
+    bcc overlay_edit
     jsr view_reset
 overlay_edit
     tst main_live
@@ -575,8 +576,22 @@ main_open
     jsr file_load
     bra main_action
 main_colour
+    .ifdef PNT_OVL
+    ldaa #3
+    bra main_tools_command
+main_palette
+    ldaa #4
+main_tools_command
+    staa p_over_arg
+    jsr view_touch
+    ; The supervisor discards one JSR return frame when entering a worker.
+    ; Keyboard commands arrive by JMP; supply that frame explicitly.
+    jsr paint_tools_switch
+    bra main_action
+    .else
     jsr ui_colour
     bra main_action
+    .endif
 main_tool
     jsr ui_tool
     bra main_action
@@ -986,6 +1001,17 @@ paint_pointer
     rts
 main_keyboard
     .ifdef PNT_OVL
+    cmpa #'p'
+    beq key_palette
+    cmpa #'P'
+    bne key_view
+key_palette
+    tst p_readonly
+    bne key_palette_ignored
+    jmp main_palette
+key_palette_ignored
+    jmp main_loop
+key_view
     jsr view_key
     bcc key_normal
     jmp main_action
@@ -1064,6 +1090,8 @@ paint_draw_tools
     jsr view_touch
     ldaa #2
     staa p_over_arg
+paint_tools_switch
+    ldaa #2
     clrb
     ldx p_over_call
     jmp 0,x
@@ -1077,6 +1105,6 @@ paint_arrow
     db $64,$69,0,0,$50,$1a,$40,0,$40,$06,$90,0,0,$01,$50,0
     .ifdef PNT_OVL
     ; Force identical BSS modules/order even when their code is absent.
-    dw pcx_bits,iff_form_end,draw_error,part_y,p_view_shift,tools_state
+    dw pcx_bits,iff_form_end,draw_error,part_y,p_view_shift,tools_state,text_state
     .endif
     end start

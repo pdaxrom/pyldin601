@@ -11,7 +11,7 @@ for name in ('NCABI.INC','NCBOX.INC','NCCOM.ASM','NCKEY.ASM'):shutil.copyfile(RO
 shutil.copyfile(ROOT/'firmware/input/MOUSE.ASM',out/'MOUSE.ASM')
 shutil.copyfile(ROOT/'firmware/gfx/PALCOEF.ASM',out/'PALCOEF.ASM')
 shutil.copyfile(ROOT/'tests/paint_ui_files.asm',out/'PUIFILE.ASM')
-objects=['PNTMAIN','PNTUI','PNTCANV','PNTDRAW','PNTTOOLS','PNTPART','PNTPAL','PNTDMA','PNTLOAD','PNTMOD','PNTIO','PUIFILE','PNTCOM','NCKEY','MOUSE','PNTDATA','PNTSTATE','PNTSTR','PNTEND']
+objects=['PNTMAIN','PNTUI','PNTCANV','PNTDRAW','PNTTOOLS','PNTTEXT','PNTPART','PNTPAL','PNTDMA','PNTLOAD','PNTMOD','PNTIO','PUIFILE','PNTCOM','NCKEY','MOUSE','PNTDATA','PNTSTATE','PNTSTR','PNTEND']
 for name in objects:
  with (out/(name+'.log')).open('wb') as log:subprocess.run([str(tc),'-c',*(['-D','MOUSE_OBJECT'] if name=='MOUSE' else []),'-l',name+'.LST','-o',name+'.OBJ',name+'.ASM'],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
 with (out/'PNTBOOT.log').open('wb') as log:subprocess.run([str(tc),'-l','PNTBOOT.LST','-o','PNTBOOT.PGM','PNTBOOT.ASM'],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)

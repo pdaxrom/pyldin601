@@ -1,6 +1,9 @@
 ; Drawing tools edit canonical pixels. A single row cache bounds RAM use;
 ; each changed stroke owns one canonical and encoded Undo snapshot.
     include PNTDEF.INC
+    .ifdef PNT_TOOLS
+    .define PNT_PIXELS
+    .endif
     public draw_event
     public draw_flush
     public draw_finish
@@ -264,6 +267,7 @@ pixel_return
     rts
 ; Collect the union of square brushes as one span per image row. A thick
 ; horizontal stroke must not re-encode the same HAM row once per point.
+    .ifndef PNT_PIXELS
 brush
     ldaa p_brush
     bne brush_size
@@ -835,6 +839,12 @@ event_return
     staa p_prev_buttons
     ldaa draw_error
     rts
+    .else
+draw_event
+draw_pick
+    clra
+    rts
+    .endif
     .else
 draw_pixel
 draw_ensure
