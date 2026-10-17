@@ -22,7 +22,10 @@ static void dump(void){
  fprintf(stderr,"cycles=%llu PC=%04x SP=%04x start=%04x stride=%u page=%02x IRQs=%u reads=%u\n",(unsigned long long)virtual_cycles,PC,SP,start,stride,page,irq_count,sd_reads);
  for(unsigned y=0;y<25;y++){for(unsigned x=0;x<40;x++){unsigned c=MC6800GetCpuRam()[(start+y*stride+x)&65535];fputc(c>=32&&c<127?c:'.',stderr);}fputc('\n',stderr);}
 }
-static void key(unsigned scan){KBDKeyDown(scan);until(virtual_cycles+100000);KBDKeyUpCode(scan);until(virtual_cycles+100000);}
+#ifndef TEST_KEY_CYCLES
+#define TEST_KEY_CYCLES 100000
+#endif
+static void key(unsigned scan){KBDKeyDown(scan);until(virtual_cycles+TEST_KEY_CYCLES);KBDKeyUpCode(scan);until(virtual_cycles+TEST_KEY_CYCLES);}
 static unsigned at_prompt(void){
  unsigned cursor=crtc[14]*256+crtc[15];const unsigned char*ram=MC6800GetCpuRam();
  for(unsigned gap=4;gap<=8;gap++){

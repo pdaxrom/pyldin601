@@ -26,6 +26,7 @@
 | [PAINT.md](PAINT.md) | Новый редактор для 601/601А: мышь, PCX/ILBM, модули, Undo/Redo |
 | [KEYBOARD.md](KEYBOARD.md) | PS/2 перевод в ROM, native repeat и raw capture |
 | [INPUT.md](INPUT.md) | Программный порт мыши PS/2, загружаемый указатель, UART FTDI B |
+| [UART.md](UART.md) | Терминал ANSI/VT100 и передача файлов XMODEM-CRC |
 | [CPU.md](CPU.md) | ISA, дополнительные инструкции HD6303, пределы эмуляции |
 | [SD-CARD.md](SD-CARD.md) | Разметка загрузочной карты, профили FAT |
 | [STORAGE.md](STORAGE.md) | SD/MBR/EBR, FDISK/FORMAT/MOUNT/UMOUNT |

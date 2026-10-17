@@ -32,7 +32,7 @@ static int hg_write_byte(unsigned short a,unsigned char d){
 static void type_text(const char*s){
  const char*letters="abcdefghijklmnopqrstuvwxyz";
  const unsigned scans[]={0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c};
- for(;*s;s++){const char*p=strchr(letters,*s);unsigned scan=p?scans[p-letters]:*s==':'?0x27:*s==' '?0x39:*s>='1'&&*s<='9'?*s-'1'+2:*s=='0'?11:0;require(scan,"UART test command character");if(*s==':')KBDModKeyDown(2);key(scan);if(*s==':')KBDModKeyUp(2);}
+ for(;*s;s++){const char*p=strchr(letters,*s);unsigned scan=p?scans[p-letters]:*s=='.'?0x34:*s=='\\'?0x2b:*s==':'?0x27:*s==' '?0x39:*s>='1'&&*s<='9'?*s-'1'+2:*s=='0'?11:0;require(scan,"UART test command character");if(*s==':')KBDModKeyDown(2);key(scan);if(*s==':')KBDModKeyUp(2);}
 }
 #ifndef UART_MMIO_CUSTOM
 int main(int argc,char**argv){
@@ -59,8 +59,8 @@ int main(int argc,char**argv){
   end=virtual_cycles+2000000;while((rx_count||!contains("FROM HOST"))&&virtual_cycles<end)until(virtual_cycles+1009);
   require(!rx_count&&contains("FROM HOST"),"serial RX reaches the native console");
   type_text("abc");key(0x1c);key(0x0f);key(0x0e);key(0x3c);type_text("z");
-  until(virtual_cycles+200000);key(1);prompt_wait();
-  const unsigned char expected[]={'a','b','c',13,9,8,'z'};
+  until(virtual_cycles+200000);key(0x44);prompt_wait();
+  const unsigned char expected[]={'a','b','c',13,9,8,'z',17};
   require(tx_count==sizeof expected&&!memcmp(tx,expected,sizeof expected),"keyboard bytes, Enter/Tab/Backspace and F2 echo preserve TX order");
   require(contains("UART closed.")&&contains("UART RX errors"),"RX error summary remains visible after exit");
  }

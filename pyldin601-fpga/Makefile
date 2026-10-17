@@ -550,8 +550,9 @@ input-apps: | $(BUILD)
 	$(MAKE) -f firmware/Makefile input UNIAS="$(UNIAS)" CC="$(CC)"
 .PHONY: test-uart-app
 test: test-uart-app
-test-uart-app: fixtures input-apps
-	$(PYTHON) tests/run_uart_app.py --cc "$(CC)"
+test-uart-app: fixtures input-apps hg-apps
+	$(PYTHON) tests/test_uart_xmodem_host.py
+	$(PYTHON) tests/run_uart_app.py --cc "$(CC)" --hg --stress
 .PHONY: paint-apps test-paint test-paint-backends test-paint-loader test-paint-canvas test-paint-files test-paint-ui test-paint-hg test-paint-overlays
 test: test-paint
 paint-apps: | $(BUILD)
