@@ -10,7 +10,7 @@ TC = Path(os.environ.get('UNIAS', '/Users/sash/Work/FPGA/hd6303-toolchain/unias'
 LD = Path(os.environ.get('UNILD', str(TC.parent/'unild'))).resolve()
 AR = Path(os.environ.get('UNIAR', str(TC.parent/'uniar'))).resolve()
 MODULES = 'PNTMAIN PNTUI PNTCANV PNTDRAW PNTPART PNTPAL PNTDMA PNTLOAD PNTMOD PNTIO PNTPCX PNTIFF PNTFILE PNTVIEW PNTDATA PNTSTATE PNTSTR'.split()
-VARIANTS = {'PNTDRAW', 'PNTPART', 'PNTPCX', 'PNTIFF', 'PNTFILE', 'PNTVIEW'}
+VARIANTS = {'PNTUI', 'PNTDRAW', 'PNTPART', 'PNTPCX', 'PNTIFF', 'PNTFILE', 'PNTVIEW'}
 
 
 def run(args, name):
@@ -43,7 +43,7 @@ def build():
     for suffix, core, mapname, link in [('EDO','PNTCORE','PAINT','PAINT'),('FIO','PNTFIO','PNTFIO','PNTFIO')]:
         expected = ''.join(n+('.'+suffix if n in VARIANTS else '.OBJ')+'\n' for n in MODULES)+'PNTCOM.LIB\nPNTEND.OBJ\n'
         assert (OUT/(link+'.LNK')).read_text()==expected, 'native link file differs from build plan'
-        run([str(LD),'-z','17000','-m',mapname+'.MAP','-o',core+'.PGM','@'+link+'.LNK'], core)
+        run([str(LD),'-z','16768','-m',mapname+'.MAP','-o',core+'.PGM','@'+link+'.LNK'], core)
         maps.append((OUT/(mapname+'.MAP')).read_text())
     def data_map(text):
         m = [line.split() for line in text.splitlines() if line.startswith('M ')]

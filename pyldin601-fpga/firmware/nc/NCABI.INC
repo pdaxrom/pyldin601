@@ -12,6 +12,7 @@ S_BASE equ 8
 S_CURSOR equ 10
 S_TOP equ 12
 S_ERROR equ 14
+S_AUX equ 14
 S_PIVOTS equ 16
 S_PAGEFLAGS equ 64
 S_PATHS equ 66
@@ -20,7 +21,8 @@ S_EDITED equ 387
 S_CLIP_PATH equ 401
 S_SIZE equ 481
 PATH_SIZE equ 80
-; Requests: 0 final exit, 1 execute command, 2 nested shell, 3 reload panels, 4 editor.
+; Requests: 0 exit, 1 command, 2 shell, 3 reload, 4 text editor,
+; 5 execute the prepared command at S_AUX (parent-owned 81-byte buffer).
 ; Each panel owns a bounded, sorted window, with continuation at its end.
 ENTRY_SIZE equ 24
 ENTRY_COUNT equ 46

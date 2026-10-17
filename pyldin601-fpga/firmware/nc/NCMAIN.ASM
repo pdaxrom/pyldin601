@@ -2,6 +2,8 @@
     include NCABI.INC
     include NCBOX.INC
     public edit_file
+    public image_type
+    public image_request
     public enter
     public leave
     public owner
@@ -104,6 +106,9 @@
     section
 bss_start
 owner ds 2
+image_tail ds 2
+image_prefix ds 1
+image_length ds 1
     ends
 ; Pyldin Commander panels. MC6800 ISA, real UniDOS filesystem and loader.
 start
@@ -646,6 +651,24 @@ edit_file
     bita #16
     beq *+5
     jmp redraw
+    jsr image_type
+    tsta
+    beq edit_text
+    ldaa #6
+    bra image_request
+edit_text
+    ldaa #4
+    staa request
+    bra file_directory_ready
+image_request
+    staa request
+    jsr set_workin_d418
+    tsta
+    beq file_directory_ready
+    jsr error
+    jmp redraw
+file_directory_ready
+    jsr selected
     stx src
     jsr editor_sta_3f23
     stx dst
@@ -659,8 +682,142 @@ edit_file
     ldx #source_path
     stx src
     jsr copy_z
-    ldaa #4
+    ldaa request
+    cmpa #4
+    beq image_leave
+    jmp image_command
+image_leave
     jmp leave
+; All pathname/command preparation belongs to the unloadable panels.
+; Keep the full document path in S_COMMAND for sorted selection restore.
+image_command
+    ldx #source_path
+    stx image_tail
+image_basename
+    ldaa 0,x
+    beq image_count_begin
+    inx
+    cmpa #'\'
+    beq image_component
+    cmpa #':'
+    bne image_basename
+image_component
+    stx image_tail
+    bra image_basename
+image_count_begin
+    ldx image_tail
+    clrb
+image_count
+    tst 0,x
+    beq image_counted
+    inx
+    incb
+    bra image_count
+image_counted
+    stab image_length
+    ; The supervisor passes an absolute NCMAIN pathname as argv[0].
+    clra
+    ldx #input
+    int $3c
+    ldx #input
+    stx dst
+    clr image_prefix
+    clrb
+image_program_path
+    ldaa 0,x
+    beq image_bound
+    inx
+    incb
+    cmpa #'\'
+    beq image_program_tail
+    cmpa #':'
+    bne image_program_path
+image_program_tail
+    stx dst
+    stab image_prefix
+    bra image_program_path
+image_bound
+    ldab image_prefix
+    addb image_length
+    addb #10
+    ldaa request
+    cmpa #5
+    bne image_bound_check
+    addb #3
+image_bound_check
+    cmpb #80
+    bls image_build
+    jsr editor_sta_3f23
+    clr 0,x
+    ldaa #19
+    jsr error
+    jmp redraw
+image_build
+    ldx #paint_name
+    stx src
+    jsr copy_z
+    ldaa request
+    cmpa #5
+    bne image_filename
+    ldx #view_option
+    stx src
+    jsr copy_z
+image_filename
+    ldx image_tail
+    stx src
+    jsr copy_z
+    ldx owner
+    ldx S_AUX,x
+    stx dst
+    ldx #input
+    stx src
+    jsr copy_z
+    ldaa #5
+    jmp leave
+paint_name db 'PAINT.PGM ',0
+view_option db '/V ',0
+; X=8.3 directory entry, unchanged. Recognize supported image extensions.
+image_type
+    ldaa 8,x
+    anda #$df
+    cmpa #'P'
+    beq image_pcx
+    cmpa #'I'
+    beq image_iff
+    cmpa #'L'
+    bne image_other
+    ldaa 9,x
+    anda #$df
+    cmpa #'B'
+    bne image_other
+    ldaa 10,x
+    anda #$df
+    cmpa #'M'
+    bra image_test
+image_iff
+    ldaa 9,x
+    anda #$df
+    cmpa #'F'
+    bne image_other
+    ldaa 10,x
+    anda #$df
+    cmpa #'F'
+    bra image_test
+image_pcx
+    ldaa 9,x
+    anda #$df
+    cmpa #'C'
+    bne image_other
+    ldaa 10,x
+    anda #$df
+    cmpa #'X'
+image_test
+    bne image_other
+    ldaa #1
+    rts
+image_other
+    clra
+    rts
 shell_request
     ldaa active
     jsr choose_panel
@@ -710,6 +867,12 @@ enter_file
 enter_empty
     jmp redraw
 launch_file
+    jsr image_type
+    tsta
+    beq launch_program
+    ldaa #5
+    jmp image_request
+launch_program
     jsr set_workin_d418
     tsta
     beq launch_directory_ready

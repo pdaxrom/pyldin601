@@ -51,8 +51,8 @@ KEYS
 
     F1                  Brief help
     F2                  Open the Command menu
-    F3                  Streaming text viewer: PgUp/PgDn, Space, Home, Esc
-    F4                  Open the selected file in the streaming editor
+    F3                  View text; PCX/IFF/LBM opens the image viewer
+    F4                  Edit text; PCX/IFF/LBM opens Paint for editing
     F5                  Copy selected file/directory or marked group
     F6                  Move / rename selected file/directory or marked group
     F7                  Create directory
@@ -100,7 +100,16 @@ without an estimated total. Esc/Ctrl+C aborts before the next 512-byte block.
 Same-volume file moves use UniDOS RENAME; cross-volume moves copy first.
 
 TEXT EDITOR
-F4 unloads the panels and loads NCEDIT. Esc/F10 returns to the same panel
+For PCX/IFF/LBM, F3 and Enter start PAINT /V (read-only); F4 starts PAINT
+for editing. Keep PAINT.PGM, PNTNAT.PGM, PNTRGB.PGM and PNTHAM.PGM beside
+NC.PGM. Both CPU types work. The selected panel directory becomes the
+application's CWD, and the image basename is passed as its argument.
+Paint's Esc/F10 returns to the same directory and selected filename.
+The image viewer supports F3 Open, Z zoom, G grid, I/J/K/L pan, F9 Menu.
+It disables drawing, Save, New, Cut/Paste and Undo/Redo. Other file types
+retain the built-in text viewer/editor and ordinary executable launch.
+
+F4 on a text file unloads the panels and loads NCEDIT. Esc/F10 returns to the same panel
 and selected file, even if saving changes its position in the sorted list.
 The editor keeps the current video mode, native font and colour scheme.
 Its header shows the filename, '*' for unsaved changes, INS/OVR and the

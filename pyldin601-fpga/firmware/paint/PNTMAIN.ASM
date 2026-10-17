@@ -56,6 +56,7 @@
     extern p_have_redo
     extern p_serial
     extern p_modified
+    extern p_readonly
     extern p_fg
     extern p_bg
     extern p_fg_rgb
@@ -421,6 +422,20 @@ main_frame_ready
     ldaa #1
     ldx #p_filename
     int $3c
+    ldx #p_filename
+    ldaa 0,x
+    cmpa #'/'
+    bne main_argument
+    ldaa 1,x
+    anda #$df
+    cmpa #'V'
+    bne main_argument
+    tst 2,x
+    bne main_argument
+    inc p_readonly
+    ldaa #2
+    int $3c
+main_argument
     tst p_filename
     beq paint_ready
     ldaa #1
@@ -483,13 +498,29 @@ main_wait
     ldaa #0
     jsr mouse_wait
 main_dispatch
+    tst p_readonly
+    beq main_dispatch_edit
+    cmpa #$ca
+    beq main_view_ignored
+    cmpa #$cc
+    bcs main_view_control
+    cmpa #$d1
+    bcs main_view_ignored
+main_view_control
+    cmpa #26
+    beq main_view_ignored
+    cmpa #25
+    bne main_dispatch_edit
+main_view_ignored
+    jmp main_loop
+main_dispatch_edit
     cmpa #$fe
     bne *+5
     jmp main_loop
     cmpa #$c9
     bne main_not_help
     jsr ui_help
-    bra main_loop
+    jmp main_loop
 main_not_help
     cmpa #$ca
     beq main_save
@@ -1008,6 +1039,11 @@ paint_draw
     rts
 paint_draw_normal
     .endif
+    tst p_readonly
+    beq paint_draw_edit
+    clra
+    rts
+paint_draw_edit
     jsr draw_event
     rts
 paint_arrow

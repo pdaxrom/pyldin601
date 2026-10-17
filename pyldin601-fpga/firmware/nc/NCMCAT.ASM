@@ -782,6 +782,22 @@ set_working_directory
     tsta
     bne work_done
     ldx pathptr
+    stx src
+    ldx #search_path
+    stx dst
+    inx
+    inx
+    stx cmp_left
+    jsr copy_z
+    ; Panels keep a trailing separator. INT46 expects the directory name
+    ; itself; a trailing separator makes its final component empty.
+    ldx dst
+    dex
+    cpx cmp_left
+    beq work_path
+    clr 0,x
+work_path
+    ldx #search_path
     int $46
 work_done
     rts

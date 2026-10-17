@@ -110,6 +110,8 @@ name_fits
     jsr hex
     ldx dst
     clr 0,x
+    ldx #argument
+    stx state+S_AUX
 reload
     jsr restore_video
     clr state+S_REQUEST
@@ -127,7 +129,13 @@ nc_long_nc_2_217
     beq reload
     cmpa #4
     beq editor
+    cmpa #5
+    bne command_state
+    ldx state+S_AUX
+    bra command_execute
+command_state
     ldx #state+S_COMMAND
+command_execute
     int $39
     bra result
 shell

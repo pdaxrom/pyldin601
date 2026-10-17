@@ -39,6 +39,7 @@
     public p_have_undo
     public p_have_redo
     public p_modified
+    public p_readonly
     public p_serial
     public p_doc_serial
     public p_undo_serial
@@ -139,6 +140,7 @@ p_undo_page ds 1
 p_have_undo ds 1
 p_have_redo ds 1
 p_modified ds 1
+p_readonly ds 1
 p_serial ds 4
 p_doc_serial ds 4
 p_undo_serial ds 4

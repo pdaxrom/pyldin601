@@ -2,6 +2,11 @@ PAINT - native Pyldin-601 / 601A graphics editor
 
 Copy PAINT.PGM, PNTNAT.PGM, PNTRGB.PGM and PNTHAM.PGM into one directory.
 Run PAINT or PAINT filename.PCX / filename.IFF. No CVM is required.
+Run PAINT /V filename.PCX (or .IFF/.LBM) for read-only image viewing.
+Viewer: F3 Open, Z zoom, G grid, I/J/K/L pan, F9 Menu, Esc/F10 Exit.
+Drawing, Save, New, Cut/Paste and Undo/Redo are disabled in the viewer.
+NC F3/Enter opens the viewer; F4 opens the image for editing. Keep Paint
+and its three backends beside NC.PGM for these image associations.
 Current FPGA graphics v6+, flat DMA ABI1 and the PS/2 mouse port are used.
 RAMMAN is optional: native backends use an owned bank or ordinary RAM.
 

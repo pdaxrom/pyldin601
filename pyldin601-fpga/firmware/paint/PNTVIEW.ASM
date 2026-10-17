@@ -29,6 +29,7 @@
     extern p_event_y
     extern p_event_buttons
     extern p_tool
+    extern p_readonly
     extern p_brush
     extern p_stroke
     extern p_x0
@@ -466,9 +467,13 @@ key_copy
     jsr clip_copy
     bra key_handled
 key_cut
+    tst p_readonly
+    bne key_success
     jsr clip_cut
     bra key_handled
 key_paste
+    tst p_readonly
+    bne key_success
     jsr clip_paste
     bra key_handled
 key_clear

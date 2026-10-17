@@ -70,8 +70,8 @@ assemble(ROOT/'firmware/paint/PNTOVL.ASM', 'PNTBOOT.PGM')
 for name in ('PAINT.LNK','PNTFIO.LNK'):
     sources[name]=(ROOT/'firmware/paint'/name).read_bytes()
 commands += ['uniar r PNTCOM.LIB PNTCOM.OBJ NCKEY.OBJ MOUSE.OBJ',
-             'unild -z 17000 -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK',
-             'unild -z 17000 -m PNTFIO.MAP -o PNTFIO.PGM @PNTFIO.LNK',
+             'unild -z 16768 -m PAINT.MAP -o PNTCORE.PGM @PAINT.LNK',
+             'unild -z 16768 -m PNTFIO.MAP -o PNTFIO.PGM @PNTFIO.LNK',
              'unild -b -o PAINT.PGM PNTBOOT.PGM PNTCORE.PGM PNTFIO.PGM']
 expected += ['PNTCOM.LIB','PAINT.MAP','PNTFIO.MAP','PNTCORE.PGM','PNTFIO.PGM','PAINT.PGM']
 for directory, names in (

@@ -49,7 +49,9 @@ int main(int argc,char**argv){
  if(rv)invoke(0x2f,0xe5,rp,rv);
  require(return_seen==1&&!resets&&SP==sp0&&ramword(0xee1e)==heap0&&free_banks()==banks&&r[0xed12]==mode0,"HG Paint restores resident parent resources");
  require(lowest_stack>=0x200,"HG Paint retains stack space above the native low-memory boundary");
+ base=ready=0;
  command("pntcore");require(contains("Run PAINT.PGM")&&!resets&&SP==sp0&&ramword(0xee1e)==heap0,"unpacked core rejects a direct launch safely");
+ base=ready=0;
  command("pglow");
  if(!contains("Paint:")||resets||SP!=sp0||ramword(0xee1e)!=heap0)fprintf(stderr,"OOM probe: output%u resets%u SP%04x/%04x heap%04x/%04x\n",contains("Paint:"),resets,SP,sp0,ramword(0xee1e),heap0);
  require(contains("Paint:")&&!resets&&SP==sp0&&ramword(0xee1e)==heap0,"packed loader rejects insufficient memory without low-stack wrap");

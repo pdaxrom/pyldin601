@@ -19,7 +19,12 @@
     public p_bad_format
     public p_no_memory
     public p_need_loader
+    public p_view_title
+    public p_view_help
 title db ' Paint',0
+p_view_title db ' Image viewer',0
+p_view_help db 'F3 Open; Z zoom; G grid; IJKL pan; F9 Menu; Esc/F10 Exit. '
+    db 'Read only.',0
 confirm_title db 'Paint',0
 ok_button db '[ OK ]',0
 cancel_button db '[ Cancel ]',0
@@ -27,15 +32,15 @@ yes_button db '[ Yes ]',0
 no_button db '[ No ]',0
 ok_cancel__0523 dw ok_button,cancel_button
 yes_no_buttons dw yes_button,no_button
-help_text db 'L draw; R erase; middle pick. F2 Save F3 Open F4 Colour F5 Tool '
-    db 'F6 New F7/^Z Undo F8/^Y Redo F9 Menu F10 Exit. +/- size. '
+help_text db 'L draw; R erase; M pick. F2 Save F3 Open F4 Colour F5 Tool '
+    db 'F6 New F7 Undo F8 Redo F9 Menu F10 Exit. +/- size. '
     .ifdef PNT_EDIT
-    db 'Z zoom; G grid; IJKL pan; S select; ^C/^X/^V copy/cut/paste. '
+    db 'Z zoom; G grid; IJKL pan; S select; ^C/X/V clipboard. '
     .endif
     .ifdef PNT_FILES
-    db 'Z zoom; G grid; IJKL pan; S select; ^C/^X/^V copy/cut/paste. '
+    db 'Z zoom; G grid; IJKL pan; S select; ^C/X/V clipboard. '
     .endif
-    db 'Arrows/Space draw without mouse.',0
+    db 'Arrows/Space draw.',0
 p_save_title db 'Save image',0
 p_open_title db 'Open PCX / HAM8 IFF',0
 p_colour_title db 'Colour',0
@@ -48,7 +53,7 @@ p_need_hardware db 10,'Paint needs FPGA graphics v6 and flat DMA ABI1.',10,0
 p_memory_error db 10,'Paint: not enough ordinary memory.',10,0
 p_bad_format db 'Unsupported format, damaged image, or invalid backend.',0
 p_no_memory db 'Not enough ordinary memory.',0
-p_need_loader db 10,'Run PAINT.PGM (packed loader required).',10,0
+p_need_loader db 10,'Run PAINT.PGM.',10,0
 p_format_list dw format_mono320,format_mono640,format_four,format_indexed,format_ham
 format_mono320 db '1  320x200 mono',0
 format_mono640 db '2  640x200 mono (601A)',0

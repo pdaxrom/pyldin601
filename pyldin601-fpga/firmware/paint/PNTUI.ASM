@@ -55,6 +55,9 @@
     extern p_colour_title
     extern p_new_question
     extern p_modified
+    extern p_readonly
+    extern p_view_help
+    extern p_view_title
     extern title
     extern mode
     extern screen_base
@@ -302,12 +305,28 @@ ui_menu
     bne ui_choice_error
     clr choice_index
     ldx #menu_list
+    tst p_readonly
+    beq menu_edit_list
+    ldx #view_menu
+menu_edit_list
     stx choice_list
     ldx #title
+    tst p_readonly
+    beq menu_caption
+    ldx #p_view_title
+menu_caption
     jsr ui_choice
     jsr ui_choice_leave
     cmpa #$ff
     beq menu_return
+    tst p_readonly
+    beq menu_edit_result
+    tab
+    ldx #view_menu_keys
+    jsr add_b
+    ldaa 0,x
+    rts
+menu_edit_result
     .ifdef PNT_OVL
     cmpa #5
     bcs menu_function
@@ -326,6 +345,12 @@ ui_help
     jsr ui_enter
     tsta
     bne ui_simple_return
+    tst p_readonly
+    beq help_edit
+    ldx #p_view_help
+    jsr message
+    jmp ui_leave
+help_edit
     jsr help
     jmp ui_leave
 ui_error
@@ -405,6 +430,11 @@ progress_show
 progress_text ds 21
     ends
 ui_colour
+    .ifdef PNT_FILES
+    ; The file overlay only uses dialogs and progress, never the picker.
+    clra
+    rts
+    .else
     jsr ui_enter
     tsta
     beq colour_begin
@@ -740,6 +770,14 @@ grid_hit_ready
     staa grid_index
     clc
     rts
+    .endif
+view_menu dw view_open,view_zoom,view_grid,view_help,view_exit
+view_menu_keys db $cb,'z','g',$c9,$d2
+view_open db '1  Open image',0
+view_zoom db '2  Zoom',0
+view_grid db '3  Pixel grid',0
+view_help db '4  Help',0
+view_exit db '5  Exit',0
 menu_list dw menu_save,menu_open,p_colour_title,p_tool_title,p_format_title
     .ifdef PNT_OVL
     dw menu_zoom,menu_copy,menu_paste,menu_clear

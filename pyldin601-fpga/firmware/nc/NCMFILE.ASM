@@ -39,6 +39,8 @@
     extern full_table
     extern group_marked
     extern input
+    extern image_type
+    extern image_request
     extern io_buffer
     extern io_error
     extern io_table
@@ -982,6 +984,12 @@ viewer
     ldaa 11,x
     bita #16
     bne viewer_redraw
+    jsr image_type
+    tsta
+    beq viewer_text
+    ldaa #5
+    jmp image_request
+viewer_text
     jsr selected_path
     ldx #source_path
     stx open_table
