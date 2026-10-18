@@ -76,6 +76,13 @@ storage: $(BUILD)/firmware-data
 	@set -e; for app in MOUNT FORMAT UMOUNT FDISK; do $(DATA) pgm-info $(BUILD)/storage/$$app.PGM $(BUILD)/storage/$$app.json; done
 	$(DATA) index $(BUILD)/storage/manifest.json $(addprefix $(BUILD)/storage/,MOUNT.json FORMAT.json UMOUNT.json FDISK.json)
 
+.PHONY: sdprobe
+sdprobe: $(BUILD)/firmware-data
+	mkdir -p $(BUILD)/sdprobe
+	cp firmware/storage/SDPROBE.ASM firmware/storage/SDPROBE.TXT $(BUILD)/sdprobe/
+	cd $(BUILD)/sdprobe && sh $(RUN) assemble.log "$(UNIAS_PATH)" -l SDPROBE.LST -o SDPROBE.PGM SDPROBE.ASM
+	$(DATA) pgm-info $(BUILD)/sdprobe/SDPROBE.PGM $(BUILD)/sdprobe/SDPROBE.json
+
 game: $(BUILD)/firmware-data
 	mkdir -p $(BUILD)/game
 	cp firmware/game/* $(BUILD)/game/

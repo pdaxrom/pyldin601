@@ -6,11 +6,13 @@ CC ?= cc
 NATIVE ?= ../native
 EMUSRC ?= ../pyldin601/src
 CVM_TOOLCHAIN ?= $(abspath ../../../FPGA/hd6303-toolchain)
+NATIVE_JOBS ?= 1
 UNIAS ?= $(CVM_TOOLCHAIN)/unias
 export UNIAS
 FAT_RAMMAN ?= 0
 export FAT_RAMMAN
 HD_TEST_SD ?= build/sd-models/sd-after.img
+STABILITY_IMAGE ?= build/stability-sd.img
 BUILD := build
 RTL := $(wildcard rtl/*.v)
 BENCHES := hg frequency_controls timer_tick audio_control memory arbiter arbiter_contract boot_ports boot_header spi_registers sram keyboard keyboard_raw ps2_raw video video_viewport video_mode_switch video_text video_cursor video_underscore pal_timing pal_encoder pal_rgb332 video_colour video_601a transparent_video sram_stress
@@ -76,6 +78,13 @@ test-setup: fixtures
 test-sd-init: fixtures
 	$(CC) -O2 -DCOMPACT_FIXTURE -I$(EMUSRC) tests/test_firmware.c -o $(BUILD)/test_firmware
 	$(PYTHON) tests/run_sd_init.py
+
+.PHONY: sdprobe-app test-sdprobe
+sdprobe-app:
+	$(MAKE) -f firmware/Makefile sdprobe UNIAS="$(UNIAS)"
+test: test-sdprobe
+test-sdprobe: fixtures
+	$(PYTHON) tests/run_sdprobe.py --cc "$(CC)"
 test-mixed-clock: | $(BUILD)
 	$(NVC) --work=work:$(BUILD)/mixed-clock -a tests/fast_clock.v tests/tb_fast_clock.v -e tb_fast_clock -r tb_fast_clock > $(BUILD)/mixed-clock.log 2>&1
 	@cat $(BUILD)/mixed-clock.log
@@ -98,13 +107,14 @@ test-memory-bus: firmware
 	$(VVP) $(BUILD)/tb_memory_bus_audit
 	$(IVERILOG) -g2012 -s tb_memory_bus_audit -Ptb_memory_bus_audit.ADDR_DELAY=1 -Ptb_memory_bus_audit.DATA_DELAY=1 -Ptb_memory_bus_audit.CONTROL_DELAY=1 -Ptb_memory_bus_audit.WE_DELAY=10 -o $(BUILD)/tb_memory_bus_audit-skew $(RTL) tests/fast_clock.v tests/tb_memory_bus_audit.v
 	$(VVP) $(BUILD)/tb_memory_bus_audit-skew
-STABILITY_IMAGE ?= build/stability-sd.img
 IDLE_SECONDS ?= 14400
 test-native-stability: fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/test_native_stability.c -o $(BUILD)/test_native_stability
 	$(BUILD)/test_native_stability $(STABILITY_IMAGE) $(IDLE_SECONDS)
-$(BUILD)/stability-sd.img: | $(BUILD)
-	$(PYTHON) tools/make_sd.py --native $(NATIVE) --disk-a $(NATIVE)/Floppy/system.imz --output $@
+$(BUILD)/stability-sd.img: romdisk-extract | $(BUILD)
+	rm -f $@.tmp
+	$(PYTHON) tools/make_sd.py --native $(NATIVE) --disk-a $(NATIVE)/Floppy/system.imz --output $@.tmp
+	mv $@.tmp $@
 test-runtime-irq: test-mixed-clock fixtures $(STABILITY_IMAGE)
 	$(CC) -O2 -I$(EMUSRC) tests/prepare_runtime.c -o $(BUILD)/prepare_runtime
 	$(BUILD)/prepare_runtime $(STABILITY_IMAGE) rollover
@@ -177,18 +187,18 @@ cvm-apps: ramloader-apps
 test-cvm: fixtures cvm-apps
 	$(PYTHON) tests/run_cvm.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test-hg-object-tools: fixtures cvm-apps hg-apps
-	$(PYTHON) tests/run_hg_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+	$(PYTHON) tests/run_hg_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)" --jobs "$(NATIVE_JOBS)"
 test-object-tools: fixtures cvm-apps romdisk-extract
-	$(PYTHON) tests/run_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+	$(PYTHON) tests/run_object_tools.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)" --jobs "$(NATIVE_JOBS)"
 test-native-assembly: fixtures cvm-apps
 	$(PYTHON) tests/run_native_assembly.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
 test-native-firmware: fixtures cvm-apps hg-apps nc-apps ramloader-apps
-	$(PYTHON) tests/run_native_firmware.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+	$(PYTHON) tests/run_native_firmware.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)" --jobs "$(NATIVE_JOBS)"
 test-c-modules: fixtures cvm-apps hg-apps
-	$(PYTHON) tests/run_c_modules.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+	$(PYTHON) tests/run_c_modules.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)" --jobs "$(NATIVE_JOBS)"
 
 test-unicc-selfhost: fixtures cvm-apps hg-apps
-	$(PYTHON) tests/run_native_selfhost.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)"
+	$(PYTHON) tests/run_native_selfhost.py --toolchain "$(CVM_TOOLCHAIN)" --cc "$(CC)" --jobs "$(NATIVE_JOBS)"
 
 test: test-ramloader
 ramloader-apps: | $(BUILD)

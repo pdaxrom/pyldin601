@@ -4,10 +4,14 @@
 #include "test_arcade.c"
 static const char *scenario;
 static unsigned load_calls,transition_io,transition_mode,watch_transition,cancelled;
+static unsigned load_pending,load_sp;
 static void xo_probe(void){
  arcade_observe();
  if(!app)return;
- if(PC==app+XO_HI_LOAD)load_calls++;
+ // An IRQ before the first instruction presents the same entry PC again
+ // after RTI. Count once the callee actually advances on its original stack.
+ if(load_pending&&PC!=app+XO_HI_LOAD&&PC<0xc000&&SP==load_sp){load_calls++;load_pending=0;}
+ if(PC==app+XO_HI_LOAD){load_pending=1;load_sp=SP;}
  if(watch_transition&&PC<0xc000&&r[PC]==0x3f){
   if(r[PC+1]==0x4a||r[PC+1]==0x4c)transition_io++;
   if(r[PC+1]==0xe6&&A==3&&B==7)transition_mode++;
@@ -51,6 +55,7 @@ int main(int argc,char**argv){
   command("dir a:");command("dir b:");command("dir c:");printf("PASS XONIX %s/%s: safe refusal/cancel, cleanup and DIR\n",argv[2],scenario);return 0;
  }
  type_app("xonix");unsigned count=!strcmp(scenario,"two")?2:!strcmp(scenario,"ten")?10:1;
+ if(r[app+XO_XC_N]!=count||load_calls!=count)fprintf(stderr,"XONIX load count: configured=%u calls=%u expected=%u\n",r[app+XO_XC_N],load_calls,count);
  require(r[app+XO_XC_N]==count&&load_calls==count,"every configured picture is preloaded exactly once");
  size_t size;unsigned char*source=load("build/games-next/LENA.raw",&size);
  require(size==64000&&!memcmp(source,physical+0x180000,size),"first cached HAM8 image is lossless");free(source);

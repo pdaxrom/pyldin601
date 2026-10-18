@@ -5,7 +5,7 @@ use std.textio.all;
 use ieee.std_logic_textio.all;
 use std.env.all;
 entity tb_audio_irq is generic(SPEED:integer:=0;FRAMES:integer:=80;PERIOD:integer:=240000;
- IRQ_ENTRY:integer:=0;IRQ_RTI:integer:=0;TRANSFER:integer:=0;SENT:integer:=0;
+ IRQ_ENTRY:integer:=0;TRANSFER:integer:=0;SENT:integer:=0;
  PAL_HANDLER:integer:=0;UNDERRUNS:integer:=0);end;
 architecture test of tb_audio_irq is
  type bytes is array(natural range <>) of std_logic_vector(7 downto 0);
@@ -50,9 +50,11 @@ architecture test of tb_audio_irq is
  end process;
  process(clk)
   alias cpu_pc is <<signal .tb_audio_irq.cpu.pc:std_logic_vector(15 downto 0)>>;
+  alias cpu_sp is <<signal .tb_audio_irq.cpu.sp:std_logic_vector(15 downto 0)>>;
+  alias cpu_op is <<signal .tb_audio_irq.cpu.op_code:std_logic_vector(7 downto 0)>>;
   type ints is array(0 to 31)of integer;
   type bools is array(0 to 31)of boolean;
-  variable starts,slots,groups:ints:=(others=>0);
+  variable starts,slots,groups,stacks:ints:=(others=>0);
   variable music:bools:=(others=>false);
   variable depth,a,r,transfer_start,elapsed,shape_count:integer:=0;
   variable regs:bytes(0 to 13);variable keyboard_sent:boolean:=false;
@@ -81,11 +83,17 @@ architecture test of tb_audio_irq is
      elsif a=16#e628# and not key_latched then key_byte<=din;key_latched<=true;if key_pending then key_reads<=key_reads+1;end if;key_pending<=false;end if;
      if a=IRQ_ENTRY then
       assert depth<32 report "IRQ stack overflow" severity failure;
-      starts(depth):=cycles;music(depth):=music_pending;slots(depth):=slot;groups(depth):=grp;depth:=depth+1;
+      starts(depth):=cycles;music(depth):=music_pending;slots(depth):=slot;groups(depth):=grp;
+      stacks(depth):=to_integer(unsigned(cpu_sp));depth:=depth+1;
      elsif a=PAL_HANDLER then pal_calls<=pal_calls+1;
      elsif a=TRANSFER then transfer_start:=cycles;
      elsif a=SENT then elapsed:=cycles-transfer_start;if elapsed>max_transfer then max_transfer<=elapsed;end if;
-     elsif a=IRQ_RTI and depth>0 then
+     -- The paged IRQ continuation has its own RTI; AUDIO_IRQ_RTI is only
+     -- the no-vector exit. Observe the executed frame pop, not one address.
+     -- Nested SWI returns have a different stack frame and must not close
+     -- the outer hardware IRQ interval. The final read pops its saved PC.
+     elsif depth>0 and cpu_op=x"3b" and
+       a=stacks(depth-1)+7 and to_integer(unsigned(cpu_sp))=a then
       depth:=depth-1;
       assert slot=slots(depth) and grp=groups(depth) report "native BIOS IRQ failed to restore both paging registers" severity failure;
       if music(depth) then

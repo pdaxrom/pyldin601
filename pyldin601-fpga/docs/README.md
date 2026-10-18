@@ -33,6 +33,7 @@
 | [HOSTLINK.md](HOSTLINK.md) | HG, папка хоста, время, транспорт |
 | [ARCADE.md](ARCADE.md) | Игры, рекорды, XONIX.CFG и память |
 | [BUILD.md](BUILD.md) | Сборка firmware/FPGA, тесты, образы и миграция |
+| [RELEASE.md](RELEASE.md) | Кандидат первого релиза: состав, воспроизводимость, установка и проверка на плате |
 
 Для запуска без сборки — [готовый SD-образ](../images/README.md).
 Для приложения начать с PROGRAMMING/GAMEBIOS, для изменения загрузчика

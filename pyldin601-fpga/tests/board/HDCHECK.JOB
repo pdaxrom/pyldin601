@@ -1,0 +1,53 @@
+ECHO OFF
+%2
+CD \BOARDCHK
+CLS
+ECHO HD6303 ONLY - GAME AND SOUND CHECK
+ECHO HDCHECK programs-dir work-drive
+ECHO Use the same BOARDCHK directory.
+ECHO JHD01 READY - automatic SDK test
+PAUSE
+%1\SDKTEST
+ECHO Expected: PASS: SDK tiles/scrolling
+PAUSE
+ECHO JHD02 READY - GFX
+ECHO SPACE switches pages; ESC exits.
+PAUSE
+%1\GFX
+%2
+CD \BOARDCHK
+CLS
+ECHO JHD03 READY - ARKANOID
+ECHO Check keys, mouse and sound.
+ECHO ESC ends game; close score list.
+PAUSE
+%1\ARKANOID
+%2
+CD \BOARDCHK
+CLS
+ECHO JHD04 READY - XONIX
+ECHO Check keys, sound and timer.
+ECHO ESC ends game; close score list.
+PAUSE
+%1\XONIX
+%2
+CD \BOARDCHK
+CLS
+ECHO JHD05 READY - HAM8 image
+ECHO Inspect colours; ESC exits.
+PAUSE
+%1\HVIEW %1\LENA.IFF
+%2
+CD \BOARDCHK
+CLS
+ECHO JHD06 READY - AY music
+ECHO SPACE pauses; ESC stops music.
+PAUSE
+%1\YPLAY %1\DEMO.YM /L
+%2
+CD \BOARDCHK
+CLS
+ECHO JHD CHECK END
+ECHO DIR must work after every exit.
+ECHO Check video, mouse and sound.
+ECHO ON

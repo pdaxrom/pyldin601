@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from unias import assemble, bios_symbols
+from unias import assemble
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
@@ -21,8 +21,6 @@ cases = json.loads((out / 'cases.json').read_text())
 command = [a.nvc, '-H', '128m', '--std=2008', '--work=work:build/audio-irq', '--ieee-warnings=off']
 subprocess.run([*command, '-a', 'rtl/cpu6800.vhd', 'tests/tb_audio_irq.vhd'], cwd=ROOT, check=True)
 for model in a.models:
-    listing = ROOT / ('build/partitions/BIOS_A.ROM.LST' if model == '601a' else 'build/partitions/BIOS.ROM.LST')
-    symbols = bios_symbols(listing.read_text(encoding='latin1'))
     for name in a.cases:
         case = cases[name]
         env = dict(os.environ, AUDIO_SNAPSHOT=str(out / 'irq-snapshot.bin'))
@@ -68,7 +66,7 @@ idle
         for speed in a.speeds:
             log = out / f'irq-{model}-{name}-{speed}.log'
             generics = dict(SPEED=speed, FRAMES=len(frames)//14, PERIOD=period, IRQ_ENTRY=native_irq,
-                            IRQ_RTI=symbols['AUDIO_IRQ_RTI'], TRANSFER=transfer, SENT=sent,
+                            TRANSFER=transfer, SENT=sent,
                             PAL_HANDLER=pal_handler, UNDERRUNS=underruns)
             with log.open('w') as output:
                 subprocess.run([*command, '-e', *(f'-g{k}={v}' for k,v in generics.items()),

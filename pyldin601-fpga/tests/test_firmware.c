@@ -48,6 +48,9 @@ static unsigned sd_cmd0_count,sd_startup_clocks,sd_cmd0_silent,sd_cmd8_silent,sd
 static unsigned sd_init_reject,sd_init_never,sd_bad_r7,sd_reply_delay,sd_tick_stopped;
 static uint32_t sd_power_ready_cycles,sd_first_cmd0_cycles,sd_first_acmd_cycles,sd_acmd_delay_cycles;
 static unsigned char sd_write_data[512];
+/* Optional observer for read-only diagnostic/card-compatibility scenarios. */
+static void (*sd_command_observer)(unsigned op,uint32_t arg);
+static unsigned sd_init_allow_slow;
 #ifdef DIRECT_SD_FIXTURE
 static unsigned runtime_bad_crc,runtime_no_token,runtime_r1,runtime_read_delay;
 #endif
@@ -77,6 +80,7 @@ static uint32_t crc_byte(uint32_t c,unsigned char b){c^=b;for(int n=0;n<8;n++)c=
 static void screen_dump(const char*path){FILE*f=fopen(path,"wb");if(!f||fwrite(MC6800GetCpuRam()+0x400,1,960,f)!=960)exit(1);fclose(f);}
 static void sd_command(void){
  unsigned op=cmd[0]&63;uint32_t arg=(uint32_t)cmd[1]<<24|(uint32_t)cmd[2]<<16|cmd[3]<<8|cmd[4];
+ if(sd_command_observer)sd_command_observer(op,arg);
  if(!committed&&!screen_checked){
   if(video_mode||crtc[1]!=40||crtc[6]!=24||crtc[10]!=0x20||crtc[12]!=4||crtc[13]
    ||!screen_is(0x400,model_a?"PYLDIN-601A SYSTEM INITIALIZATION":"PYLDIN-601 SYSTEM INITIALIZATION")
@@ -85,7 +89,7 @@ static void sd_command(void){
   }screen_checked=1;
  }
  sd_commands++;queue_pos=0;queue_count=1;queue[0]=sd_idle?1:0;
- if(op==0||op==8||op==55||op==41||op==58||op==16){if(spi_div!=29){fprintf(stderr,"SD initialization exceeded 400 kHz\n");exit(1);}}
+ if(op==0||op==8||op==55||op==41||op==58||op==16){if(spi_div<29||(!sd_init_allow_slow&&spi_div!=29)){fprintf(stderr,"SD initialization clock mismatch\n");exit(1);}}
  if(op==0){
   if(!sd_cmd0_count){sd_first_cmd0_cycles=MC6800GetCyclesCounter();if(sd_startup_clocks<74){fprintf(stderr,"missing startup clocks\n");exit(1);}}
   sd_cmd0_count++;

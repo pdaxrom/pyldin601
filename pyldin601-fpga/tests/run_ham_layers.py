@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 
 from ham8_format import decode, rgb
+from test_ham_tables import prepare as prepare_components
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
@@ -16,6 +17,9 @@ p.add_argument('--vvp', default='vvp')
 a = p.parse_args()
 out = ROOT / 'build/layer'
 out.mkdir(parents=True, exist_ok=True)
+# tb_pal_ham consumes this independent oracle. Generate it here so this
+# target also works before test-ham-pal or any other suite has run.
+prepare_components()
 codes = decode((ROOT / 'firmware/game/LENA.IFF').read_bytes())
 pixels = rgb(codes)
 (out / 'LENA-code.mem').write_text(''.join(f'{n:02x}\n' for n in codes))

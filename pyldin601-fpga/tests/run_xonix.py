@@ -21,6 +21,13 @@ p.add_argument('--cases',nargs='+',default=['missing','empty','two','ten','long'
 a=p.parse_args()
 out=ROOT/'build/xonix-start';out.mkdir(parents=True,exist_ok=True)
 original=(ROOT/'firmware/game/LENA.IFF').read_bytes()
+# Inherited arcade checks use independently decoded image/music oracles.
+# Prepare them here too: test-xonix must not require test-gamebios first.
+oracles=ROOT/'build/games-next';oracles.mkdir(parents=True,exist_ok=True)
+(oracles/'LENA.raw').write_bytes(decode(original))
+with (oracles/'LEDSTRM1.raw').open('wb') as stream:
+    subprocess.run(['7z','e','-so',str(ROOT/'firmware/game/LEDSTRM1.YM')],
+                   stdout=stream,check=True)
 parts=dict(chunks(original));bmhd=bytearray(parts[b'BMHD']);bmhd[10]=0
 # Distinct uncompressed image with exact RGB222/blue modifier commands.
 codes=bytes(48 if x==0 else 64+(x%64) for y in range(200) for x in range(320))
